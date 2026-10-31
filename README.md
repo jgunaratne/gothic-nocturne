@@ -1,18 +1,21 @@
 # Gothic Nocturne
 
-A 32-bit era, whip-cracking side-scrolling action platformer across six
-stages: from a moonlit graveyard road, along the castle ramparts, down through
-catacombs and an ossuary, up a clock tower of grinding gears, and into the
-throne hall of the Count. Multi-layer parallax outdoors, scrolling far walls
+A 32-bit era, whip-cracking side-scrolling action platformer across eight
+stages: a moonlit graveyard road, a pumpkin-lit haunted forest, a snowbound
+village on a cursed Christmas night, the castle ramparts, catacombs and an
+ossuary, a clock tower of grinding gears, and the throne hall of the Count. Multi-layer parallax outdoors, scrolling far walls
 indoors, tile terrain, candelabra to whip for hearts and sub-weapons,
 skeletons (and red reviving / axe-throwing variants), rising zombies and
-ghouls, swooping and fire bats, medusa heads, and a different boss at the end
-of every stage.
+ghouls, swooping and fire bats, medusa heads, hopping and flaming
+jack-o'-lanterns, fire-breathing dragons, the petrifying catoblepas, ice
+golems, killer snowmen, frost wisps, and a different boss at the end of every
+stage.
 
 - **Art**: every tile, sprite and backdrop was generated with Gemini's image
   model, then normalized into crisp pixel art by a deterministic pipeline.
-- **Music**: eight tracks generated with **Lyria 3** (title, three stage
-  themes, boss, stage-clear, game-over, ending), looped with crossfades. Sound
+- **Music**: twelve full-length tracks (2–2.5 minutes each) generated with
+  **Lyria 3**: a distinct theme for every stage plus title, boss, stage-clear,
+  game-over and ending, streamed on demand and looped with crossfades. Sound
   effects are synthesized in-browser with Web Audio.
 - **Engine**: plain HTML5 canvas + ES modules, no build step, no dependencies.
   Native 640×360, integer-scaled with nearest-neighbour sampling.
@@ -45,14 +48,24 @@ clearing stage 6 plays the ending.
 
 | # | Stage | Theme | Signature hazards | Boss |
 | --- | --- | --- | --- | --- |
-| 1 | The Graveyard Road | outdoors → castle gate | zombies, bats, medusa heads | The Great Bat |
-| 2 | The Ramparts | outdoors, castle walls | long gaps, ledge hops, axe skeletons | The Bone Captain |
-| 3 | The Catacombs | ossuary walls, crawl corridors | red skeletons, breakable walls | The Phantom Reaper |
-| 4 | The Ossuary | darker crypt | spike fields, ghouls, fire bats | The Gorgon Queen |
-| 5 | The Clock Tower | vertical climb, turning gears | ledge ascents, bat swarms | The Reaper Lord |
-| 6 | The Throne Hall | the keep's great hall | everything at once | The Count |
+| 1 | The Graveyard Road | outdoors → castle gate | zombies, bats, medusa heads, a catoblepas | The Great Bat |
+| 2 | The Jack-o'-Lantern | autumn forest of glowing pumpkins | hopping/flaming pumpkins, dragons, catoblepas | The Great Jack |
+| 3 | The Frozen Yule | snowbound village, falling snow | ice golems, snowmen, frost wisps | Devil Santa |
+| 4 | The Ramparts | outdoors, castle walls | long gaps, ledge hops, axe skeletons | The Bone Captain |
+| 5 | The Catacombs | ossuary walls, crawl corridors | red skeletons, breakable walls | The Phantom Reaper |
+| 6 | The Ossuary | darker crypt | spike fields, ghouls, fire bats | The Gorgon Queen |
+| 7 | The Clock Tower | vertical climb, turning gears | ledge ascents, bat swarms | The Reaper Lord |
+| 8 | The Throne Hall | the keep's great hall | everything at once | The Count |
 
-Stage 1 is hand-built (`src/game/level_data.js`); stages 2–6 are composed
+The catoblepas breathes a petrifying cloud: touched by it, the hunter turns to
+stone for a moment — mash any button to break free sooner.
+
+Every material has two terrain strips that alternate per 8-tile chunk, exposed
+faces are edge-shaded, fill tiles get a faint value jitter, ledges stand on
+posts, and interior walls alternate texture panels between pilasters with
+mouldings and arched alcoves.
+
+Stage 1 is hand-built (`src/game/level_data.js`); stages 2–8 are composed
 from prefab segments by `src/game/builder.js` (`flat`, `gap`, `spikeRun`,
 `stepUp/stepDown`, `climb`, `corridor`, `blocks`, `arena`) in
 `src/game/stages.js`, so adding a stage is a dozen lines.
@@ -114,5 +127,5 @@ tools/screenshot.sh "demo=1&skip=600" /tmp/shot.png
 URL parameters: `demo=1` drives the hunter with a scripted input loop,
 `skip=N` pre-simulates N fixed steps before the first frame, `at=<column>`
 teleports to a tile column, `bosshp=N` weakens the boss,
-`difficulty=easy|normal|hard` presets the difficulty, `stage=1..6` picks the
+`difficulty=easy|normal|hard` presets the difficulty, `stage=1..8` picks the
 stage, `screen=difficulty|stageselect|ending` opens a screen directly.

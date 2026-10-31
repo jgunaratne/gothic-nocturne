@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Second terrain/wall variants per theme so tiles alternate per chunk.
+set -u
+G=/google/bin/releases/gemini-agents-generate/generate
+STYLE='32-bit era (mid-1990s console) 2D pixel art for a gothic horror side-scrolling action platformer. Crisp hard-edged pixel clusters, limited palette, flat shading with 2-3 tones per material, no anti-aliasing blur, no painterly or photoreal rendering. Strict side view, orthographic. No text, no labels, no watermark, no signature, no frame borders.'
+STRIP='SIDE-VIEW TERRAIN CROSS-SECTION STRIP, horizontally seamless (the left edge continues the right edge). The top 25 percent of the image is flat solid pure bright green (#00FF00) with nothing in it. At exactly 25 percent from the top is a perfectly horizontal walkable surface'
+SEAM='It must tile perfectly: the left edge continues the right edge and the top edge continues the bottom edge; uniform lighting, no vignette, no single dominant focal feature. Fill the entire square.'
+gen() {
+  local name="$1"; shift
+  if [ -s "/tmp/gen_${name}.png" ]; then echo "= ${name} exists"; return; fi
+  for attempt in 1 2 3; do
+    "$G" -prod -timeout=180s -output="/tmp/gen_${name}.png" image -model=gempix-2-flash-lite-png "$STYLE $*" 2>&1 | grep -E "Successfully|rror|denied|capacity" | tail -1
+    [ -s "/tmp/gen_${name}.png" ] && break
+    sleep 15
+  done
+}
+gen ground_b "Palette: dusky violet-brown earth, desaturated steel-blue cobblestones, bone ivory, dark indigo shadows. $STRIP of an old cobblestone graveyard path: a course of rounded worn grey-blue cobbles set in dark earth with a few dead grass tufts and pebbles poking slightly up into the green; below the surface, layered dark earth with roots, grey stones and a buried skull, darker toward the bottom. No objects above the surface except the tufts, no text."
+gen floor_b "Palette: desaturated steel-blue stone, deep crimson carpet with gold trim, bone ivory highlights, midnight indigo shadows. $STRIP of a castle hall floor: carved grey-blue stone slabs with a long deep crimson carpet runner with gold braided edges lying flat on top; below the surface, large dark stone blocks in a running-bond pattern with carved skull reliefs in some blocks, darker toward the bottom. No objects above the surface, no text."
+gen catacomb_b "Palette: dark grey-brown stone, deep indigo shadows, bone ivory, murky violet water. $STRIP of a flooded crypt floor: cracked dark flagstones with a shallow murky violet puddle and scattered bones and skulls on the surface; below the surface, packed rock with stacked ribs, femurs and skulls in neat rows like an ossuary, darker toward the bottom. No objects above the surface, no text."
+gen clockfloor_b "Palette: dark oiled oak planks, aged brass fittings, iron grey-blue, deep indigo shadows. $STRIP of a clock-tower wooden gallery: a walkway of dark oak planks with brass rivets and an iron edge rail lying flat; below the surface, heavy oak beams, iron brackets and a few brass cogs between the supports, darker toward the bottom. No objects above the surface, no text."
+gen forestfloor_b "Palette: russet and rust-orange fallen leaves, desaturated steel-blue flagstones, dark umber earth, deep indigo shadows. $STRIP of an abandoned forest road: cracked grey-blue flagstones half buried under drifts of russet and rust-orange autumn leaves with a few twigs poking slightly up into the green; below the surface, dark umber earth with gnarled roots and grey stones, darker toward the bottom. No objects above the surface except the twigs, no text."
+gen wall_b "Palette: desaturated steel-blue stone (#5b6b86 / #8a9ab5), bone ivory highlights, midnight indigo shadows, deep crimson and gold accents. SEAMLESS TILEABLE TEXTURE of a castle interior wall built of large smooth ashlar blocks with a carved horizontal frieze band of bat and rose motifs running across the middle, faint cracks and a few iron wall rings. $SEAM"
+gen catacombwall_b "Palette: dark grey-brown stone, deep indigo shadows, bone ivory. SEAMLESS TILEABLE TEXTURE of a catacomb wall of rough dark stone with carved burial niches sealed by cracked stone slabs bearing faded crosses, a few niches broken open showing a skull inside, cobwebs and damp stains. $SEAM"
+gen clockwall_b "Palette: dark iron grey-blue, aged brass and copper, deep indigo shadows, warm amber highlights. SEAMLESS TILEABLE TEXTURE of a clock-tower interior wall of dark oak panelling framed by iron straps and rivets, with embedded brass pipes, a pressure gauge and a few small brass cogs, oil stains. $SEAM"
+gen platform_wood "Palette: dark oiled oak, aged brass, iron grey-blue, deep indigo shadows. A single FLOATING WOODEN PLANK PLATFORM seen exactly from the side, long and thin: a horizontal beam of dark oak planks about ten times wider than tall with brass end caps, iron straps, a distinct LEFT end cap, an evenly repeating middle section of identical planks and a distinct RIGHT end cap, with a few short chains and cobwebs hanging from the underside, centered in the image with wide empty margins. The background must be one flat solid pure bright green (#00FF00) with no gradient, no ground shadow, and nothing touching the image edges."
+ls -la /tmp/gen_*_b.png /tmp/gen_platform_wood.png

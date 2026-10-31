@@ -14,6 +14,58 @@ const stage1 = Object.assign({}, GRAVEYARD, {
   }),
 });
 
+// ---------------------------------------------------------------- jack-o'-lantern
+function buildJackOLantern() {
+  const b = new StageBuilder({ id: 2, name: "THE JACK-O'-LANTERN", subtitle: 'A HARVEST OF GRINNING FIRE', theme: 'forest', startRow: 11, seed: 7 });
+  b.flat(14, { candles: [3, 9], enemies: [['pumpkin', 7], ['bat', 11, { h: 5 }]] })
+    .gap(2)
+    .flat(12, { candles: [[4, 'dagger']], enemies: [['pumpkin', 3], ['pumpkin', 9]], spawn: 'lantern' })
+    .stepUp(1)
+    .flat(12, { candles: [5], ledges: [[2, 3, 3], [7, 2, 3]], enemies: [['dragon', 6, { h: 5 }]] })
+    .gap(3, { ledge: 2 })
+    .flat(14, { candles: [3, 10], enemies: [['skeleton', 5], ['pumpkin', 9], ['pumpkin', 12]], spawn: 'zombie' })
+    .spikeRun(3, { ledge: 2 })
+    .flat(10, { candles: [[4, 'axe']], enemies: [['catoblepas', 6]] })
+    .climb(3)
+    .flat(10, { candles: [3, 7], enemies: [['dragon', 5, { h: 6 }], ['pumpkin', 8]] })
+    .drop(3)
+    .flat(16, { candles: [2, 8, 13], enemies: [['pumpkin', 4], ['pumpkin', 10], ['bat', 7, { h: 5 }]], spawn: 'lantern' })
+    .gap(2, { ledge: 1 })
+    .flat(12, { candles: [[5, 'heart_big']], enemies: [['dragon', 6, { h: 5 }], ['skeleton', 9, { variant: 'red' }]], spawn: 'pumpkin' })
+    .spikeRun(4, { ledge: 2 })
+    .flat(12, { candles: [3, 9], enemies: [['catoblepas', 5], ['pumpkin', 10]], spawn: 'lantern' })
+    .checkpoint()
+    .flat(6, { candles: [[3, 'heart_big']] })
+    .arena('greatjack', 'THE GREAT JACK', { spawnHeight: 120 });
+  return b.done();
+}
+
+// ---------------------------------------------------------------- frozen yule
+function buildFrozenYule() {
+  const b = new StageBuilder({ id: 3, name: 'THE FROZEN YULE', subtitle: "DEVIL SANTA'S WINTER WAKE", theme: 'yule', startRow: 11, seed: 8 });
+  b.flat(14, { candles: [3, 9], enemies: [['snowman', 7], ['bat', 11, { h: 5 }]] })
+    .gap(2)
+    .flat(12, { candles: [[4, 'holy_water']], enemies: [['snowman', 3], ['icegolem', 9]], spawn: 'wisp' })
+    .stepUp(2)
+    .flat(12, { candles: [5], ledges: [[2, 3, 3], [7, 2, 3]], enemies: [['snowman', 6], ['bat', 9, { h: 5 }]] })
+    .gap(3, { ledge: 2 })
+    .flat(14, { candles: [3, 10], enemies: [['icegolem', 5], ['snowman', 10]], spawn: 'wisp' })
+    .spikeRun(3, { ledge: 2 })
+    .flat(10, { candles: [[4, 'axe']], enemies: [['catoblepas', 6]] })
+    .climb(4, { candles: true })
+    .flat(10, { candles: [3, 7], enemies: [['snowman', 5], ['bat', 8, { h: 5 }]] })
+    .drop(4)
+    .flat(16, { candles: [2, 8, 13], enemies: [['icegolem', 4], ['snowman', 10], ['snowman', 14]], spawn: 'zombie' })
+    .gap(2, { ledge: 1 })
+    .flat(12, { candles: [[5, 'heart_big']], enemies: [['icegolem', 6], ['skeleton', 9, { variant: 'axe' }]], spawn: 'wisp' })
+    .spikeRun(4, { ledge: 2 })
+    .flat(12, { candles: [3, 9], enemies: [['icegolem', 4], ['snowman', 9]], spawn: 'bat' })
+    .checkpoint()
+    .flat(6, { candles: [[3, 'heart_big']] })
+    .arena('devilsanta', 'DEVIL SANTA', { spawnHeight: 0 });
+  return b.done();
+}
+
 // ---------------------------------------------------------------- stage 2
 function buildRamparts() {
   const b = new StageBuilder({ id: 2, name: 'THE RAMPARTS', subtitle: 'ALONG THE OUTER WALLS', theme: 'ramparts', startRow: 11, seed: 2 });
@@ -34,7 +86,7 @@ function buildRamparts() {
     .flat(8, { candles: [[4, 'axe']] })
     .stepUp(1)
     .gap(2, { ledge: 1 }).flat(2, { decor: false }).gap(2, { ledge: 2 }).flat(2, { decor: false }).gap(3, { ledge: 1 })
-    .flat(12, { candles: [3, 8], enemies: [['skeleton', 4], ['skeleton', 9]] })
+    .flat(12, { candles: [3, 8], enemies: [['skeleton', 4], ['catoblepas', 9]] })
     .checkpoint()
     .flat(6, { candles: [[3, 'heart_big']] })
     .arena('bonecaptain', 'THE BONE CAPTAIN', { spawnHeight: 0 });
@@ -49,7 +101,7 @@ function buildCatacombs() {
     .flat(12, { candles: [[5, 'holy_water']], spawn: 'zombie', enemies: [['skeleton', 9]] })
     .blocks(3, ['meat', null, null])
     .stepDown(2)
-    .flat(14, { candles: [3, 10], enemies: [['skeleton', 6, { variant: 'red' }], ['bat', 11, { h: 6 }]] })
+    .flat(14, { candles: [3, 10], enemies: [['skeleton', 6, { variant: 'red' }], ['catoblepas', 11]] })
     .spikeRun(2)
     .flat(12, { candles: [2], ledges: [[3, 3, 3], [8, 2, 2]], spawn: 'zombie' })
     .gap(2, { ledge: 2 })
@@ -83,7 +135,7 @@ function buildOssuary() {
     .climb(3)
     .flat(8, { candles: [3], enemies: [['skeleton', 5, { variant: 'axe' }]] })
     .drop(3)
-    .flat(14, { candles: [3, 10], enemies: [['skeleton', 4, { variant: 'red' }], ['skeleton', 10, { variant: 'red' }]], spawn: 'zombie', spawnVariant: 'ghoul' })
+    .flat(14, { candles: [3, 10], enemies: [['skeleton', 4, { variant: 'red' }], ['catoblepas', 10]], spawn: 'zombie', spawnVariant: 'ghoul' })
     .gap(2, { ledge: 1 })
     .flat(10, { candles: [[4, 'holy_water']], enemies: [['bat', 3, { h: 5, variant: 'fire' }], ['bat', 8, { h: 6, variant: 'fire' }]] })
     .spikeRun(5, { ledge: 2, ledgeWidth: 2 })
@@ -133,7 +185,7 @@ function buildThroneHall() {
     .flat(10, { candles: [[3, 'axe'], 8], enemies: [['skeleton', 4, { variant: 'axe' }], ['skeleton', 8, { variant: 'axe' }]] })
     .corridor(10, 3, { candles: [4], spawn: 'medusa' })
     .stepDown(2)
-    .flat(16, { candles: [3, 8, 13], enemies: [['skeleton', 6, { variant: 'red' }], ['bat', 10, { h: 5 }], ['bat', 14, { h: 4, variant: 'fire' }]], spawn: 'zombie' })
+    .flat(16, { candles: [3, 8, 13], enemies: [['skeleton', 6, { variant: 'red' }], ['catoblepas', 11], ['bat', 14, { h: 4, variant: 'fire' }]], spawn: 'zombie' })
     .blocks(3, ['meat', null, 'money'])
     .spikeRun(3, { ledge: 1 }).flat(2, { decor: false }).spikeRun(4, { ledge: 2 })
     .flat(12, { candles: [[5, 'heart_big']], enemies: [['skeleton', 8, { variant: 'axe' }]], spawn: 'medusa' })
@@ -147,4 +199,7 @@ function buildThroneHall() {
   return b.done();
 }
 
-export const STAGES = [stage1, buildRamparts(), buildCatacombs(), buildOssuary(), buildClockTower(), buildThroneHall()];
+export const STAGES = [
+  stage1, buildJackOLantern(), buildFrozenYule(), buildRamparts(), buildCatacombs(),
+  buildOssuary(), buildClockTower(), buildThroneHall(),
+].map((s, i) => Object.assign(s, { id: i + 1 }));

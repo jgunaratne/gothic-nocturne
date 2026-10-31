@@ -9,7 +9,7 @@ import { Particles } from '../engine/particles.js';
 import { Level } from './level.js';
 import { Parallax } from './parallax.js';
 import { Player } from './player.js';
-import { Skeleton, Bat, Spawner } from './enemies.js';
+import { Spawner, createEnemy } from './enemies.js';
 import { createBoss } from './bosses.js';
 import { THEMES } from './builder.js';
 import { Candle, Item, Projectile, Fire, rollDrop, rectsOverlap } from './objects.js';
@@ -44,7 +44,9 @@ export class World {
     this.phaseT = 0;
     this.bossActive = false;
     this.boss = null;
+    this.flakes = this.theme.weather === 'snow' ? makeFlakes(110) : null;
     this.spawnAll();
+    if (this.audio.prefetch) this.audio.prefetch('boss');
   }
 
   // ------------------------------------------------------------- setup
@@ -67,8 +69,8 @@ export class World {
       this.candles.push(new Candle(c[0] * TILE + TILE / 2, c[1] * TILE, c[2] || null));
     }
     for (const e of d.enemies) {
-      if (e.type === 'skeleton') this.spawnEnemy(new Skeleton(e.tx * TILE + TILE / 2, e.row * TILE, e.min * TILE, (e.max + 1) * TILE, e.variant));
-      else if (e.type === 'bat') this.spawnEnemy(new Bat(e.tx * TILE + TILE / 2, e.ty * TILE + 16, e.variant));
+      const en = createEnemy(e);
+      if (en) this.spawnEnemy(en);
     }
     const cx = d.checkpoints[this.checkpoint];
     const col = Math.floor(cx / TILE);
@@ -126,6 +128,7 @@ export class World {
     this.parallax.update(dt);
     this.particles.update(dt);
     this.updateLightning(dt);
+    this.updateWeather(dt);
     for (const m of this.messages) m.t += dt;
     this.messages = this.messages.filter((m) => m.t < m.dur);
 
@@ -272,7 +275,9 @@ export class World {
     }
     for (const pr of this.projectiles) {
       if (pr.owner === 'enemy' && !pr.dead && rectsOverlap(pr.box, pb)) {
-        if (p.hurt(pr.damage, pr.x, this) && pr.type !== 'sickle' && pr.type !== 'skull') pr.dead = true;
+        const connected = p.hurt(pr.damage, pr.x, this);
+        if (connected && pr.petrify) p.petrify(this);
+        if (connected && !['sickle', 'skull', 'gas', 'gaze', 'hellfire'].includes(pr.type)) pr.dead = true;
         if (pr.type === 'skull' && p.invuln > 0) pr.dead = true;
       }
     }
@@ -338,6 +343,29 @@ export class World {
     this.game.onStageClear();
   }
 
+  updateWeather(dt) {
+    if (!this.flakes) return;
+    const camDx = this.camera.x - (this._lastCamX == null ? this.camera.x : this._lastCamX);
+    this._lastCamX = this.camera.x;
+    for (const f of this.flakes) {
+      f.y += f.vy * dt;
+      f.x += (f.vx + Math.sin(this.time * 1.3 + f.phase) * 14) * dt - camDx * f.depth;
+      if (f.y > H + 4) { f.y = -4; f.x = Math.random() * W; }
+      if (f.x < -4) f.x += W + 8; else if (f.x > W + 4) f.x -= W + 8;
+    }
+  }
+
+  drawWeather(ctx) {
+    if (!this.flakes) return;
+    ctx.save();
+    for (const f of this.flakes) {
+      ctx.globalAlpha = 0.45 + 0.45 * f.depth;
+      ctx.fillStyle = '#eef6ff';
+      ctx.fillRect(Math.round(f.x), Math.round(f.y), f.size, f.size);
+    }
+    ctx.restore();
+  }
+
   updateLightning(dt) {
     if (!this.theme.outdoor) { this.flash = 0; return; }
     this.flash = Math.max(0, this.flash - dt * 2.2);
@@ -392,6 +420,7 @@ export class World {
       const fgAlpha = Math.max(0, Math.min(1, (roomX - (camX + W * 0.5)) / 240)) * 0.9;
       this.parallax.drawFront(ctx, cam, fgAlpha);
     }
+    this.drawWeather(ctx);
     if (flash > 0) { ctx.fillStyle = `rgba(230, 235, 255, ${0.14 * flash})`; ctx.fillRect(0, 0, W, H); }
     // Vignette
     ctx.fillStyle = this.vignette(ctx);
@@ -418,4 +447,14 @@ export class World {
       ctx.restore();
     }
   }
+}
+
+/** Screen-space snowflakes with a little depth for parallax drift. */
+function makeFlakes(n) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const depth = Math.random();
+    out.push({ x: Math.random() * W, y: Math.random() * H, vx: -10 - depth * 20, vy: 28 + depth * 50, size: depth > 0.6 ? 2 : 1, depth: 0.2 + depth * 0.8, phase: Math.random() * 6 });
+  }
+  return out;
 }

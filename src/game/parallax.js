@@ -21,6 +21,24 @@ const LAYER_SETS = {
     ],
     front: false,
   },
+  // Pumpkin woods: two copies of the deep forest, the far one darkened.
+  forest: {
+    layers: [
+      { img: 'mountains', fx: 0.08, fy: 0.06, dy: 16 },
+      { img: 'deepforest', fx: 0.22, fy: 0.12, dy: -30, dark: 0.55 },
+      { img: 'deepforest', fx: 0.48, fy: 0.28, dy: 6 },
+    ],
+    front: true,
+  },
+  // Frozen village: distant peaks, then the snowbound village twice.
+  winter: {
+    layers: [
+      { img: 'mountains', fx: 0.08, fy: 0.06, dy: 0 },
+      { img: 'winter', fx: 0.2, fy: 0.1, dy: -36, dark: 0.5 },
+      { img: 'winter', fx: 0.46, fy: 0.26, dy: 6 },
+    ],
+    front: false,
+  },
 };
 
 export class Parallax {
@@ -31,7 +49,9 @@ export class Parallax {
     const set = LAYER_SETS[setName] || LAYER_SETS.outdoor;
     // worldY: where the 360px-tall layer image sits in world space; fy is the
     // vertical parallax factor relative to the camera.
-    this.layers = set.layers.map((L) => ({ img: L.img, fx: L.fx, fy: L.fy, worldY: levelH - H + L.dy }));
+    this.layers = set.layers
+      .filter((L) => assets.img(L.img))
+      .map((L) => ({ img: L.img, dark: L.dark || 0, fx: L.fx, fy: L.fy, worldY: levelH - H + L.dy }));
     this.hasFront = set.front;
     this.fog = makeFogStrip();
   }
@@ -51,7 +71,7 @@ export class Parallax {
 
   drawBack(ctx, cam, flash) {
     for (const L of this.layers) {
-      const img = this.assets.img(L.img);
+      const img = L.dark ? this.assets.darkened(L.img, L.dark) : this.assets.img(L.img);
       const off = mod(-(cam.x * L.fx), img.width);
       const base = this.levelH - H;                     // camera y at the level bottom
       const y = Math.round(L.worldY - base - (cam.y - base) * L.fy);

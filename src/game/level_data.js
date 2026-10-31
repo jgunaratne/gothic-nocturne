@@ -130,6 +130,7 @@ export const STAGE1 = {
     { type: 'skeleton', tx: 174, row: 11, min: 168, max: 175 },
     { type: 'bat', tx: 178, ty: 3 },
     { type: 'skeleton', tx: 189, row: 9, min: 184, max: 191 },
+    { type: 'catoblepas', tx: 180, row: 10, min: 176, max: 183 },
     { type: 'bat', tx: 194, ty: 4 },
     { type: 'skeleton', tx: 196, row: 11, min: 192, max: 199 },
   ],

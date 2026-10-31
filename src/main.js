@@ -339,9 +339,9 @@ class Game {
     const f = this.font;
     f.draw(ctx, `${this.difficulty.name} HUNT`, W / 2, 24, { scale: 2, align: 'center', color: '#8a9ab5', spacing: 2, shadow: '#120f1c' });
     f.draw(ctx, 'SELECT STAGE', W / 2, 52, { scale: 3, align: 'center', color: '#e8e2c8', shadow: '#5b2a3a' });
-    const cols = 3, cw = 204, ch = 92, gapX = 10, gapY = 14;
+    const cols = 3, cw = 204, ch = 66, gapX = 10, gapY = 8;
     const gridW = cols * cw + (cols - 1) * gapX;
-    const x0 = Math.round((W - gridW) / 2), y0 = 96;
+    const x0 = Math.round((W - gridW) / 2), y0 = 92;
     STAGES.forEach((s, i) => {
       const cx = x0 + (i % cols) * (cw + gapX), cy = y0 + Math.floor(i / cols) * (ch + gapY);
       const sel = i === this.stageCursor;
@@ -352,19 +352,19 @@ class Game {
       ctx.fillStyle = sel ? theme.accent : '#2b2740';
       ctx.fillRect(cx, cy, cw, 2);
       ctx.fillRect(cx, cy, 3, ch);
-      f.draw(ctx, `STAGE ${s.id}`, cx + 12, cy + 10, { color: sel ? theme.accent : '#6f6a80', shadow: '#120f1c' });
-      if (done) f.draw(ctx, 'CLEARED', cx + cw - 10, cy + 10, { align: 'right', color: sel ? '#9ad17a' : '#4e6a4a', shadow: '#120f1c' });
-      f.draw(ctx, s.name.replace(/^THE /, ''), cx + 12, cy + 26, { scale: 2, color: sel ? '#e8e2c8' : '#8a8498', shadow: '#120f1c' });
-      f.draw(ctx, s.subtitle || '', cx + 12, cy + 50, { color: sel ? '#c9c3b0' : '#4e4a5e', shadow: '#120f1c' });
-      f.draw(ctx, `BOSS · ${s.boss ? s.boss.name : '???'}`, cx + 12, cy + 70, { color: sel ? '#ffb0a0' : '#5b4a5e', shadow: '#120f1c' });
+      f.draw(ctx, `STAGE ${s.id}`, cx + 12, cy + 8, { color: sel ? theme.accent : '#6f6a80', shadow: '#120f1c' });
+      if (done) f.draw(ctx, 'CLEARED', cx + cw - 10, cy + 8, { align: 'right', color: sel ? '#9ad17a' : '#4e6a4a', shadow: '#120f1c' });
+      f.draw(ctx, s.name.replace(/^THE /, ''), cx + 12, cy + 20, { scale: 2, color: sel ? '#e8e2c8' : '#8a8498', shadow: '#120f1c' });
+      f.draw(ctx, s.subtitle || '', cx + 12, cy + 40, { color: sel ? '#c9c3b0' : '#4e4a5e', shadow: '#120f1c' });
+      f.draw(ctx, `BOSS · ${s.boss ? s.boss.name : '???'}`, cx + 12, cy + 52, { color: sel ? '#ffb0a0' : '#5b4a5e', shadow: '#120f1c' });
       if (sel) {
         const bob = Math.round(Math.sin(this.stateT * 6) * 2);
-        this.assets.draw(ctx, 'items', 'heart_small', cx + cw - 16 + bob, cy + ch - 8);
+        this.assets.draw(ctx, 'items', 'heart_small', cx + cw - 16 + bob, cy + ch - 6);
       }
     });
     const pulse = 0.5 + 0.5 * Math.sin(this.stateT * 2.2);
-    if (pulse > 0.25) f.draw(ctx, '←→↑↓ SELECT     ENTER / JUMP / WHIP BEGIN', W / 2, 318, { align: 'center', color: '#ffd27a', shadow: '#120f1c' });
-    f.draw(ctx, 'STAGES CHAIN TOGETHER: CLEAR ONE TO MARCH INTO THE NEXT', W / 2, 338, { align: 'center', color: '#5b6b86' });
+    if (pulse > 0.25) f.draw(ctx, '←→↑↓ SELECT     ENTER / JUMP / WHIP BEGIN', W / 2, 322, { align: 'center', color: '#ffd27a', shadow: '#120f1c' });
+    f.draw(ctx, 'STAGES CHAIN TOGETHER: CLEAR ONE TO MARCH INTO THE NEXT', W / 2, 340, { align: 'center', color: '#5b6b86' });
   }
 
   drawEnding(ctx) {

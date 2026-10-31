@@ -3,14 +3,19 @@
 
 const TRACKS = {
   title: 'assets/music/title.mp3',
-  stage: 'assets/music/stage.mp3',
+  graveyard: 'assets/music/graveyard.mp3',
+  jack: 'assets/music/jack.mp3',
+  ramparts: 'assets/music/ramparts.mp3',
   catacombs: 'assets/music/catacombs.mp3',
+  ossuary: 'assets/music/ossuary.mp3',
   tower: 'assets/music/tower.mp3',
+  throne: 'assets/music/throne.mp3',
   boss: 'assets/music/boss.mp3',
   clear: 'assets/music/clear.mp3',
   gameover: 'assets/music/gameover.mp3',
   ending: 'assets/music/ending.mp3',
 };
+const MAX_DECODED = 3;   // full-length tracks decode to ~50 MB of PCM each
 
 export class AudioSys {
   constructor() {
@@ -18,12 +23,12 @@ export class AudioSys {
     this.master = null;
     this.sfxBus = null;
     this.musicBus = null;
-    this.buffers = {};
-    this.current = null;      // {name, sources: [], timer}
+    this.buffers = new Map();   // name -> AudioBuffer (LRU, bounded)
+    this.loading = new Map();   // name -> Promise<AudioBuffer|null>
+    this.current = null;        // {name, sources: [], timer}
     this.muted = false;
     this.musicVolume = 0.55;
     this.sfxVolume = 0.6;
-    this.loadPromise = null;
   }
 
   /** Creates the context on first user gesture (autoplay policy). */
@@ -41,21 +46,44 @@ export class AudioSys {
     this.musicBus = this.ctx.createGain();
     this.musicBus.gain.value = this.musicVolume;
     this.musicBus.connect(this.master);
-    this.loadPromise = this.loadMusic();
     if (this.pendingTrack) { const t = this.pendingTrack; this.pendingTrack = null; this.playMusic(t.name, t.loop); }
   }
 
-  async loadMusic() {
-    await Promise.all(Object.entries(TRACKS).map(async ([name, url]) => {
+  /** Fetches + decodes a track on demand; keeps only a few decoded. */
+  ensureBuffer(name) {
+    if (this.buffers.has(name)) {
+      const b = this.buffers.get(name);
+      this.buffers.delete(name); this.buffers.set(name, b);   // refresh LRU
+      return Promise.resolve(b);
+    }
+    if (this.loading.has(name)) return this.loading.get(name);
+    const url = TRACKS[name];
+    if (!url) return Promise.resolve(null);
+    const p = (async () => {
       try {
         const res = await fetch(url);
         const data = await res.arrayBuffer();
-        this.buffers[name] = await this.ctx.decodeAudioData(data);
+        const buf = await this.ctx.decodeAudioData(data);
+        this.buffers.set(name, buf);
+        while (this.buffers.size > MAX_DECODED) {
+          const oldest = this.buffers.keys().next().value;
+          if (this.current && this.current.name === oldest) break;
+          this.buffers.delete(oldest);
+        }
+        return buf;
       } catch (e) {
         console.warn('music load failed', name, e);
+        return null;
+      } finally {
+        this.loading.delete(name);
       }
-    }));
+    })();
+    this.loading.set(name, p);
+    return p;
   }
+
+  /** Warms the cache for an upcoming track (e.g. the boss theme). */
+  prefetch(name) { if (this.ctx && !this.buffers.has(name)) this.ensureBuffer(name); }
 
   toggleMute() {
     this.muted = !this.muted;
@@ -73,10 +101,8 @@ export class AudioSys {
     const entry = { name, sources: [], gain: null, stopped: false, timer: null };
     this.current = entry;
     (async () => {
-      if (!this.buffers[name]) await this.loadPromise;
-      if (entry.stopped) return;  // superseded while the buffer was loading
-      const buf = this.buffers[name];
-      if (!buf) return;
+      const buf = await this.ensureBuffer(name);
+      if (entry.stopped || !buf) return;  // superseded while the buffer was loading
       entry.gain = this.ctx.createGain();
       entry.gain.gain.value = 1;
       entry.gain.connect(this.musicBus);

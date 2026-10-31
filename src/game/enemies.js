@@ -314,6 +314,276 @@ export class MedusaHead extends Enemy {
 
 // --------------------------------------------------------------- spawners
 
+/** Ground-walking enemy with a patrol range and a ranged "breath/throw"
+ *  state; shared by the catoblepas, the ice golem and the snowman. */
+class Brute extends Enemy {
+  constructor(x, y, min, max) {
+    super(x, y);
+    this.minX = min; this.maxX = max;
+    this.state = 'walk'; this.stateT = 0; this.animT = 0; this.facing = -1;
+    this.attackCd = 2 + Math.random();
+    this.speed = 34; this.walkFrames = ['walk0', 'walk1']; this.attackFrame = 'attack';
+    this.attackRange = [60, 240]; this.attackAt = 0.5; this.attackDur = 1.3; this.attackCooldown = 3.2;
+    this.heavy = true;
+  }
+
+  takeHit(dmg, fromX, world) {
+    const died = super.takeHit(dmg, fromX, world);
+    if (this.heavy) this.knock = 0;        // too heavy to be knocked back
+    return died;
+  }
+
+  fire() { /* override */ }
+
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    const dx = p.x - this.x;
+    const near = Math.abs(dx) < 340 && p.alive;
+    this.stateT += dt; this.attackCd -= dt;
+    if (this.knock) { this.vx = this.knock * 60; this.knock = 0; this.knockT = 0.12; }
+    if (this.knockT > 0) { this.knockT -= dt; this.physics(level, dt); return; }
+    if (this.state === 'walk') {
+      if (near) this.facing = dx > 0 ? 1 : -1;
+      const dir = this.facing;
+      const nextX = this.x + dir * this.speed * dt;
+      const atEdge = (dir > 0 && nextX > this.maxX) || (dir < 0 && nextX < this.minX);
+      if (atEdge || this.blockedAhead(level)) { if (!near) this.facing = -this.facing; this.vx = 0; }
+      else this.vx = dir * this.speed;
+      this.animT += Math.abs(this.vx) > 1 ? dt * 4 : 0;
+      this.frame = this.walkFrames[Math.floor(this.animT) % this.walkFrames.length];
+      if (near && this.attackCd <= 0 && Math.abs(dx) > this.attackRange[0] && Math.abs(dx) < this.attackRange[1] && Math.abs(p.y - this.y) < 70) {
+        this.state = 'attack'; this.stateT = 0; this.vx = 0; this.fired = false;
+      }
+    } else {
+      this.vx = 0;
+      this.frame = this.attackFrame;
+      if (!this.fired && this.stateT >= this.attackAt) { this.fired = true; this.fire(world, p); }
+      if (this.stateT > this.attackDur) { this.state = 'walk'; this.attackCd = this.attackCooldown * world.difficulty.throwCooldown; }
+    }
+    this.physics(level, dt);
+  }
+}
+
+// ------------------------------------------------------------ catoblepas
+
+export class Catoblepas extends Brute {
+  constructor(x, y, min, max) {
+    super(x, y, min, max);
+    this.w = 70; this.h = 50; this.hp = 8; this.score = 500; this.touchDamage = 3;
+    this.sheet = 'catoblepas'; this.walkFrames = ['walk0', 'walk1', 'walk2']; this.attackFrame = 'breath';
+    this.attackRange = [50, 250];
+  }
+  fire(world) {
+    const g = new Projectile('gas', this.x + this.facing * 44, this.y - 20, this.facing, 'enemy');
+    world.spawnProjectile(g);
+    world.sfx('fire');
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 16, '#5a4a4e', this.y);
+    world.particles.dust(this.x, this.y, 10, '#6a6070');
+    world.camera.shake(3, 0.25);
+  }
+}
+
+// -------------------------------------------------------------- pumpkins
+
+/** Jack-o'-lantern: a hopping pumpkin, or (variant 'lantern') a flaming
+ *  floating head that weaves toward the hunter like a medusa head. */
+export class Pumpkin extends Enemy {
+  constructor(x, y, dir = -1, variant = 'hopper') {
+    super(x, y);
+    this.variant = variant; this.sheet = 'pumpkin'; this.facing = dir;
+    this.score = 150; this.touchDamage = 2;
+    if (variant === 'lantern') {
+      this.w = 22; this.h = 22; this.hp = 1; this.flies = true; this.gravityScale = 0;
+      this.baseY = y; this.t = Math.random() * 6; this.frame = 'flame0'; this.score = 200;
+    } else {
+      this.w = 24; this.h = 24; this.hp = 2; this.hopT = 0.4 + Math.random() * 0.5; this.frame = 'hop0';
+    }
+  }
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    if (this.variant === 'lantern') {
+      this.t += dt;
+      this.x += this.facing * 95 * dt;
+      this.baseY += ((p.y - 36) - this.baseY) * Math.min(1, dt * 0.6);
+      this.y = this.baseY + Math.sin(this.t * 3.4) * 36;
+      this.frame = Math.floor(this.t * 9) % 2 ? 'flame0' : 'flame1';
+      if (Math.random() < 0.5) world.particles.embers(this.x - this.facing * 8, this.y - 10, 1);
+      if (this.x < -60 || this.x > level.width + 60) this.dead = true;
+      return;
+    }
+    if (this.knock) { this.vx = this.knock * 110; this.vy = -120; this.knock = 0; }
+    if (this.onGround) {
+      this.vx *= 0.6;
+      this.hopT -= dt;
+      this.frame = 'hop0';
+      if (this.hopT <= 0 && p.alive) {
+        this.facing = p.x > this.x ? 1 : -1;
+        const far = Math.abs(p.x - this.x) > 140;
+        this.vy = far ? -430 : -330; this.vx = this.facing * (far ? 150 : 110);
+        this.onGround = false; this.hopT = 0.5 + Math.random() * 0.5;
+        world.sfx('bone');
+      }
+    } else this.frame = 'hop1';
+    this.physics(level, dt);
+    if (this.y > level.height + 60) this.dead = true;
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 10, '#ff9a3c', this.y);
+    world.particles.embers(this.x, this.y - 10, 8);
+  }
+}
+
+// ----------------------------------------------------------------- dragon
+
+export class Dragon extends Enemy {
+  constructor(x, y, min, max) {
+    super(x, y);
+    this.w = 60; this.h = 36; this.hp = 10; this.score = 600; this.touchDamage = 3;
+    this.sheet = 'dragon'; this.flies = true; this.gravityScale = 0;
+    this.baseY = y; this.minX = min; this.maxX = max; this.facing = -1;
+    this.t = Math.random() * 5; this.fireCd = 2 + Math.random(); this.state = 'fly'; this.stateT = 0;
+  }
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); this.y += 90 * dt; return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    this.t += dt; this.stateT += dt; this.fireCd -= dt;
+    const dx = p.x - this.x, near = p.alive && Math.abs(dx) < 380;
+    if (this.state === 'fly') {
+      if (near) {
+        this.facing = dx > 0 ? 1 : -1;
+        // Hold position above and ahead of the hunter.
+        const tx = p.x - this.facing * 150;
+        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), 75 * dt);
+        this.baseY += ((p.y - 110) - this.baseY) * Math.min(1, dt * 0.8);
+      } else {
+        this.x += this.facing * 55 * dt;
+        if (this.x < this.minX || this.x > this.maxX) this.facing = -this.facing;
+      }
+      this.y = this.baseY + Math.sin(this.t * 2.6) * 14;
+      this.frame = Math.floor(this.t * 6) % 2 ? 'fly0' : 'fly1';
+      if (near && this.fireCd <= 0 && Math.abs(dx) < 320) { this.state = 'breath'; this.stateT = 0; this.shots = 0; }
+    } else {
+      this.frame = 'breath';
+      this.y = this.baseY + Math.sin(this.t * 2.6) * 6;
+      const due = 0.35 + this.shots * 0.22;
+      if (this.shots < 3 && this.stateT >= due) {
+        this.shots++;
+        const fb = new Projectile('fireball', this.x + this.facing * 34, this.y - 14, this.facing, 'enemy');
+        const ang = Math.atan2((p.y - 30) - (this.y - 14), p.x - (this.x + this.facing * 34));
+        fb.vx = Math.cos(ang) * 230; fb.vy = Math.sin(ang) * 230; fb.dir = fb.vx >= 0 ? 1 : -1;
+        world.spawnProjectile(fb);
+        world.sfx('fire');
+      }
+      if (this.stateT > 1.2) { this.state = 'fly'; this.fireCd = 2.8 * world.difficulty.throwCooldown; }
+    }
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.smoke(this.x, this.y, 8, 'rgba(120,30,30,0.5)');
+    world.particles.embers(this.x, this.y - 10, 14);
+    world.particles.shards(this.x, this.y, 8, '#7a1e2a');
+  }
+}
+
+// ------------------------------------------------------------ ice creatures
+
+export class IceGolem extends Brute {
+  constructor(x, y, min, max) {
+    super(x, y, min, max);
+    this.w = 40; this.h = 62; this.hp = 7; this.score = 450; this.touchDamage = 3;
+    this.sheet = 'ice'; this.walkFrames = ['golem0', 'golem1']; this.attackFrame = 'golem1';
+    this.speed = 28; this.attackRange = [40, 230]; this.attackAt = 0.4; this.attackDur = 1.0; this.attackCooldown = 2.6;
+  }
+  fire(world) {
+    for (let i = 0; i < 2; i++) {
+      const s = new Projectile('iceshard', this.x + this.facing * 20, this.y - 40 - i * 12, this.facing, 'enemy');
+      s.vx = this.facing * (240 + i * 60); s.vy = -40 - i * 70;
+      world.spawnProjectile(s);
+    }
+    world.sfx('throw');
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 16, '#cfeaff', this.y);
+    world.particles.dust(this.x, this.y, 8, '#e8f4ff');
+  }
+}
+
+export class Snowman extends Brute {
+  constructor(x, y, min, max) {
+    super(x, y, min, max);
+    this.w = 26; this.h = 50; this.hp = 3; this.score = 250; this.touchDamage = 2;
+    this.sheet = 'ice'; this.walkFrames = ['snowman0']; this.attackFrame = 'snowman1';
+    this.speed = 22; this.heavy = false; this.attackRange = [70, 300]; this.attackAt = 0.4; this.attackDur = 0.9; this.attackCooldown = 2.2;
+  }
+  fire(world) {
+    world.spawnProjectile(new Projectile('snowball', this.x + this.facing * 14, this.y - 44, this.facing, 'enemy'));
+    world.sfx('throw');
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 12, '#f4f8ff', this.y);
+  }
+}
+
+/** Frost wisp: a weaving spirit like a medusa head, but it drifts slower
+ *  and leaves a chilling trail. */
+export class FrostWisp extends Enemy {
+  constructor(x, y, dir) {
+    super(x, y);
+    this.w = 22; this.h = 22; this.hp = 1; this.score = 300; this.touchDamage = 2;
+    this.sheet = 'wisp'; this.flies = true; this.gravityScale = 0;
+    this.facing = dir; this.baseY = y; this.t = Math.random() * 6;
+  }
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    this.t += dt;
+    this.x += this.facing * 80 * dt;
+    this.y = this.baseY + Math.sin(this.t * 2.6) * 46;
+    this.frame = 'wisp' + (Math.floor(this.t * 8) % 4);
+    if (Math.random() < 0.35) world.particles.emit({ x: this.x - this.facing * 8, y: this.y - 8, vx: 0, vy: 10, life: 0.5, color: '#cfeaff', size: 2, gravity: 0, glow: true });
+    if (this.x < -60 || this.x > level.width + 60) this.dead = true;
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.sparks(this.x, this.y - 8, 10, '#cfeaff');
+  }
+}
+
+/** Wall-pacing spawner factory used by Spawner for float-in enemies. */
+function makeFloater(type, x, y, dir, variant) {
+  if (type === 'lantern') return new Pumpkin(x, y, dir, 'lantern');
+  if (type === 'wisp') return new FrostWisp(x, y, dir);
+  return new MedusaHead(x, y, dir);
+}
+
+/** Builds a placed enemy from a stage definition entry. */
+export function createEnemy(e) {
+  const cx = e.tx * TILE + TILE / 2;
+  const groundY = (e.row == null ? 0 : e.row) * TILE;
+  const minX = (e.min == null ? e.tx - 4 : e.min) * TILE, maxX = ((e.max == null ? e.tx + 4 : e.max) + 1) * TILE;
+  switch (e.type) {
+    case 'skeleton': return new Skeleton(cx, groundY, minX, maxX, e.variant);
+    case 'bat': return new Bat(cx, e.ty * TILE + 16, e.variant);
+    case 'catoblepas': return new Catoblepas(cx, groundY, minX, maxX);
+    case 'pumpkin': return new Pumpkin(cx, groundY, -1, e.variant === 'lantern' ? 'lantern' : 'hopper');
+    case 'dragon': return new Dragon(cx, e.ty * TILE + 16, minX, maxX);
+    case 'icegolem': return new IceGolem(cx, groundY, minX, maxX);
+    case 'snowman': return new Snowman(cx, groundY, minX, maxX);
+    default: return null;
+  }
+}
+
 export class Spawner {
   constructor(def) {
     this.type = def.type;
@@ -331,7 +601,7 @@ export class Spawner {
     if (p.x < this.x0 - 100 || p.x > this.x1 + 100) { this.timer = Math.min(this.timer, 1.0); return; }
     this.timer -= dt;
     if (this.timer > 0) return;
-    if (this.type === 'zombie') {
+    if (this.type === 'zombie' || this.type === 'pumpkin') {
       if (this.alive.length >= diff.maxAlive) { this.timer = 0.6; return; }
       // Rise just off-screen-ish ahead or behind the hunter on real ground.
       for (let tries = 0; tries < 6; tries++) {
@@ -341,18 +611,20 @@ export class Spawner {
         if (x < this.x0 || x > this.x1) continue;
         const row = world.level.surfaceRow(tx, Math.max(0, Math.floor(p.y / TILE) - 2));
         if (row < 0 || !world.level.isSolid(tx, row)) continue;
-        const z = new Zombie(tx * TILE + TILE / 2, row * TILE, -side, this.variant);
+        const z = this.type === 'pumpkin'
+          ? new Pumpkin(tx * TILE + TILE / 2, row * TILE, -side, 'hopper')
+          : new Zombie(tx * TILE + TILE / 2, row * TILE, -side, this.variant);
         world.spawnEnemy(z);
         this.alive.push(z);
         break;
       }
       this.timer = (2.4 + Math.random() * 0.8) * diff.spawnInterval;
-    } else if (this.type === 'medusa') {
+    } else if (this.type === 'medusa' || this.type === 'lantern' || this.type === 'wisp') {
       if (this.alive.length >= diff.maxAlive) { this.timer = 0.6; return; }
       const dir = -p.facing;
       const x = p.facing > 0 ? world.camera.x + 640 + 30 : world.camera.x - 30;
       const y = p.y - 30 - Math.random() * 30;
-      const m = new MedusaHead(x, y, dir);
+      const m = makeFloater(this.type, x, y, dir, this.variant);
       world.spawnEnemy(m);
       this.alive.push(m);
       this.timer = (2.0 + Math.random() * 0.8) * diff.spawnInterval;

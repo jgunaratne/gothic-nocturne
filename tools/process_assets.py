@@ -281,7 +281,12 @@ def process_strip(name, spec, report):
         px = np.concatenate([pad, px], axis=0)
     tile = spec.get("tile", 32)
     depth_px = spec.get("depth_tiles", 3) * tile
-    body = px[overhang:overhang + depth_px]
+    body = px[overhang:overhang + depth_px * 2]
+    if spec.get("bodyScale"):  # compress the cross-section so deeper strata show sooner
+        bs = spec["bodyScale"]
+        body = resize_premultiplied(body, (body.shape[1], max(tile, int(body.shape[0] * bs))))
+        body = harden_alpha(body)
+    body = body[:depth_px]
     if body.shape[0] < depth_px:  # repeat the last tile row to fill depth
         reps = int(np.ceil(depth_px / max(1, body.shape[0])))
         body = np.concatenate([body] * reps, axis=0)[:depth_px]

@@ -349,6 +349,298 @@
      "hurt"
     ]
    ]
+  },
+  "catoblepas": {
+   "type": "sheet",
+   "src": "catoblepas_sheet.png",
+   "height": 52,
+   "ref": "walk0",
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "walk2",
+     "breath"
+    ]
+   ],
+   "colors": 24,
+   "anchors": {
+    "breath": "left"
+   }
+  },
+  "pumpkin": {
+   "type": "sheet",
+   "src": "pumpkin_sheet.png",
+   "height": 30,
+   "ref": "hop0",
+   "rows": [
+    [
+     "hop0",
+     "hop1"
+    ],
+    [
+     "flame0",
+     "flame1"
+    ]
+   ],
+   "colors": 24
+  },
+  "dragon": {
+   "type": "sheet",
+   "src": "dragon_sheet.png",
+   "height": 44,
+   "ref": "fly0",
+   "rows": [
+    [
+     "fly0",
+     "fly1"
+    ],
+    [
+     "glide",
+     "breath"
+    ]
+   ],
+   "colors": 24,
+   "anchors": {
+    "breath": "left"
+   }
+  },
+  "pumpkinprops": {
+   "type": "sheet",
+   "src": "pumpkin_props_sheet.png",
+   "height": 76,
+   "ref": "scarecrow",
+   "rows": [
+    [
+     "jack_big",
+     "jack_small",
+     "pumpkins",
+     "scarecrow"
+    ]
+   ],
+   "colors": 32
+  },
+  "ice": {
+   "type": "sheet",
+   "src": "ice_sheet.png",
+   "height": 62,
+   "ref": "golem0",
+   "rows": [
+    [
+     "golem0",
+     "golem1"
+    ],
+    [
+     "snowman0",
+     "snowman1"
+    ]
+   ],
+   "colors": 24
+  },
+  "wisp": {
+   "type": "sheet",
+   "src": "wisp_sheet.png",
+   "height": 28,
+   "ref": "wisp0",
+   "rows": [
+    [
+     "wisp0",
+     "wisp1"
+    ],
+    [
+     "wisp2",
+     "wisp3"
+    ]
+   ],
+   "colors": 16
+  },
+  "santa": {
+   "type": "sheet",
+   "src": "santa_sheet.png",
+   "height": 92,
+   "ref": "idle",
+   "rows": [
+    [
+     "idle",
+     "throw"
+    ],
+    [
+     "lunge",
+     "hurt"
+    ]
+   ],
+   "colors": 32
+  },
+  "xmasprops": {
+   "type": "sheet",
+   "src": "xmas_props_sheet.png",
+   "height": 96,
+   "ref": "tree",
+   "rows": [
+    [
+     "tree",
+     "wreath",
+     "lamppost",
+     "gifts",
+     "stump"
+    ]
+   ],
+   "colors": 32
+  },
+  "forestfloor": {
+   "type": "strip",
+   "src": "tex_forest_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "snowfloor": {
+   "type": "strip",
+   "src": "tex_snow_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32,
+   "bodyScale": 0.5
+  },
+  "ground_b": {
+   "type": "strip",
+   "src": "tex_ground_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "floor_b": {
+   "type": "strip",
+   "src": "tex_castle_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 3,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "catacomb_b": {
+   "type": "strip",
+   "src": "tex_catacomb_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 4,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "clockfloor_b": {
+   "type": "strip",
+   "src": "tex_clock_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 3,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "forestfloor_b": {
+   "type": "strip",
+   "src": "tex_forest_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "wall_b": {
+   "type": "texture",
+   "src": "tex_wall_brick_b.png",
+   "size": [
+    192,
+    192
+   ],
+   "colors": 24,
+   "seamless": "blend"
+  },
+  "catacombwall_b": {
+   "type": "texture",
+   "src": "tex_catacomb_wall_b.png",
+   "size": [
+    192,
+    192
+   ],
+   "colors": 24,
+   "seamless": "blend"
+  },
+  "clockwall_b": {
+   "type": "texture",
+   "src": "tex_clock_wall_b.png",
+   "size": [
+    192,
+    192
+   ],
+   "colors": 24,
+   "seamless": "blend"
+  },
+  "platform_wood": {
+   "type": "texture",
+   "src": "tex_platform_wood.png",
+   "key": true,
+   "cropAlpha": true,
+   "size": [
+    320,
+    null
+   ],
+   "colors": 24
+  },
+  "deepforest": {
+   "type": "texture",
+   "src": "bg_deepforest.png",
+   "key": true,
+   "crop": [
+    0,
+    0.35,
+    1,
+    0.9125
+   ],
+   "size": [
+    640,
+    360
+   ],
+   "colors": 24,
+   "seamless": "mirror"
+  },
+  "winter": {
+   "type": "texture",
+   "src": "bg_winter.png",
+   "key": true,
+   "crop": [
+    0,
+    0.35,
+    1,
+    0.9125
+   ],
+   "size": [
+    640,
+    360
+   ],
+   "colors": 24,
+   "seamless": "mirror"
   }
  }
 }

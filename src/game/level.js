@@ -1,7 +1,7 @@
 // Tile grid, collision queries and level rendering.
 
 import {
-  TILE, T_EMPTY, T_GROUND, T_PLATFORM, T_SPIKES, T_BLOCK, T_GATE, T_BOUND,
+  TILE, T_EMPTY, T_GROUND, T_SNOW, T_PLATFORM, T_SPIKES, T_BLOCK, T_GATE, T_BOUND,
   MATERIAL_STRIP, isMaterialTile, isSolidTile, W, H,
 } from '../engine/constants.js';
 
@@ -17,6 +17,7 @@ export class Level {
     this.rooms = data.rooms || [];
     this.blockDrops = data.blockDrops || {};
     this.checkpoints = data.checkpoints || [];
+    this.platformImg = data.platform || 'platform';
     this.platformRuns = [];
     this.gearCache = new Map();
     data.build(this);
@@ -100,11 +101,53 @@ export class Level {
       ctx.clip();
       if (!this._patterns) this._patterns = {};
       if (!this._patterns[key]) this._patterns[key] = ctx.createPattern(wall, 'repeat');
+      const keyB = assets.img(key + '_b') ? key + '_b' : null;
+      if (keyB && !this._patterns[keyB]) this._patterns[keyB] = ctx.createPattern(assets.img(keyB), 'repeat');
       // The wall scrolls at its own parallax factor (far wall of a big hall).
       const ox = mod(camX * f, wall.width), oy = mod(camY * f, wall.height);
       ctx.translate(-ox, -oy);
       ctx.fillStyle = this._patterns[key];
       ctx.fillRect(0, 0, W + wall.width * 2, H + wall.height * 2);
+      ctx.restore();
+      // Architectural rhythm: panels of the second texture, pilasters between
+      // them, a moulding band and the odd arched alcove, all scrolling with
+      // the wall.
+      ctx.save();
+      ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+      const panelW = 12 * TILE, scrollX = camX * f;
+      const first = Math.floor(scrollX / panelW) - 1;
+      for (let i = first; i <= first + Math.ceil(W / panelW) + 2; i++) {
+        const sx = i * panelW - scrollX;
+        if (keyB && mod(i, 3) === 1) {
+          ctx.save();
+          ctx.beginPath(); ctx.rect(Math.max(x, sx + 12), y, Math.min(x + w, sx + panelW - 12) - Math.max(x, sx + 12), h); ctx.clip();
+          ctx.translate(-ox, -oy);
+          ctx.fillStyle = this._patterns[keyB];
+          ctx.fillRect(0, 0, W + wall.width * 2, H + wall.height * 2);
+          ctx.restore();
+        }
+        if (mod(i, 3) === 2) {
+          // Arched alcove recess at mid-height.
+          const ax = sx + panelW / 2 - 28, ay = y + Math.round(h * 0.28), aw = 56, ah = Math.round(h * 0.34);
+          ctx.fillStyle = 'rgba(3, 2, 10, 0.62)';
+          ctx.beginPath(); ctx.moveTo(ax, ay + ah); ctx.lineTo(ax, ay + 20); ctx.arc(ax + aw / 2, ay + 20, aw / 2, Math.PI, 0); ctx.lineTo(ax + aw, ay + ah); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = 'rgba(232, 226, 200, 0.10)';
+          ctx.fillRect(ax - 3, ay + 20, 3, ah - 20); ctx.fillRect(ax + aw, ay + 20, 3, ah - 20);
+        }
+        // Pilaster
+        const g = ctx.createLinearGradient(sx - 14, 0, sx + 14, 0);
+        g.addColorStop(0, 'rgba(3, 2, 10, 0)');
+        g.addColorStop(0.5, 'rgba(3, 2, 10, 0.7)');
+        g.addColorStop(1, 'rgba(3, 2, 10, 0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(sx - 14, y, 28, h);
+        ctx.fillStyle = 'rgba(232, 226, 200, 0.12)';
+        ctx.fillRect(sx - 3, y, 2, h);
+      }
+      // Moulding band
+      const my = y + Math.round(h * 0.22) - Math.round(mod(camY * f, 1));
+      ctx.fillStyle = 'rgba(232, 226, 200, 0.10)'; ctx.fillRect(x, my, w, 2);
+      ctx.fillStyle = 'rgba(3, 2, 10, 0.45)'; ctx.fillRect(x, my + 2, w, 5);
       ctx.restore();
       // Interior gloom: darker toward the ceiling and overall desaturated.
       const dark = r.dark == null ? 0.42 : r.dark;
@@ -145,6 +188,23 @@ export class Level {
         ctx.restore();
       }
       if (d.frame === 'torch') drawFlameGlow(ctx, x, y - 36, time + d.x, 22, 0.55);
+      else if (d.frame === 'jack_big') drawFlameGlow(ctx, x, y - 20, time + d.x, 30, 0.7);
+      else if (d.frame === 'jack_small') drawFlameGlow(ctx, x, y - 12, time + d.x, 20, 0.6);
+      else if (d.frame === 'scarecrow') drawFlameGlow(ctx, x, y - 64, time + d.x, 18, 0.6);
+      else if (d.frame === 'lamppost') drawFlameGlow(ctx, x, y - 66, time + d.x, 26, 0.6);
+      else if (d.frame === 'tree') {
+        // Twinkling fairy lights on the fir.
+        const f = assets.frame('xmasprops', 'tree');
+        if (f) {
+          for (let i = 0; i < 7; i++) {
+            const k = (Math.sin(time * 3 + i * 1.7 + d.x) + 1) / 2;
+            if (k < 0.35) continue;
+            const lx = x - f.w / 2 + 6 + ((i * 37) % Math.max(1, f.w - 12)), ly = y - 12 - ((i * 23) % Math.max(1, f.h - 24));
+            ctx.fillStyle = i % 2 ? `rgba(255, 90, 90, ${k})` : `rgba(255, 220, 120, ${k})`;
+            ctx.fillRect(Math.round(lx), Math.round(ly), 2, 2);
+          }
+        }
+      }
     }
   }
 
@@ -196,7 +256,10 @@ export class Level {
         if (t === T_EMPTY || t === T_PLATFORM || t === T_GATE || t === T_BOUND) continue;
         const x = tx * TILE - camX, y = ty * TILE - camY;
         if (isMaterialTile(t)) {
-          const name = MATERIAL_STRIP[t];
+          // Alternate between the material's two strips per 8-tile chunk so
+          // long runs read as patches of different ground.
+          let name = MATERIAL_STRIP[t];
+          if (assets.info(name + '_b') && hash2(tx >> 3, 7) % 100 < 45) name += '_b';
           const info = assets.info(name), img = assets.img(name);
           if (!info) continue;
           const d = this.depth[ty * this.cols + tx];
@@ -205,7 +268,16 @@ export class Level {
             ctx.drawImage(img, sx, 0, TILE, info.overhang + TILE, x, y - info.overhang, TILE, info.overhang + TILE);
           } else {
             ctx.drawImage(img, sx, info.overhang + TILE * d, TILE, TILE, x, y, TILE, TILE);
+            // Subtle per-tile value jitter breaks the repetition of fill rows
+            // (kept faint on pale materials such as snow).
+            const j = hash2(tx, ty) % 100;
+            const jmax = t === T_SNOW ? 0.025 : 0.07;
+            if (j < 55) { ctx.fillStyle = `rgba(4, 3, 10, ${(0.3 + (j % 7) / 7 * 0.7) * jmax})`; ctx.fillRect(x, y, TILE, TILE); }
           }
+          // Exposed vertical faces (pits, steps, cliffs) get a shaded edge.
+          const leftOpen = !this.isSolid(tx - 1, ty), rightOpen = !this.isSolid(tx + 1, ty);
+          if (leftOpen) this.edgeShade(ctx, x, y, 1, d === 0);
+          if (rightOpen) this.edgeShade(ctx, x + TILE, y, -1, d === 0);
         } else if (t === T_BLOCK) {
           assets.draw(ctx, 'props', 'block', x + 16, y + 32);
         } else if (t === T_SPIKES) {
@@ -213,8 +285,28 @@ export class Level {
         }
       }
     }
-    // Platforms (caps + repeating middle).
-    const plat = assets.info('platform'), pImg = assets.img('platform');
+    // Platforms: supports down to the ground, then caps + repeating middle.
+    const platName = assets.info(this.platformImg) ? this.platformImg : 'platform';
+    const plat = assets.info(platName), pImg = assets.img(platName);
+    const wood = platName === 'platform_wood';
+    for (const r of this.platformRuns) {
+      if (r.x1 < tx0 || r.x0 > tx1 || r.y < ty0 - 1 || r.y > ty1) continue;
+      for (let tx = r.x0; tx <= r.x1; tx++) {
+        if (tx !== r.x0 && tx !== r.x1 && (tx - r.x0) % 4 !== 2) continue;
+        // Find ground within 6 tiles below to anchor a post.
+        let gy = -1;
+        for (let k = 1; k <= 6; k++) if (this.isSolid(tx, r.y + k)) { gy = r.y + k; break; }
+        if (gy < 0) continue;
+        const px0 = tx * TILE - camX + 12, py0 = r.y * TILE - camY + 18, ph = gy * TILE - camY - py0;
+        if (ph <= 0) continue;
+        ctx.fillStyle = wood ? '#2a1c12' : '#232033';
+        ctx.fillRect(px0, py0, 8, ph);
+        ctx.fillStyle = wood ? '#4a3220' : '#3d3a52';
+        ctx.fillRect(px0 + 1, py0, 2, ph);
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(px0 + 6, py0, 2, ph);
+      }
+    }
     for (const r of this.platformRuns) {
       if (r.x1 < tx0 || r.x0 > tx1 || r.y < ty0 - 1 || r.y > ty1) continue;
       const y = r.y * TILE - camY - 2;
@@ -228,6 +320,25 @@ export class Level {
       }
     }
   }
+
+  /** Dark gradient along an exposed face; a pale lip where the surface ends. */
+  edgeShade(ctx, x, y, dir, surface) {
+    const g = ctx.createLinearGradient(x, 0, x + dir * 10, 0);
+    g.addColorStop(0, 'rgba(3, 2, 8, 0.55)');
+    g.addColorStop(1, 'rgba(3, 2, 8, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(dir > 0 ? x : x - 10, y, 10, TILE);
+    if (surface) {
+      ctx.fillStyle = 'rgba(232, 226, 200, 0.28)';
+      ctx.fillRect(dir > 0 ? x : x - 1, y - 2, 1, 10);
+    }
+  }
+}
+
+function hash2(a, b) {
+  let h = (a * 374761393 + b * 668265263) | 0;
+  h = (h ^ (h >>> 13)) * 1274126177;
+  return (h ^ (h >>> 16)) >>> 0;
 }
 
 function mod(a, n) { return ((a % n) + n) % n; }

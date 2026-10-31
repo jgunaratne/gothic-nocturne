@@ -157,14 +157,76 @@
   "type": "strip",
   "w": 512
  },
+ "catacomb_b": {
+  "file": "catacomb_b.png",
+  "h": 132,
+  "overhang": 4,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
  "catacombwall": {
   "file": "catacombwall.png",
   "h": 192,
   "type": "texture",
   "w": 192
  },
+ "catacombwall_b": {
+  "file": "catacombwall_b.png",
+  "h": 192,
+  "type": "texture",
+  "w": 192
+ },
+ "catoblepas": {
+  "file": "catoblepas.png",
+  "frames": {
+   "breath": {
+    "ax": 41.5,
+    "ay": 54,
+    "h": 54,
+    "w": 90,
+    "x": 253,
+    "y": 1
+   },
+   "walk0": {
+    "ax": 41.5,
+    "ay": 52,
+    "h": 52,
+    "w": 83,
+    "x": 1,
+    "y": 1
+   },
+   "walk1": {
+    "ax": 41.5,
+    "ay": 52,
+    "h": 52,
+    "w": 83,
+    "x": 85,
+    "y": 1
+   },
+   "walk2": {
+    "ax": 41.5,
+    "ay": 51,
+    "h": 51,
+    "w": 83,
+    "x": 169,
+    "y": 1
+   }
+  },
+  "h": 56,
+  "type": "sheet",
+  "w": 344
+ },
  "clockfloor": {
   "file": "clockfloor.png",
+  "h": 131,
+  "overhang": 3,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "clockfloor_b": {
+  "file": "clockfloor_b.png",
   "h": 131,
   "overhang": 3,
   "tile": 32,
@@ -176,6 +238,58 @@
   "h": 192,
   "type": "texture",
   "w": 192
+ },
+ "clockwall_b": {
+  "file": "clockwall_b.png",
+  "h": 192,
+  "type": "texture",
+  "w": 192
+ },
+ "deepforest": {
+  "file": "deepforest.png",
+  "h": 360,
+  "type": "texture",
+  "w": 1280
+ },
+ "dragon": {
+  "file": "dragon.png",
+  "frames": {
+   "breath": {
+    "ax": 27.5,
+    "ay": 21,
+    "h": 21,
+    "w": 63,
+    "x": 178,
+    "y": 1
+   },
+   "fly0": {
+    "ax": 27.5,
+    "ay": 44,
+    "h": 44,
+    "w": 55,
+    "x": 1,
+    "y": 1
+   },
+   "fly1": {
+    "ax": 29.0,
+    "ay": 29,
+    "h": 29,
+    "w": 58,
+    "x": 57,
+    "y": 1
+   },
+   "glide": {
+    "ax": 30.5,
+    "ay": 28,
+    "h": 28,
+    "w": 61,
+    "x": 116,
+    "y": 1
+   }
+  },
+  "h": 46,
+  "type": "sheet",
+  "w": 242
  },
  "fg": {
   "file": "fg.png",
@@ -191,16 +305,48 @@
   "type": "strip",
   "w": 512
  },
+ "floor_b": {
+  "file": "floor_b.png",
+  "h": 131,
+  "overhang": 3,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
  "forest": {
   "file": "forest.png",
   "h": 360,
   "type": "texture",
   "w": 1280
  },
+ "forestfloor": {
+  "file": "forestfloor.png",
+  "h": 134,
+  "overhang": 6,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "forestfloor_b": {
+  "file": "forestfloor_b.png",
+  "h": 134,
+  "overhang": 6,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
  "ground": {
   "file": "ground.png",
   "h": 136,
   "overhang": 8,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "ground_b": {
+  "file": "ground_b.png",
+  "h": 134,
+  "overhang": 6,
   "tile": 32,
   "type": "strip",
   "w": 512
@@ -308,6 +454,46 @@
   "h": 68,
   "type": "sheet",
   "w": 444
+ },
+ "ice": {
+  "file": "ice.png",
+  "frames": {
+   "golem0": {
+    "ax": 26.0,
+    "ay": 62,
+    "h": 62,
+    "w": 52,
+    "x": 1,
+    "y": 1
+   },
+   "golem1": {
+    "ax": 33.0,
+    "ay": 62,
+    "h": 62,
+    "w": 66,
+    "x": 54,
+    "y": 1
+   },
+   "snowman0": {
+    "ax": 20.0,
+    "ay": 57,
+    "h": 57,
+    "w": 40,
+    "x": 121,
+    "y": 1
+   },
+   "snowman1": {
+    "ax": 27.5,
+    "ay": 58,
+    "h": 58,
+    "w": 55,
+    "x": 162,
+    "y": 1
+   }
+  },
+  "h": 64,
+  "type": "sheet",
+  "w": 218
  },
  "items": {
   "file": "items.png",
@@ -417,6 +603,12 @@
   "type": "texture",
   "w": 320
  },
+ "platform_wood": {
+  "file": "platform_wood.png",
+  "h": 56,
+  "type": "texture",
+  "w": 320
+ },
  "props": {
   "file": "props.png",
   "frames": {
@@ -472,6 +664,126 @@
   "h": 66,
   "type": "sheet",
   "w": 231
+ },
+ "pumpkin": {
+  "file": "pumpkin.png",
+  "frames": {
+   "flame0": {
+    "ax": 14.0,
+    "ay": 35,
+    "h": 35,
+    "w": 28,
+    "x": 67,
+    "y": 1
+   },
+   "flame1": {
+    "ax": 20.0,
+    "ay": 27,
+    "h": 27,
+    "w": 40,
+    "x": 96,
+    "y": 1
+   },
+   "hop0": {
+    "ax": 17.5,
+    "ay": 30,
+    "h": 30,
+    "w": 35,
+    "x": 1,
+    "y": 1
+   },
+   "hop1": {
+    "ax": 14.5,
+    "ay": 33,
+    "h": 33,
+    "w": 29,
+    "x": 37,
+    "y": 1
+   }
+  },
+  "h": 37,
+  "type": "sheet",
+  "w": 137
+ },
+ "pumpkinprops": {
+  "file": "pumpkinprops.png",
+  "frames": {
+   "jack_big": {
+    "ax": 30.0,
+    "ay": 58,
+    "h": 58,
+    "w": 60,
+    "x": 1,
+    "y": 1
+   },
+   "jack_small": {
+    "ax": 15.5,
+    "ay": 33,
+    "h": 33,
+    "w": 31,
+    "x": 62,
+    "y": 1
+   },
+   "pumpkins": {
+    "ax": 29.0,
+    "ay": 45,
+    "h": 45,
+    "w": 58,
+    "x": 94,
+    "y": 1
+   },
+   "scarecrow": {
+    "ax": 58.0,
+    "ay": 76,
+    "h": 76,
+    "w": 116,
+    "x": 153,
+    "y": 1
+   }
+  },
+  "h": 78,
+  "type": "sheet",
+  "w": 270
+ },
+ "santa": {
+  "file": "santa.png",
+  "frames": {
+   "hurt": {
+    "ax": 40.5,
+    "ay": 85,
+    "h": 85,
+    "w": 81,
+    "x": 264,
+    "y": 1
+   },
+   "idle": {
+    "ax": 38.0,
+    "ay": 92,
+    "h": 92,
+    "w": 76,
+    "x": 1,
+    "y": 1
+   },
+   "lunge": {
+    "ax": 52.5,
+    "ay": 79,
+    "h": 79,
+    "w": 105,
+    "x": 158,
+    "y": 1
+   },
+   "throw": {
+    "ax": 39.5,
+    "ay": 77,
+    "h": 77,
+    "w": 79,
+    "x": 78,
+    "y": 1
+   }
+  },
+  "h": 94,
+  "type": "sheet",
+  "w": 346
  },
  "skeleton": {
   "file": "skeleton.png",
@@ -559,6 +871,14 @@
   "type": "texture",
   "w": 640
  },
+ "snowfloor": {
+  "file": "snowfloor.png",
+  "h": 134,
+  "overhang": 6,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
  "vampire": {
   "file": "vampire.png",
   "frames": {
@@ -620,6 +940,106 @@
   "h": 192,
   "type": "texture",
   "w": 192
+ },
+ "wall_b": {
+  "file": "wall_b.png",
+  "h": 192,
+  "type": "texture",
+  "w": 192
+ },
+ "winter": {
+  "file": "winter.png",
+  "h": 360,
+  "type": "texture",
+  "w": 1280
+ },
+ "wisp": {
+  "file": "wisp.png",
+  "frames": {
+   "wisp0": {
+    "ax": 20.0,
+    "ay": 28,
+    "h": 28,
+    "w": 40,
+    "x": 1,
+    "y": 1
+   },
+   "wisp1": {
+    "ax": 20.0,
+    "ay": 28,
+    "h": 28,
+    "w": 40,
+    "x": 42,
+    "y": 1
+   },
+   "wisp2": {
+    "ax": 20.0,
+    "ay": 28,
+    "h": 28,
+    "w": 40,
+    "x": 83,
+    "y": 1
+   },
+   "wisp3": {
+    "ax": 19.5,
+    "ay": 30,
+    "h": 30,
+    "w": 39,
+    "x": 124,
+    "y": 1
+   }
+  },
+  "h": 32,
+  "type": "sheet",
+  "w": 164
+ },
+ "xmasprops": {
+  "file": "xmasprops.png",
+  "frames": {
+   "gifts": {
+    "ax": 20.0,
+    "ay": 38,
+    "h": 38,
+    "w": 40,
+    "x": 121,
+    "y": 1
+   },
+   "lamppost": {
+    "ax": 9.5,
+    "ay": 80,
+    "h": 80,
+    "w": 19,
+    "x": 101,
+    "y": 1
+   },
+   "stump": {
+    "ax": 24.5,
+    "ay": 35,
+    "h": 35,
+    "w": 49,
+    "x": 162,
+    "y": 1
+   },
+   "tree": {
+    "ax": 28.5,
+    "ay": 96,
+    "h": 96,
+    "w": 57,
+    "x": 1,
+    "y": 1
+   },
+   "wreath": {
+    "ax": 20.5,
+    "ay": 44,
+    "h": 44,
+    "w": 41,
+    "x": 59,
+    "y": 1
+   }
+  },
+  "h": 98,
+  "type": "sheet",
+  "w": 212
  },
  "zombie": {
   "file": "zombie.png",

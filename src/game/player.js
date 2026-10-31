@@ -24,10 +24,22 @@ export class Player extends Entity {
     this.throwT = 0;
     this.throwing = false;
     this.crouching = false;
+    this.petrified = 0;            // seconds left turned to stone
   }
 
   get alive() { return this.state !== 'dead'; }
   get attacking() { return this.attackT >= 0; }
+
+  /** Turns the hunter to stone; mashing buttons breaks free sooner. */
+  petrify(world, dur = PLAYER.petrifyTime) {
+    if (this.state === 'dead') return;
+    this.petrified = dur;
+    this.attackT = -1; this.throwing = false;
+    this.crouching = false; this.h = PLAYER.height;
+    this.vx = 0; this.hurtT = 0;
+    world.sfx('block');
+    world.particles.dust(this.x, this.y - 30, 8, '#9a9aa8');
+  }
 
   /** Whip hit box in world coordinates, or null when inactive. */
   whipBox() {
@@ -44,6 +56,21 @@ export class Player extends Entity {
       this.deadT += dt;
       this.vx *= 0.9;
       this.physics(level, dt);
+      return;
+    }
+    if (this.petrified > 0) {
+      // Stone: no control; each button press chips away at the spell.
+      this.petrified -= dt;
+      if (input.anyPressed) { this.petrified -= 0.12; world.particles.dust(this.x, this.y - 30, 1, '#b8b8c4'); }
+      this.invuln = Math.max(0, this.invuln - dt);
+      if (this.onGround) this.vx = 0;
+      this.physics(level, dt);
+      if (this.petrified <= 0) {
+        this.petrified = 0;
+        this.invuln = Math.max(this.invuln, 0.6);
+        world.sfx('block');
+        world.particles.shards(this.x, this.y, 10, '#b8b8c4', this.y);
+      }
       return;
     }
     const ctl = this.hurtT <= 0;
@@ -137,6 +164,7 @@ export class Player extends Entity {
     if (this.invuln > 0 || this.state === 'dead') return false;
     amount = Math.max(1, Math.round(amount * world.difficulty.damageTaken));
     this.hp -= amount;
+    this.petrified = 0;            // a blow shatters the stone shell
     world.sfx('hurt');
     world.camera.shake(3, 0.2);
     if (this.hp <= 0) { this.hp = 0; this.die(world); return true; }
@@ -207,6 +235,39 @@ export class Player extends Entity {
       }
       return;
     }
+    if (this.petrified > 0) {
+      // Stone statue: grey tint, trembling just before it breaks.
+      const jx = this.petrified < 0.35 ? Math.round(Math.sin(this.petrified * 80) * 1.5) : 0;
+      assets.draw(ctx, 'hero', name === 'whip0' || name === 'whip1' ? 'idle' : name, this.x - camX + jx, this.y - camY, this.facing < 0, 1, 1, 'rgba(150, 150, 165, 0.82)');
+      return;
+    }
+    if (this.state === 'attack' && !this.attackCrouch && !this.throwing && name === 'whip1') {
+      this.drawWhipStrike(ctx, assets, this.x - camX, this.y - camY, this.facing < 0, alpha);
+      return;
+    }
     assets.draw(ctx, 'hero', name, this.x - camX, this.y - camY, this.facing < 0, alpha);
+  }
+
+  /**
+   * The strike frame's painted whip is stretched to PLAYER.whipReach: the
+   * body and the knotted tip stay 1:1, the straight lash between them is
+   * scaled horizontally (a 2px line stays crisp with smoothing off).
+   */
+  drawWhipStrike(ctx, assets, x, y, flip, alpha) {
+    const f = assets.frame('hero', 'whip1');
+    if (!f) return;
+    const img = assets.img('hero');
+    const bodyW = 34, tipW = 6, midW = f.w - bodyW - tipW;
+    const total = Math.round(f.ax + PLAYER.whipReach + 10);   // anchor -> tip end
+    const midDest = Math.max(midW, total - bodyW - tipW);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(Math.round(x), Math.round(y - f.ay));
+    if (flip) ctx.scale(-1, 1);
+    const ox = Math.round(-f.ax);
+    ctx.drawImage(img, f.x, f.y, bodyW, f.h, ox, 0, bodyW, f.h);
+    ctx.drawImage(img, f.x + bodyW, f.y, midW, f.h, ox + bodyW, 0, midDest, f.h);
+    ctx.drawImage(img, f.x + bodyW + midW, f.y, tipW, f.h, ox + bodyW + midDest, 0, tipW, f.h);
+    ctx.restore();
   }
 }

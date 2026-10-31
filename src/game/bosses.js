@@ -2,7 +2,7 @@
 // The Phantom Reaper lives in boss.js; the Reaper Lord extends it.
 
 import { SCORE } from '../engine/constants.js';
-import { Enemy, Bat, MedusaHead } from './enemies.js';
+import { Enemy, Bat, MedusaHead, Pumpkin, FrostWisp } from './enemies.js';
 import { Projectile } from './objects.js';
 import { Reaper } from './boss.js';
 
@@ -452,7 +452,216 @@ export function createBoss(type, x, y, arena, difficulty) {
     case 'gorgon': return new Gorgon(x, y, arena, difficulty);
     case 'reaperlord': return new ReaperLord(x, y, arena, difficulty);
     case 'count': return new Count(x, y, arena, difficulty);
+    case 'greatjack': return new GreatJack(x, y, arena, difficulty);
+    case 'devilsanta': return new DevilSanta(x, y, arena, difficulty);
     case 'reaper':
     default: return new Reaper(x, y, arena, difficulty);
+  }
+}
+
+// ------------------------------------------------------------- Great Jack
+
+/** A colossal flaming jack-o'-lantern: spits fireballs, drops hoppers,
+ *  slams the ground, and in phase 2 erupts in rings of flame. */
+export class GreatJack extends Boss {
+  constructor(x, y, arena, difficulty) {
+    super(x, y, arena, difficulty);
+    this.sheet = 'pumpkin'; this.scale = 3.4; this.w = 82; this.h = 86;
+    this.hp = 34; this.maxHp = 34; this.flies = true; this.gravityScale = 0;
+    this.centerY = arena.floorY - 120; this.facing = -1; this.cycle = 0;
+    this.aura = 'rgba(255, 140, 40, 0.22)';
+  }
+
+  update(dt, level, world) {
+    this.t += dt; this.stateT += dt; this.flash = Math.max(0, this.flash - dt);
+    if (this.deathT >= 0) { this.updateDeath(dt, world, 30); if (Math.random() < 0.5) world.particles.embers(this.x + (Math.random() - 0.5) * 60, this.y - 40, 2); return; }
+    this.checkPhase2(world);
+    const p = world.player, a = this.arena;
+    this.frame = Math.floor(this.t * 9) % 2 ? 'flame0' : 'flame1';
+    if (Math.random() < 0.6) world.particles.embers(this.x + (Math.random() - 0.5) * 40, this.y - 70, 1);
+    const dx = p.x - this.x;
+    switch (this.state) {
+      case 'enter':
+        this.alpha = Math.min(1, this.stateT / 1.3);
+        this.y = this.centerY + Math.sin(this.t * 2) * 10;
+        if (this.stateT > 1.6) this.setState('drift');
+        break;
+      case 'drift': {
+        this.alpha = 1; this.faceP(p);
+        const tx = clamp(p.x + (dx > 0 ? -150 : 150), a.x0 + 50, a.x1 - 50);
+        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), (this.phase2 ? 120 : 85) * dt);
+        this.y = this.centerY + Math.sin(this.t * 1.8) * 30;
+        if (this.stateT > (this.phase2 ? 1.3 : 2.0) * this.tempo) {
+          this.cycle++;
+          const r = Math.random();
+          if (this.cycle % 4 === 0) this.setState('summon');
+          else if (this.phase2 && r < 0.3) this.setState('ring');
+          else if (r < 0.65) this.setState('spit');
+          else this.setState('slam');
+        }
+        break;
+      }
+      case 'spit':
+        if (this.stateT > 0.4 && !this.fired) {
+          this.fired = true; this.faceP(p);
+          const n = this.phase2 ? 4 : 3;
+          for (let i = 0; i < n; i++) {
+            const ang = Math.atan2((p.y - 30) - (this.y - 40), p.x - this.x) + (i - (n - 1) / 2) * 0.22;
+            const fb = new Projectile('fireball', this.x + this.facing * 30, this.y - 40, this.facing, 'enemy');
+            fb.vx = Math.cos(ang) * 220; fb.vy = Math.sin(ang) * 220; fb.dir = fb.vx >= 0 ? 1 : -1; fb.gravity = 0;
+            world.spawnProjectile(fb);
+          }
+          world.sfx('fire');
+        }
+        if (this.stateT > 1.0) this.setState('drift');
+        break;
+      case 'summon':
+        if (this.stateT > 0.5 && !this.fired) {
+          this.fired = true;
+          for (let i = 0; i < 2; i++) {
+            const hx = clamp(p.x + (i === 0 ? -120 : 120), a.x0 + 30, a.x1 - 30);
+            const h = new Pumpkin(hx, a.floorY - 200, i === 0 ? 1 : -1, 'hopper');
+            world.spawnEnemy(h);
+          }
+          const l = new Pumpkin(p.facing > 0 ? a.x1 - 10 : a.x0 + 10, p.y - 40, -p.facing, 'lantern');
+          world.spawnEnemy(l);
+          world.sfx('throw');
+        }
+        if (this.stateT > 1.2) this.setState('drift');
+        break;
+      case 'slam': {
+        // Hover over the hunter, then crash down and split flames both ways.
+        if (this.stateT < 0.8) {
+          this.x += (p.x - this.x) * Math.min(1, dt * 3);
+          this.y += ((a.floorY - 200) - this.y) * Math.min(1, dt * 4);
+        } else if (!this.fired) {
+          this.y += 620 * dt;
+          if (this.y >= a.floorY - 40) {
+            this.y = a.floorY - 40; this.fired = true;
+            world.camera.shake(7, 0.4); world.sfx('block');
+            world.spawnFire(this.x - 50, a.floorY); world.spawnFire(this.x + 50, a.floorY);
+            for (const d of [-1, 1]) { const fb = new Projectile('fireball', this.x + d * 40, a.floorY - 16, d, 'enemy'); fb.vx = d * 200; fb.vy = 0; fb.gravity = 0; world.spawnProjectile(fb); }
+          }
+        } else {
+          this.y += ((this.centerY) - this.y) * Math.min(1, dt * 2.5);
+          if (this.stateT > 2.2) this.setState('drift');
+        }
+        break;
+      }
+      case 'ring':
+        this.y += (this.centerY - this.y) * Math.min(1, dt * 3);
+        if (this.stateT > 0.6 && !this.fired) {
+          this.fired = true;
+          for (let i = 0; i < 8; i++) {
+            const ang = (i / 8) * Math.PI * 2 + this.t;
+            const fb = new Projectile('fireball', this.x, this.y - 40, Math.cos(ang) >= 0 ? 1 : -1, 'enemy');
+            fb.vx = Math.cos(ang) * 170; fb.vy = Math.sin(ang) * 170; fb.gravity = 0;
+            world.spawnProjectile(fb);
+          }
+          world.sfx('boss_roar'); world.camera.shake(4, 0.3);
+        }
+        if (this.stateT > 1.3) this.setState('drift');
+        break;
+      default: this.setState('drift');
+    }
+  }
+}
+
+// ------------------------------------------------------------ Devil Santa
+
+/** Horned Devil Santa: hurls cursed presents that burst into ice shards,
+ *  lunges swinging a chain of iron bells, calls frost wisps, and in
+ *  phase 2 summons a blizzard of falling shards. */
+export class DevilSanta extends Boss {
+  constructor(x, y, arena, difficulty) {
+    super(x, y, arena, difficulty);
+    this.sheet = 'santa'; this.w = 36; this.h = 92;
+    this.hp = 60; this.maxHp = 60; this.facing = -1;
+    this.actions = 0; this.frame = 'idle';
+    this.aura = 'rgba(220, 40, 40, 0.18)';
+  }
+
+  update(dt, level, world) {
+    this.t += dt; this.stateT += dt; this.flash = Math.max(0, this.flash - dt);
+    if (this.deathT >= 0) { this.frame = 'hurt'; this.updateDeath(dt, world); return; }
+    this.checkPhase2(world);
+    const p = world.player, a = this.arena;
+    const dx = p.x - this.x;
+    switch (this.state) {
+      case 'enter':
+        this.alpha = Math.min(1, this.stateT / 1.5);
+        this.frame = 'idle'; this.physics(level, dt);
+        if (this.stateT > 1.8) this.setState('stalk');
+        break;
+      case 'stalk': {
+        this.alpha = 1; this.faceP(p);
+        const sp = this.phase2 ? 70 : 48;
+        this.vx = Math.abs(dx) > 90 ? this.facing * sp : 0;
+        this.frame = 'idle';
+        this.physics(level, dt); this.clampX(20);
+        if (this.stateT > (this.phase2 ? 0.7 : 1.1) * this.tempo) {
+          this.actions++;
+          const r = Math.random();
+          if (this.phase2 && this.actions % 4 === 0) this.setState('blizzard');
+          else if (Math.abs(dx) < 120) this.setState('lunge');
+          else if (r < 0.45) this.setState('throw');
+          else if (r < 0.65) this.setState('summon');
+          else this.setState('lunge');
+        }
+        break;
+      }
+      case 'throw':
+        this.vx = 0; this.frame = 'throw'; this.physics(level, dt);
+        if (this.stateT > 0.4 && !this.fired) {
+          this.fired = true; this.faceP(p);
+          const n = this.phase2 ? 3 : 2;
+          for (let i = 0; i < n; i++) {
+            const g = new Projectile('present', this.x + this.facing * 20, this.y - 70, this.facing, 'enemy');
+            g.vx = this.facing * (120 + i * 70); g.vy = -440 + i * 60;
+            world.spawnProjectile(g);
+          }
+          world.sfx('throw');
+        }
+        if (this.stateT > 1.0) this.setState('stalk');
+        break;
+      case 'lunge':
+        if (this.stateT < 0.03) { this.faceP(p); world.sfx('whip'); }
+        this.vx = this.stateT < 0.6 ? this.facing * 260 : 0;
+        this.frame = this.stateT < 0.6 ? 'lunge' : 'idle';
+        this.physics(level, dt); this.clampX(18);
+        if (this.stateT > 1.0) this.setState('stalk');
+        break;
+      case 'summon':
+        this.vx = 0; this.frame = 'throw'; this.physics(level, dt);
+        if (this.stateT > 0.5 && !this.fired) {
+          this.fired = true;
+          for (let i = 0; i < 2; i++) {
+            const w = new FrostWisp(i === 0 ? a.x0 + 10 : a.x1 - 10, p.y - 50 - i * 30, i === 0 ? 1 : -1);
+            world.spawnEnemy(w);
+          }
+          world.sfx('fire');
+        }
+        if (this.stateT > 1.2) this.setState('stalk');
+        break;
+      case 'blizzard':
+        // Shards rain from above across the arena for two seconds.
+        this.vx = 0; this.frame = 'throw'; this.physics(level, dt);
+        this.rainT = (this.rainT || 0) - dt;
+        if (this.stateT > 0.4 && this.stateT < 2.4 && this.rainT <= 0) {
+          this.rainT = 0.16;
+          const sx = a.x0 + Math.random() * (a.x1 - a.x0);
+          const s = new Projectile('iceshard', sx, a.floorY - 300, 1, 'enemy');
+          s.vx = (Math.random() - 0.5) * 60; s.vy = 220; s.gravity = 0.2; s.life = 2.5;
+          world.spawnProjectile(s);
+        }
+        if (this.stateT > 2.8) this.setState('stalk');
+        break;
+      default: this.setState('stalk');
+    }
+  }
+
+  swingBox() {
+    if (this.state !== 'lunge' || this.stateT > 0.6) return null;
+    return { x: this.facing > 0 ? this.x : this.x - 60, y: this.y - 84, w: 60, h: 74 };
   }
 }

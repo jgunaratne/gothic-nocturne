@@ -54,6 +54,23 @@ export class Assets {
     if (alpha !== 1) ctx.restore();
   }
 
+  /** Cached copy of a whole image multiplied toward black (far parallax). */
+  darkened(name, amount) {
+    const key = `${name}|dark|${amount}`;
+    let c = this.tintCache.get(key);
+    if (c) return c;
+    const img = this.images[name];
+    c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = `rgba(6, 5, 16, ${amount})`;
+    g.fillRect(0, 0, c.width, c.height);
+    this.tintCache.set(key, c);
+    return c;
+  }
+
   /** Cached tinted copy of a frame (colour multiplied where opaque). */
   tinted(sheet, name, color) {
     const key = `${sheet}|${name}|${color}`;

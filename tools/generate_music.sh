@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Regenerates the full-length Lyria 3 score: one distinct track per stage plus
+# title, boss and ending. Clips land in /tmp/song_<name>.mp3.
+set -u
+G=/google/bin/releases/gemini-agents-generate/generate
+STYLE="Full-length instrumental video game music (about two and a half minutes, with an intro, main theme, a contrasting bridge and a return to the main theme that can loop) for a gothic horror side-scrolling action platformer, 32-bit console era style with clean bright slightly compressed sound. No vocals, no lyrics, instrumental only."
+gen() {
+  local name="$1"; shift
+  if [ -s "/tmp/song_${name}.mp3" ]; then echo "= ${name} exists"; return; fi
+  "$G" -timeout=600s -output="/tmp/song_${name}.mp3" music -model=lyria-3-full-song-mp3 "$* ${STYLE}" 2>&1 | grep -E "Successfully|rror|denied" | tail -2
+}
+gen graveyard "Stage theme for a moonlit graveyard road leading to a haunted castle: driving baroque rock in D minor at 150 BPM, harpsichord and pipe-organ arpeggios, pulsing synth bass, crisp punchy drums, heroic soaring lead synth, dramatic chord changes, adventurous and ominous."
+gen jack "Stage theme for a haunted autumn forest full of glowing carved pumpkins: a mischievous sinister Halloween waltz-rock in B minor at 140 BPM, swirling pipe organ, pizzicato strings, tubular bells, bouncy synth bass, crisp drums, a playful but menacing harpsichord melody, a soaring lead synth in the chorus."
+gen yule "Stage theme for a snowbound haunted village on Christmas night: a sinister twisted Christmas theme in E minor at 150 BPM, driving sleigh bells and tubular bells, music-box and celesta melodies turned menacing, pipe organ, pizzicato strings, crunchy synth bass, crisp drums, choir swells, hints of a carol-like melody warped into a minor key."
+gen ramparts "Stage theme for the windswept outer walls and battlements of a vampire's castle at night: heroic gothic march in C minor at 145 BPM, brass-like synth fanfares, rolling timpani and snare, pipe organ chords, galloping synth bass, a bold determined lead melody, gusts of wind-like swells, grand and dangerous."
+gen catacombs "Stage theme for dripping catacombs and ossuaries beneath a castle: eerie tense mid-tempo at 128 BPM in E minor, deep pizzicato synth bass, rattling bone-like percussion with a tight drum kit, ghostly detuned organ chords, mournful harpsichord melody, low choir swells, subterranean echo."
+gen ossuary "Stage theme for a vast ossuary of a thousand skulls: slow heavy dread at 112 BPM in F minor, deep male choir drones, tolling bells, dissonant harpsichord clusters, thunderous low toms and chains percussion, a sinister creeping lead melody that builds to a frantic climax before sinking back into gloom."
+gen tower "Stage theme for climbing a giant clock tower full of turning gears: driving and mechanical at 160 BPM in G minor, ticking clockwork percussion with woodblock and rimshot, relentless synth bass ostinato, bright harpsichord and music-box arpeggios, soaring heroic lead synth, pipe organ accents, rising urgency."
+gen throne "Stage theme for the final approach through the throne hall of the vampire count: majestic and menacing organ fugue in A minor at 138 BPM, full pipe organ counterpoint, dark string synths, martial drums, harpsichord flourishes, a grand villainous theme that turns heroic in the chorus, climactic and regal."
+gen title "Title screen theme for a gothic horror castle video game: slow and ominous at 72 BPM in D minor, haunting pipe organ, deep tolling church bell, ethereal choir pad, sparse music-box melody, distant timpani, slowly unfolding and foreboding, building to a brief grand statement of the hero theme before receding."
+gen boss "Boss battle theme: aggressive symphonic metal in A minor at 172 BPM, pounding double-kick drums, distorted power-chord synth guitar riffs, menacing pipe organ stabs, frantic harpsichord runs, ominous low choir pad, a screaming lead synth melody, relentless tension with a desperate heroic chorus."
+gen ending "Ending theme as dawn breaks over the ruined castle: gentle and triumphant at 92 BPM in D major, warm string-pad synth, soft piano melody, distant church bells, quiet harpsichord counter-melody, building to a hopeful brass-like synth crescendo and settling into a peaceful sunrise coda."
+ls -la /tmp/song_*.mp3
+for f in /tmp/song_*.mp3; do printf "%s " "$f"; ffprobe -v error -show_entries format=duration -of csv=p=0 "$f"; done

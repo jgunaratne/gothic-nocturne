@@ -18,13 +18,15 @@ export const T_GATE = 6;         // boss gate (solid while closed)
 export const T_BOUND = 7;        // invisible solid
 export const T_CATACOMB = 8;     // ossuary flagstones (strip "catacomb")
 export const T_CLOCK = 9;        // clock-tower iron walkway (strip "clockfloor")
+export const T_FOREST = 10;      // autumn forest floor (strip "forestfloor")
+export const T_SNOW = 11;        // snowbound ground (strip "snowfloor")
 
 /** Terrain material tile id -> strip asset name. */
-export const MATERIAL_STRIP = { [T_GROUND]: 'ground', [T_STONE]: 'floor', [T_CATACOMB]: 'catacomb', [T_CLOCK]: 'clockfloor' };
+export const MATERIAL_STRIP = { [T_GROUND]: 'ground', [T_STONE]: 'floor', [T_CATACOMB]: 'catacomb', [T_CLOCK]: 'clockfloor', [T_FOREST]: 'forestfloor', [T_SNOW]: 'snowfloor' };
 export const isMaterialTile = (t) => t in MATERIAL_STRIP;
 
 export const isSolidTile = (t) =>
-  t === T_GROUND || t === T_STONE || t === T_CATACOMB || t === T_CLOCK ||
+  t === T_GROUND || t === T_STONE || t === T_CATACOMB || t === T_CLOCK || t === T_FOREST || t === T_SNOW ||
   t === T_BLOCK || t === T_GATE || t === T_BOUND;
 
 // Gameplay tuning
@@ -45,7 +47,8 @@ export const PLAYER = {
   whipDamage: 2,
   whipTime: 0.40,
   whipActive: [0.13, 0.31],
-  whipReach: 62,
+  whipReach: 96,
+  petrifyTime: 1.5,
 };
 
 export const SCORE = {

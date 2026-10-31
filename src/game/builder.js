@@ -3,16 +3,18 @@
 // Coordinates are tiles; `row` is the current walking surface row.
 
 import {
-  TILE, T_GROUND, T_STONE, T_CATACOMB, T_CLOCK, T_BLOCK, T_SPIKES,
+  TILE, T_GROUND, T_STONE, T_CATACOMB, T_CLOCK, T_FOREST, T_SNOW, T_BLOCK, T_SPIKES,
 } from '../engine/constants.js';
 
 export const THEMES = {
-  graveyard: { outdoor: true, layers: 'outdoor', material: T_GROUND, wall: 'wall', wallParallax: 1, dark: 0.42, music: 'stage', bg: '#0b0a14', decor: 'graveyard', accent: '#9ad17a' },
-  ramparts: { outdoor: true, layers: 'ramparts', material: T_STONE, wall: 'wall', wallParallax: 1, dark: 0.42, music: 'stage', bg: '#0b0a14', decor: 'ramparts', accent: '#8a9ab5' },
-  catacombs: { outdoor: false, layers: null, material: T_CATACOMB, wall: 'catacombwall', wallParallax: 0.6, dark: 0.5, music: 'catacombs', bg: '#050408', decor: 'crypt', accent: '#c9b58a' },
-  ossuary: { outdoor: false, layers: null, material: T_CATACOMB, wall: 'catacombwall', wallParallax: 0.6, dark: 0.62, music: 'catacombs', bg: '#040306', decor: 'crypt', accent: '#b7a9c9' },
-  clocktower: { outdoor: false, layers: null, material: T_CLOCK, wall: 'clockwall', wallParallax: 0.5, dark: 0.42, music: 'tower', bg: '#06050a', decor: 'clockwork', accent: '#d9a44a' },
-  throne: { outdoor: false, layers: null, material: T_STONE, wall: 'wall', wallParallax: 0.7, dark: 0.3, music: 'stage', bg: '#0a0710', decor: 'castle', accent: '#e23c3c' },
+  graveyard: { outdoor: true, layers: 'outdoor', material: T_GROUND, wall: 'wall', wallParallax: 1, dark: 0.42, music: 'graveyard', bg: '#0b0a14', decor: 'graveyard', accent: '#9ad17a', platform: 'platform' },
+  forest: { outdoor: true, layers: 'forest', material: T_FOREST, wall: 'wall', wallParallax: 1, dark: 0.42, music: 'jack', bg: '#0b0a14', decor: 'forest', accent: '#ff9a3c', platform: 'platform_wood' },
+  yule: { outdoor: true, layers: 'winter', material: T_SNOW, wall: 'wall', wallParallax: 1, dark: 0.42, music: 'yule', bg: '#0a0c18', decor: 'yule', accent: '#9ad8ff', platform: 'platform_wood', weather: 'snow' },
+  ramparts: { outdoor: true, layers: 'ramparts', material: T_STONE, wall: 'wall', wallParallax: 1, dark: 0.42, music: 'ramparts', bg: '#0b0a14', decor: 'ramparts', accent: '#8a9ab5', platform: 'platform' },
+  catacombs: { outdoor: false, layers: null, material: T_CATACOMB, wall: 'catacombwall', wallParallax: 0.6, dark: 0.5, music: 'catacombs', bg: '#050408', decor: 'crypt', accent: '#c9b58a', platform: 'platform' },
+  ossuary: { outdoor: false, layers: null, material: T_CATACOMB, wall: 'catacombwall', wallParallax: 0.6, dark: 0.62, music: 'ossuary', bg: '#040306', decor: 'crypt', accent: '#b7a9c9', platform: 'platform' },
+  clocktower: { outdoor: false, layers: null, material: T_CLOCK, wall: 'clockwall', wallParallax: 0.5, dark: 0.42, music: 'tower', bg: '#06050a', decor: 'clockwork', accent: '#d9a44a', platform: 'platform_wood' },
+  throne: { outdoor: false, layers: null, material: T_STONE, wall: 'wall', wallParallax: 0.7, dark: 0.3, music: 'throne', bg: '#0a0710', decor: 'castle', accent: '#e23c3c', platform: 'platform' },
 };
 
 const px = (tx) => tx * TILE + TILE / 2;
@@ -53,8 +55,9 @@ export class StageBuilder {
   placeEnemies(list, x0, x1, row) {
     for (const [type, off, o = {}] of list || []) {
       const tx = x0 + off;
-      if (type === 'skeleton') this.enemies.push({ type, tx, row: o.row == null ? row : o.row, min: o.min == null ? x0 : o.min, max: o.max == null ? x1 : o.max, variant: o.variant || 'normal' });
-      else if (type === 'bat') this.enemies.push({ type, tx, ty: row - (o.h || 5), variant: o.variant || 'normal' });
+      const base = { type, tx, variant: o.variant || 'normal', min: o.min == null ? x0 : o.min, max: o.max == null ? x1 : o.max };
+      if (type === 'bat' || type === 'dragon') this.enemies.push(Object.assign(base, { ty: row - (o.h || 5) }));
+      else this.enemies.push(Object.assign(base, { row: o.row == null ? row : o.row }));
     }
   }
 
@@ -86,6 +89,19 @@ export class StageBuilder {
         if (r < 0.07) this.gear(tx, row, this.pick([28, 36, 48, 60]), this.pick([0.35, -0.5, 0.7, -0.25]), -60 - this.rng() * 110);
         else if (r < 0.11) this.deco('arch', 'chain', tx, row, 0, -96);
         else if (r < 0.15) this.deco('props', 'torch', tx, row, 0, -46);
+      } else if (kind === 'forest') {
+        if (r < 0.07) this.deco('pumpkinprops', 'jack_big', tx, row);
+        else if (r < 0.14) this.deco('pumpkinprops', 'jack_small', tx, row);
+        else if (r < 0.18) this.deco('pumpkinprops', 'pumpkins', tx, row);
+        else if (r < 0.21) this.deco('pumpkinprops', 'scarecrow', tx, row);
+        else if (r < 0.28) this.deco('props', 'shrub', tx, row);
+      } else if (kind === 'yule') {
+        if (r < 0.06) this.deco('xmasprops', 'tree', tx, row);
+        else if (r < 0.10) this.deco('xmasprops', 'lamppost', tx, row);
+        else if (r < 0.14) this.deco('xmasprops', 'gifts', tx, row);
+        else if (r < 0.17) this.deco('xmasprops', 'wreath', tx, row, 0, -70);
+        else if (r < 0.22) this.deco('xmasprops', 'stump', tx, row);
+        else if (r < 0.26) this.deco('props', 'tombstone', tx, row);
       }
     }
   }
@@ -206,8 +222,21 @@ export class StageBuilder {
     this.op((lv) => lv.ground(x0, x0 + len - 1, row, this.mat));
     this.candle(x0 + 4, row, 'heart_big');
     this.candle(x0 + 16, row, 'heart_big');
-    if (this.theme.decor === 'graveyard') {
+    const kind = this.theme.decor;
+    if (kind === 'graveyard') {
       this.deco('props', 'tombstone', x0 + 3, row); this.deco('props', 'tombstone', x0 + 17, row);
+    } else if (kind === 'forest') {
+      [x0 + 3, x0 + 17].forEach((tx) => this.deco('pumpkinprops', 'jack_big', tx, row));
+      [x0 + 7, x0 + 13].forEach((tx) => this.deco('pumpkinprops', 'scarecrow', tx, row));
+      this.deco('pumpkinprops', 'pumpkins', x0 + 10, row);
+    } else if (kind === 'yule') {
+      [x0 + 3, x0 + 17].forEach((tx) => this.deco('xmasprops', 'tree', tx, row));
+      [x0 + 7, x0 + 13].forEach((tx) => this.deco('xmasprops', 'lamppost', tx, row));
+      this.deco('xmasprops', 'gifts', x0 + 10, row);
+    } else if (kind === 'ramparts') {
+      this.deco('arch', 'column', x0 + 3, row); this.deco('arch', 'column', x0 + 18, row);
+      [x0 + 8, x0 + 12].forEach((tx) => this.deco('arch', 'banner', tx, row, 0, -48));
+      this.deco('props', 'torch', x0 + 6, row, 0, -46); this.deco('props', 'torch', x0 + 14, row, 0, -46);
     } else {
       this.deco('arch', 'column', x0 + 3, row); this.deco('arch', 'column', x0 + 18, row);
       [x0 + 6, x0 + 10, x0 + 14].forEach((tx) => this.deco('arch', 'window', tx, row, 0, -24));
@@ -242,7 +271,7 @@ export class StageBuilder {
       build(level) { ops.forEach((fn) => fn(level)); },
       rooms, decor: this.decor, blockDrops: this.blockDrops,
       candles: this.candles, enemies: this.enemies, spawners: this.spawners,
-      boss: this.boss,
+      boss: this.boss, platform: t.platform || 'platform',
     };
   }
 }

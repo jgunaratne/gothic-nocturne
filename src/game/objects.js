@@ -91,6 +91,11 @@ export class Projectile {
       case 'skull': this.vx = dir * 120; this.vy = -40; this.damage = 2; this.life = 4; this.w = 14; this.h = 14; this.pierce = 99; this.homing = true; break;
       case 'hellfire': this.vx = dir * 180; this.vy = 0; this.damage = 3; this.life = 2.6; this.w = 16; this.h = 16; this.pierce = 99; break;
       case 'gaze': this.vx = dir * 380; this.vy = 0; this.damage = 3; this.life = 1.6; this.w = 34; this.h = 10; this.pierce = 99; break;
+      case 'gas': this.vx = dir * 70; this.vy = 4; this.ax = -dir * 22; this.damage = 1; this.life = 2.6; this.w = 26; this.h = 26; this.pierce = 99; this.petrify = true; break;
+      case 'fireball': this.vx = dir * 230; this.vy = 0; this.gravity = 0.12; this.damage = 3; this.life = 2.2; this.w = 14; this.h = 14; break;
+      case 'iceshard': this.vx = dir * 260; this.vy = -60; this.gravity = 0.35; this.damage = 2; this.life = 2; this.w = 12; this.h = 8; break;
+      case 'snowball': this.vx = dir * 190; this.vy = -330; this.gravity = 0.9; this.damage = 2; this.w = 12; this.h = 12; break;
+      case 'present': this.vx = dir * 150; this.vy = -420; this.gravity = 1; this.damage = 3; this.w = 16; this.h = 16; this.bursts = true; break;
       default: this.vx = dir * 200; this.vy = 0;
     }
   }
@@ -111,6 +116,13 @@ export class Projectile {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     this.spin += dt * (this.type === 'dagger' ? 0 : 14) * this.dir;
+    if (this.type === 'gas') {
+      // The cloud billows out and thins as it drifts.
+      const k = this.time / 2.6;
+      this.w = this.h = 26 + k * 30;
+      if (Math.random() < 0.4) world.particles.emit({ x: this.x + (Math.random() - 0.5) * this.w, y: this.y + (Math.random() - 0.5) * this.h, vx: this.vx * 0.3, vy: -10, life: 0.6, color: 'rgba(150, 130, 180, 0.35)', size: 5, gravity: -0.02, shrink: true });
+    }
+    if (this.type === 'fireball' && Math.random() < 0.6) world.particles.embers(this.x - this.dir * 6, this.y, 1);
     // Tile contact
     const tx = Math.floor(this.x / TILE), ty = Math.floor(this.y / TILE);
     if (level.isSolid(tx, ty) || (this.type === 'holy_water' && this.vy > 0 && level.isStandable(tx, Math.floor((this.y + 4) / TILE)))) {
@@ -119,8 +131,21 @@ export class Projectile {
         world.spawnFire(this.x, floorY);
       } else if (this.type === 'dagger') {
         world.particles.sparks(this.x, this.y, 4, '#cfd8e8');
+      } else if (this.type === 'fireball') {
+        world.particles.embers(this.x, this.y, 8);
+      } else if (this.type === 'present' && this.bursts) {
+        // Cursed gift: bursts into a fan of ice shards.
+        world.particles.sparks(this.x, this.y - 8, 10, '#e23c3c');
+        for (let i = -1; i <= 1; i++) {
+          const s = new Projectile('iceshard', this.x, this.y - 10, i === 0 ? this.dir : i, 'enemy');
+          s.vx = i * 170 + (i === 0 ? this.dir * 40 : 0); s.vy = -260 + Math.abs(i) * 60;
+          world.spawnProjectile(s);
+        }
+        world.sfx('block');
+      } else if (this.type === 'snowball' || this.type === 'iceshard') {
+        world.particles.dust(this.x, this.y, 4, '#dfe8ff');
       }
-      if (this.type !== 'sickle' && this.type !== 'skull' && this.type !== 'hellfire' && this.type !== 'gaze') this.dead = true;
+      if (!['sickle', 'skull', 'hellfire', 'gaze', 'gas'].includes(this.type)) this.dead = true;
     }
     if (this.y > level.height + 60 || this.x < -40 || this.x > level.width + 40) this.dead = true;
   }
@@ -198,6 +223,61 @@ export class Projectile {
         ctx.fillRect(-14, -2, 28, 4);
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(this.dir * 8 - 3, -1, 6, 2);
+        break;
+      }
+      case 'gas': {
+        // Petrifying breath: overlapping violet-grey puffs that thin out.
+        const k = 1 - this.time / 2.6, r = this.w / 2;
+        ctx.globalAlpha = 0.55 * k + 0.15;
+        for (let i = 0; i < 5; i++) {
+          const a = this.time * 1.5 + i * 1.26;
+          const px0 = Math.cos(a) * r * 0.45, py0 = Math.sin(a * 1.3) * r * 0.35;
+          const g = ctx.createRadialGradient(px0, py0, 1, px0, py0, r * 0.7);
+          g.addColorStop(0, 'rgba(170, 150, 200, 0.6)');
+          g.addColorStop(1, 'rgba(110, 90, 140, 0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(px0 - r, py0 - r, r * 2, r * 2);
+        }
+        break;
+      }
+      case 'fireball': {
+        const t = this.time;
+        const g = ctx.createRadialGradient(0, 0, 1, 0, 0, 14);
+        g.addColorStop(0, 'rgba(255, 240, 180, 0.95)');
+        g.addColorStop(0.45, 'rgba(255, 140, 40, 0.7)');
+        g.addColorStop(1, 'rgba(200, 60, 20, 0)');
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = g;
+        ctx.fillRect(-14, -14, 28, 28);
+        ctx.fillStyle = '#fff2b0';
+        ctx.fillRect(-3, -3 + Math.round(Math.sin(t * 40)), 6, 6);
+        ctx.fillStyle = 'rgba(255, 120, 30, 0.8)';
+        ctx.fillRect(-this.dir * 12 - 3, -2, 6, 4);
+        break;
+      }
+      case 'iceshard': {
+        ctx.rotate(Math.atan2(this.vy, this.vx));
+        ctx.fillStyle = '#dff4ff';
+        ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-6, -4); ctx.lineTo(-4, 0); ctx.lineTo(-6, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#8ac8ff';
+        ctx.fillRect(-4, -1, 8, 2);
+        break;
+      }
+      case 'snowball': {
+        ctx.fillStyle = '#eef6ff';
+        ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#b9d4f2';
+        ctx.fillRect(-2, 1, 3, 2); ctx.fillRect(1, -3, 2, 2);
+        break;
+      }
+      case 'present': {
+        ctx.rotate(this.spin * 0.5);
+        ctx.fillStyle = '#9b1c2c';
+        ctx.fillRect(-7, -7, 14, 14);
+        ctx.fillStyle = '#1a1420';
+        ctx.fillRect(-7, -1, 14, 2); ctx.fillRect(-1, -7, 2, 14);
+        ctx.fillStyle = '#e8c35a';
+        ctx.fillRect(-3, -9, 6, 3);
         break;
       }
       default: break;
