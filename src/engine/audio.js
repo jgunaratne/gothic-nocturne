@@ -4,9 +4,12 @@
 const TRACKS = {
   title: 'assets/music/title.mp3',
   stage: 'assets/music/stage.mp3',
+  catacombs: 'assets/music/catacombs.mp3',
+  tower: 'assets/music/tower.mp3',
   boss: 'assets/music/boss.mp3',
   clear: 'assets/music/clear.mp3',
   gameover: 'assets/music/gameover.mp3',
+  ending: 'assets/music/ending.mp3',
 };
 
 export class AudioSys {

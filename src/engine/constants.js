@@ -16,9 +16,16 @@ export const T_SPIKES = 4;       // hazard
 export const T_BLOCK = 5;        // breakable block
 export const T_GATE = 6;         // boss gate (solid while closed)
 export const T_BOUND = 7;        // invisible solid
+export const T_CATACOMB = 8;     // ossuary flagstones (strip "catacomb")
+export const T_CLOCK = 9;        // clock-tower iron walkway (strip "clockfloor")
+
+/** Terrain material tile id -> strip asset name. */
+export const MATERIAL_STRIP = { [T_GROUND]: 'ground', [T_STONE]: 'floor', [T_CATACOMB]: 'catacomb', [T_CLOCK]: 'clockfloor' };
+export const isMaterialTile = (t) => t in MATERIAL_STRIP;
 
 export const isSolidTile = (t) =>
-  t === T_GROUND || t === T_STONE || t === T_BLOCK || t === T_GATE || t === T_BOUND;
+  t === T_GROUND || t === T_STONE || t === T_CATACOMB || t === T_CLOCK ||
+  t === T_BLOCK || t === T_GATE || t === T_BOUND;
 
 // Gameplay tuning
 export const PLAYER = {

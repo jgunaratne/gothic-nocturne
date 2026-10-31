@@ -10,24 +10,29 @@ import { Level } from './level.js';
 import { Parallax } from './parallax.js';
 import { Player } from './player.js';
 import { Skeleton, Bat, Spawner } from './enemies.js';
-import { Reaper } from './boss.js';
+import { createBoss } from './bosses.js';
+import { THEMES } from './builder.js';
 import { Candle, Item, Projectile, Fire, rollDrop, rectsOverlap } from './objects.js';
 
 export class World {
-  constructor(game, data) {
+  /** `carry` = {score, lives, hearts, subWeapon} when continuing from a stage. */
+  constructor(game, data, carry = null) {
     this.game = game;
     this.assets = game.assets;
     this.audio = game.audio;
     this.font = game.font;
     this.data = data;
+    this.stage = data;
+    this.theme = THEMES[data.theme] || THEMES.graveyard;
     this.difficulty = game.difficulty;
     this.level = new Level(data);
-    this.parallax = new Parallax(this.assets, this.level.height);
+    this.parallax = new Parallax(this.assets, this.level.height, this.theme.layers || 'outdoor');
     this.particles = new Particles();
     this.camera = new Camera(this.level.width, this.level.height);
-    this.score = 0;
-    this.lives = this.difficulty.lives;
-    this.hearts = this.difficulty.hearts;
+    this.score = carry ? carry.score : 0;
+    this.lives = carry ? carry.lives : this.difficulty.lives;
+    this.hearts = carry ? carry.hearts : this.difficulty.hearts;
+    this.subWeaponCarry = carry ? carry.subWeapon : null;
     this.timeLeft = this.difficulty.time;
     this.checkpoint = 0;
     this.time = 0;
@@ -39,7 +44,6 @@ export class World {
     this.phaseT = 0;
     this.bossActive = false;
     this.boss = null;
-    this.subWeaponCarry = null;
     this.spawnAll();
   }
 
@@ -63,8 +67,8 @@ export class World {
       this.candles.push(new Candle(c[0] * TILE + TILE / 2, c[1] * TILE, c[2] || null));
     }
     for (const e of d.enemies) {
-      if (e.type === 'skeleton') this.spawnEnemy(new Skeleton(e.tx * TILE + TILE / 2, e.row * TILE, e.min * TILE, (e.max + 1) * TILE));
-      else if (e.type === 'bat') this.spawnEnemy(new Bat(e.tx * TILE + TILE / 2, e.ty * TILE + 16));
+      if (e.type === 'skeleton') this.spawnEnemy(new Skeleton(e.tx * TILE + TILE / 2, e.row * TILE, e.min * TILE, (e.max + 1) * TILE, e.variant));
+      else if (e.type === 'bat') this.spawnEnemy(new Bat(e.tx * TILE + TILE / 2, e.ty * TILE + 16, e.variant));
     }
     const cx = d.checkpoints[this.checkpoint];
     const col = Math.floor(cx / TILE);
@@ -74,7 +78,7 @@ export class World {
     this.player.subWeapon = this.subWeaponCarry;
     this.camera.snapTo(this.player.x, this.player.y);
     this.phase = 'intro'; this.phaseT = 0;
-    this.showMessage('STAGE 1', d.name, 2.6);
+    this.showMessage(`STAGE ${d.id || 1}`, d.name, 2.6);
   }
 
   // --------------------------------------------------------- utilities
@@ -307,7 +311,7 @@ export class World {
     this.gateClosed = true;
     for (let r = b.gateRows[0]; r <= b.gateRows[1]; r++) this.level.set(b.gateCol, r, T_GATE);
     this.camera.setBounds(b.camX, b.camX);
-    this.boss = new Reaper(b.spawn.x, b.spawn.y, b.arena, this.difficulty);
+    this.boss = createBoss(b.type || 'reaper', b.spawn.x, b.spawn.y, b.arena, this.difficulty);
     this.spawnEnemy(this.boss);
     const dbgHp = parseInt(this.game.params.get('bosshp') || '0', 10);   // testing aid
     if (dbgHp > 0) this.boss.hp = dbgHp;
@@ -317,6 +321,11 @@ export class World {
     this.showMessage(b.name, 'DEFEAT IT TO CLAIM THE ORB', 3);
     this.audio.playMusic('boss');
     setTimeout(() => this.sfx('boss_roar'), 900);
+  }
+
+  /** Snapshot of what persists into the next stage. */
+  carry() {
+    return { score: this.score, lives: this.lives, hearts: this.hearts, subWeapon: this.player.subWeapon || this.subWeaponCarry };
   }
 
   stageClear() {
@@ -330,6 +339,7 @@ export class World {
   }
 
   updateLightning(dt) {
+    if (!this.theme.outdoor) { this.flash = 0; return; }
     this.flash = Math.max(0, this.flash - dt * 2.2);
     this.nextLightning -= dt;
     if (this.nextLightning <= 0) {
@@ -350,11 +360,18 @@ export class World {
     const cam = this.camera;
     const camX = cam.rx, camY = cam.ry;
     const t = this.time;
-    const indoors = this.player.x > 103 * TILE;
+    const outdoor = this.theme.outdoor;
+    const roomX = this.level.rooms.length ? this.level.rooms[0].x0 * TILE : Infinity;
+    const indoors = !outdoor || this.player.x > roomX + TILE;
     const flash = indoors ? this.flash * 0.35 : this.flash;
 
-    this.parallax.drawSky(ctx, cam, flash);
-    this.parallax.drawBack(ctx, cam, flash);
+    if (outdoor) {
+      this.parallax.drawSky(ctx, cam, flash);
+      this.parallax.drawBack(ctx, cam, flash);
+    } else {
+      ctx.fillStyle = this.theme.bg || '#05040a';
+      ctx.fillRect(0, 0, W, H);
+    }
     this.level.drawRooms(ctx, cam, this.assets);
     this.level.drawDecor(ctx, cam, this.assets, t);
     if (this.gateClosed) {
@@ -371,9 +388,10 @@ export class World {
     for (const pr of this.projectiles) pr.draw(ctx, this.assets, camX, camY);
     this.particles.draw(ctx, camX, camY);
     // Foreground branches/fence only exist outdoors: fade as the castle begins.
-    const roomX = this.level.rooms.length ? this.level.rooms[0].x0 * TILE : Infinity;
-    const fgAlpha = Math.max(0, Math.min(1, (roomX - (camX + W * 0.5)) / 240)) * 0.9;
-    this.parallax.drawFront(ctx, cam, fgAlpha);
+    if (outdoor) {
+      const fgAlpha = Math.max(0, Math.min(1, (roomX - (camX + W * 0.5)) / 240)) * 0.9;
+      this.parallax.drawFront(ctx, cam, fgAlpha);
+    }
     if (flash > 0) { ctx.fillStyle = `rgba(230, 235, 255, ${0.14 * flash})`; ctx.fillRect(0, 0, W, H); }
     // Vignette
     ctx.fillStyle = this.vignette(ctx);

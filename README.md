@@ -1,16 +1,19 @@
 # Gothic Nocturne
 
-A 32-bit era, whip-cracking side-scrolling action platformer set on the
-midnight road to a haunted castle. Six parallax layers (sky, mountains, castle,
-dead forest, drifting fog, foreground branches), tile terrain, candelabra to
-whip for hearts and sub-weapons, skeletons, rising zombies, swooping bats,
-medusa heads, and a Phantom Reaper boss fight.
+A 32-bit era, whip-cracking side-scrolling action platformer across six
+stages: from a moonlit graveyard road, along the castle ramparts, down through
+catacombs and an ossuary, up a clock tower of grinding gears, and into the
+throne hall of the Count. Multi-layer parallax outdoors, scrolling far walls
+indoors, tile terrain, candelabra to whip for hearts and sub-weapons,
+skeletons (and red reviving / axe-throwing variants), rising zombies and
+ghouls, swooping and fire bats, medusa heads, and a different boss at the end
+of every stage.
 
 - **Art**: every tile, sprite and backdrop was generated with Gemini's image
   model, then normalized into crisp pixel art by a deterministic pipeline.
-- **Music**: five tracks generated with **Lyria 3** (title, stage, boss,
-  stage-clear, game-over), looped with crossfades. Sound effects are
-  synthesized in-browser with Web Audio.
+- **Music**: eight tracks generated with **Lyria 3** (title, three stage
+  themes, boss, stage-clear, game-over, ending), looped with crossfades. Sound
+  effects are synthesized in-browser with Web Audio.
 - **Engine**: plain HTML5 canvas + ES modules, no build step, no dependencies.
   Native 640×360, integer-scaled with nearest-neighbour sampling.
 
@@ -31,7 +34,28 @@ medusa heads, and a Phantom Reaper boss fight.
 
 Whip candelabra for hearts, money, and sub-weapons (dagger, axe, holy water).
 Breakable blocks hide meat and gold. Spike pits hurt; bottomless pits kill.
-Reach the inner sanctum, defeat the Phantom Reaper, and claim the orb.
+Defeat each stage's boss and claim the orb to march into the next stage.
+
+## Stages
+
+Pick any stage on the "Select stage" screen (shown after the difficulty
+choice; cleared stages are marked and your last stage is remembered).
+Clearing a stage carries score, lives, hearts and sub-weapon into the next one;
+clearing stage 6 plays the ending.
+
+| # | Stage | Theme | Signature hazards | Boss |
+| --- | --- | --- | --- | --- |
+| 1 | The Graveyard Road | outdoors → castle gate | zombies, bats, medusa heads | The Great Bat |
+| 2 | The Ramparts | outdoors, castle walls | long gaps, ledge hops, axe skeletons | The Bone Captain |
+| 3 | The Catacombs | ossuary walls, crawl corridors | red skeletons, breakable walls | The Phantom Reaper |
+| 4 | The Ossuary | darker crypt | spike fields, ghouls, fire bats | The Gorgon Queen |
+| 5 | The Clock Tower | vertical climb, turning gears | ledge ascents, bat swarms | The Reaper Lord |
+| 6 | The Throne Hall | the keep's great hall | everything at once | The Count |
+
+Stage 1 is hand-built (`src/game/level_data.js`); stages 2–6 are composed
+from prefab segments by `src/game/builder.js` (`flat`, `gap`, `spikeRun`,
+`stepUp/stepDown`, `climb`, `corridor`, `blocks`, `arena`) in
+`src/game/stages.js`, so adding a stage is a dozen lines.
 
 ## Difficulty
 
@@ -54,9 +78,11 @@ index.html            canvas shell
 src/main.js           boot, scaling, fixed-step loop, title/pause/clear/game-over
 src/engine/           input (keyboard, gamepad, scripted), assets, audio, font,
                       particles, camera, constants
-src/game/             level grid + rendering, stage data, parallax, entities,
-                      player, enemies, boss, objects (candles/items/projectiles/fire),
-                      world (combat, scripting, draw order), hud
+src/game/             level grid + rendering, builder (prefabs + themes), stages,
+                      level_data (stage 1), parallax, entities, player, enemies,
+                      boss (Reaper), bosses (the other five + factory), objects
+                      (candles/items/projectiles/fire), world (combat, scripting,
+                      draw order), hud
 assets/               engine-ready PNGs + atlas.json, music/*.mp3
 art/raw/              untouched generations (provenance)   art/PROMPTS.md
 tools/                process_assets.py (pipeline), asset_manifest.json,
@@ -88,5 +114,5 @@ tools/screenshot.sh "demo=1&skip=600" /tmp/shot.png
 URL parameters: `demo=1` drives the hunter with a scripted input loop,
 `skip=N` pre-simulates N fixed steps before the first frame, `at=<column>`
 teleports to a tile column, `bosshp=N` weakens the boss,
-`difficulty=easy|normal|hard` presets the difficulty, `screen=difficulty`
-opens the select screen directly.
+`difficulty=easy|normal|hard` presets the difficulty, `stage=1..6` picks the
+stage, `screen=difficulty|stageselect|ending` opens a screen directly.

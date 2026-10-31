@@ -149,6 +149,34 @@
   "type": "texture",
   "w": 1280
  },
+ "catacomb": {
+  "file": "catacomb.png",
+  "h": 132,
+  "overhang": 4,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "catacombwall": {
+  "file": "catacombwall.png",
+  "h": 192,
+  "type": "texture",
+  "w": 192
+ },
+ "clockfloor": {
+  "file": "clockfloor.png",
+  "h": 131,
+  "overhang": 3,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "clockwall": {
+  "file": "clockwall.png",
+  "h": 192,
+  "type": "texture",
+  "w": 192
+ },
  "fg": {
   "file": "fg.png",
   "h": 360,
@@ -530,6 +558,62 @@
   "h": 360,
   "type": "texture",
   "w": 640
+ },
+ "vampire": {
+  "file": "vampire.png",
+  "frames": {
+   "cape": {
+    "ax": 78.0,
+    "ay": 84,
+    "h": 84,
+    "w": 156,
+    "x": 49,
+    "y": 1
+   },
+   "cast": {
+    "ax": 34.0,
+    "ay": 87,
+    "h": 87,
+    "w": 68,
+    "x": 206,
+    "y": 1
+   },
+   "hurt": {
+    "ax": 50.0,
+    "ay": 76,
+    "h": 76,
+    "w": 100,
+    "x": 487,
+    "y": 1
+   },
+   "idle": {
+    "ax": 23.5,
+    "ay": 84,
+    "h": 84,
+    "w": 47,
+    "x": 1,
+    "y": 1
+   },
+   "lunge0": {
+    "ax": 55.0,
+    "ay": 76,
+    "h": 76,
+    "w": 110,
+    "x": 275,
+    "y": 1
+   },
+   "lunge1": {
+    "ax": 50.0,
+    "ay": 76,
+    "h": 76,
+    "w": 100,
+    "x": 386,
+    "y": 1
+   }
+  },
+  "h": 89,
+  "type": "sheet",
+  "w": 588
  },
  "wall": {
   "file": "wall.png",

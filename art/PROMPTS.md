@@ -20,6 +20,7 @@ subject part is listed here.
 | `bat_sheet.png` | Vampire bat facing right, 3 flap frames (wings up / level / down), violet-grey fur, red eyes. (Returned 2 rows; row 1 used.) |
 | `medusa_sheet.png` | Floating severed medusa head facing right, 2 frames (snakes up / out), lavender-grey skin, amber eyes. |
 | `boss_sheet.png` | Spectral grim-reaper phantom boss, 4 frames: hover A, hover B, scythe raised wind-up, forward scythe swing. Tattered violet-black robe, skeletal hands, crimson eyes, bone-handled scythe. |
+| `boss_vampire_sheet.png` | Aristocratic vampire count final boss facing right: regal idle, cape spread like bat wings, casting blue-violet hellfire, two claw lunges, hurt recoil. Pale skin, widow's peak, red eyes, black and crimson attire with gold trim. (Returned as 2 rows of 3.) |
 
 ## Environment
 
@@ -28,6 +29,10 @@ subject part is listed here.
 | `tex_wall_brick.png` | Seamless castle interior stone-brick wall, running bond, cracks, faint moss. → `assets/wall.png` 192×192 (6 courses, one tile high each). |
 | `tex_ground_strip.png` | Side-view graveyard terrain cross-section: green sky above a horizontal surface line with dead-grass tufts, bones and pebbles; layered dark earth with stones, roots and skulls below. → `assets/ground.png` (8 px grass overhang + 4 depth rows). |
 | `tex_castle_floor_strip.png` | Side-view castle floor cross-section: carved stone ledge with a beveled top and moulding, running-bond blocks below. → `assets/floor.png`. |
+| `tex_catacomb_wall.png` | Seamless ossuary wall: rough stone blocks with niches stacked with skulls and long bones, cobwebs, damp stains. → `assets/catacombwall.png` 192×192. |
+| `tex_catacomb_floor_strip.png` | Side-view catacomb floor cross-section: uneven flagstones with bone fragments and a skull, packed rock with embedded skeletons below. → `assets/catacomb.png`. |
+| `tex_clock_wall.png` | Seamless clock-tower interior wall: riveted iron plates, girders, aged brass panels and flush cogs. → `assets/clockwall.png` 192×192. |
+| `tex_clock_floor_strip.png` | Side-view iron walkway cross-section: riveted plates with brass trim, girder lattice and gear fragments below. → `assets/clockfloor.png`. |
 | `tex_platform.png` | Single floating carved stone ledge, ~10:1, distinct left/right end caps, moss and a cobweb underneath. → `assets/platform.png` 320×68 (32 px caps). |
 | `props_sheet.png` | Row of 6 props: 3-candle iron candelabra, wall torch in a sconce, cracked breakable block, four floor spikes, gothic tombstone with a cross, dead shrub. |
 | `arch_sheet.png` | Row of 5 architectural props: gothic column, pointed-arch stained-glass window (violet/crimson), spiked portcullis in an archway, crimson heraldic banner with a gold bat crest, hanging chain with shackle. |
@@ -52,6 +57,9 @@ subject part is listed here.
 | `title.mp3` | Slow ominous title theme: haunting pipe organ in D minor at 70 BPM, tolling church bell, ethereal choir pad, sparse music-box melody, distant timpani; loopable, no vocals. |
 | `clear.mp3` | Short triumphant victory fanfare in D major at 140 BPM: brass-like synth fanfare, rolling snare, harpsichord flourish, organ resolution. |
 | `gameover.mp3` | Somber game-over sting: slow descending pipe-organ phrase in D minor at 60 BPM, single funeral bell, dark choir pad fading to silence. |
+| `catacombs.mp3` | Eerie mid-tempo stage theme at 128 BPM in E minor: pizzicato synth bass, rattling bone percussion, ghostly detuned organ, mournful harpsichord, low choir swells, subterranean echo; loopable, no vocals. |
+| `tower.mp3` | Driving mechanical stage theme at 160 BPM in G minor: ticking clockwork percussion, synth-bass ostinato, harpsichord and music-box arpeggios, heroic lead, organ accents; loopable, no vocals. |
+| `ending.mp3` | Gentle triumphant ending at 92 BPM in D major: warm string pad, soft piano, distant bells, harpsichord counter-melody building to a hopeful crescendo. |
 
 The in-game loop plays each track with a 350 ms equal-power crossfade and trims
 encoder padding automatically (see `src/engine/audio.js`).

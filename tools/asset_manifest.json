@@ -1,55 +1,354 @@
 {
  "assets": {
-  "wall": {"type": "texture", "src": "tex_wall_brick.png", "size": [192, 192],
-           "colors": 24, "seamless": "blend"},
-  "ground": {"type": "strip", "src": "tex_ground_strip.png", "size": [512, null],
-             "overhang": 8, "depth_tiles": 4, "colors": 32},
-  "floor": {"type": "strip", "src": "tex_castle_floor_strip.png", "size": [512, null],
-            "overhang": 3, "depth_tiles": 4, "colors": 32},
-  "platform": {"type": "texture", "src": "tex_platform.png", "key": true,
-               "cropAlpha": true, "size": [320, null], "colors": 24},
-  "sky": {"type": "texture", "src": "bg_sky.png", "size": [640, 360], "colors": 48,
-          "seamless": "blend"},
-  "mountains": {"type": "texture", "src": "bg_mountains.png", "key": true,
-                "size": [640, 360], "colors": 16, "seamless": "mirror"},
-  "castle": {"type": "texture", "src": "bg_castle.png", "key": true,
-             "size": [640, 360], "colors": 16, "seamless": "mirror"},
-  "forest": {"type": "texture", "src": "bg_forest.png", "key": true,
-             "size": [640, 360], "colors": 16, "seamless": "mirror"},
-  "fg": {"type": "texture", "src": "bg_fg.png", "key": true, "size": [640, 360],
-         "colors": 8, "seamless": "mirror"},
-
-  "hero": {"type": "sheet", "src": "hero_sheet.png", "height": 64, "ref": "idle",
-           "colors": 32,
-           "rows": [["walk0", "walk1", "walk2", "walk3", "walk4", "walk5"],
-                    ["idle", "jump", "crouch", "whip0", "whip1", "hurt"]],
-           "anchors": {"whip0": "right", "whip1": "left"}},
-  "skeleton": {"type": "sheet", "src": "skeleton_sheet.png", "height": 60,
-               "ref": "walk0", "colors": 24,
-               "rows": [["walk0", "walk1", "walk2", "walk3"],
-                        ["walkb0", "walkb1", "walkb2", "throw0", "throw1"]],
-               "anchors": {"throw1": "left"}},
-  "bat": {"type": "sheet", "src": "bat_sheet.png", "height": 30, "ref": "fly1",
-          "colors": 16,
-          "rows": [["fly0", "fly1", "fly2"], ["alt0", "alt1", "alt2"]]},
-  "zombie": {"type": "sheet", "src": "zombie_sheet.png", "height": 58,
-             "ref": "walk0", "colors": 24,
-             "rows": [["walk0", "walk1", "walk2", "walk3"]]},
-  "medusa": {"type": "sheet", "src": "medusa_sheet.png", "height": 30, "ref": "a",
-             "colors": 16, "rows": [["a", "b"]]},
-  "boss": {"type": "sheet", "src": "boss_sheet.png", "height": 136, "ref": "idle0",
-           "colors": 24, "rows": [["idle0", "idle1", "windup", "swing"]]},
-  "items": {"type": "sheet", "src": "items_sheet.png", "height": 18,
-            "ref": "heart_big", "colors": 24,
-            "rows": [["heart_small", "heart_big", "axe", "dagger", "holy_water",
-                      "meat", "orb", "money"]]},
-  "props": {"type": "sheet", "src": "props_sheet.png", "height": 64,
-            "ref": "candelabra", "colors": 32,
-            "rows": [["candelabra", "torch", "block", "spikes", "tombstone", "shrub"]],
-            "fit": {"block": [32, 32], "spikes": [64, 24], "torch": [24, 40]}},
-  "arch": {"type": "sheet", "src": "arch_sheet.png", "height": 128, "ref": "column",
-           "colors": 32,
-           "rows": [["column", "window", "gate", "banner", "chain"]],
-           "fit": {"gate": [80, 96], "chain": [12, 96]}}
+  "wall": {
+   "type": "texture",
+   "src": "tex_wall_brick.png",
+   "size": [
+    192,
+    192
+   ],
+   "colors": 24,
+   "seamless": "blend"
+  },
+  "ground": {
+   "type": "strip",
+   "src": "tex_ground_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 8,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "floor": {
+   "type": "strip",
+   "src": "tex_castle_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 3,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "platform": {
+   "type": "texture",
+   "src": "tex_platform.png",
+   "key": true,
+   "cropAlpha": true,
+   "size": [
+    320,
+    null
+   ],
+   "colors": 24
+  },
+  "sky": {
+   "type": "texture",
+   "src": "bg_sky.png",
+   "size": [
+    640,
+    360
+   ],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "mountains": {
+   "type": "texture",
+   "src": "bg_mountains.png",
+   "key": true,
+   "size": [
+    640,
+    360
+   ],
+   "colors": 16,
+   "seamless": "mirror"
+  },
+  "castle": {
+   "type": "texture",
+   "src": "bg_castle.png",
+   "key": true,
+   "size": [
+    640,
+    360
+   ],
+   "colors": 16,
+   "seamless": "mirror"
+  },
+  "forest": {
+   "type": "texture",
+   "src": "bg_forest.png",
+   "key": true,
+   "size": [
+    640,
+    360
+   ],
+   "colors": 16,
+   "seamless": "mirror"
+  },
+  "fg": {
+   "type": "texture",
+   "src": "bg_fg.png",
+   "key": true,
+   "size": [
+    640,
+    360
+   ],
+   "colors": 8,
+   "seamless": "mirror"
+  },
+  "hero": {
+   "type": "sheet",
+   "src": "hero_sheet.png",
+   "height": 64,
+   "ref": "idle",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3",
+     "walk4",
+     "walk5"
+    ],
+    [
+     "idle",
+     "jump",
+     "crouch",
+     "whip0",
+     "whip1",
+     "hurt"
+    ]
+   ],
+   "anchors": {
+    "whip0": "right",
+    "whip1": "left"
+   }
+  },
+  "skeleton": {
+   "type": "sheet",
+   "src": "skeleton_sheet.png",
+   "height": 60,
+   "ref": "walk0",
+   "colors": 24,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3"
+    ],
+    [
+     "walkb0",
+     "walkb1",
+     "walkb2",
+     "throw0",
+     "throw1"
+    ]
+   ],
+   "anchors": {
+    "throw1": "left"
+   }
+  },
+  "bat": {
+   "type": "sheet",
+   "src": "bat_sheet.png",
+   "height": 30,
+   "ref": "fly1",
+   "colors": 16,
+   "rows": [
+    [
+     "fly0",
+     "fly1",
+     "fly2"
+    ],
+    [
+     "alt0",
+     "alt1",
+     "alt2"
+    ]
+   ]
+  },
+  "zombie": {
+   "type": "sheet",
+   "src": "zombie_sheet.png",
+   "height": 58,
+   "ref": "walk0",
+   "colors": 24,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3"
+    ]
+   ]
+  },
+  "medusa": {
+   "type": "sheet",
+   "src": "medusa_sheet.png",
+   "height": 30,
+   "ref": "a",
+   "colors": 16,
+   "rows": [
+    [
+     "a",
+     "b"
+    ]
+   ]
+  },
+  "boss": {
+   "type": "sheet",
+   "src": "boss_sheet.png",
+   "height": 136,
+   "ref": "idle0",
+   "colors": 24,
+   "rows": [
+    [
+     "idle0",
+     "idle1",
+     "windup",
+     "swing"
+    ]
+   ]
+  },
+  "items": {
+   "type": "sheet",
+   "src": "items_sheet.png",
+   "height": 18,
+   "ref": "heart_big",
+   "colors": 24,
+   "rows": [
+    [
+     "heart_small",
+     "heart_big",
+     "axe",
+     "dagger",
+     "holy_water",
+     "meat",
+     "orb",
+     "money"
+    ]
+   ]
+  },
+  "props": {
+   "type": "sheet",
+   "src": "props_sheet.png",
+   "height": 64,
+   "ref": "candelabra",
+   "colors": 32,
+   "rows": [
+    [
+     "candelabra",
+     "torch",
+     "block",
+     "spikes",
+     "tombstone",
+     "shrub"
+    ]
+   ],
+   "fit": {
+    "block": [
+     32,
+     32
+    ],
+    "spikes": [
+     64,
+     24
+    ],
+    "torch": [
+     24,
+     40
+    ]
+   }
+  },
+  "arch": {
+   "type": "sheet",
+   "src": "arch_sheet.png",
+   "height": 128,
+   "ref": "column",
+   "colors": 32,
+   "rows": [
+    [
+     "column",
+     "window",
+     "gate",
+     "banner",
+     "chain"
+    ]
+   ],
+   "fit": {
+    "gate": [
+     80,
+     96
+    ],
+    "chain": [
+     12,
+     96
+    ]
+   }
+  },
+  "catacombwall": {
+   "type": "texture",
+   "src": "tex_catacomb_wall.png",
+   "size": [
+    192,
+    192
+   ],
+   "colors": 24,
+   "seamless": "blend"
+  },
+  "catacomb": {
+   "type": "strip",
+   "src": "tex_catacomb_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 4,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "clockwall": {
+   "type": "texture",
+   "src": "tex_clock_wall.png",
+   "size": [
+    192,
+    192
+   ],
+   "colors": 24,
+   "seamless": "blend"
+  },
+  "clockfloor": {
+   "type": "strip",
+   "src": "tex_clock_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 3,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "vampire": {
+   "type": "sheet",
+   "src": "boss_vampire_sheet.png",
+   "height": 84,
+   "ref": "idle",
+   "colors": 32,
+   "rows": [
+    [
+     "idle",
+     "cape",
+     "cast"
+    ],
+    [
+     "lunge0",
+     "lunge1",
+     "hurt"
+    ]
+   ]
+  }
  }
 }

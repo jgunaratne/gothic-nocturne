@@ -15,7 +15,7 @@ export function drawHud(ctx, font, assets, world) {
   const dim = '#8a9ab5', ivory = '#e8e2c8', shadow = '#120f1c';
   font.draw(ctx, `SCORE-${String(world.score).padStart(7, '0')}`, 12, 7, { color: ivory, shadow });
   font.draw(ctx, `TIME ${String(Math.max(0, Math.ceil(world.timeLeft))).padStart(4, '0')}`, 190, 7, { color: ivory, shadow });
-  font.draw(ctx, 'STAGE 01', 300, 7, { color: ivory, shadow });
+  font.draw(ctx, `STAGE ${String(world.stage.id || 1).padStart(2, '0')}`, 300, 7, { color: ivory, shadow });
   font.draw(ctx, `P-${String(world.lives).padStart(2, '0')}`, 392, 7, { color: ivory, shadow });
   const diff = world.difficulty;
   font.draw(ctx, diff.name, 450, 7, { color: diff.key === 'hard' ? '#e23c3c' : diff.key === 'easy' ? '#9ad17a' : dim, shadow });

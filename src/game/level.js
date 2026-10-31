@@ -1,8 +1,8 @@
 // Tile grid, collision queries and level rendering.
 
 import {
-  TILE, T_EMPTY, T_GROUND, T_STONE, T_PLATFORM, T_SPIKES, T_BLOCK, T_GATE, T_BOUND,
-  isSolidTile, W, H,
+  TILE, T_EMPTY, T_GROUND, T_PLATFORM, T_SPIKES, T_BLOCK, T_GATE, T_BOUND,
+  MATERIAL_STRIP, isMaterialTile, isSolidTile, W, H,
 } from '../engine/constants.js';
 
 export class Level {
@@ -18,6 +18,7 @@ export class Level {
     this.blockDrops = data.blockDrops || {};
     this.checkpoints = data.checkpoints || [];
     this.platformRuns = [];
+    this.gearCache = new Map();
     data.build(this);
     this.recompute();
   }
@@ -38,7 +39,7 @@ export class Level {
       let run = 0, prev = T_EMPTY;
       for (let y = 0; y < this.rows; y++) {
         const t = this.tiles[y * this.cols + x];
-        if ((t === T_GROUND || t === T_STONE) && t === prev) run++; else run = 0;
+        if (isMaterialTile(t) && t === prev) run++; else run = 0;
         this.depth[y * this.cols + x] = Math.min(run, 3);
         prev = t;
       }
@@ -85,36 +86,45 @@ export class Level {
 
   // ------------------------------------------------------------ drawing
   drawRooms(ctx, cam, assets) {
-    const wall = assets.img('wall');
     const camX = cam.rx, camY = cam.ry;
     for (const r of this.rooms) {
+      const key = r.wall || 'wall';
+      const wall = assets.img(key);
+      const f = r.parallax == null ? 1 : r.parallax;
       const x = r.x0 * TILE - camX, y = r.y0 * TILE - camY;
       const w = (r.x1 - r.x0 + 1) * TILE, h = (r.y1 - r.y0 + 1) * TILE;
-      if (x > W || x + w < 0) continue;
+      if (x > W || x + w < 0 || y > H || y + h < 0) continue;
       ctx.save();
       ctx.beginPath();
       ctx.rect(x, y, w, h);
       ctx.clip();
-      if (!this._wallPattern) this._wallPattern = ctx.createPattern(wall, 'repeat');
-      ctx.translate(-camX, -camY);           // align the pattern to world space
-      ctx.fillStyle = this._wallPattern;
-      ctx.fillRect(r.x0 * TILE, r.y0 * TILE, w, h);
+      if (!this._patterns) this._patterns = {};
+      if (!this._patterns[key]) this._patterns[key] = ctx.createPattern(wall, 'repeat');
+      // The wall scrolls at its own parallax factor (far wall of a big hall).
+      const ox = mod(camX * f, wall.width), oy = mod(camY * f, wall.height);
+      ctx.translate(-ox, -oy);
+      ctx.fillStyle = this._patterns[key];
+      ctx.fillRect(0, 0, W + wall.width * 2, H + wall.height * 2);
       ctx.restore();
       // Interior gloom: darker toward the ceiling and overall desaturated.
-      ctx.fillStyle = 'rgba(10, 8, 24, 0.42)';
+      const dark = r.dark == null ? 0.42 : r.dark;
+      ctx.fillStyle = `rgba(10, 8, 24, ${dark})`;
       ctx.fillRect(x, y, w, h);
-      const g = ctx.createLinearGradient(0, y, 0, y + h);
+      const gy0 = Math.max(y, -H), gy1 = Math.min(y + h, H * 2);
+      const g = ctx.createLinearGradient(0, gy0, 0, gy1);
       g.addColorStop(0, 'rgba(4, 3, 12, 0.7)');
       g.addColorStop(0.45, 'rgba(4, 3, 12, 0.1)');
       g.addColorStop(1, 'rgba(4, 3, 12, 0.3)');
       ctx.fillStyle = g;
       ctx.fillRect(x, y, w, h);
-      // Shadowed doorway edge where the outer wall begins.
-      const e = ctx.createLinearGradient(x, 0, x + 40, 0);
-      e.addColorStop(0, 'rgba(2, 2, 8, 0.85)');
-      e.addColorStop(1, 'rgba(2, 2, 8, 0)');
-      ctx.fillStyle = e;
-      ctx.fillRect(x, y, 40, h);
+      if (r.edge !== false && x > -40) {
+        // Shadowed doorway edge where the outer wall begins.
+        const e = ctx.createLinearGradient(x, 0, x + 40, 0);
+        e.addColorStop(0, 'rgba(2, 2, 8, 0.85)');
+        e.addColorStop(1, 'rgba(2, 2, 8, 0)');
+        ctx.fillStyle = e;
+        ctx.fillRect(x, y, 40, h);
+      }
     }
   }
 
@@ -122,7 +132,8 @@ export class Level {
     const camX = cam.rx, camY = cam.ry;
     for (const d of this.decor) {
       const x = d.x - camX, y = d.y - camY;
-      if (x < -80 || x > W + 80) continue;
+      if (x < -200 || x > W + 200 || y < -200 || y > H + 300) continue;
+      if (d.type === 'gear') { this.drawGear(ctx, x, y, d, time); continue; }
       assets.draw(ctx, d.sheet, d.frame, x, y);
       if (d.frame === 'window') {
         // Soft moonlit glow through the glass.
@@ -137,23 +148,57 @@ export class Level {
     }
   }
 
+  /** Procedural brass gear (cached sprite) rotating in place. */
+  drawGear(ctx, x, y, d, time) {
+    const r = d.r || 40;
+    let c = this.gearCache.get(r);
+    if (!c) {
+      c = document.createElement('canvas');
+      const teeth = Math.max(8, Math.round(r / 4));
+      c.width = c.height = r * 2 + 12;
+      const g = c.getContext('2d');
+      g.translate(c.width / 2, c.height / 2);
+      g.fillStyle = '#3a2f22';
+      for (let i = 0; i < teeth; i++) {
+        const a = (i / teeth) * Math.PI * 2;
+        g.save(); g.rotate(a); g.fillRect(-r * 0.09, -r - 5, r * 0.18, 10); g.restore();
+      }
+      g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#5a4a30';
+      g.beginPath(); g.arc(0, 0, r - 4, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#2a2218';
+      g.beginPath(); g.arc(0, 0, r * 0.62, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#5a4a30';
+      for (let i = 0; i < 5; i++) { g.save(); g.rotate((i / 5) * Math.PI * 2); g.fillRect(-r * 0.07, 0, r * 0.14, r * 0.62); g.restore(); }
+      g.beginPath(); g.arc(0, 0, r * 0.2, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#8a7444';
+      g.beginPath(); g.arc(0, 0, r * 0.1, 0, Math.PI * 2); g.fill();
+      this.gearCache.set(r, c);
+    }
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate(time * (d.speed || 0.4));
+    ctx.globalAlpha = d.alpha == null ? 0.9 : d.alpha;
+    ctx.drawImage(c, -c.width / 2, -c.height / 2);
+    ctx.restore();
+  }
+
   drawTiles(ctx, cam, assets) {
     const camX = cam.rx, camY = cam.ry;
     const tx0 = Math.max(0, Math.floor(camX / TILE) - 1);
     const tx1 = Math.min(this.cols - 1, Math.ceil((camX + W) / TILE) + 1);
     const ty0 = Math.max(0, Math.floor(camY / TILE) - 1);
     const ty1 = Math.min(this.rows - 1, Math.ceil((camY + H) / TILE) + 1);
-    const ground = assets.info('ground'), floor = assets.info('floor');
-    const gImg = assets.img('ground'), fImg = assets.img('floor');
     const spikes = assets.frame('props', 'spikes'), propsImg = assets.img('props');
     for (let ty = ty0; ty <= ty1; ty++) {
       for (let tx = tx0; tx <= tx1; tx++) {
         const t = this.tiles[ty * this.cols + tx];
         if (t === T_EMPTY || t === T_PLATFORM || t === T_GATE || t === T_BOUND) continue;
         const x = tx * TILE - camX, y = ty * TILE - camY;
-        if (t === T_GROUND || t === T_STONE) {
-          const info = t === T_GROUND ? ground : floor;
-          const img = t === T_GROUND ? gImg : fImg;
+        if (isMaterialTile(t)) {
+          const name = MATERIAL_STRIP[t];
+          const info = assets.info(name), img = assets.img(name);
+          if (!info) continue;
           const d = this.depth[ty * this.cols + tx];
           const sx = (tx * TILE) % info.w;
           if (d === 0) {
@@ -184,6 +229,8 @@ export class Level {
     }
   }
 }
+
+function mod(a, n) { return ((a % n) + n) % n; }
 
 /** Additive-ish flickering glow used by candles and torches. */
 export function drawFlameGlow(ctx, x, y, t, radius = 24, strength = 0.6) {

@@ -16,6 +16,8 @@ export class Enemy extends Entity {
     this.knock = 0;
     this.active = false;
     this.flies = false;
+    this.tint = null;      // optional colour multiply (variants)
+    this.scale = 1;        // sprite scale (bosses built from enemy sheets)
   }
 
   get alive() { return !this.dead && this.deathT < 0; }
@@ -45,12 +47,12 @@ export class Enemy extends Entity {
   }
 
   drawSprite(ctx, assets, camX, camY, flip, alpha = 1) {
-    assets.draw(ctx, this.sheet, this.frame, this.x - camX, this.y - camY, flip, alpha);
+    assets.draw(ctx, this.sheet, this.frame, this.x - camX, this.y - camY, flip, alpha, this.scale, this.tint);
     if (this.flash > 0 && Math.floor(this.flash * 40) % 2 === 0) {
       // Hit flash: additive re-draw brightens the sprite.
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      assets.draw(ctx, this.sheet, this.frame, this.x - camX, this.y - camY, flip, 0.8 * alpha);
+      assets.draw(ctx, this.sheet, this.frame, this.x - camX, this.y - camY, flip, 0.8 * alpha, this.scale, this.tint);
       ctx.restore();
     }
   }
@@ -68,18 +70,37 @@ export class Enemy extends Entity {
 // --------------------------------------------------------------- skeleton
 
 export class Skeleton extends Enemy {
-  constructor(x, y, min, max) {
+  constructor(x, y, min, max, variant = 'normal') {
     super(x, y);
     this.w = 22; this.h = 56; this.hp = 4; this.score = SCORE.skeleton;
     this.sheet = 'skeleton'; this.minX = min; this.maxX = max;
     this.throwT = 2 + Math.random();
     this.state = 'walk'; this.stateT = 0; this.animT = 0;
     this.speed = 42; this.facing = -1;
+    this.variant = variant;
+    this.projectile = 'bone';
+    if (variant === 'red') {
+      // Red skeletons collapse into a bone pile and reassemble.
+      this.hp = 3; this.tint = 'rgba(225, 55, 55, 0.5)'; this.speed = 50; this.revives = true;
+    } else if (variant === 'axe') {
+      this.hp = 5; this.tint = 'rgba(90, 130, 230, 0.42)'; this.projectile = 'axe'; this.score = SCORE.skeleton + 100;
+    }
+    this.pileT = 0;
   }
+
+  get alive() { return !this.dead && this.deathT < 0 && this.pileT <= 0; }
 
   update(dt, level, world) {
     if (this.deathT >= 0) { this.updateDeath(dt); return; }
     this.flash = Math.max(0, this.flash - dt);
+    if (this.pileT > 0) {
+      // Bone pile: harmless until it reassembles.
+      this.pileT -= dt;
+      this.vx = 0;
+      this.physics(level, dt);
+      if (this.pileT <= 0) { this.hp = 3; this.flash = 0.3; this.state = 'walk'; this.stateT = 0; world.particles.dust(this.x, this.y, 6, '#c9c3b0'); }
+      return;
+    }
     const p = world.player;
     const dx = p.x - this.x;
     const near = Math.abs(dx) < 320 && p.alive;
@@ -116,8 +137,10 @@ export class Skeleton extends Enemy {
         this.frame = 'throw1';
         if (!this.thrown) {
           this.thrown = true;
-          world.spawnProjectile(new Projectile('bone', this.x + this.facing * 10, this.y - 46, this.facing, 'enemy'));
-          world.sfx('bone');
+          const pr = new Projectile(this.projectile, this.x + this.facing * 10, this.y - 46, this.facing, 'enemy');
+          if (this.projectile === 'axe') { pr.vx = this.facing * 150; pr.vy = -400; pr.damage = 3; }
+          world.spawnProjectile(pr);
+          world.sfx(this.projectile === 'axe' ? 'throw' : 'bone');
         }
         if (this.stateT > 0.75) {
           this.state = 'walk'; this.thrown = false;
@@ -129,21 +152,48 @@ export class Skeleton extends Enemy {
   }
 
   kill(world) {
+    if (this.revives) {
+      // Collapse instead of dying; score only the first time.
+      if (!this.scored) { this.scored = true; world.addScore(this.score); }
+      world.sfx('enemy_die');
+      world.particles.shards(this.x, this.y, 10, '#e8b0a0', this.y);
+      this.pileT = 4.5;
+      this.frame = 'walk0';
+      return;
+    }
     super.kill(world);
     world.particles.shards(this.x, this.y, 14, '#e8e2c8', this.y);
+  }
+
+  draw(ctx, assets, camX, camY) {
+    if (this.pileT > 0) {
+      // Flattened frame reads as a heap of bones; it twitches before rising.
+      const k = this.pileT < 0.8 ? 0.25 + (0.8 - this.pileT) / 0.8 * 0.75 : 0.25;
+      ctx.save();
+      ctx.translate(Math.round(this.x - camX), Math.round(this.y - camY));
+      ctx.scale(1, k);
+      assets.draw(ctx, this.sheet, 'walk0', 0, 0, this.facing < 0, 1, 1, this.tint);
+      ctx.restore();
+      return;
+    }
+    super.draw(ctx, assets, camX, camY);
   }
 }
 
 // ----------------------------------------------------------------- zombie
 
 export class Zombie extends Enemy {
-  constructor(x, y, dir) {
+  constructor(x, y, dir, variant = 'normal') {
     super(x, y);
     this.w = 20; this.h = 54; this.hp = 1; this.score = SCORE.zombie;
     this.sheet = 'zombie'; this.facing = dir; this.speed = 30;
     this.rise = 0.7;          // seconds left in the rising animation
     this.animT = Math.random() * 4;
     this.touchDamage = 2;
+    if (variant === 'ghoul') {
+      // Ghouls are quicker and take two hits.
+      this.hp = 2; this.speed = 56; this.tint = 'rgba(80, 200, 120, 0.42)'; this.score = SCORE.zombie + 50;
+    }
   }
 
   update(dt, level, world) {
@@ -178,7 +228,7 @@ export class Zombie extends Enemy {
       ctx.beginPath();
       ctx.rect(this.x - camX - 40, this.y - camY - 64, 80, 64);
       ctx.clip();
-      assets.draw(ctx, this.sheet, 'walk0', this.x - camX, this.y - camY + (1 - k) * this.h, this.facing < 0);
+      assets.draw(ctx, this.sheet, 'walk0', this.x - camX, this.y - camY + (1 - k) * this.h, this.facing < 0, 1, 1, this.tint);
       ctx.restore();
       return;
     }
@@ -195,12 +245,20 @@ export class Zombie extends Enemy {
 // -------------------------------------------------------------------- bat
 
 export class Bat extends Enemy {
-  constructor(x, y) {
+  constructor(x, y, variant = 'normal') {
     super(x, y);
     this.w = 26; this.h = 18; this.hp = 1; this.score = SCORE.bat;
     this.sheet = 'bat'; this.flies = true; this.gravityScale = 0;
     this.state = 'sleep'; this.baseY = y; this.t = 0; this.homeX = x;
     this.touchDamage = 2;
+    this.speed = 118;
+    this.variant = variant;
+    if (variant === 'fire') { this.speed = 168; this.tint = 'rgba(255, 110, 30, 0.5)'; this.score = SCORE.bat + 50; }
+  }
+
+  /** Starts the swoop immediately (used by spawners and bosses). */
+  wake(dir, targetY) {
+    this.state = 'swoop'; this.facing = dir; this.t = 0; this.targetY = targetY;
   }
 
   update(dt, level, world) {
@@ -210,17 +268,15 @@ export class Bat extends Enemy {
     this.t += dt;
     if (this.state === 'sleep') {
       this.frame = 'fly0';
-      if (p.alive && Math.abs(p.x - this.x) < 230 && p.y > this.y) {
-        this.state = 'swoop'; this.facing = p.x > this.x ? 1 : -1; this.t = 0;
-        this.targetY = p.y - 36;
-      }
+      if (p.alive && Math.abs(p.x - this.x) < 230 && p.y > this.y) this.wake(p.x > this.x ? 1 : -1, p.y - 36);
       return;
     }
     // Swoop: glide toward the player's height in a sine, then keep crossing.
-    this.vx = this.facing * 118;
+    this.vx = this.facing * this.speed;
     this.baseY += (this.targetY - this.baseY) * Math.min(1, dt * 1.2);
     this.y = this.baseY + Math.sin(this.t * 4.2) * 34;
     this.x += this.vx * dt;
+    if (this.variant === 'fire' && Math.random() < 0.3) world.particles.embers(this.x, this.y - 6, 1);
     if (Math.abs(this.x - this.homeX) > 900 || this.x < -40 || this.x > level.width + 40) this.dead = true;
     this.frame = ['fly0', 'fly1', 'fly2', 'fly1'][Math.floor(this.t * 12) % 4];
   }
@@ -261,6 +317,7 @@ export class MedusaHead extends Enemy {
 export class Spawner {
   constructor(def) {
     this.type = def.type;
+    this.variant = def.variant || 'normal';
     this.x0 = def.x0 * TILE; this.x1 = (def.x1 + 1) * TILE;
     this.timer = 1.2;
     this.alive = [];
@@ -284,7 +341,7 @@ export class Spawner {
         if (x < this.x0 || x > this.x1) continue;
         const row = world.level.surfaceRow(tx, Math.max(0, Math.floor(p.y / TILE) - 2));
         if (row < 0 || !world.level.isSolid(tx, row)) continue;
-        const z = new Zombie(tx * TILE + TILE / 2, row * TILE, -side);
+        const z = new Zombie(tx * TILE + TILE / 2, row * TILE, -side, this.variant);
         world.spawnEnemy(z);
         this.alive.push(z);
         break;
@@ -299,6 +356,16 @@ export class Spawner {
       world.spawnEnemy(m);
       this.alive.push(m);
       this.timer = (2.0 + Math.random() * 0.8) * diff.spawnInterval;
+    } else if (this.type === 'bat') {
+      // Bats drop from the rafters ahead of the hunter, already swooping.
+      if (this.alive.length >= Math.max(1, diff.maxAlive - 1)) { this.timer = 0.8; return; }
+      const side = Math.random() < 0.75 ? p.facing : -p.facing;
+      const x = p.x + side * (260 + Math.random() * 80);
+      const b = new Bat(x, Math.max(16, world.camera.y + 10), this.variant);
+      b.wake(-side, p.y - 40);
+      world.spawnEnemy(b);
+      this.alive.push(b);
+      this.timer = (3.2 + Math.random() * 1.2) * diff.spawnInterval;
     }
   }
 }

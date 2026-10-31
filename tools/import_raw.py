@@ -17,6 +17,8 @@ NAMES = [
     "tex_castle_floor_strip", "tex_platform", "props_sheet", "arch_sheet",
     "bg_sky", "bg_mountains", "bg_castle", "bg_fg", "skeleton_sheet",
     "bat_sheet", "zombie_sheet", "medusa_sheet", "boss_sheet", "items_sheet",
+    "boss_vampire_sheet", "tex_catacomb_wall", "tex_catacomb_floor_strip",
+    "tex_clock_wall", "tex_clock_floor_strip",
 ]
 
 

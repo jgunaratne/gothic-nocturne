@@ -3,18 +3,36 @@
 
 import { W, H } from '../engine/constants.js';
 
+const LAYER_SETS = {
+  // Graveyard road: full depth stack.
+  outdoor: {
+    layers: [
+      { img: 'mountains', fx: 0.12, fy: 0.08, dy: -12 },
+      { img: 'castle', fx: 0.26, fy: 0.14, dy: -4 },
+      { img: 'forest', fx: 0.52, fy: 0.3, dy: 6 },
+    ],
+    front: true,
+  },
+  // Castle ramparts: the keep looms closer, no graveyard trees.
+  ramparts: {
+    layers: [
+      { img: 'mountains', fx: 0.1, fy: 0.08, dy: 10 },
+      { img: 'castle', fx: 0.34, fy: 0.18, dy: 28 },
+    ],
+    front: false,
+  },
+};
+
 export class Parallax {
-  constructor(assets, levelH) {
+  constructor(assets, levelH, setName = 'outdoor') {
     this.assets = assets;
     this.levelH = levelH;
     this.time = 0;
+    const set = LAYER_SETS[setName] || LAYER_SETS.outdoor;
     // worldY: where the 360px-tall layer image sits in world space; fy is the
     // vertical parallax factor relative to the camera.
-    this.layers = [
-      { img: 'mountains', fx: 0.12, fy: 0.08, worldY: levelH - H - 12 },
-      { img: 'castle', fx: 0.26, fy: 0.14, worldY: levelH - H - 4 },
-      { img: 'forest', fx: 0.52, fy: 0.3, worldY: levelH - H + 6 },
-    ];
+    this.layers = set.layers.map((L) => ({ img: L.img, fx: L.fx, fy: L.fy, worldY: levelH - H + L.dy }));
+    this.hasFront = set.front;
     this.fog = makeFogStrip();
   }
 
@@ -68,7 +86,7 @@ export class Parallax {
 
   drawFront(ctx, cam, alpha = 0.9) {
     const img = this.assets.img('fg');
-    if (!img || alpha <= 0.01) return;
+    if (!img || !this.hasFront || alpha <= 0.01) return;
     const off = mod(-(cam.x * 1.3), img.width);
     const base = this.levelH - H;
     const y = Math.round(-(cam.y - base) * 1.0 + 0);

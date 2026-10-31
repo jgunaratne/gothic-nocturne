@@ -89,6 +89,8 @@ export class Projectile {
       case 'bone': this.vx = dir * 200; this.vy = -370; this.gravity = 0.9; this.damage = 2; this.w = 12; this.h = 12; break;
       case 'sickle': this.vx = dir * 300; this.vy = 0; this.ax = -dir * 330; this.damage = 3; this.life = 2.6; this.w = 22; this.h = 22; this.pierce = 99; break;
       case 'skull': this.vx = dir * 120; this.vy = -40; this.damage = 2; this.life = 4; this.w = 14; this.h = 14; this.pierce = 99; this.homing = true; break;
+      case 'hellfire': this.vx = dir * 180; this.vy = 0; this.damage = 3; this.life = 2.6; this.w = 16; this.h = 16; this.pierce = 99; break;
+      case 'gaze': this.vx = dir * 380; this.vy = 0; this.damage = 3; this.life = 1.6; this.w = 34; this.h = 10; this.pierce = 99; break;
       default: this.vx = dir * 200; this.vy = 0;
     }
   }
@@ -118,7 +120,7 @@ export class Projectile {
       } else if (this.type === 'dagger') {
         world.particles.sparks(this.x, this.y, 4, '#cfd8e8');
       }
-      if (this.type !== 'sickle' && this.type !== 'skull') this.dead = true;
+      if (this.type !== 'sickle' && this.type !== 'skull' && this.type !== 'hellfire' && this.type !== 'gaze') this.dead = true;
     }
     if (this.y > level.height + 60 || this.x < -40 || this.x > level.width + 40) this.dead = true;
   }
@@ -169,6 +171,33 @@ export class Projectile {
         ctx.fillRect(-5, -6, 10, 9); ctx.fillRect(-3, 3, 6, 3);
         ctx.fillStyle = '#2a1040';
         ctx.fillRect(-4, -3, 3, 3); ctx.fillRect(1, -3, 3, 3);
+        break;
+      }
+      case 'hellfire': {
+        // Blue-violet flame orb with a flickering core and tail.
+        const t = this.time;
+        const g = ctx.createRadialGradient(0, 0, 1, 0, 0, 16);
+        g.addColorStop(0, 'rgba(200, 180, 255, 0.9)');
+        g.addColorStop(0.5, 'rgba(120, 80, 255, 0.5)');
+        g.addColorStop(1, 'rgba(80, 40, 200, 0)');
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = g;
+        ctx.fillRect(-16, -16, 32, 32);
+        ctx.fillStyle = '#d8ccff';
+        ctx.fillRect(-3, -3 + Math.round(Math.sin(t * 30)), 6, 6);
+        ctx.fillStyle = '#8a60ff';
+        ctx.fillRect(-this.dir * 10 - 2, -2, 4, 4);
+        break;
+      }
+      case 'gaze': {
+        // Petrifying stare: a bright streak with a soft tail.
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = 'rgba(255, 220, 120, 0.35)';
+        ctx.fillRect(-20, -5, 40, 10);
+        ctx.fillStyle = '#fff0b0';
+        ctx.fillRect(-14, -2, 28, 4);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(this.dir * 8 - 3, -1, 6, 2);
         break;
       }
       default: break;

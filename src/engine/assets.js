@@ -5,6 +5,7 @@ export class Assets {
     this.atlas = null;
     this.images = {};
     this.music = {};
+    this.tintCache = new Map();
   }
 
   async load(onProgress) {
@@ -31,24 +32,43 @@ export class Assets {
 
   /**
    * Draws a sheet frame with its anchor at (x, y). `flip` mirrors around the
-   * anchor so a right-facing source can face left.
+   * anchor so a right-facing source can face left. Optional uniform `scale`
+   * and a `tint` colour (multiplied over the sprite, cached per frame).
    */
-  draw(ctx, sheet, name, x, y, flip = false, alpha = 1) {
+  draw(ctx, sheet, name, x, y, flip = false, alpha = 1, scale = 1, tint = null) {
     const f = this.frame(sheet, name);
     if (!f) return;
-    const img = this.images[sheet];
+    let img = this.images[sheet];
+    let sx = f.x, sy = f.y;
+    if (tint) { img = this.tinted(sheet, name, tint); sx = 0; sy = 0; }
     if (alpha !== 1) { ctx.save(); ctx.globalAlpha = alpha; }
-    if (!flip) {
-      ctx.drawImage(img, f.x, f.y, f.w, f.h,
-        Math.round(x - f.ax), Math.round(y - f.ay), f.w, f.h);
+    if (!flip && scale === 1) {
+      ctx.drawImage(img, sx, sy, f.w, f.h, Math.round(x - f.ax), Math.round(y - f.ay), f.w, f.h);
     } else {
       ctx.save();
-      ctx.translate(Math.round(x), Math.round(y - f.ay));
-      ctx.scale(-1, 1);
-      ctx.drawImage(img, f.x, f.y, f.w, f.h, Math.round(-f.ax), 0, f.w, f.h);
+      ctx.translate(Math.round(x), Math.round(y - f.ay * scale));
+      ctx.scale(flip ? -scale : scale, scale);
+      ctx.drawImage(img, sx, sy, f.w, f.h, Math.round(-f.ax), 0, f.w, f.h);
       ctx.restore();
     }
     if (alpha !== 1) ctx.restore();
+  }
+
+  /** Cached tinted copy of a frame (colour multiplied where opaque). */
+  tinted(sheet, name, color) {
+    const key = `${sheet}|${name}|${color}`;
+    let c = this.tintCache.get(key);
+    if (c) return c;
+    const f = this.frame(sheet, name);
+    c = document.createElement('canvas');
+    c.width = f.w; c.height = f.h;
+    const g = c.getContext('2d');
+    g.drawImage(this.images[sheet], f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = color;
+    g.fillRect(0, 0, f.w, f.h);
+    this.tintCache.set(key, c);
+    return c;
   }
 }
 
