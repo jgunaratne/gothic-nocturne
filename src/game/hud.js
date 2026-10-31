@@ -113,18 +113,18 @@ function drawBar(ctx, x, y, value, max, color, hi) {
 }
 
 /** Centered banner text with a dark backing band. */
-export function drawBanner(ctx, font, lines, y, { scale = 2, color = '#e8e2c8', band = true, sub = null } = {}) {
+export function drawBanner(ctx, font, lines, y, { scale = 2, color = '#e8e2c8', band = true, sub = null, gothic = true } = {}) {
   if (band) {
     ctx.fillStyle = 'rgba(4, 3, 10, 0.72)';
-    const h = lines.length * (font.lineHeight(scale) + 6) + 22 + (sub ? 16 : 0);
+    const h = lines.length * (font.lineHeight(scale, gothic) + 6) + 22 + (sub ? 16 : 0);
     ctx.fillRect(0, y - 12, W, h);
     ctx.fillStyle = '#5b6b86';
     ctx.fillRect(0, y - 12, W, 1); ctx.fillRect(0, y - 12 + h - 1, W, 1);
   }
   let yy = y;
   for (const line of lines) {
-    font.draw(ctx, line, W / 2, yy, { scale, color, align: 'center', shadow: '#120f1c' });
-    yy += font.lineHeight(scale) + 6;
+    font.draw(ctx, line, W / 2, yy, { scale, color, align: 'center', shadow: '#120f1c', gothic });
+    yy += font.lineHeight(scale, gothic) + 6;
   }
   if (sub) font.draw(ctx, sub, W / 2, yy + 2, { scale: 1, color: '#8a9ab5', align: 'center', shadow: '#120f1c' });
 }

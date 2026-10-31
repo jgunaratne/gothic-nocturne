@@ -170,7 +170,7 @@ export class Font {
   }
 
   /** Cap height in px at a scale (for layout). */
-  lineHeight(scale = 1) { const set = this._set(scale); return set ? Math.round(set.cap * this._mul(scale)) : GLYPH_H * scale; }
+  lineHeight(scale = 1, gothic = true) { const set = this._set(scale, gothic); return set ? Math.round(set.cap * this._mul(scale)) : GLYPH_H * scale; }
 
   /** Greedy word-wrap to a pixel width. */
   wrap(text, maxW, scale = 1, spacing = 1) {

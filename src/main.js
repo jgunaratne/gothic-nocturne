@@ -71,6 +71,7 @@ class Game {
     const screen = this.params.get('screen');   // testing aid
     if (screen === 'difficulty' || screen === 'stageselect' || screen === 'ending') this.setState(screen);
     else if (screen === 'play') this.startGame();
+    else if (screen === 'clear') { this.startGame(); this.world.timeBonus = 1234; this.world.heartBonus = 500; this.setState('clear'); }
     if (this.params.has('demo')) this.startDemo();
     // Testing aids: ?skip=N pre-simulates N fixed steps before the first draw.
     const skip = parseInt(this.params.get('skip') || '0', 10);
@@ -392,12 +393,17 @@ class Game {
     ctx.save();
     ctx.globalAlpha = k;
     ctx.fillStyle = 'rgba(4, 3, 10, 0.55)'; ctx.fillRect(0, 0, W, H);
-    this.banner(['STAGE CLEAR'], 96, { scale: 4, color: '#ffd27a', sub: `${w.difficulty.name} · SCORE X${w.difficulty.scoreMult}` });
+    this.banner(['STAGE CLEAR'], 96, { scale: 4, gothic: false, color: '#ffd27a', sub: `${w.difficulty.name} · SCORE X${w.difficulty.scoreMult}` });
     const lines = [
       ['TIME BONUS', w.timeBonus],
       ['HEART BONUS', w.heartBonus],
       ['SCORE', w.score],
     ];
+    // Dark plate behind the tally so the figures read over busy scenery
+    ctx.fillStyle = 'rgba(4, 3, 10, 0.78)';
+    ctx.fillRect(W / 2 - 130, 168, 260, 70);
+    ctx.fillStyle = '#5b6b86';
+    ctx.fillRect(W / 2 - 130, 168, 260, 1); ctx.fillRect(W / 2 - 130, 237, 260, 1);
     lines.forEach(([label, val], i) => {
       if (this.stateT < 0.8 + i * 0.5) return;
       this.font.draw(ctx, label, W / 2 - 110, 180 + i * 18, { scale: 2, color: '#c9c3b0', shadow: '#120f1c' });
