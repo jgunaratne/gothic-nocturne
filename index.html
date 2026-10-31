@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gothic Nocturne — a 32-bit side-scrolling action platformer</title>
+<meta name="description" content="Gothic Nocturne: a whip-cracking 32-bit era side-scrolling action platformer with multi-layer parallax backgrounds, set on the midnight road to a haunted castle.">
+<style>
+  :root { color-scheme: dark; }
+  html, body {
+    margin: 0; height: 100%; background: #07060c; overflow: hidden;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  body { display: flex; align-items: center; justify-content: center; }
+  #game {
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    background: #000; outline: none; cursor: none;
+    box-shadow: 0 0 0 1px #1b1a2a, 0 0 80px rgba(20, 10, 40, .9);
+  }
+  #game:focus-visible { box-shadow: 0 0 0 2px #8a9ab5; }
+  #boot {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #8a9ab5; letter-spacing: .3em; font-size: 12px; text-transform: uppercase;
+    pointer-events: none; transition: opacity .4s;
+  }
+  #boot.hidden { opacity: 0; }
+</style>
+</head>
+<body>
+  <main>
+    <h1 hidden>Gothic Nocturne</h1>
+    <canvas id="game" width="640" height="360" tabindex="0" aria-label="Gothic Nocturne game canvas"></canvas>
+  </main>
+  <div id="boot" role="status">Loading the castle…</div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

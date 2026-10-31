@@ -1,0 +1,53 @@
+// Camera with horizontal look-ahead dead zone, vertical easing, clamping,
+// and screen shake.
+
+import { W, H } from './constants.js';
+
+export class Camera {
+  constructor(levelW, levelH) {
+    this.x = 0; this.y = 0;
+    this.levelW = levelW; this.levelH = levelH;
+    this.minX = 0; this.maxX = Math.max(0, levelW - W);
+    this.shakeT = 0; this.shakeMag = 0;
+    this.sx = 0; this.sy = 0;   // shake offsets applied this frame
+    this.lookAhead = 0;
+  }
+
+  setBounds(minX, maxX) { this.minX = minX; this.maxX = Math.max(minX, maxX); }
+  resetBounds() { this.minX = 0; this.maxX = Math.max(0, this.levelW - W); }
+
+  snapTo(x, y) {
+    this.x = clamp(x - W * 0.42, this.minX, this.maxX);
+    this.y = clamp(y - H * 0.62, 0, Math.max(0, this.levelH - H));
+  }
+
+  shake(mag = 4, t = 0.25) { this.shakeMag = Math.max(this.shakeMag, mag); this.shakeT = Math.max(this.shakeT, t); }
+
+  update(dt, target, facing) {
+    // Horizontal: ease toward a look-ahead point in front of the player.
+    const desiredLook = facing * 70;
+    this.lookAhead += (desiredLook - this.lookAhead) * Math.min(1, dt * 2.2);
+    const tx = target.x + this.lookAhead - W / 2;
+    this.x += (tx - this.x) * Math.min(1, dt * 6);
+    this.x = clamp(this.x, this.minX, this.maxX);
+    // Vertical: keep feet around 62% of the screen, eased.
+    const ty = target.y - H * 0.62;
+    this.y += (ty - this.y) * Math.min(1, dt * 4);
+    this.y = clamp(this.y, 0, Math.max(0, this.levelH - H));
+    // Shake
+    if (this.shakeT > 0) {
+      this.shakeT -= dt;
+      const k = this.shakeMag * Math.max(0, this.shakeT) * 4;
+      this.sx = (Math.random() - 0.5) * 2 * k;
+      this.sy = (Math.random() - 0.5) * 2 * k;
+      if (this.shakeT <= 0) { this.shakeMag = 0; this.sx = this.sy = 0; }
+    }
+  }
+
+  /** Integer render offsets (pixel-perfect). */
+  get rx() { return Math.round(this.x + this.sx); }
+  get ry() { return Math.round(this.y + this.sy); }
+}
+
+export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+export const lerp = (a, b, t) => a + (b - a) * t;

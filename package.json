@@ -1,0 +1,14 @@
+{
+  "name": "gothic-nocturne",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A 32-bit era gothic side-scrolling action platformer with multi-layer parallax, generated pixel art and a Lyria 3 score.",
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8711 --bind 0.0.0.0",
+    "check": "for f in src/*.js src/engine/*.js src/game/*.js; do node --check \"$f\" || exit 1; done && echo syntax ok",
+    "assets": ".venv/bin/python tools/process_assets.py --preview",
+    "shot": "bash tools/screenshot.sh"
+  },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,201 @@
+// Tile grid, collision queries and level rendering.
+
+import {
+  TILE, T_EMPTY, T_GROUND, T_STONE, T_PLATFORM, T_SPIKES, T_BLOCK, T_GATE, T_BOUND,
+  isSolidTile, W, H,
+} from '../engine/constants.js';
+
+export class Level {
+  constructor(data) {
+    this.cols = data.cols;
+    this.rows = data.rows;
+    this.width = this.cols * TILE;
+    this.height = this.rows * TILE;
+    this.tiles = new Uint8Array(this.cols * this.rows);
+    this.depth = new Uint8Array(this.cols * this.rows);
+    this.decor = data.decor || [];
+    this.rooms = data.rooms || [];
+    this.blockDrops = data.blockDrops || {};
+    this.checkpoints = data.checkpoints || [];
+    this.platformRuns = [];
+    data.build(this);
+    this.recompute();
+  }
+
+  // ------------------------------------------------------------ building
+  fill(x0, x1, y0, y1, t) {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) this.set(x, y, t);
+  }
+  /** Solid terrain from `surfaceRow` down to the bottom row. */
+  ground(x0, x1, surfaceRow, t = T_GROUND) { this.fill(x0, x1, surfaceRow, this.rows - 1, t); }
+  clear(x0, x1, y0 = 0, y1 = this.rows - 1) { this.fill(x0, x1, y0, y1, T_EMPTY); }
+  platform(x0, x1, row) { this.fill(x0, x1, row, row, T_PLATFORM); }
+  set(x, y, t) { if (x >= 0 && y >= 0 && x < this.cols && y < this.rows) this.tiles[y * this.cols + x] = t; }
+
+  recompute() {
+    // Depth below the surface for same-material solid tiles (texture rows).
+    for (let x = 0; x < this.cols; x++) {
+      let run = 0, prev = T_EMPTY;
+      for (let y = 0; y < this.rows; y++) {
+        const t = this.tiles[y * this.cols + x];
+        if ((t === T_GROUND || t === T_STONE) && t === prev) run++; else run = 0;
+        this.depth[y * this.cols + x] = Math.min(run, 3);
+        prev = t;
+      }
+    }
+    // Platform runs for cap rendering.
+    this.platformRuns = [];
+    for (let y = 0; y < this.rows; y++) {
+      let x = 0;
+      while (x < this.cols) {
+        if (this.tile(x, y) === T_PLATFORM) {
+          const x0 = x;
+          while (x < this.cols && this.tile(x, y) === T_PLATFORM) x++;
+          this.platformRuns.push({ x0, x1: x - 1, y });
+        } else x++;
+      }
+    }
+  }
+
+  // ------------------------------------------------------------- queries
+  tile(tx, ty) {
+    if (tx < 0 || tx >= this.cols) return T_BOUND;
+    if (ty < 0) return T_EMPTY;
+    if (ty >= this.rows) return T_EMPTY;
+    return this.tiles[ty * this.cols + tx];
+  }
+  isSolid(tx, ty) { return isSolidTile(this.tile(tx, ty)); }
+  isOneWay(tx, ty) { return this.tile(tx, ty) === T_PLATFORM; }
+  isSpike(tx, ty) { return this.tile(tx, ty) === T_SPIKES; }
+  isStandable(tx, ty) { const t = this.tile(tx, ty); return isSolidTile(t) || t === T_PLATFORM; }
+
+  /** First standable row at column tx (from the top), or -1. */
+  surfaceRow(tx, fromRow = 0) {
+    for (let y = fromRow; y < this.rows; y++) if (this.isStandable(tx, y)) return y;
+    return -1;
+  }
+
+  /** Breaks a block tile; returns the drop item type (or null). */
+  breakBlock(tx, ty) {
+    if (this.tile(tx, ty) !== T_BLOCK) return null;
+    this.set(tx, ty, T_EMPTY);
+    const key = `${tx},${ty}`;
+    return this.blockDrops[key] || null;
+  }
+
+  // ------------------------------------------------------------ drawing
+  drawRooms(ctx, cam, assets) {
+    const wall = assets.img('wall');
+    const camX = cam.rx, camY = cam.ry;
+    for (const r of this.rooms) {
+      const x = r.x0 * TILE - camX, y = r.y0 * TILE - camY;
+      const w = (r.x1 - r.x0 + 1) * TILE, h = (r.y1 - r.y0 + 1) * TILE;
+      if (x > W || x + w < 0) continue;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
+      if (!this._wallPattern) this._wallPattern = ctx.createPattern(wall, 'repeat');
+      ctx.translate(-camX, -camY);           // align the pattern to world space
+      ctx.fillStyle = this._wallPattern;
+      ctx.fillRect(r.x0 * TILE, r.y0 * TILE, w, h);
+      ctx.restore();
+      // Interior gloom: darker toward the ceiling and overall desaturated.
+      ctx.fillStyle = 'rgba(10, 8, 24, 0.42)';
+      ctx.fillRect(x, y, w, h);
+      const g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, 'rgba(4, 3, 12, 0.7)');
+      g.addColorStop(0.45, 'rgba(4, 3, 12, 0.1)');
+      g.addColorStop(1, 'rgba(4, 3, 12, 0.3)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y, w, h);
+      // Shadowed doorway edge where the outer wall begins.
+      const e = ctx.createLinearGradient(x, 0, x + 40, 0);
+      e.addColorStop(0, 'rgba(2, 2, 8, 0.85)');
+      e.addColorStop(1, 'rgba(2, 2, 8, 0)');
+      ctx.fillStyle = e;
+      ctx.fillRect(x, y, 40, h);
+    }
+  }
+
+  drawDecor(ctx, cam, assets, time) {
+    const camX = cam.rx, camY = cam.ry;
+    for (const d of this.decor) {
+      const x = d.x - camX, y = d.y - camY;
+      if (x < -80 || x > W + 80) continue;
+      assets.draw(ctx, d.sheet, d.frame, x, y);
+      if (d.frame === 'window') {
+        // Soft moonlit glow through the glass.
+        const f = assets.frame('arch', 'window');
+        ctx.save();
+        ctx.globalAlpha = 0.10 + 0.04 * Math.sin(time * 0.8 + d.x);
+        ctx.fillStyle = '#b08cff';
+        ctx.fillRect(Math.round(x - f.ax + 3), Math.round(y - f.ay + 3), f.w - 6, f.h - 6);
+        ctx.restore();
+      }
+      if (d.frame === 'torch') drawFlameGlow(ctx, x, y - 36, time + d.x, 22, 0.55);
+    }
+  }
+
+  drawTiles(ctx, cam, assets) {
+    const camX = cam.rx, camY = cam.ry;
+    const tx0 = Math.max(0, Math.floor(camX / TILE) - 1);
+    const tx1 = Math.min(this.cols - 1, Math.ceil((camX + W) / TILE) + 1);
+    const ty0 = Math.max(0, Math.floor(camY / TILE) - 1);
+    const ty1 = Math.min(this.rows - 1, Math.ceil((camY + H) / TILE) + 1);
+    const ground = assets.info('ground'), floor = assets.info('floor');
+    const gImg = assets.img('ground'), fImg = assets.img('floor');
+    const spikes = assets.frame('props', 'spikes'), propsImg = assets.img('props');
+    for (let ty = ty0; ty <= ty1; ty++) {
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const t = this.tiles[ty * this.cols + tx];
+        if (t === T_EMPTY || t === T_PLATFORM || t === T_GATE || t === T_BOUND) continue;
+        const x = tx * TILE - camX, y = ty * TILE - camY;
+        if (t === T_GROUND || t === T_STONE) {
+          const info = t === T_GROUND ? ground : floor;
+          const img = t === T_GROUND ? gImg : fImg;
+          const d = this.depth[ty * this.cols + tx];
+          const sx = (tx * TILE) % info.w;
+          if (d === 0) {
+            ctx.drawImage(img, sx, 0, TILE, info.overhang + TILE, x, y - info.overhang, TILE, info.overhang + TILE);
+          } else {
+            ctx.drawImage(img, sx, info.overhang + TILE * d, TILE, TILE, x, y, TILE, TILE);
+          }
+        } else if (t === T_BLOCK) {
+          assets.draw(ctx, 'props', 'block', x + 16, y + 32);
+        } else if (t === T_SPIKES) {
+          ctx.drawImage(propsImg, spikes.x + (tx % 2) * 32, spikes.y, 32, spikes.h, x, y + TILE - spikes.h, 32, spikes.h);
+        }
+      }
+    }
+    // Platforms (caps + repeating middle).
+    const plat = assets.info('platform'), pImg = assets.img('platform');
+    for (const r of this.platformRuns) {
+      if (r.x1 < tx0 || r.x0 > tx1 || r.y < ty0 - 1 || r.y > ty1) continue;
+      const y = r.y * TILE - camY - 2;
+      for (let tx = r.x0; tx <= r.x1; tx++) {
+        const x = tx * TILE - camX;
+        let sx;
+        if (tx === r.x0) sx = 0;
+        else if (tx === r.x1) sx = plat.w - TILE;
+        else sx = TILE + ((tx - r.x0 - 1) % ((plat.w - 2 * TILE) / TILE)) * TILE;
+        ctx.drawImage(pImg, sx, 0, TILE, plat.h, x, y, TILE, plat.h);
+      }
+    }
+  }
+}
+
+/** Additive-ish flickering glow used by candles and torches. */
+export function drawFlameGlow(ctx, x, y, t, radius = 24, strength = 0.6) {
+  const flick = 0.85 + 0.15 * Math.sin(t * 17.3) * Math.sin(t * 7.1 + 1.3);
+  const r = radius * flick;
+  const g = ctx.createRadialGradient(x, y, 1, x, y, r);
+  g.addColorStop(0, `rgba(255, 190, 90, ${0.55 * strength})`);
+  g.addColorStop(0.5, `rgba(255, 140, 50, ${0.18 * strength})`);
+  g.addColorStop(1, 'rgba(255, 120, 40, 0)');
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = g;
+  ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  ctx.restore();
+}
