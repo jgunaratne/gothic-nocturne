@@ -314,10 +314,10 @@
    "type": "texture",
    "src": "tex_clock_wall.png",
    "size": [
-    192,
-    192
+    256,
+    256
    ],
-   "colors": 24,
+   "colors": 28,
    "seamless": "blend"
   },
   "clockfloor": {
@@ -591,10 +591,10 @@
    "type": "texture",
    "src": "tex_clock_wall_b.png",
    "size": [
-    192,
-    192
+    256,
+    256
    ],
-   "colors": 24,
+   "colors": 28,
    "seamless": "blend"
   },
   "platform_wood": {
@@ -641,6 +641,521 @@
    ],
    "colors": 24,
    "seamless": "mirror"
+  },
+  "darkwoodfloor": {
+   "type": "strip",
+   "src": "tex_darkwood_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "darkwoodfloor_b": {
+   "type": "strip",
+   "src": "tex_darkwood_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "darkwood_canopy": {
+   "type": "texture",
+   "src": "bg_darkwood_canopy.png",
+   "key": true,
+   "crop": [
+    0,
+    0.14,
+    1,
+    0.84
+   ],
+   "size": [
+    640,
+    360
+   ],
+   "colors": 24,
+   "seamless": "mirror"
+  },
+  "turtle": {
+   "type": "sheet",
+   "src": "turtle_sheet.png",
+   "height": 30,
+   "ref": "walk0",
+   "colors": 24,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3"
+    ],
+    [
+     "shell0",
+     "shell1",
+     "shell2",
+     "shell3"
+    ]
+   ]
+  },
+  "wolf": {
+   "type": "sheet",
+   "src": "wolf_sheet.png",
+   "height": 34,
+   "ref": "walk0",
+   "colors": 24,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "walk2",
+     "lunge"
+    ]
+   ]
+  },
+  "sporecap": {
+   "type": "sheet",
+   "src": "sporecap_sheet.png",
+   "height": 38,
+   "ref": "walk0",
+   "colors": 24,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "puff"
+    ]
+   ]
+  },
+  "owl": {
+   "type": "sheet",
+   "src": "owl_sheet.png",
+   "height": 30,
+   "ref": "fly1",
+   "colors": 20,
+   "rows": [
+    [
+     "fly0",
+     "fly1",
+     "fly2"
+    ]
+   ]
+  },
+  "treant": {
+   "type": "sheet",
+   "src": "treant_sheet.png",
+   "height": 136,
+   "ref": "idle0",
+   "colors": 32,
+   "rows": [
+    [
+     "idle0",
+     "idle1",
+     "slam",
+     "roar"
+    ]
+   ]
+  },
+  "darkwood_props": {
+   "type": "sheet",
+   "src": "darkwood_props_sheet.png",
+   "height": 64,
+   "ref": "moss_lantern",
+   "colors": 32,
+   "rows": [
+    [
+     "moss_lantern",
+     "glow_shrooms",
+     "elder_stump",
+     "ancient_totem"
+    ]
+   ]
+  },
+  "hero_walk": {
+   "type": "sheet",
+   "src": "hero_walk_sheet.png",
+   "height": 63,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3",
+     "walk4",
+     "walk5"
+    ],
+    [
+     "walk6",
+     "walk7",
+     "walk8",
+     "walk9",
+     "walk10",
+     "walk11"
+    ]
+   ]
+  },
+  "giantbat": {
+   "type": "sheet",
+   "src": "giantbat_sheet.png",
+   "height": 78,
+   "ref": "fly1",
+   "colors": 24,
+   "rows": [
+    [
+     "fly0",
+     "fly1"
+    ],
+    [
+     "fly2",
+     "dive"
+    ]
+   ]
+  },
+  "bonecaptain": {
+   "type": "sheet",
+   "src": "bonecaptain_sheet.png",
+   "height": 100,
+   "ref": "walk0",
+   "colors": 28,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3"
+    ],
+    [
+     "throw0",
+     "throw1"
+    ]
+   ],
+   "anchors": {
+    "throw1": "left"
+   }
+  },
+  "gorgon": {
+   "type": "sheet",
+   "src": "gorgon_sheet.png",
+   "height": 96,
+   "ref": "a",
+   "colors": 28,
+   "rows": [
+    [
+     "a",
+     "b",
+     "stare"
+    ]
+   ]
+  },
+  "greatjack": {
+   "type": "sheet",
+   "src": "greatjack_sheet.png",
+   "height": 96,
+   "ref": "flame0",
+   "colors": 24,
+   "rows": [
+    [
+     "flame0",
+     "flame1",
+     "spit"
+    ]
+   ],
+   "anchors": {
+    "spit": "left"
+   }
+  },
+  "automaton": {
+   "type": "sheet",
+   "src": "automaton_sheet.png",
+   "height": 110,
+   "ref": "idle",
+   "colors": 32,
+   "rows": [
+    [
+     "idle",
+     "walk",
+     "punch",
+     "overload"
+    ]
+   ],
+   "anchors": {
+    "punch": "left"
+   }
+  },
+  "arcade_props": {
+   "type": "sheet",
+   "src": "arcade_props_sheet.png",
+   "height": 112,
+   "ref": "sage_cabinet",
+   "colors": 40,
+   "rows": [
+    [
+     "sage_cabinet",
+     "zoetrope",
+     "oracle_engine",
+     "chess_automaton",
+     "magic_lantern"
+    ]
+   ]
+  },
+  "arcadewall": {
+   "type": "texture",
+   "src": "tex_arcade_wall.png",
+   "size": [
+    192,
+    192
+   ],
+   "colors": 28,
+   "seamless": "blend"
+  },
+  "map_parchment": {
+   "type": "texture",
+   "src": "bg_map_parchment.png",
+   "size": [
+    640,
+    360
+   ],
+   "colors": 40
+  },
+  "map_icons": {
+   "type": "sheet",
+   "src": "map_icons_sheet.png",
+   "height": 26,
+   "ref": "graveyard",
+   "colors": 32,
+   "rows": [
+    [
+     "graveyard",
+     "darkwood",
+     "jack",
+     "yule",
+     "ramparts",
+     "catacombs",
+     "ossuary",
+     "arcade",
+     "library",
+     "clocktower",
+     "throne",
+     "cathedral"
+    ]
+   ]
+  },
+  "title_logo": {
+   "type": "texture",
+   "src": "title_logo.png",
+   "key": true,
+   "cropAlpha": true,
+   "size": [
+    500,
+    null
+   ],
+   "colors": 24
+  },
+  "librarywall": {
+   "type": "texture",
+   "src": "tex_library_wall.png",
+   "size": [
+    384,
+    216
+   ],
+   "colors": 32,
+   "seamless": "blend"
+  },
+  "library_props": {
+   "type": "sheet",
+   "src": "library_props_sheet.png",
+   "height": 110,
+   "ref": "bookcase",
+   "colors": 40,
+   "rows": [
+    [
+     "bookcase",
+     "lectern",
+     "globe",
+     "ladder",
+     "tomes"
+    ]
+   ]
+  },
+  "ghost": {
+   "type": "sheet",
+   "src": "ghost_sheet.png",
+   "height": 46,
+   "ref": "float0",
+   "colors": 20,
+   "rows": [
+    [
+     "float0",
+     "float1",
+     "lunge"
+    ]
+   ],
+   "anchors": {
+    "lunge": "left"
+   }
+  },
+  "tome": {
+   "type": "sheet",
+   "src": "tome_sheet.png",
+   "height": 24,
+   "ref": "shut",
+   "colors": 20,
+   "rows": [
+    [
+     "flap0",
+     "flap1",
+     "shut",
+     "chomp"
+    ]
+   ]
+  },
+  "archivist": {
+   "type": "sheet",
+   "src": "archivist_sheet.png",
+   "height": 120,
+   "ref": "idle",
+   "colors": 28,
+   "rows": [
+    [
+     "idle",
+     "cast",
+     "summon",
+     "shield"
+    ]
+   ]
+  },
+  "chandelier": {
+   "type": "sheet",
+   "src": "chandelier_sheet.png",
+   "height": 96,
+   "ref": "a",
+   "colors": 28,
+   "rows": [
+    [
+     "a",
+     "b"
+    ]
+   ]
+  },
+  "darkwood_trees": {
+   "type": "sheet",
+   "src": "darkwood_trees_sheet.png",
+   "height": 400,
+   "ref": "trunk_a",
+   "colors": 28,
+   "rows": [
+    [
+     "trunk_a",
+     "trunk_b",
+     "trunk_c",
+     "lantern"
+    ]
+   ]
+  },
+  "ending_1": {
+   "type": "texture",
+   "src": "ending_1.png",
+   "size": [
+    640,
+    360
+   ],
+   "colors": 48
+  },
+  "ending_2": {
+   "type": "texture",
+   "src": "ending_2.png",
+   "size": [
+    640,
+    360
+   ],
+   "colors": 48
+  },
+  "ending_3": {
+   "type": "texture",
+   "src": "ending_3.png",
+   "size": [
+    640,
+    360
+   ],
+   "colors": 48
+  },
+  "cathedralwall": {
+   "type": "texture",
+   "src": "tex_cathedral_wall.png",
+   "size": [
+    384,
+    384
+   ],
+   "colors": 40,
+   "seamless": "blend"
+  },
+  "stained_glass": {
+   "type": "sheet",
+   "src": "stained_glass_sheet.png",
+   "height": 150,
+   "ref": "rose",
+   "colors": 40,
+   "rows": [
+    [
+     "rose",
+     "hunter",
+     "moon"
+    ]
+   ]
+  },
+  "cathedral_props": {
+   "type": "sheet",
+   "src": "cathedral_props_sheet.png",
+   "height": 112,
+   "ref": "angel",
+   "colors": 40,
+   "rows": [
+    [
+     "angel",
+     "pew",
+     "candles",
+     "font",
+     "pulpit"
+    ]
+   ]
+  },
+  "gargoyle": {
+   "type": "sheet",
+   "src": "gargoyle_sheet.png",
+   "height": 36,
+   "ref": "perch",
+   "colors": 20,
+   "rows": [
+    [
+     "perch",
+     "wake",
+     "fly0",
+     "fly1"
+    ]
+   ]
+  },
+  "archon": {
+   "type": "sheet",
+   "src": "archon_sheet.png",
+   "height": 120,
+   "ref": "idle",
+   "colors": 28,
+   "rows": [
+    [
+     "idle",
+     "roar",
+     "pounce",
+     "shell"
+    ]
+   ]
   }
  }
 }

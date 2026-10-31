@@ -9,10 +9,12 @@ export class Entity {
     this.w = 20; this.h = 56;        // collision box (centred on x, above y)
     this.facing = 1;
     this.onGround = false;
+    this.riding = null;              // MovingPlatform currently supporting feet
     this.hitWall = false;
     this.dead = false;
     this.gravityScale = 1;
     this.dropThrough = false;
+    this.dropFromY = null;           // y of one-way ledge being dropped through
     this.hp = 1;
     this.flash = 0;                  // hit flash timer
     this.time = 0;
@@ -34,10 +36,12 @@ export class Entity {
     this.time += dt;
     this.vy = Math.min(MAX_FALL, this.vy + GRAVITY * this.gravityScale * dt);
     this.hitWall = false;
-    if (!collide) { this.x += this.vx * dt; this.y += this.vy * dt; return; }
+    if (!collide) { this.riding = null; this.x += this.vx * dt; this.y += this.vy * dt; return; }
+    const wasRiding = this.riding;
     this.moveX(level, this.vx * dt);
     this.onGround = false;
-    this.moveY(level, this.vy * dt, oneWay);
+    this.riding = null;
+    this.moveY(level, this.vy * dt, oneWay, wasRiding);
   }
 
   moveX(level, dx) {
@@ -57,20 +61,54 @@ export class Entity {
     }
   }
 
-  moveY(level, dy, oneWay = true) {
+  moveY(level, dy, oneWay = true, wasRiding = null) {
     if (dy === 0) {
-      // Resting check so onGround stays true while standing still.
+      // Resting check so onGround stays true while standing still (including rising movers).
       this.onGround = this.groundBelow(level, oneWay);
+      if (this.riding) this.y = this.riding.y;
       return;
     }
     const prevBottom = this.bottom;
     this.y += dy;
     const tx0 = Math.floor(this.left / TILE), tx1 = Math.floor((this.right - 0.01) / TILE);
+
+    // Check moving platforms:
+    // - If `wasRiding === m`, `carryEntity` already applied `m.dy` to `prevBottom`, so `dy` is already relative to `m`.
+    // - Otherwise, compare world-space `dy` against `m.dy` so rising lifts catch near jump apex (`dy <= 0`).
+    if (oneWay && level.movers && level.movers.length) {
+      let bestM = null;
+      for (const m of level.movers) {
+        if (this.dropThrough && (this.dropFromY == null || Math.abs(m.y - this.dropFromY) <= 12)) continue;
+        if (this.right <= m.left || this.left >= m.right) continue;
+        if (wasRiding === m) {
+          if (dy >= -0.5 && Math.abs(prevBottom - m.y) <= 3) {
+            if (!bestM || m.y < bestM.y) bestM = m;
+          }
+          continue;
+        }
+        if (dy >= m.dy - 0.5) {
+          const topSweep = Math.max(m.prevY, m.y) + 9;
+          const botCatch = m.y - Math.max(1.5, m.dy + 1.2);
+          if (prevBottom <= topSweep && this.bottom >= botCatch) {
+            if (!bestM || m.y < bestM.y) bestM = m;
+          }
+        }
+      }
+      if (bestM) {
+        this.y = bestM.y;
+        this.vy = 0;
+        this.onGround = true;
+        this.riding = bestM;
+        return;
+      }
+    }
+
     if (dy > 0) {
       const ty = Math.floor((this.bottom - 0.01) / TILE);
       for (let tx = tx0; tx <= tx1; tx++) {
         const solid = level.isSolid(tx, ty);
-        const plat = oneWay && !this.dropThrough && level.isOneWay(tx, ty) && prevBottom <= ty * TILE + 0.5;
+        const dropSkip = this.dropThrough && (this.dropFromY == null || Math.abs(ty * TILE - this.dropFromY) <= 12);
+        const plat = oneWay && !dropSkip && level.isOneWay(tx, ty) && prevBottom <= ty * TILE + 0.5;
         if (solid || plat) { this.y = ty * TILE; this.vy = 0; this.onGround = true; return; }
       }
     } else {
@@ -82,6 +120,16 @@ export class Entity {
   }
 
   groundBelow(level, oneWay = true) {
+    if (oneWay && level.movers) {
+      for (const m of level.movers) {
+        if (this.dropThrough && (this.dropFromY == null || Math.abs(m.y - this.dropFromY) <= 12)) continue;
+        const tol = Math.max(2.0, Math.abs(m.dy) + 1.5);
+        if (this.right > m.left && this.left < m.right && Math.abs(this.bottom - m.y) <= tol) {
+          this.riding = m;
+          return true;
+        }
+      }
+    }
     const ty = Math.floor((this.bottom + 0.5) / TILE);
     if (Math.abs(this.bottom - ty * TILE) > 0.6) return false;
     const tx0 = Math.floor(this.left / TILE), tx1 = Math.floor((this.right - 0.01) / TILE);

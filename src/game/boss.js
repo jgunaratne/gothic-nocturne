@@ -39,7 +39,8 @@ export class Reaper extends Enemy {
       if (Math.random() < 0.6) world.particles.sparks(this.x + (Math.random() - 0.5) * 60, this.y - Math.random() * 100, 3, '#d7b8ff');
       if (Math.random() < 0.3) world.particles.smoke(this.x, this.y - 30, 2, 'rgba(120,60,200,0.5)');
       this.alpha = Math.max(0, 1 - this.deathT / 2.4);
-      this.y += 10 * dt;
+      this.y = Math.min(this.arena.floorY - 6, this.y + 10 * dt);
+      this.x = clamp(this.x, this.arena.x0 + 36, this.arena.x1 - 36);
       if (this.deathT > 2.6) { this.dead = true; world.onBossDefeated(this); }
       return;
     }
@@ -65,7 +66,7 @@ export class Reaper extends Enemy {
         // Hover with the robe hem near the hunter's knees so the whip can reach.
         const targetY = p.y - 12 + Math.sin(this.t * 0.9) * 22;
         this.baseY += (targetY - this.baseY) * Math.min(1, dt * 1.5);
-        this.baseY = clamp(this.baseY, this.arena.floorY - 160, this.arena.floorY - 4);
+        this.baseY = clamp(this.baseY, this.arena.floorY - 160, this.arena.floorY - 14);
         this.y = this.baseY + hover;
         this.frame = Math.floor(this.t * 3) % 2 ? 'idle0' : 'idle1';
         const dur = (this.phase2 ? 1.5 : 2.2) * this.tempo;

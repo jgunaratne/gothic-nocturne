@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Generates the Stage 2 Darkwood assets (guardian turtle, briar wolf, sporecap,
+# night-owl, Briar King boss, forest props, darkwood floor strips and canopy
+# parallax layer) via the Gemini image CLI into /tmp/gen_<name>.png, then
+# copies them into art/raw/ for tools/process_assets.py.
+set -u
+G=/google/bin/releases/gemini-agents-generate/generate
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+STYLE='32-bit era (mid-1990s console) 2D pixel art for a gothic horror side-scrolling action platformer. Crisp hard-edged pixel clusters, limited palette, flat shading with 2-3 tones per material, no anti-aliasing blur, no painterly or photoreal rendering, no 3D-render look. Cold teal-green moonlight rim light from the upper-left. Strict side view, orthographic. No text, no labels, no watermark, no signature, no frame borders.'
+KEY='The background must be one flat solid pure bright green (#00FF00) with no gradient, no ground shadows, and nothing touching the image edges. Nothing pure bright green (#00FF00) anywhere on the subjects; use teal, emerald-blue and dark olive for mossy or glowing parts instead.'
+
+gen() {
+  local name="$1"; shift
+  if [ -s "/tmp/gen_${name}.png" ]; then echo "= ${name} exists"; return; fi
+  for attempt in 1 2 3; do
+    "$G" -prod -timeout=180s -output="/tmp/gen_${name}.png" image -model=gempix-2-flash-lite-png "$STYLE $*" 2>&1 | grep -E "Successfully|rror|denied|capacity" | tail -1
+    [ -s "/tmp/gen_${name}.png" ] && break
+    sleep 15
+  done
+}
+
+# ---- batch 1: creatures (max 3 concurrent) ---------------------------------
+gen turtle "Palette: deep moss-green and dark olive shell with teal-blue carved rune glow, warm golden-ivory plastron and shell rim, sage-green skin, bright amber eyes, deep indigo shadows. SPRITE SHEET of ONE sturdy heroic guardian forest turtle companion facing RIGHT in every frame, drawn as two horizontal rows of four cells with wide even green gaps, all at the same scale with feet on a shared baseline per row. Top row, walk cycle: four frames of the turtle trotting right on four stout legs with a domed ancient mossy shell carved with a single glowing teal rune on the top scute, head stretched forward with a determined brow. Bottom row, shell spin: four frames of the same turtle fully withdrawn into its shell, the shell seen from the side at four different rotation angles (0, 90, 180, 270 degrees) with motion streaks of teal light, no legs or head visible. $KEY" &
+gen wolf "Palette: charcoal and slate-blue fur, moss-green thorny bramble growths along the spine, bone-ivory fangs and claws, glowing amber eyes, deep indigo shadows. SPRITE SHEET of ONE lean feral briar wolf enemy facing RIGHT in every frame: a gaunt dark forest wolf with bristling fur, a ridge of thorny mossy brambles growing along its back, bared fangs and glowing amber eyes. Layout: a 2 by 2 grid of cells with wide even green gaps, all at the same scale with paws on a shared baseline per row: top-left prowling with front legs forward (walk 1), top-right legs passing under the body (walk 2), bottom-left rear legs forward (walk 3), bottom-right stretched flat in a full-speed lunge leap with jaws wide open and all four legs extended. $KEY" &
+gen sporecap "Palette: pale bone-ivory stalk, teal-blue and violet mushroom cap with glowing cyan spots, dark olive gills, glowing amber eyes, deep indigo shadows. SPRITE SHEET of ONE walking myconid mushroom creature enemy facing RIGHT in every frame: a squat humanoid mushroom with a wide scalloped teal-violet cap covered in glowing cyan spots, a pale fibrous stalk body, two stubby root legs and two small glowing amber eyes under the cap. Layout: a single horizontal row of 3 cells with wide even green gaps, all at the same scale with feet on a shared baseline: (1) stepping with the left root-foot forward, (2) stepping with the right root-foot forward, (3) crouched and squashed low with the cap flared wide, puffing a cloud of glowing cyan spores out to the right. $KEY" &
+wait
+
+# ---- batch 2: owl, boss, props --------------------------------------------
+gen owl "Palette: dark slate-violet and charcoal feathers, pale ash-grey breast, glowing golden-amber eyes, bone-ivory hooked beak and talons, deep indigo shadows. SPRITE SHEET of ONE swooping great horned owl enemy facing RIGHT in every frame: a large dark forest owl with feather ear tufts, huge glowing golden eyes, a hooked beak and outstretched talons. Layout: a single horizontal row of 3 cells with wide even green gaps, all at the same scale and the same body position: (1) wings raised high above the body, (2) wings spread flat and level in a wide glide, (3) wings swept down low below the body. $KEY" &
+gen treant "Palette: dark umber and charcoal bark, warm grey-brown heartwood highlights, deep moss-green canopy, glowing teal-blue and amber heartwood eyes, bone-ivory bark fangs, deep indigo shadows. SPRITE SHEET of ONE towering hollow elder-tree boss monster, the Briar King, facing RIGHT in every frame: a massive gnarled ancient tree with a twisted hollow trunk, a jagged hollow maw lined with bark fangs, two blazing glowing eyes in knot-holes, a crown of twisted antler-like boughs with moss and glowing teal spore clusters, two heavy clawed branch arms, and thick root-pillar legs. Layout: a single horizontal row of 4 cells with wide even green gaps, all at the same scale with roots on a shared baseline: (1) standing idle with arms lowered, (2) idle swaying slightly with arms lowered, (3) both arms slammed down into the ground with claws spread and the trunk hunched, (4) roaring with the maw wide open, both arms raised high and the crown boughs flared. $KEY" &
+gen darkwoodprops "Palette: dark umber wood, deep moss-green, pale bone-ivory, slate-grey stone, glowing teal-cyan light, deep indigo shadows. A ROW of 4 separate props for a dark enchanted forest platformer, in one horizontal row with wide even green gaps, strict side view, same scale, all standing on the same invisible baseline: (1) a tall crooked wooden lantern post with a hanging iron cage lantern glowing teal-cyan and moss on the post, (2) a cluster of three bioluminescent mushrooms with teal-violet caps and glowing cyan spots, (3) a wide ancient hollow tree stump with exposed gnarled roots, moss and a glowing shelf fungus, (4) a tall weathered carved stone totem with glowing teal runes and a moss cap. $KEY" &
+wait
+
+# ---- batch 3: terrain strips & canopy -------------------------------------
+gen darkwoodfloor "Palette: deep emerald and teal moss, dark olive clover, midnight umber loam, charcoal roots, slate-grey stones, faint glowing cyan mycelium threads, deep indigo shadows. SIDE-VIEW TERRAIN CROSS-SECTION STRIP of an ancient dark enchanted forest floor, horizontally seamless (the left edge continues the right edge). The top 25 percent of the image is flat solid pure bright green (#00FF00) with nothing in it. At exactly 25 percent from the top is a perfectly horizontal ground surface covered in thick deep-emerald moss and dark olive clover with a few tiny glowing cyan mushrooms and fern tips poking slightly up into the pure green. Below the surface the remaining 75 percent is packed midnight umber loam with thick gnarled charcoal tree roots winding horizontally, embedded slate-grey stones, and a few faint glowing cyan mycelium threads along the roots, getting darker toward the bottom edge. The moss layer must be emerald and teal, never pure bright green. No objects above the surface except the tiny mushrooms and fern tips, no text." &
+gen darkwoodfloor_b "Palette: deep emerald and teal moss, dark olive clover, midnight umber loam, charcoal roots, slate-grey flagstones, faint glowing cyan mycelium, deep indigo shadows. SIDE-VIEW TERRAIN CROSS-SECTION STRIP of an abandoned mossy flagstone forest road in an ancient dark enchanted forest, horizontally seamless (the left edge continues the right edge). The top 25 percent of the image is flat solid pure bright green (#00FF00) with nothing in it. At exactly 25 percent from the top is a perfectly horizontal surface of cracked slate-grey flagstones half-swallowed by deep emerald moss, with a few small glowing cyan mushrooms poking slightly up into the pure green. Below the surface the remaining 75 percent is packed midnight umber loam with thick gnarled charcoal tree roots, a buried cracked stone slab, and faint glowing cyan mycelium threads, getting darker toward the bottom edge. The moss must be emerald and teal, never pure bright green. No objects above the surface except the small mushrooms, no text." &
+gen darkwoodcanopy "Palette: near-black charcoal and midnight-blue trunks, deep teal and dark emerald canopy foliage, pale moonlit teal rim highlights, glowing cyan spore clusters, deep indigo shadows. MID-DISTANCE PARALLAX BACKGROUND LAYER of an ancient dark enchanted forest: a continuous row of enormous ancient trees with massive twisted trunks and buttress roots, draped with hanging curtains of moss and vines, dense dark teal canopy overhead, small glowing cyan spore clusters and mushrooms clinging to the trunks; a solid dark ground fill across the bottom 12 percent so the bottom edge is completely filled. The layer must be horizontally seamless (the left edge continues the right edge), and the composition must fit within the middle horizontal band of the image (the top 20 percent and bottom 5 percent may be empty). Everything above and between the trees that is open air must be one flat solid pure bright green (#00FF00) with no gradient, no stars, no moon, no fog. Nothing pure bright green on the trees, moss or leaves; use teal and dark emerald instead." &
+wait
+
+ls -la /tmp/gen_turtle.png /tmp/gen_wolf.png /tmp/gen_sporecap.png /tmp/gen_owl.png /tmp/gen_treant.png /tmp/gen_darkwoodprops.png /tmp/gen_darkwoodfloor.png /tmp/gen_darkwoodfloor_b.png /tmp/gen_darkwoodcanopy.png
+
+# Copy into art/raw under the manifest source names.
+declare -A MAP=(
+  [turtle]=turtle_sheet.png [wolf]=wolf_sheet.png [sporecap]=sporecap_sheet.png
+  [owl]=owl_sheet.png [treant]=treant_sheet.png [darkwoodprops]=darkwood_props_sheet.png
+  [darkwoodfloor]=tex_darkwood_floor_strip.png [darkwoodfloor_b]=tex_darkwood_floor_strip_b.png
+  [darkwoodcanopy]=bg_darkwood_canopy.png
+)
+for k in "${!MAP[@]}"; do
+  if [ -s "/tmp/gen_${k}.png" ]; then cp "/tmp/gen_${k}.png" "${ROOT}/art/raw/${MAP[$k]}"; fi
+done
+echo "DARKWOOD_GEN_DONE"

@@ -101,18 +101,37 @@ export class Player extends Entity {
     else if (this.vx > target) this.vx = Math.max(target, this.vx - accel * dt);
     if (axis !== 0 && !rooted && !this.attacking) this.facing = axis;
 
-    // Jump (coyote + buffer), variable height; down+jump drops through ledges.
+    // Jump (coyote + buffer), variable height; down+jump drops through safe one-way ledges.
     if (ctl && this.jumpBuffer > 0 && this.coyote > 0 && !this.crouching) {
-      this.vy = -PLAYER.jump; this.coyote = 0; this.jumpBuffer = 0; this.onGround = false;
+      this.vy = -PLAYER.jump; this.coyote = 0; this.jumpBuffer = 0;
+      this.onGround = false; this.riding = null;
       world.sfx('jump');
       world.particles.dust(this.x, this.y, 4);
     }
     if (ctl && this.crouching && input.pressed.jump) {
-      // Drop through a one-way ledge (and swallow the press so it is not a jump).
-      this.dropThrough = true; this.y += 1; this.onGround = false;
-      this.jumpBuffer = 0; this.coyote = 0;
+      if (this.canDropThrough(level)) {
+        // Drop through a one-way ledge (or safe mover with a floor below).
+        this.dropThrough = true; this.dropFromY = this.y;
+        this.y += 1; this.onGround = false; this.riding = null;
+        this.jumpBuffer = 0; this.coyote = 0;
+      } else {
+        // Over a chasm/spikes or on solid stone: uncrouch (if clear) and jump instead of falling!
+        this.h = PLAYER.height;
+        if (this.headBlocked(level)) {
+          this.h = PLAYER.crouchHeight;
+        } else {
+          this.crouching = false;
+          this.vy = -PLAYER.jump; this.coyote = 0; this.jumpBuffer = 0;
+          this.onGround = false; this.riding = null;
+          world.sfx('jump');
+          world.particles.dust(this.x, this.y, 4);
+        }
+      }
     }
-    if (this.dropThrough && (this.vy > 60 || this.onGround)) this.dropThrough = false;
+    if (this.dropThrough && ((this.dropFromY != null && this.y > this.dropFromY + 14) || this.vy > 90 || this.onGround)) {
+      this.dropThrough = false;
+      this.dropFromY = null;
+    }
     if (input.released.jump && this.vy < 0) this.vy *= PLAYER.jumpCut;
 
     // Attack / sub-weapon
@@ -147,8 +166,13 @@ export class Player extends Entity {
     else if (Math.abs(this.vx) > 10) this.state = 'walk';
     else this.state = 'idle';
     if (this.state === 'walk') {
-      this.animT += dt * (Math.abs(this.vx) / PLAYER.speed) * 9;
-      this.walkFrame = Math.floor(this.animT) % 6;
+      // 8-frame alternating walk cycle (hero_walk sheet). The cycle advances with
+      // distance travelled (one frame per ~8 px) so the feet never slide, with a
+      // floor so slow acceleration frames still read as steps.
+      // 12-frame rotoscope-style cycle: one frame per ~5.5 px of travel so the
+      // planted foot never slides; a floor keeps slow steps readable.
+      this.animT += Math.max(7, Math.abs(this.vx) / 5.5) * dt;
+      this.walkFrame = Math.floor(this.animT) % 12;
     } else this.animT = 0;
   }
 
@@ -159,6 +183,21 @@ export class Player extends Entity {
     return false;
   }
 
+  /** True only when down+jump has a safe landing below (never drops through ferries over pits/spikes). */
+  canDropThrough(level) {
+    if (this.riding) {
+      return level.findDropSurfaceY(this.x, this.y + 4, 150) != null;
+    }
+    const ty = Math.floor((this.bottom + 0.5) / TILE);
+    const tx0 = Math.floor(this.left / TILE), tx1 = Math.floor((this.right - 0.01) / TILE);
+    let hasOneWay = false;
+    for (let tx = tx0; tx <= tx1; tx++) {
+      if (level.isSolid(tx, ty)) return false;
+      if (level.isOneWay(tx, ty)) hasOneWay = true;
+    }
+    return hasOneWay;
+  }
+
   /** Applies damage (scaled by difficulty) with knockback; returns true if it connected. */
   hurt(amount, fromX, world) {
     if (this.invuln > 0 || this.state === 'dead') return false;
@@ -167,6 +206,7 @@ export class Player extends Entity {
     this.petrified = 0;            // a blow shatters the stone shell
     world.sfx('hurt');
     world.camera.shake(3, 0.2);
+    if (world.onPlayerHurt) world.onPlayerHurt(amount);
     if (this.hp <= 0) { this.hp = 0; this.die(world); return true; }
     const d = world.difficulty;
     this.invuln = PLAYER.invuln * (d.invulnMul || 1);
@@ -240,14 +280,15 @@ export class Player extends Entity {
     if (this.petrified > 0) {
       // Stone statue: grey tint, trembling just before it breaks.
       const jx = this.petrified < 0.35 ? Math.round(Math.sin(this.petrified * 80) * 1.5) : 0;
-      assets.draw(ctx, 'hero', name === 'whip0' || name === 'whip1' ? 'idle' : name, this.x - camX + jx, this.y - camY, this.facing < 0, 1, 1, 'rgba(150, 150, 165, 0.82)');
+      assets.draw(ctx, 'hero', (name === 'whip0' || name === 'whip1' || name.startsWith('walk')) ? 'idle' : name, this.x - camX + jx, this.y - camY, this.facing < 0, 1, 1, 'rgba(150, 150, 165, 0.82)');
       return;
     }
     if (this.state === 'attack' && !this.attackCrouch && !this.throwing && name === 'whip1') {
       this.drawWhipStrike(ctx, assets, this.x - camX, this.y - camY, this.facing < 0, alpha);
       return;
     }
-    assets.draw(ctx, 'hero', name, this.x - camX, this.y - camY, this.facing < 0, alpha);
+    const sheet = this.state === 'walk' && assets.info('hero_walk') ? 'hero_walk' : 'hero';
+    assets.draw(ctx, sheet, sheet === 'hero' && name.startsWith('walk') ? 'walk' + (this.walkFrame % 6) : name, this.x - camX, this.y - camY, this.facing < 0, alpha);
   }
 
   /**

@@ -1,6 +1,6 @@
 // Heads-up display in the classic top-bar layout.
 
-import { W, PLAYER } from '../engine/constants.js';
+import { W, H, PLAYER } from '../engine/constants.js';
 
 export function drawHud(ctx, font, assets, world) {
   const p = world.player;
@@ -42,6 +42,56 @@ export function drawHud(ctx, font, assets, world) {
   ctx.fillStyle = '#8a9ab5';
   ctx.fillRect(bx + 1, by + 1, 28, 1);
   if (p.subWeapon) assets.draw(ctx, 'items', p.subWeapon, bx + 15, by + 23);
+
+  // Companion status badge (Darkwood Guardian Turtle)
+  if (world.ally && world.ally.alive) {
+    const ax = 302, ay = 23;
+    const spinning = world.ally.state === 'spin' || world.ally.state === 'windup';
+    const ready = world.ally.spinCd <= 0.05;
+    ctx.fillStyle = 'rgba(12, 26, 26, 0.82)';
+    ctx.fillRect(ax, ay, 110, 16);
+    ctx.strokeStyle = spinning ? '#8affd8' : '#2e6b5e';
+    ctx.strokeRect(ax + 0.5, ay + 0.5, 109, 15);
+    ctx.fillStyle = spinning ? '#ffd27a' : (ready ? '#62f2c2' : '#467a6e');
+    ctx.fillRect(ax + 5, ay + 5, 5, 6);
+    font.draw(ctx, spinning ? 'TURTLE · DASH!' : 'ALLY · TURTLE', ax + 14, ay + 4, {
+      color: spinning ? '#8affd8' : '#c8f5e4',
+      shadow,
+    });
+  }
+
+  // Boss approach Daikon voice dialogue plate (anchored near bottom so it never overlaps center banners)
+  if (world.voiceCue) {
+    const cue = world.voiceCue;
+    const k = Math.max(0, Math.min(1, cue.t / 0.22, (cue.dur - cue.t) / 0.38));
+    if (k > 0.01) {
+      ctx.save();
+      ctx.globalAlpha = k;
+      const px = 16, py = H - 46, pw = W - 32, ph = 38;
+      ctx.fillStyle = 'rgba(6, 4, 14, 0.88)';
+      ctx.fillRect(px, py, pw, ph);
+      ctx.strokeStyle = '#9e2f42';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+      ctx.strokeStyle = '#3a2848';
+      ctx.strokeRect(px + 2.5, py + 2.5, pw - 5, ph - 5);
+      // Golden corner rivets
+      ctx.fillStyle = '#ffd27a';
+      ctx.fillRect(px + 2, py + 2, 3, 3);
+      ctx.fillRect(px + pw - 5, py + 2, 3, 3);
+      ctx.fillRect(px + 2, py + ph - 5, 3, 3);
+      ctx.fillRect(px + pw - 5, py + ph - 5, 3, 3);
+      // Animated voice-meter bars on the left
+      for (let i = 0; i < 4; i++) {
+        const bh = 4 + Math.round(8 * (0.5 + 0.5 * Math.sin(world.time * 13 + i * 1.4)));
+        ctx.fillStyle = i % 2 === 0 ? '#ffd27a' : '#e25566';
+        ctx.fillRect(px + 10 + i * 4, py + 19 - (bh >> 1), 2, bh);
+      }
+      font.draw(ctx, cue.speaker, px + 32, py + 7, { color: '#ffd27a', shadow });
+      font.draw(ctx, `"${cue.text}"`, px + 32, py + 21, { color: ivory, shadow });
+      ctx.restore();
+    }
+  }
   ctx.restore();
 }
 

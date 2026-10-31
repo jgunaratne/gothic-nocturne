@@ -14,11 +14,15 @@ export class Camera {
   }
 
   setBounds(minX, maxX) { this.minX = minX; this.maxX = Math.max(minX, maxX); }
-  resetBounds() { this.minX = 0; this.maxX = Math.max(0, this.levelW - W); }
+  /** Locks the vertical scroll (boss arenas: keep the whole arena + ceiling in frame). */
+  setBoundsY(minY, maxY) { this.minY = minY; this.maxY = Math.max(minY, maxY); }
+  resetBounds() { this.minX = 0; this.maxX = Math.max(0, this.levelW - W); this.minY = null; this.maxY = null; }
+  get yMin() { return this.minY == null ? 0 : this.minY; }
+  get yMax() { return this.maxY == null ? Math.max(0, this.levelH - H) : this.maxY; }
 
   snapTo(x, y) {
     this.x = clamp(x - W * 0.42, this.minX, this.maxX);
-    this.y = clamp(y - H * 0.62, 0, Math.max(0, this.levelH - H));
+    this.y = clamp(y - H * 0.62, this.yMin, this.yMax);
   }
 
   shake(mag = 4, t = 0.25) { this.shakeMag = Math.max(this.shakeMag, mag); this.shakeT = Math.max(this.shakeT, t); }
@@ -33,7 +37,7 @@ export class Camera {
     // Vertical: keep feet around 62% of the screen, eased.
     const ty = target.y - H * 0.62;
     this.y += (ty - this.y) * Math.min(1, dt * 4);
-    this.y = clamp(this.y, 0, Math.max(0, this.levelH - H));
+    this.y = clamp(this.y, this.yMin, this.yMax);
     // Shake
     if (this.shakeT > 0) {
       this.shakeT -= dt;

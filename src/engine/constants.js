@@ -8,6 +8,9 @@ export const MAX_FALL = 720;     // px/s
 export const DT = 1 / 60;        // fixed simulation step
 
 // Tile ids
+/** Bumped whenever assets/ change so browsers never pair a stale atlas with new code. */
+export const ASSET_VERSION = '20261031i';
+
 export const T_EMPTY = 0;
 export const T_GROUND = 1;       // graveyard earth (strip "ground")
 export const T_STONE = 2;        // castle floor/wall (strip "floor")
@@ -20,13 +23,24 @@ export const T_CATACOMB = 8;     // ossuary flagstones (strip "catacomb")
 export const T_CLOCK = 9;        // clock-tower iron walkway (strip "clockfloor")
 export const T_FOREST = 10;      // autumn forest floor (strip "forestfloor")
 export const T_SNOW = 11;        // snowbound ground (strip "snowfloor")
+export const T_CRUMBLE = 12;     // fissured stone slab that crumbles underfoot
+export const T_DARKWOOD = 13;    // mossy dark-forest earth & roots (strip "darkwoodfloor")
 
 /** Terrain material tile id -> strip asset name. */
-export const MATERIAL_STRIP = { [T_GROUND]: 'ground', [T_STONE]: 'floor', [T_CATACOMB]: 'catacomb', [T_CLOCK]: 'clockfloor', [T_FOREST]: 'forestfloor', [T_SNOW]: 'snowfloor' };
+export const MATERIAL_STRIP = {
+  [T_GROUND]: 'ground',
+  [T_STONE]: 'floor',
+  [T_CATACOMB]: 'catacomb',
+  [T_CLOCK]: 'clockfloor',
+  [T_FOREST]: 'forestfloor',
+  [T_SNOW]: 'snowfloor',
+  [T_DARKWOOD]: 'darkwoodfloor',
+};
 export const isMaterialTile = (t) => t in MATERIAL_STRIP;
 
 export const isSolidTile = (t) =>
-  t === T_GROUND || t === T_STONE || t === T_CATACOMB || t === T_CLOCK || t === T_FOREST || t === T_SNOW ||
+  t === T_GROUND || t === T_STONE || t === T_CATACOMB || t === T_CLOCK ||
+  t === T_FOREST || t === T_SNOW || t === T_DARKWOOD ||
   t === T_BLOCK || t === T_GATE || t === T_BOUND;
 
 // Gameplay tuning
@@ -52,7 +66,8 @@ export const PLAYER = {
 };
 
 export const SCORE = {
-  candle: 10, zombie: 100, bat: 200, skeleton: 300, medusa: 300, boss: 3000,
+  candle: 10, zombie: 100, bat: 200, owl: 200, wolf: 250, mushroom: 250, ghost: 300, tome: 150, gargoyle: 350,
+  skeleton: 300, medusa: 300, boss: 3000,
   money: 500, timeBonus: 10,
 };
 

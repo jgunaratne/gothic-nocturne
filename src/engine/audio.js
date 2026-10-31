@@ -4,6 +4,7 @@
 const TRACKS = {
   title: 'assets/music/title.mp3',
   graveyard: 'assets/music/graveyard.mp3',
+  darkwood: 'assets/music/darkwood.mp3',
   jack: 'assets/music/jack.mp3',
   yule: 'assets/music/yule.mp3',
   ramparts: 'assets/music/ramparts.mp3',
@@ -11,10 +12,29 @@ const TRACKS = {
   ossuary: 'assets/music/ossuary.mp3',
   tower: 'assets/music/tower.mp3',
   throne: 'assets/music/throne.mp3',
+  arcade: 'assets/music/arcade.mp3',
+  library: 'assets/music/library.mp3',
+  cathedral: 'assets/music/cathedral.mp3',
   boss: 'assets/music/boss.mp3',
   clear: 'assets/music/clear.mp3',
   gameover: 'assets/music/gameover.mp3',
   ending: 'assets/music/ending.mp3',
+};
+
+export const VOICES = {
+  giantbat: 'assets/voice/giantbat.mp3',
+  treant: 'assets/voice/treant.mp3',
+  greatjack: 'assets/voice/greatjack.mp3',
+  devilsanta: 'assets/voice/devilsanta.mp3',
+  bonecaptain: 'assets/voice/bonecaptain.mp3',
+  reaper: 'assets/voice/reaper.mp3',
+  gorgon: 'assets/voice/gorgon.mp3',
+  reaperlord: 'assets/voice/reaperlord.mp3',
+  count: 'assets/voice/count.mp3',
+  automaton: 'assets/voice/automaton.mp3',
+  archivist: 'assets/voice/archivist.mp3',
+  archon: 'assets/voice/archon.mp3',
+  narrator_ending: 'assets/voice/narrator_ending.mp3',
 };
 const FALLBACK_TRACK = 'graveyard';
 const MAX_DECODED = 3;   // full-length tracks decode to ~50 MB of PCM each
@@ -25,9 +45,14 @@ export class AudioSys {
     this.master = null;
     this.sfxBus = null;
     this.musicBus = null;
-    this.buffers = new Map();   // name -> AudioBuffer (LRU, bounded)
-    this.loading = new Map();   // name -> Promise<AudioBuffer|null>
-    this.current = null;        // {name, sources: [], timer}
+    this.voiceBus = null;
+    this.buffers = new Map();       // name -> AudioBuffer (LRU, bounded)
+    this.loading = new Map();       // name -> Promise<AudioBuffer|null>
+    this.voiceRaw = new Map();      // key -> Promise<ArrayBuffer|null>
+    this.voiceBuffers = new Map();  // key -> AudioBuffer
+    this.activeVoice = null;
+    this.duckTimer = null;
+    this.current = null;            // {name, sources: [], timer}
     this.muted = false;
     this.musicVolume = 0.55;
     this.sfxVolume = 0.6;
@@ -48,7 +73,12 @@ export class AudioSys {
     this.musicBus = this.ctx.createGain();
     this.musicBus.gain.value = this.musicVolume;
     this.musicBus.connect(this.master);
+    this.voiceBus = this.ctx.createGain();
+    this.voiceBus.gain.value = 1.0;
+    this.voiceBus.connect(this.master);
     if (this.pendingTrack) { const t = this.pendingTrack; this.pendingTrack = null; this.playMusic(t.name, t.loop); }
+    if (this.pendingVoice) { const v = this.pendingVoice; this.pendingVoice = null; this.playVoice(v.key, v.onDuration); }
+    for (const n of ['whip', 'jump', 'land', 'hit', 'hurt', 'candle', 'heart', 'pickup', 'throw', 'enemy_die', 'bone', 'block', 'boss_hit', 'boss_roar', 'gate', 'select', 'fire', 'orb', 'thunder', 'die', 'boss_die', 'pause']) this.ensureSfx(n);
   }
 
   /** Fetches + decodes a track on demand; keeps only a few decoded. */
@@ -86,6 +116,80 @@ export class AudioSys {
 
   /** Warms the cache for an upcoming track (e.g. the boss theme). */
   prefetch(name) { if (this.ctx && !this.buffers.has(name)) this.ensureBuffer(name); }
+
+  /** Pre-fetches raw Daikon boss voice bytes so playback on approach has zero lag. */
+  prefetchVoice(key) {
+    const url = VOICES[key];
+    if (!url || this.voiceBuffers.has(key) || this.voiceRaw.has(key) || typeof fetch === 'undefined') return;
+    const p = fetch(url)
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .catch(() => null);
+    this.voiceRaw.set(key, p);
+  }
+
+  async ensureVoiceBuffer(key) {
+    if (this.voiceBuffers.has(key)) return this.voiceBuffers.get(key);
+    const url = VOICES[key];
+    if (!url || !this.ctx || typeof fetch === 'undefined') return null;
+    try {
+      let raw = this.voiceRaw.has(key) ? await this.voiceRaw.get(key) : null;
+      if (!raw) {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        raw = await res.arrayBuffer();
+      }
+      // Slice copy because decodeAudioData detaches the ArrayBuffer
+      const buf = await this.ctx.decodeAudioData(raw.slice(0));
+      this.voiceBuffers.set(key, buf);
+      this.voiceRaw.delete(key);
+      return buf;
+    } catch (e) {
+      console.warn('voice load failed', key, e);
+      return null;
+    }
+  }
+
+  /** Plays a Daikon boss approach voice line while smoothly ducking background music. */
+  playVoice(key, onDuration = null) {
+    if (!VOICES[key]) return;
+    this.lastVoicePlayed = key;
+    if (!this.ctx) {
+      this.pendingVoice = { key, onDuration };
+      return;
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.activeVoice) {
+      try { this.activeVoice.stop(); } catch (e) { /* already ended */ }
+      this.activeVoice = null;
+    }
+    if (this.duckTimer) { clearTimeout(this.duckTimer); this.duckTimer = null; }
+
+    (async () => {
+      const buf = await this.ensureVoiceBuffer(key);
+      if (!buf || !this.ctx) return;
+      if (onDuration) onDuration(buf.duration);
+      const now = this.ctx.currentTime;
+      if (this.musicBus) {
+        this.musicBus.gain.cancelScheduledValues(now);
+        this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.20, now, 0.08);
+      }
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      const g = this.ctx.createGain();
+      g.gain.value = 1.28;
+      src.connect(g).connect(this.voiceBus || this.master);
+      this.activeVoice = src;
+      const restore = () => {
+        if (this.activeVoice === src) this.activeVoice = null;
+        if (this.musicBus && this.ctx) {
+          this.musicBus.gain.setTargetAtTime(this.musicVolume, this.ctx.currentTime, 0.22);
+        }
+      };
+      src.onended = restore;
+      this.duckTimer = setTimeout(restore, Math.ceil(buf.duration * 1000) + 180);
+      src.start(now + 0.02);
+    })();
+  }
 
   toggleMute() {
     this.muted = !this.muted;
@@ -194,8 +298,39 @@ export class AudioSys {
     src.start(t);
   }
 
+  /** Loads a sampled effect (assets/sfx/<name>.mp3) once; resolves null when absent. */
+  ensureSfx(name) {
+    if (!this.sfxBuffers) { this.sfxBuffers = new Map(); this.sfxMissing = new Set(); }
+    if (this.sfxBuffers.has(name)) return Promise.resolve(this.sfxBuffers.get(name));
+    if (this.sfxMissing.has(name) || this.sfxLoading && this.sfxLoading.has(name)) return Promise.resolve(null);
+    if (!this.sfxLoading) this.sfxLoading = new Set();
+    this.sfxLoading.add(name);
+    return fetch(`assets/sfx/${name}.mp3`)
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .then((raw) => (raw ? this.ctx.decodeAudioData(raw) : null))
+      .then((buf) => { if (buf) this.sfxBuffers.set(name, buf); else this.sfxMissing.add(name); return buf; })
+      .catch(() => { this.sfxMissing.add(name); return null; })
+      .finally(() => this.sfxLoading.delete(name));
+  }
+
+  playSample(buf, vol = 1, rate = 1) {
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = rate;
+    const g = this.ctx.createGain();
+    g.gain.value = vol;
+    src.connect(g).connect(this.sfxBus);
+    src.start();
+  }
+
   sfx(name) {
     if (!this.ctx) return;
+    // Sampled effects (generated with tools/generate_sfx.sh) take precedence over the synth.
+    if (this.sfxBuffers && this.sfxBuffers.has(name)) {
+      this.playSample(this.sfxBuffers.get(name), name === 'whip' || name === 'hit' ? 0.9 : 0.8, 0.97 + Math.random() * 0.06);
+      return;
+    }
+    if (!this.sfxMissing || !this.sfxMissing.has(name)) { this.ensureSfx(name); }
     switch (name) {
       case 'whip':
         this._noise(0.08, 0.35, 3500, 'highpass');

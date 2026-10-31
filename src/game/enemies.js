@@ -560,10 +560,327 @@ export class FrostWisp extends Enemy {
   }
 }
 
+// ------------------------------------------------------ darkwood creatures
+
+/** Briar wolf: stalks mossy forest clearings and lunges in a low pounce when
+ *  the hunter comes within range. */
+export class BriarWolf extends Enemy {
+  constructor(x, y, min, max) {
+    super(x, y);
+    this.w = 34; this.h = 26; this.hp = 3; this.score = SCORE.wolf || 250; this.touchDamage = 2;
+    this.sheet = 'wolf'; this.frame = 'walk0';
+    this.minX = min; this.maxX = max; this.facing = -1;
+    this.state = 'prowl'; this.stateT = 0; this.animT = Math.random() * 4;
+    this.lungeCd = 1.1 + Math.random() * 0.7;
+  }
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    const dx = p.x - this.x;
+    const near = p.alive && Math.abs(dx) < 280 && Math.abs(p.y - this.y) < 96;
+    this.stateT += dt;
+    this.lungeCd = Math.max(0, this.lungeCd - dt);
+    if (this.knock) { this.vx = this.knock * 100; this.vy = -110; this.knock = 0; }
+
+    if (this.state === 'prowl') {
+      if (near) this.facing = dx >= 0 ? 1 : -1;
+      const speed = near ? 82 : 52;
+      const nextX = this.x + this.facing * speed * dt;
+      const atEdge = (this.facing > 0 && nextX > this.maxX) || (this.facing < 0 && nextX < this.minX);
+      if (atEdge || this.blockedAhead(level)) {
+        if (!near) this.facing = -this.facing;
+        this.vx = 0;
+      } else {
+        this.vx = this.facing * speed;
+      }
+      this.animT += Math.abs(this.vx) > 2 ? dt * (near ? 9 : 6) : dt * 2;
+      this.frame = 'walk' + (Math.floor(this.animT) % 3);
+      if (near && this.onGround && this.lungeCd <= 0 && Math.abs(dx) > 48 && Math.abs(dx) < 175) {
+        this.state = 'crouch';
+        this.stateT = 0;
+        this.vx = 0;
+      }
+    } else if (this.state === 'crouch') {
+      this.vx = 0;
+      this.frame = 'walk1';
+      if (this.stateT >= 0.24) {
+        this.state = 'lunge';
+        this.stateT = 0;
+        this.facing = dx >= 0 ? 1 : -1;
+        this.vx = this.facing * 235;
+        this.vy = -255;
+        this.onGround = false;
+        world.sfx('whip');
+      }
+    } else {
+      // lunge
+      this.frame = 'lunge';
+      if (this.onGround && this.stateT > 0.12) {
+        this.vx *= 0.5;
+        this.state = 'prowl';
+        this.stateT = 0;
+        this.lungeCd = 1.5 * world.difficulty.throwCooldown;
+      }
+    }
+    this.physics(level, dt);
+    if (this.y > level.height + 60) this.dead = true;
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 10, '#3a5e52', this.y);
+    world.particles.sparks(this.x, this.y - 12, 6, '#62f2c2');
+  }
+}
+
+/** Bioluminescent Sporecap myconid: patrols mossy logs and puffs drifting
+ *  glowing spores toward the hunter. */
+export class Sporecap extends Brute {
+  constructor(x, y, min, max) {
+    super(x, y, min, max);
+    this.w = 24; this.h = 34; this.hp = 3; this.score = SCORE.mushroom || 250; this.touchDamage = 2;
+    this.sheet = 'sporecap';
+    this.walkFrames = ['walk0', 'walk1'];
+    this.attackFrame = 'puff';
+    this.speed = 32; this.heavy = false;
+    this.attackRange = [48, 250]; this.attackAt = 0.35; this.attackDur = 0.85; this.attackCooldown = 2.3;
+  }
+  fire(world) {
+    const sp = new Projectile('spore', this.x + this.facing * 14, this.y - 22, this.facing, 'enemy');
+    world.spawnProjectile(sp);
+    world.particles.sparks(this.x + this.facing * 10, this.y - 24, 6, '#62f2c2');
+    world.sfx('fire');
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.sparks(this.x, this.y - 16, 12, '#62f2c2');
+    world.particles.dust(this.x, this.y, 8, '#4ac8a8');
+  }
+}
+
+/** Swooping Darkwood Night-Owl: perches high under elder boughs until the
+ *  hunter approaches, then glides down in a fast woodland arc. */
+export class NightOwl extends Enemy {
+  constructor(x, y) {
+    super(x, y);
+    this.w = 28; this.h = 20; this.hp = 2; this.score = SCORE.owl || 200; this.touchDamage = 2;
+    this.sheet = 'owl'; this.frame = 'fly1';
+    this.flies = true; this.gravityScale = 0;
+    this.homeY = y; this.state = 'perch'; this.t = Math.random() * 5;
+  }
+  wake(dir, targetY) {
+    this.state = 'swoop';
+    this.facing = dir;
+    this.targetY = targetY;
+    this.t = 0;
+  }
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    this.t += dt;
+    if (this.state === 'perch') {
+      this.frame = 'fly1';
+      this.y = this.homeY + Math.sin(this.t * 3) * 2;
+      if (p.alive && Math.abs(p.x - this.x) < 235) {
+        this.wake(p.x < this.x ? -1 : 1, p.y - 34);
+      }
+      return;
+    }
+    this.x += this.facing * 148 * dt;
+    const dive = Math.sin(Math.min(Math.PI, this.t * 2.2));
+    this.y = this.homeY + (this.targetY - this.homeY) * dive + Math.sin(this.t * 7) * 5;
+    this.frame = 'fly' + (Math.floor(this.t * 10) % 3);
+    if (this.x < world.camera.x - 90 || this.x > world.camera.x + 730) this.dead = true;
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 7, '#6c6286');
+    world.particles.sparks(this.x, this.y - 6, 5, '#ffd27a');
+  }
+}
+
+
+// ------------------------------------------------------------ library haunts
+
+/** Phantom: a hooded library ghost that drifts toward the hunter, phases in
+ *  and out (untouchable while faded), then lunges with a skull-faced shriek. */
+export class Phantom extends Enemy {
+  constructor(x, y, dir = -1) {
+    super(x, y);
+    this.w = 24; this.h = 40; this.hp = 2; this.score = SCORE.ghost || 300; this.touchDamage = 2;
+    this.sheet = 'ghost'; this.frame = 'float0';
+    this.flies = true; this.gravityScale = 0;
+    this.facing = dir; this.baseY = y; this.t = Math.random() * 6;
+    this.state = 'drift'; this.stateT = 0; this.fade = 1; this.lungeCd = 1.4 + Math.random();
+  }
+  takeHit(dmg, fromX, world) {
+    if (this.fade < 0.5) return false;          // phased out: the whip passes through
+    return super.takeHit(dmg, fromX, world);
+  }
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    this.t += dt; this.stateT += dt; this.lungeCd -= dt;
+    const dx = p.x - this.x, dy = (p.y - 30) - this.y;
+    if (this.state === 'drift') {
+      // Phase in/out on a slow cycle; home in gently on the hunter
+      this.fade = 0.55 + 0.45 * Math.sin(this.t * 1.7);
+      if (p.alive) {
+        this.facing = dx >= 0 ? 1 : -1;
+        this.x += Math.sign(dx) * Math.min(Math.abs(dx), 48 * dt);
+        this.baseY += Math.sign(dy) * Math.min(Math.abs(dy), 36 * dt);
+      }
+      this.y = this.baseY + Math.sin(this.t * 2.4) * 10;
+      this.frame = Math.floor(this.t * 3) % 2 ? 'float1' : 'float0';
+      if (Math.random() < 0.3) world.particles.emit({ x: this.x - this.facing * 10, y: this.y - 6 + Math.random() * 10, vx: -this.facing * 12, vy: -8, life: 0.6, color: 'rgba(170, 220, 255, 0.5)', size: 2, gravity: 0, glow: true });
+      if (p.alive && this.lungeCd <= 0 && this.fade > 0.8 && Math.abs(dx) < 200 && Math.abs(dy) < 90) {
+        this.state = 'lunge'; this.stateT = 0; this.fade = 1;
+        const d = Math.hypot(dx, dy) || 1;
+        this.vx = (dx / d) * 250; this.vy = (dy / d) * 250;
+        world.sfx('fire');
+      }
+    } else {
+      this.frame = 'lunge'; this.fade = 1;
+      this.x += this.vx * dt; this.baseY += this.vy * dt; this.y = this.baseY;
+      if (this.stateT > 0.55) { this.state = 'drift'; this.stateT = 0; this.lungeCd = 2.2 * world.difficulty.throwCooldown; }
+    }
+    if (this.x < -80 || this.x > level.width + 80) this.dead = true;
+  }
+  draw(ctx, assets, camX, camY) {
+    const a = this.deathT >= 0 ? 1 - this.deathT / 0.35 : Math.max(0.25, this.fade);
+    this.drawSprite(ctx, assets, camX, camY, this.facing < 0, a);
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.sparks(this.x, this.y - 10, 12, '#bfe6ff');
+    world.particles.smoke(this.x, this.y - 10, 4, 'rgba(170, 200, 255, 0.4)');
+  }
+}
+
+/** Cursed tome: rests on a shelf until the hunter nears, then bursts out
+ *  flapping its covers and snaps at the hunter in short chomping dives. */
+export class CursedTome extends Enemy {
+  constructor(x, y) {
+    super(x, y);
+    this.w = 22; this.h = 16; this.hp = 1; this.score = SCORE.tome || 150; this.touchDamage = 2;
+    this.sheet = 'tome'; this.frame = 'shut';
+    this.flies = true; this.gravityScale = 0;
+    this.state = 'shelf'; this.t = Math.random() * 4; this.homeX = x; this.homeY = y;
+    this.chompT = 0.8 + Math.random() * 0.6;
+  }
+  wake(dir) { this.state = 'fly'; this.facing = dir; this.vx = dir * 60; this.vy = -90; this.t = 0; }
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); this.y += 60 * dt; return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    this.t += dt;
+    const dx = p.x - this.x, dy = (p.y - 28) - this.y;
+    if (this.state === 'shelf') {
+      this.frame = 'shut';
+      if (p.alive && Math.abs(dx) < 190 && Math.abs(dy) < 130) {
+        this.wake(dx >= 0 ? 1 : -1);
+        world.particles.dust(this.x, this.y, 6, '#c9b58a');
+        world.sfx('candle');
+      }
+      return;
+    }
+    if (this.state === 'fly') {
+      // Flap toward the hunter with a bobbing path
+      this.facing = dx >= 0 ? 1 : -1;
+      this.vx += Math.sign(dx) * 260 * dt; this.vy += Math.sign(dy) * 200 * dt;
+      const sp = Math.hypot(this.vx, this.vy), max = 135;
+      if (sp > max) { this.vx *= max / sp; this.vy *= max / sp; }
+      this.x += this.vx * dt; this.y += this.vy * dt + Math.sin(this.t * 9) * 0.6;
+      this.frame = Math.floor(this.t * 9) % 2 ? 'flap1' : 'flap0';
+      this.chompT -= dt;
+      if (this.chompT <= 0 && Math.abs(dx) < 90 && Math.abs(dy) < 60) {
+        this.state = 'chomp'; this.t = 0;
+        const d = Math.hypot(dx, dy) || 1;
+        this.vx = (dx / d) * 300; this.vy = (dy / d) * 300;
+        world.sfx('bone');
+      }
+    } else {
+      this.frame = this.t < 0.18 ? 'chomp' : 'shut';
+      this.x += this.vx * dt; this.y += this.vy * dt;
+      this.vx *= 0.94; this.vy *= 0.94;
+      if (this.t > 0.42) { this.state = 'fly'; this.chompT = 0.9 + Math.random() * 0.5; }
+    }
+    if (this.x < -60 || this.x > level.width + 60 || this.y > level.height + 40) this.dead = true;
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 10, '#e8e2c8', this.y + 40);
+    world.particles.shards(this.x, this.y, 5, '#8a2a30', this.y + 40);
+  }
+}
+
+
+// --------------------------------------------------------------- gargoyle
+
+/** Stone gargoyle: a statue perched on a ledge or cornice. Whips ring off it
+ *  harmlessly until the hunter comes close; then its eyes light, it unfurls
+ *  and swoops in long arcs, returning to hover and dive again. */
+export class Gargoyle extends Enemy {
+  constructor(x, y) {
+    super(x, y);
+    this.w = 28; this.h = 26; this.hp = 3; this.score = SCORE.gargoyle || 350; this.touchDamage = 3;
+    this.sheet = 'gargoyle'; this.frame = 'perch';
+    this.flies = true; this.gravityScale = 0;
+    this.state = 'perch'; this.t = 0; this.homeX = x; this.homeY = y; this.facing = -1;
+  }
+  takeHit(dmg, fromX, world) {
+    if (this.state === 'perch') { world.sfx('block'); world.particles.sparks(this.x, this.y - 12, 4, '#cfd8e8'); return false; }
+    return super.takeHit(dmg, fromX, world);
+  }
+  wake(dir, targetY) { this.state = 'wake'; this.facing = dir; this.t = 0; this.targetY = targetY; }
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); this.y += 80 * dt; return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    this.t += dt;
+    const dx = p.x - this.x, dy = (p.y - 34) - this.y;
+    if (this.state === 'perch') {
+      this.frame = 'perch';
+      if (p.alive && Math.abs(dx) < 200 && dy > -60) this.wake(dx >= 0 ? 1 : -1, p.y - 34);
+      return;
+    }
+    if (this.state === 'wake') {
+      this.frame = 'wake';
+      if (this.t === dt) world.sfx('block');
+      if (this.t > 0.5) { this.state = 'swoop'; this.t = 0; this.fromY = this.y; world.particles.dust(this.x, this.y, 6, '#9a9aa8'); }
+      return;
+    }
+    if (this.state === 'swoop') {
+      // Arc down through the hunter's height and climb back up on the far side
+      this.x += this.facing * 150 * dt;
+      const k = Math.min(1, this.t / 1.3);
+      this.y = this.fromY + (this.targetY - this.fromY) * Math.sin(k * Math.PI);
+      this.frame = Math.floor(this.t * 9) % 2 ? 'fly1' : 'fly0';
+      if (k >= 1) { this.state = 'hover'; this.t = 0; this.hoverY = this.y; }
+    } else {
+      // Hover briefly, turn to face the hunter, then dive again
+      this.frame = Math.floor(this.t * 6) % 2 ? 'fly1' : 'fly0';
+      this.y = this.hoverY + Math.sin(this.t * 4) * 6;
+      this.x += Math.sign(dx) * 30 * dt;
+      if (this.t > 0.9) { this.facing = dx >= 0 ? 1 : -1; this.state = 'swoop'; this.t = 0; this.fromY = this.y; this.targetY = p.y - 30; }
+    }
+    if (this.x < -80 || this.x > level.width + 80) this.dead = true;
+  }
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 14, '#9a9aa8', this.y + 60);
+    world.particles.dust(this.x, this.y, 8, '#b8b8c4');
+    world.camera.shake(2, 0.15);
+  }
+}
+
 /** Wall-pacing spawner factory used by Spawner for float-in enemies. */
 function makeFloater(type, x, y, dir, variant) {
   if (type === 'lantern') return new Pumpkin(x, y, dir, 'lantern');
   if (type === 'wisp') return new FrostWisp(x, y, dir);
+  if (type === 'ghost') return new Phantom(x, y, dir);
   return new MedusaHead(x, y, dir);
 }
 
@@ -580,6 +897,12 @@ export function createEnemy(e) {
     case 'dragon': return new Dragon(cx, e.ty * TILE + 16, minX, maxX);
     case 'icegolem': return new IceGolem(cx, groundY, minX, maxX);
     case 'snowman': return new Snowman(cx, groundY, minX, maxX);
+    case 'wolf': return new BriarWolf(cx, groundY, minX, maxX);
+    case 'mushroom': return new Sporecap(cx, groundY, minX, maxX);
+    case 'owl': return new NightOwl(cx, e.ty * TILE + 16);
+    case 'ghost': return new Phantom(cx, e.ty * TILE + 16, -1);
+    case 'tome': return new CursedTome(cx, e.ty * TILE + 16);
+    case 'gargoyle': return new Gargoyle(cx, e.ty * TILE + 16);
     default: return null;
   }
 }
@@ -619,7 +942,7 @@ export class Spawner {
         break;
       }
       this.timer = (2.4 + Math.random() * 0.8) * diff.spawnInterval;
-    } else if (this.type === 'medusa' || this.type === 'lantern' || this.type === 'wisp') {
+    } else if (this.type === 'medusa' || this.type === 'lantern' || this.type === 'wisp' || this.type === 'ghost') {
       if (this.alive.length >= diff.maxAlive) { this.timer = 0.6; return; }
       const dir = -p.facing;
       const x = p.facing > 0 ? world.camera.x + 640 + 30 : world.camera.x - 30;
@@ -628,16 +951,40 @@ export class Spawner {
       world.spawnEnemy(m);
       this.alive.push(m);
       this.timer = (2.0 + Math.random() * 0.8) * diff.spawnInterval;
-    } else if (this.type === 'bat') {
-      // Bats drop from the rafters ahead of the hunter, already swooping.
+    } else if (this.type === 'tome') {
+      // Books tear themselves off the shelves behind the hunter, two at a time.
+      if (this.alive.length >= diff.maxAlive) { this.timer = 0.7; return; }
+      for (let i = 0; i < 2; i++) {
+        const side = i === 0 ? p.facing : -p.facing;
+        const x = p.x + side * (120 + Math.random() * 120);
+        if (x < this.x0 || x > this.x1) continue;
+        const t = new CursedTome(x, p.y - 70 - Math.random() * 60);
+        t.wake(-side);
+        world.spawnEnemy(t);
+        this.alive.push(t);
+        world.particles.dust(t.x, t.y, 5, '#c9b58a');
+      }
+      world.sfx('candle');
+      this.timer = (2.6 + Math.random() * 0.9) * diff.spawnInterval;
+    } else if (this.type === 'gargoyle') {
+      if (this.alive.length >= Math.max(1, diff.maxAlive - 1)) { this.timer = 0.9; return; }
+      const side = Math.random() < 0.75 ? p.facing : -p.facing;
+      const g = new Gargoyle(p.x + side * (250 + Math.random() * 90), Math.max(16, world.camera.y + 24));
+      g.wake(-side, p.y - 34);
+      world.spawnEnemy(g);
+      this.alive.push(g);
+      this.timer = (3.6 + Math.random() * 1.2) * diff.spawnInterval;
+    } else if (this.type === 'bat' || this.type === 'owl') {
+      // Bats and owls swoop down from the rafters/canopy ahead of the hunter.
       if (this.alive.length >= Math.max(1, diff.maxAlive - 1)) { this.timer = 0.8; return; }
       const side = Math.random() < 0.75 ? p.facing : -p.facing;
       const x = p.x + side * (260 + Math.random() * 80);
-      const b = new Bat(x, Math.max(16, world.camera.y + 10), this.variant);
-      b.wake(-side, p.y - 40);
+      const yTop = Math.max(16, world.camera.y + 14);
+      const b = this.type === 'owl' ? new NightOwl(x, yTop) : new Bat(x, yTop, this.variant);
+      b.wake(-side, p.y - 36);
       world.spawnEnemy(b);
       this.alive.push(b);
-      this.timer = (3.2 + Math.random() * 1.2) * diff.spawnInterval;
+      this.timer = (3.0 + Math.random() * 1.1) * diff.spawnInterval;
     }
   }
 }

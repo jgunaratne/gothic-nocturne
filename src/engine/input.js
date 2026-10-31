@@ -10,9 +10,10 @@ const KEYMAP = {
   KeyX: 'attack', KeyK: 'attack',
   Enter: 'start', Escape: 'start',
   KeyM: 'mute',
+  KeyF: 'fx',
 };
 
-const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'start', 'mute'];
+const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'start', 'mute', 'fx'];
 
 export class Input {
   constructor(target) {

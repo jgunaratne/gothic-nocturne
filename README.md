@@ -1,24 +1,43 @@
 # Gothic Nocturne
 
-A 32-bit era, whip-cracking side-scrolling action platformer across eight
-stages: a moonlit graveyard road, a pumpkin-lit haunted forest, a snowbound
-village on a cursed Christmas night, the castle ramparts, catacombs and an
-ossuary, a clock tower of grinding gears, and the throne hall of the Count. Multi-layer parallax outdoors, scrolling far walls
-indoors, tile terrain, candelabra to whip for hearts and sub-weapons,
+A 32-bit era, whip-cracking 2.5D side-scrolling action platformer across twelve
+stages: a moonlit graveyard road, an ancient bioluminescent darkwood alongside a
+guardian turtle companion, a pumpkin-lit haunted forest, a snowbound
+village under northern lights, the castle ramparts, catacombs and an
+ossuary abyss, an arcade gallery of ancient brass automata, a haunted library of phantoms and
+biting grimoires, a soaring cathedral of stained glass and waking gargoyles, a
+cylindrical clock tower of grinding 3D gears, and the vaulted
+throne hall of the Count. Combines crisp nearest-neighbour 2D sprite combat
+with perspective-projected 3D architecture, scanline-projected vista planes,
+extruded viaduct bridges, orbiting gear gondolas, chain-drawn ferries,
+crumbling masonry, candelabra to whip for hearts and sub-weapons,
 skeletons (and red reviving / axe-throwing variants), rising zombies and
-ghouls, swooping and fire bats, medusa heads, hopping and flaming
-jack-o'-lanterns, fire-breathing dragons, the petrifying catoblepas, ice
-golems, killer snowmen, frost wisps, and a different boss at the end of every
-stage.
+ghouls, swooping and fire bats, medusa heads, briar wolves, sporecap myconids,
+swooping night-owls, hopping and flaming jack-o'-lanterns, fire-breathing
+dragons, the petrifying catoblepas, ice golems, killer snowmen, frost wisps,
+and a bespoke 3D boss arena with spoken Daikon boss voice lines at the end of
+every stage.
 
-- **Art**: every tile, sprite and backdrop was generated with Gemini's image
-  model, then normalized into crisp pixel art by a deterministic pipeline.
-- **Music**: twelve full-length tracks (2–2.5 minutes each) generated with
+- **Art**: tiles, sprites and backdrops generated with Gemini's image
+  model and normalized into crisp pixel art, paired with procedural 32-bit
+  pixel-art sheets and 3D surface textures.
+- **Music**: sixteen full-length tracks (2–2.5 minutes each) generated with
   **Lyria 3**: a distinct theme for every stage plus title, boss, stage-clear,
-  game-over and ending, streamed on demand and looped with crossfades. Sound
-  effects are synthesized in-browser with Web Audio.
+  game-over and ending, streamed on demand and looped with crossfades.
+- **Voice**: twelve bespoke boss voice performances plus a narrated epilogue generated with the
+  **Daikon** TTS model (`assets/voice/*.mp3`), triggered with music ducking and
+  a subtitle banner as the hunter nears each boss arena. Sound effects are
+  synthesized in-browser with Web Audio, or replaced by sampled effects in
+  `assets/sfx/` when generated with `tools/generate_sfx.sh` (ElevenLabs Sound
+  Effects API, needs `ELEVENLABS_API_KEY`).
 - **Engine**: plain HTML5 canvas + ES modules, no build step, no dependencies.
-  Native 640×360, integer-scaled with nearest-neighbour sampling.
+  Native 640×360, integer-scaled with nearest-neighbour sampling, composited
+  through a WebGL post-process (`src/engine/postfx.js`: quarter-res bloom,
+  per-stage colour grading, phosphor scanlines, film grain, lightning
+  shimmer and damage pulse; press F to toggle, `?nofx` to disable) plus
+  procedural shader layers (`src/engine/fxlayers.js`: drifting cloud banks,
+  flowing / frozen water on the 3D ground planes, living flames on torches,
+  candelabra, chandeliers and fire pools, and rolling foreground mist).
 
 ## Play
 
@@ -34,6 +53,7 @@ stage.
 | Throw sub-weapon (costs 1 heart) | ↑ + whip | ↑ + attack |
 | Pause / start | Enter or Esc | Start |
 | Mute | M | — |
+| Toggle shaders (bloom, grading, scanlines) | F | — |
 
 Whip candelabra for hearts, money, and sub-weapons (dagger, axe, holy water).
 Breakable blocks hide meat and gold. Spike pits hurt; bottomless pits kill.
@@ -41,33 +61,49 @@ Defeat each stage's boss and claim the orb to march into the next stage.
 
 ## Stages
 
-Pick any stage on the "Select stage" screen (shown after the difficulty
-choice; cleared stages are marked and your last stage is remembered).
-Clearing a stage carries score, lives, hearts and sub-weapon into the next one;
-clearing stage 6 plays the ending.
+The stages form one connected **castle map** (shown after the difficulty
+choice): regions are laid out as rooms on a cell grid joined by passages, and a
+any region can be entered at any time; passages show the natural route and
+light up as neighbouring regions are cleared. The Graveyard Road
+is the entrance; the woods lie to the west, the catacombs beneath, the ramparts
+and the east-wing Arcade lead up to the Clock Tower and finally the Throne Hall.
+Clearing a stage carries score, lives, hearts and sub-weapon back to the map;
+clearing the Throne Hall plays the ending.
 
-| # | Stage | Theme | Signature hazards | Boss |
+| # | Stage | Theme | Signature 2.5D set-pieces & hazards | Boss |
 | --- | --- | --- | --- | --- |
-| 1 | The Graveyard Road | outdoors → castle gate | zombies, bats, medusa heads, a catoblepas | The Great Bat |
-| 2 | The Jack-o'-Lantern | autumn forest of glowing pumpkins | hopping/flaming pumpkins, dragons, catoblepas | The Great Jack |
-| 3 | The Frozen Yule | snowbound village, falling snow | ice golems, snowmen, frost wisps | Devil Santa |
-| 4 | The Ramparts | outdoors, castle walls | long gaps, ledge hops, axe skeletons | The Bone Captain |
-| 5 | The Catacombs | ossuary walls, crawl corridors | red skeletons, breakable walls | The Phantom Reaper |
-| 6 | The Ossuary | darker crypt | spike fields, ghouls, fire bats | The Gorgon Queen |
-| 7 | The Clock Tower | vertical climb, turning gears | ledge ascents, bat swarms | The Reaper Lord |
-| 8 | The Throne Hall | the keep's great hall | everything at once | The Count |
+| 1 | The Graveyard Road | moonlit moor → barbican gate & hall | 3D rotating distant keep, moat drawbridge, vaulted hall gallery ferry | The Great Bat |
+| 2 | The Darkwood | 3D elder colonnade & bioluminescent stream | guardian turtle ally (shell-spin combat & shell-spring), root viaducts, log ferry | The Briar King |
+| 3 | The Jack-o'-Lantern | 3D forest colonnade & swaying lanterns | crumbling slabs, ravine trestle bridges, gorge ferry, canopy split route | The Great Jack |
+| 4 | The Frozen Yule | aurora sky & shimmering 3D ice lake | arched lake causeways, chain ice ferry, snow-gable split route | Devil Santa |
+| 5 | The Ramparts | high curtain walls over 3D torchlit bailey | open viaduct arches, diagonal siege lifts, crumbling battlements | The Bone Captain |
+| 6 | The Catacombs | vaulted skull-niche crypts | teach-then-test crumbling crypt slabs, burial gallery, vault ferry | The Phantom Reaper |
+| 7 | The Ossuary | broken colonnade over 3D spectral abyss | abyssal viaduct spans, spectral chain ferry, reliquary split route | The Gorgon Queen |
+| 8 | The Arcade | gilded gallery of ancient automata (fortune-teller, zoetrope, oracle engine, chess automaton, magic lantern) | gallery lifts, balcony split route, clockwork annex cog-wheel | The Brass Automaton |
+| 9 | The Library | towering bookshelf walls & reading-room apse | phantoms that phase through the whip, cursed tomes bursting off the shelves, page storms | The Spectral Archivist |
+| 10 | The Cathedral | 26-row nave, clerestory lancets & a great rose window | gargoyles that wake from the cornices, triforium climbs, organ-loft descent | The Gargoyle Archon |
+| 11 | The Clock Tower | cylindrical 3D shaft & extruded brass gears | orbiting 3D gear-wheel gondolas, counterweight shaft lift | The Reaper Lord |
+| 12 | The Throne Hall | crimson rib-vaulted nave & chandeliers | clerestory split route, sanctuary lift, rose-window & pipe-organ dais | The Count |
 
 The catoblepas breathes a petrifying cloud: touched by it, the hunter turns to
 stone for a moment — mash any button to break free sooner.
 
-Every material has two terrain strips that alternate per 8-tile chunk, exposed
-faces are edge-shaded, fill tiles get a faint value jitter, ledges stand on
-posts, and interior walls alternate texture panels between pilasters with
-mouldings and arched alcoves.
+Walkable terrain stays razor-sharp on the `z = 0` collision plane while receding
+3D top decks, perspective step faces, 3D viaduct arches, contact shadows,
+vaulted Gothic halls, cylindrical clockwork shafts, and auto-fading foreground
+pillars frame the action in depth (`src/game/stage3d.js` + `src/game/level.js`).
+Every 3D polygon is texture-mapped with nearest-neighbour pixel-art textures
+(`src/game/tex3d.js` — `CanvasPattern.setTransform(DOMMatrix)` + perspective Z
+subdivision, directional Lambert shading, and atmospheric depth fog) built from
+each stage's PNG tilesets alongside bespoke pixel-art procedural materials
+(lathe-turned riveted brass/iron gears, ashlar masonry, slate conical roofs,
+carved organ cases, and tufted velvet).
 
-Stage 1 is hand-built (`src/game/level_data.js`); stages 2–8 are composed
-from prefab segments by `src/game/builder.js` (`flat`, `gap`, `spikeRun`,
-`stepUp/stepDown`, `climb`, `corridor`, `blocks`, `arena`) in
+Stage 1 is hand-built (`src/game/level_data.js`); stages 2–12 are composed
+from prefab segments by `src/game/builder.js` (`flat`, `vistaBridge`,
+`crumbleRun`, `ferryGap`, `splitRoute`, `gearWheel`, `liftShaft`, `descent`,
+`hiddenVault`, `swingRun`, `vestibule`, `gap`,
+`spikeRun`, `stepUp/stepDown`, `climb`, `corridor`, `blocks`, `arena`) in
 `src/game/stages.js`, so adding a stage is a dozen lines.
 
 ## Difficulty
@@ -95,15 +131,19 @@ index.html            canvas shell
 src/main.js           boot, scaling, fixed-step loop, title/pause/clear/game-over
 src/engine/           input (keyboard, gamepad, scripted), assets, audio, font,
                       particles, camera, constants
-src/game/             level grid + rendering, builder (prefabs + themes), stages,
-                      level_data (stage 1), parallax, entities, player, enemies,
-                      boss (Reaper), bosses (the other five + factory), objects
+src/game/             level grid + 2.5D mechanics/tiles, stage3d (perspective
+                      projection, vistas, vaulted halls, 3D gears & boss arenas),
+                      tex3d (pixel-art 3D polygon texture rasterizer & bank),
+                      builder (prefabs + themes), stages, level_data (stage 1),
+                      parallax, entities, player, ally (guardian turtle),
+                      enemies, boss (Reaper), bosses (all other bosses +
+                      factory), forest_assets (Darkwood pixel art), objects
                       (candles/items/projectiles/fire), world (combat, scripting,
-                      draw order), hud
-assets/               engine-ready PNGs + atlas.json, music/*.mp3
+                      draw order), castlemap (connected stage map), hud
+assets/               engine-ready PNGs + atlas.json, music/*.mp3, voice/*.mp3
 art/raw/              untouched generations (provenance)   art/PROMPTS.md
 tools/                process_assets.py (pipeline), asset_manifest.json,
-                      import_raw.py, screenshot.sh
+                      import_raw.py, generate_voices.sh, screenshot.sh
 ```
 
 ## Asset pipeline
@@ -131,5 +171,6 @@ tools/screenshot.sh "demo=1&skip=600" /tmp/shot.png
 URL parameters: `demo=1` drives the hunter with a scripted input loop,
 `skip=N` pre-simulates N fixed steps before the first frame, `at=<column>`
 teleports to a tile column, `bosshp=N` weakens the boss,
-`difficulty=easy|normal|hard` presets the difficulty, `stage=1..8` picks the
-stage, `screen=difficulty|stageselect|ending` opens a screen directly.
+`difficulty=easy|normal|hard` presets the difficulty, `stage=1..12` picks the
+stage, `screen=play|difficulty|stageselect|ending` opens a screen directly, `nofx`
+disables the shader post-process.

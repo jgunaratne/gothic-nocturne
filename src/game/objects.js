@@ -3,6 +3,8 @@
 import { TILE, SCORE, PLAYER } from '../engine/constants.js';
 import { Entity, rectsOverlap } from './entities.js';
 import { drawFlameGlow } from './level.js';
+import { getGlowCanvas } from './tex3d.js';
+import { getFxLayers } from '../engine/fxlayers.js';
 
 const DROP_TABLE = [
   ['heart_small', 0.62], ['heart_big', 0.16], ['money', 0.12], ['dagger', 0.04],
@@ -31,6 +33,8 @@ export class Candle {
     const x = this.x - camX, y = this.y - camY;
     assets.draw(ctx, 'props', 'candelabra', x, y);
     drawFlameGlow(ctx, x, y - 54, time + this.phase, 26, 0.7);
+    const fx = getFxLayers();
+    if (fx) { fx.addFlame(x - 7, y - 50, 5, 12, [1.0, 0.6, 0.2], this.phase); fx.addFlame(x, y - 55, 5, 13, [1.0, 0.62, 0.22], this.phase + 1.1); fx.addFlame(x + 7, y - 50, 5, 12, [1.0, 0.6, 0.2], this.phase + 2.3); }
   }
 }
 
@@ -45,28 +49,49 @@ export class Item extends Entity {
   constructor(type, x, y) {
     super(x, y);
     this.type = type;
-    this.w = 14; this.h = 14;
-    this.vy = -160;
-    this.vx = (Math.random() - 0.5) * 40;
-    this.life = type === 'orb' ? Infinity : 8;
+    const isOrb = type === 'orb';
+    this.w = isOrb ? 20 : 14;
+    this.h = isOrb ? 20 : 14;
+    this.vy = isOrb ? -130 : -160;
+    this.vx = isOrb ? 0 : (Math.random() - 0.5) * 40;
+    this.life = isOrb ? Infinity : 8;
     this.gravityScale = 0.8;
+    this.arenaFloorY = null;
+    this.arenaX0 = null;
+    this.arenaX1 = null;
   }
   update(dt, level) {
-    this.life -= dt;
-    if (this.life <= 0) this.dead = true;
+    const isOrb = this.type === 'orb';
+    if (!isOrb) {
+      this.life -= dt;
+      if (this.life <= 0) this.dead = true;
+    }
     if (this.onGround) this.vx *= 0.8;
-    this.physics(level, dt);
-    if (this.y > level.height + 100) this.dead = true;
+    this.physics(level, dt, { collide: true, oneWay: !isOrb });
+    if (isOrb) {
+      if (this.arenaX0 != null) this.x = Math.max(this.arenaX0, Math.min(this.arenaX1, this.x));
+      if (this.arenaFloorY != null && this.y >= this.arenaFloorY) {
+        this.y = this.arenaFloorY;
+        this.vy = 0;
+        this.onGround = true;
+      }
+    } else if (this.y > level.height + 100) {
+      this.dead = true;
+    }
   }
   draw(ctx, assets, camX, camY, time) {
     if (this.life < 2.5 && Math.floor(this.life * 10) % 2 === 0) return;
     const bob = this.type === 'orb' ? Math.sin(time * 4) * 3 : 0;
     if (this.type === 'orb') {
       const x = this.x - camX, y = this.y - camY - 8 + bob;
-      const g = ctx.createRadialGradient(x, y, 2, x, y, 28);
-      g.addColorStop(0, 'rgba(180, 220, 255, 0.55)');
-      g.addColorStop(1, 'rgba(120, 160, 255, 0)');
-      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(x - 28, y - 28, 56, 56); ctx.restore();
+      const glow = getGlowCanvas('ice');
+      if (glow) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.65;
+        ctx.drawImage(glow, x - 28, y - 28, 56, 56);
+        ctx.restore();
+      }
     }
     assets.draw(ctx, 'items', ITEM_FRAMES[this.type], this.x - camX, this.y - camY + bob);
   }
@@ -96,6 +121,11 @@ export class Projectile {
       case 'iceshard': this.vx = dir * 260; this.vy = -60; this.gravity = 0.35; this.damage = 2; this.life = 2; this.w = 12; this.h = 8; break;
       case 'snowball': this.vx = dir * 190; this.vy = -330; this.gravity = 0.9; this.damage = 2; this.w = 12; this.h = 12; break;
       case 'present': this.vx = dir * 150; this.vy = -420; this.gravity = 1; this.damage = 3; this.w = 16; this.h = 16; this.bursts = true; break;
+      case 'spore': this.vx = dir * 118; this.vy = -28; this.damage = 2; this.life = 2.8; this.w = 14; this.h = 14; break;
+      case 'shard': this.vx = 0; this.vy = 200; this.gravity = 0.25; this.damage = 2; this.life = 2.6; this.w = 12; this.h = 14; break;
+      case 'page': this.vx = dir * 240; this.vy = 0; this.damage = 1; this.life = 2.0; this.w = 14; this.h = 10; break;
+      case 'cog': this.vx = dir * 210; this.vy = -330; this.gravity = 0.85; this.damage = 2; this.w = 16; this.h = 16; this.bounces = 1; break;
+      case 'thorn': this.vx = dir * 255; this.vy = 0; this.gravity = 0.12; this.damage = 2; this.life = 2.2; this.w = 16; this.h = 8; break;
       default: this.vx = dir * 200; this.vy = 0;
     }
   }
@@ -123,6 +153,9 @@ export class Projectile {
       if (Math.random() < 0.4) world.particles.emit({ x: this.x + (Math.random() - 0.5) * this.w, y: this.y + (Math.random() - 0.5) * this.h, vx: this.vx * 0.3, vy: -10, life: 0.6, color: 'rgba(150, 130, 180, 0.35)', size: 5, gravity: -0.02, shrink: true });
     }
     if (this.type === 'fireball' && Math.random() < 0.6) world.particles.embers(this.x - this.dir * 6, this.y, 1);
+    if (this.type === 'spore') {
+      this.vy = Math.cos(this.time * 4.8) * 34;
+    }
     // Tile contact
     const tx = Math.floor(this.x / TILE), ty = Math.floor(this.y / TILE);
     if (level.isSolid(tx, ty) || (this.type === 'holy_water' && this.vy > 0 && level.isStandable(tx, Math.floor((this.y + 4) / TILE)))) {
@@ -144,6 +177,20 @@ export class Projectile {
         world.sfx('block');
       } else if (this.type === 'snowball' || this.type === 'iceshard') {
         world.particles.dust(this.x, this.y, 4, '#dfe8ff');
+      } else if (this.type === 'spore' || this.type === 'thorn') {
+        world.particles.sparks(this.x, this.y, 5, '#62f2c2');
+      } else if (this.type === 'page') {
+        world.particles.shards(this.x, this.y, 3, '#e8e2c8', this.y + 20);
+      } else if (this.type === 'shard') {
+        world.particles.shards(this.x, this.y, 5, '#9a9aa8', this.y + 10);
+        world.particles.dust(this.x, this.y, 3, '#b8b8c4');
+      } else if (this.type === 'cog') {
+        world.particles.sparks(this.x, this.y, 6, '#ffd27a');
+        if (this.bounces > 0 && this.vy > 0) {
+          this.bounces--; this.y = ty * TILE - this.h / 2 - 1; this.vy = -260; this.vx *= 0.85;
+          world.sfx('block');
+          return;
+        }
       }
       if (!['sickle', 'skull', 'hellfire', 'gaze', 'gas'].includes(this.type)) this.dead = true;
     }
@@ -280,6 +327,58 @@ export class Projectile {
         ctx.fillRect(-3, -9, 6, 3);
         break;
       }
+      case 'spore': {
+        const glow = getGlowCanvas('emerald');
+        if (glow) {
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.72;
+          ctx.drawImage(glow, -14, -14, 28, 28);
+          ctx.globalAlpha = 1;
+          ctx.globalCompositeOperation = 'source-over';
+        }
+        ctx.fillStyle = '#52e8b8';
+        ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#d8fff0';
+        ctx.fillRect(-2, -2, 3, 3);
+        break;
+      }
+      case 'shard': {
+        ctx.rotate(this.spin * 0.4);
+        ctx.fillStyle = '#7e8292';
+        ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, -2); ctx.lineTo(4, 7); ctx.lineTo(-5, 5); ctx.lineTo(-6, -3); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#b8bccb';
+        ctx.fillRect(-2, -5, 3, 4);
+        break;
+      }
+      case 'page': {
+        // Fluttering razor page: a pale leaf that twists as it flies
+        ctx.rotate(Math.atan2(this.vy, this.vx) + Math.sin(this.time * 18) * 0.5);
+        ctx.fillStyle = '#e8e2c8';
+        ctx.fillRect(-7, -4, 14, 8);
+        ctx.fillStyle = '#9a8c6a';
+        ctx.fillRect(-5, -2, 10, 1); ctx.fillRect(-5, 1, 8, 1);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(5, -4, 2, 8);
+        break;
+      }
+      case 'cog': {
+        ctx.rotate(this.spin);
+        ctx.fillStyle = '#b98a3a';
+        for (let i = 0; i < 8; i++) { ctx.rotate(Math.PI / 4); ctx.fillRect(-2, -9, 4, 18); }
+        ctx.fillStyle = '#e2b55c';
+        ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#4a3418';
+        ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
+      case 'thorn': {
+        ctx.rotate(Math.atan2(this.vy, this.vx));
+        ctx.fillStyle = '#4a352c';
+        ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-7, -4); ctx.lineTo(-4, 0); ctx.lineTo(-7, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#62f2c2';
+        ctx.fillRect(-3, -1, 9, 2);
+        break;
+      }
       default: break;
     }
     ctx.restore();
@@ -303,6 +402,12 @@ export class Fire {
   draw(ctx, camX, camY, time) {
     const x = this.x - camX, y = this.y - camY;
     const k = Math.min(1, this.life / 0.4);
+    const fx = getFxLayers();
+    if (fx && fx.enabled) {
+      for (let i = 0; i < 4; i++) fx.addFlame(x - 15 + i * 10, y, 14, (22 + 8 * Math.abs(Math.sin(time * 9 + i))) * k, [1.0, 0.5, 0.12], this.x * 0.01 + i);
+      drawFlameGlow(ctx, x, y - 8, time, 34, 0.8 * k);
+      return;
+    }
     for (let i = 0; i < 7; i++) {
       const fx = x - 16 + i * 5.3 + Math.sin(time * 20 + i) * 2;
       const h = (10 + 10 * Math.abs(Math.sin(time * 14 + i * 1.7))) * k;

@@ -1,5 +1,8 @@
 // Loads assets/atlas.json plus every referenced image, and the music tracks.
 
+import { ASSET_VERSION } from './constants.js';
+import { registerDarkwoodAssets } from '../game/forest_assets.js';
+
 export class Assets {
   constructor() {
     this.atlas = null;
@@ -9,16 +12,17 @@ export class Assets {
   }
 
   async load(onProgress) {
-    const res = await fetch('assets/atlas.json');
+    const res = await fetch('assets/atlas.json?v=' + ASSET_VERSION, { cache: 'no-cache' });
     this.atlas = await res.json();
     const names = Object.keys(this.atlas);
     let done = 0;
     const total = names.length;
     await Promise.all(names.map(async (name) => {
-      this.images[name] = await loadImage('assets/' + this.atlas[name].file);
+      this.images[name] = await loadImage('assets/' + this.atlas[name].file + '?v=' + ASSET_VERSION);
       done++;
       onProgress && onProgress(done / total);
     }));
+    registerDarkwoodAssets(this);
   }
 
   /** Frame record {x,y,w,h,ax,ay} for a sheet, or null. */
