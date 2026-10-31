@@ -25,7 +25,7 @@ float vnoise(vec2 p) {
 }
 float fbm(vec2 p) {
   float v = 0.0, a = 0.5;
-  for (int i = 0; i < 5; i++) { v += a * vnoise(p); p = p * 2.03 + vec2(17.0, 9.0); a *= 0.5; }
+  for (int i = 0; i < 4; i++) { v += a * vnoise(p); p = p * 2.03 + vec2(17.0, 9.0); a *= 0.5; }
   return v;
 }
 `;
@@ -125,37 +125,25 @@ precision mediump float;
 varying vec2 vUv;
 uniform vec2 uRes;
 uniform float uTime;
-const int MAXF = 40;
-uniform vec4 uFlames[MAXF];   // x, y(base), w, h  (screen px)
-uniform vec4 uFlameCol[MAXF]; // r,g,b, seed
-uniform int uCount;
+uniform vec4 uFlame;     // x, y(base), w, h (scene px)
+uniform vec4 uFlameCol;  // r,g,b, seed
 ${NOISE}
 void main() {
   vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
-  vec3 acc = vec3(0.0);
-  float aacc = 0.0;
-  for (int i = 0; i < MAXF; i++) {
-    if (i >= uCount) break;
-    vec4 f = uFlames[i];
-    vec2 d = vec2((px.x - f.x) / (f.z * 0.5), (f.y - px.y) / f.w);  // d.y: 0 base .. 1 tip
-    if (abs(d.x) > 1.2 || d.y < -0.05 || d.y > 1.2) continue;
-    float seed = uFlameCol[i].w;
-    // Rising turbulence, narrower toward the tip
-    float n = fbm(vec2(d.x * 1.6 + seed, d.y * 2.2 - uTime * (2.4 + fract(seed) * 1.5) + seed * 3.0));
-    float width = mix(1.0, 0.18, d.y) * (0.75 + 0.5 * n);
-    float body = 1.0 - smoothstep(width * 0.55, width, abs(d.x + (n - 0.5) * 0.5 * d.y));
-    float tip = 1.0 - smoothstep(0.65 + 0.3 * n, 1.05, d.y);
-    float a = body * tip * smoothstep(-0.05, 0.1, d.y);
-    if (a <= 0.02) continue;
-    float core = smoothstep(0.35, 0.95, a) * (1.0 - d.y * 0.7);
-    vec3 base = uFlameCol[i].rgb;
-    vec3 col = mix(base * 0.8, vec3(1.0, 0.96, 0.78), core);
-    a = floor(a * 4.0) / 4.0 * 0.95;
-    acc = max(acc, col * a);
-    aacc = max(aacc, a);
-  }
-  if (aacc <= 0.0) discard;
-  gl_FragColor = vec4(acc, aacc);
+  vec4 f = uFlame;
+  vec2 d = vec2((px.x - f.x) / (f.z * 0.5), (f.y - px.y) / f.w);
+  if (abs(d.x) > 1.2 || d.y < -0.05 || d.y > 1.2) discard;
+  float seed = uFlameCol.w;
+  float n = fbm(vec2(d.x * 1.6 + seed, d.y * 2.2 - uTime * (2.4 + fract(seed) * 1.5) + seed * 3.0));
+  float width = mix(1.0, 0.18, d.y) * (0.75 + 0.5 * n);
+  float body = 1.0 - smoothstep(width * 0.55, width, abs(d.x + (n - 0.5) * 0.5 * d.y));
+  float tip = 1.0 - smoothstep(0.65 + 0.3 * n, 1.05, d.y);
+  float a = body * tip * smoothstep(-0.05, 0.1, d.y);
+  if (a <= 0.02) discard;
+  float core = smoothstep(0.35, 0.95, a) * (1.0 - d.y * 0.7);
+  vec3 col = mix(uFlameCol.rgb * 0.8, vec3(1.0, 0.96, 0.78), core);
+  a = floor(a * 4.0) / 4.0 * 0.95;
+  gl_FragColor = vec4(col * a, a);
 }
 `;
 
@@ -176,8 +164,11 @@ export class FxLayers {
 
   init() {
     if (typeof document === 'undefined') throw new Error('no document');
+    // Half-resolution render target: the layers are soft (clouds, mist, water) or
+    // tiny (flames), and the 2x blit keeps a chunky pixel-art grain. Quarter the fill cost.
+    this.scale = 0.5;
     const c = document.createElement('canvas');
-    c.width = W; c.height = H;
+    c.width = Math.round(W * this.scale); c.height = Math.round(H * this.scale);
     const gl = c.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, preserveDrawingBuffer: true });
     if (!gl) throw new Error('no webgl');
     this.canvas = c; this.gl = gl;
@@ -216,16 +207,17 @@ export class FxLayers {
   setEnabled(on) { this.enabled = !!on && this.ok; }
   update(dt) { this.time += dt; }
 
-  /** Runs a program over the full canvas (scissored to rect) and blits that rect into ctx. */
+  /** Runs a program over the canvas (scissored to a scene-px rect) and blits that rect into ctx. */
   run(ctx, prog, rect, setUniforms, composite = 'source-over') {
     if (!this.enabled) return;
-    const gl = this.gl;
+    const gl = this.gl, k = this.scale, cw = this.canvas.width, ch = this.canvas.height;
     const x = Math.max(0, Math.floor(rect.x)), y = Math.max(0, Math.floor(rect.y));
     const w = Math.min(W - x, Math.ceil(rect.w)), h = Math.min(H - y, Math.ceil(rect.h));
     if (w <= 0 || h <= 0) return;
-    gl.viewport(0, 0, W, H);
+    const sx = Math.floor(x * k), sy = Math.floor(y * k), sw = Math.ceil(w * k) + 1, sh = Math.ceil(h * k) + 1;
+    gl.viewport(0, 0, cw, ch);
     gl.enable(gl.SCISSOR_TEST);
-    gl.scissor(x, H - y - h, w, h);
+    gl.scissor(sx, ch - sy - sh, sw, sh);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(prog.p);
@@ -239,7 +231,8 @@ export class FxLayers {
     gl.disable(gl.SCISSOR_TEST);
     ctx.save();
     ctx.globalCompositeOperation = composite;
-    ctx.drawImage(this.canvas, x, y, w, h, x, y, w, h);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.canvas, sx, sy, sw, sh, Math.round(sx / k), Math.round(sy / k), Math.round(sw / k), Math.round(sh / k));
     ctx.restore();
   }
 
@@ -276,31 +269,24 @@ export class FxLayers {
     }, 'lighter');
   }
 
-  /** Queue a flame (screen px): base centre (x, y), width, height, colour, seed. */
+  /** Queue a flame (scene px): base centre (x, y), width, height, colour, seed. */
   addFlame(x, y, w, h, color = [1.0, 0.55, 0.15], seed = 0) {
-    if (!this.enabled || this.flames.length >= 40) return;
+    if (!this.enabled || this.flames.length >= 24) return;
     if (x < -20 || x > W + 20 || y < -20 || y > H + 60) return;
     this.flames.push({ x, y, w, h, color, seed });
   }
 
-  /** Draws every queued flame in one pass and clears the queue. */
+  /** Draws every queued flame as its own small quad (cost ~ flame area) and clears the queue. */
   flushFlames(ctx) {
     const list = this.flames;
     this.flames = [];
     if (!this.enabled || !list.length) return;
-    let minX = W, minY = H, maxX = 0, maxY = 0;
-    const fl = new Float32Array(40 * 4), fc = new Float32Array(40 * 4);
-    list.forEach((f, i) => {
-      fl[i * 4] = f.x; fl[i * 4 + 1] = f.y; fl[i * 4 + 2] = f.w; fl[i * 4 + 3] = f.h;
-      fc[i * 4] = f.color[0]; fc[i * 4 + 1] = f.color[1]; fc[i * 4 + 2] = f.color[2]; fc[i * 4 + 3] = f.seed;
-      minX = Math.min(minX, f.x - f.w); maxX = Math.max(maxX, f.x + f.w);
-      minY = Math.min(minY, f.y - f.h * 1.25); maxY = Math.max(maxY, f.y + 4);
-    });
-    this.run(ctx, this.pFire, { x: minX, y: minY, w: maxX - minX, h: maxY - minY }, (gl, u) => {
-      gl.uniform4fv(u.uFlames, fl);
-      gl.uniform4fv(u.uFlameCol, fc);
-      gl.uniform1i(u.uCount, list.length);
-    }, 'lighter');
+    for (const f of list) {
+      this.run(ctx, this.pFire, { x: f.x - f.w * 0.7, y: f.y - f.h * 1.25, w: f.w * 1.4, h: f.h * 1.3 + 4 }, (gl, u) => {
+        gl.uniform4f(u.uFlame, f.x, f.y, f.w, f.h);
+        gl.uniform4f(u.uFlameCol, f.color[0], f.color[1], f.color[2], f.seed);
+      }, 'lighter');
+    }
   }
 }
 

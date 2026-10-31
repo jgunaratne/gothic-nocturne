@@ -8,6 +8,7 @@ import {
 } from '../engine/constants.js';
 import { project3D, FOCAL, EYE_X, EYE_Y } from './stage3d.js';
 import { getTexBank, getGlowCanvas, shadeOverlay32, texQuad, texStripZ } from './tex3d.js';
+import { getFxLayers } from '../engine/fxlayers.js';
 
 const DECK_Z = 38;     // z-depth of receding walkable top surfaces
 const SIDE_Z = 42;     // z-depth of exposed vertical step/cliff side returns

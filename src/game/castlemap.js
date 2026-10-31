@@ -9,13 +9,13 @@ import { THEMES } from './builder.js';
 // Grid cells: [col, row, w, h] on a 24 x 13 grid (west = outdoors, east = keep).
 export const MAP_ROOMS = {
   yule: { cell: [0, 0, 5, 3], where: 'FROZEN HEIGHTS' },
-  throne: { cell: [9, 0, 7, 2], where: 'THE KEEP' },
-  cathedral: { cell: [17, 0, 3, 3], where: 'THE GREAT NAVE' },
-  clocktower: { cell: [20, 0, 3, 6], where: 'THE BELFRY' },
+  throne: { cell: [8, 0, 6, 2], where: 'THE KEEP' },
+  cathedral: { cell: [15, 0, 5, 3], where: 'THE GREAT NAVE' },
+  clocktower: { cell: [20, 0, 4, 6], where: 'THE BELFRY' },
+  library: { cell: [6, 3, 6, 2], where: 'WEST WING' },
   jack: { cell: [0, 4, 5, 2], where: 'PUMPKIN WOODS' },
-  library: { cell: [7, 3, 6, 2], where: 'WEST WING' },
-  arcade: { cell: [14, 4, 6, 2], where: 'EAST WING' },
-  ramparts: { cell: [6, 6, 9, 2], where: 'OUTER WALLS' },
+  arcade: { cell: [15, 4, 5, 2], where: 'EAST WING' },
+  ramparts: { cell: [6, 6, 8, 2], where: 'OUTER WALLS' },
   darkwood: { cell: [0, 8, 5, 2], where: 'WEST WOODS' },
   graveyard: { cell: [6, 9, 8, 2], where: 'THE GROUNDS' },
   catacombs: { cell: [7, 11, 6, 2], where: 'BENEATH THE KEEP' },
@@ -23,23 +23,22 @@ export const MAP_ROOMS = {
 };
 
 // Passages between regions, with explicit routes (cell-unit polylines) so no
-// corridor ever crosses a room. `pass` marks an exterior mountain path.
+// corridor ever crosses a room. `pass` marks the exterior mountain path.
 export const MAP_LINKS = [
   { a: 'graveyard', b: 'darkwood', path: [[6, 9.5], [5, 9.5]] },
   { a: 'darkwood', b: 'jack', path: [[2.5, 8], [2.5, 6]] },
   { a: 'jack', b: 'yule', path: [[2.5, 4], [2.5, 3]] },
-  { a: 'yule', b: 'clocktower', path: [[5, 2.5], [6.2, 2.5], [6.2, 5.6], [13.6, 5.6], [13.6, 3.3], [20, 3.3]], pass: true },
+  { a: 'yule', b: 'clocktower', path: [[5, 1.5], [5.5, 1.5], [5.5, 5.4], [14.5, 5.4], [14.5, 3.4], [20, 3.4]], pass: true },
   { a: 'graveyard', b: 'ramparts', path: [[10, 9], [10, 8]] },
   { a: 'graveyard', b: 'catacombs', path: [[10, 11], [10, 11]] },
   { a: 'catacombs', b: 'ossuary', path: [[13, 12], [14, 12]] },
   { a: 'ossuary', b: 'arcade', path: [[17, 11], [17, 6]] },
-  { a: 'ramparts', b: 'arcade', path: [[14.5, 6], [14.5, 6]] },
-  { a: 'ramparts', b: 'library', path: [[10, 6], [10, 5]] },
-  { a: 'library', b: 'throne', path: [[11.5, 3], [11.5, 2]] },
-  { a: 'arcade', b: 'clocktower', path: [[20, 5], [20, 5]] },
-  { a: 'throne', b: 'cathedral', path: [[16, 1], [17, 1]] },
+  { a: 'ramparts', b: 'arcade', path: [[14, 6.5], [16, 6.5], [16, 6]] },
+  { a: 'ramparts', b: 'library', path: [[9, 6], [9, 5]] },
+  { a: 'library', b: 'throne', path: [[10, 3], [10, 2]] },
+  { a: 'throne', b: 'cathedral', path: [[14, 1], [15, 1]] },
   { a: 'cathedral', b: 'clocktower', path: [[20, 1.5], [20, 1.5]] },
-  { a: 'arcade', b: 'cathedral', path: [[18.5, 4], [18.5, 3]] },
+  { a: 'arcade', b: 'cathedral', path: [[17.5, 4], [17.5, 3]] },
 ];
 
 for (const r of Object.values(MAP_ROOMS)) r.exits = [];
@@ -101,14 +100,20 @@ function cellPt(p) { return { x: MAP_X + p[0] * CELL_W, y: MAP_Y + p[1] * CELL_H
 
 /** Centered label; splits onto two lines when the room is too narrow. */
 function drawLabel(ctx, font, text, r, color) {
-  const maxW = r.w - 10;
+  const maxW = r.w - 6;
   let lines = [text];
   if (font.width(text, 1) > maxW) {
-    const words = text.split(' ');
+    const words = text.split(/[ -]/);
     if (words.length > 1) {
       const mid = Math.ceil(words.length / 2);
       lines = [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
     }
+    // Still too wide (single long word): letter-space-free fallback to clipping inside the room
+    ctx.save(); ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
+    const lh = 10; let y = Math.round(r.y + r.h / 2 - (lines.length * lh) / 2 + 1);
+    for (const ln of lines) { font.draw(ctx, ln, Math.round(r.x + r.w / 2), y, { align: 'center', color, shadow: '#120f1c' }); y += lh; }
+    ctx.restore();
+    return;
   }
   const lh = 10;
   let y = Math.round(r.y + r.h / 2 - (lines.length * lh) / 2 + 1);

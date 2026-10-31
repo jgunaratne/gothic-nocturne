@@ -97,8 +97,9 @@ class Game {
     const stage = STAGES[this.stageIndex];
     this.world = new World(this, stage, carry);
     // ?at=<tile column> teleports the hunter for testing.
-    const at = parseInt(this.params.get('at') || '-1', 10);
+    let at = parseInt(this.params.get('at') || '-1', 10);
     if (at >= 0 && !carry) {
+      at = Math.min(at, Math.floor(stage.boss.triggerX / 32) + 1);
       const lvl = this.world.level;
       let row = lvl.surfaceRow(at);
       if (row < 0) {
