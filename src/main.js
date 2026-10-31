@@ -1,6 +1,6 @@
 // Gothic Nocturne — entry point: boot, scaling, game loop and menu states.
 
-import { W, H, DT, START_LIVES } from './engine/constants.js';
+import { W, H, DT, DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY } from './engine/constants.js';
 import { Input } from './engine/input.js';
 import { Assets } from './engine/assets.js';
 import { AudioSys } from './engine/audio.js';
@@ -18,14 +18,19 @@ class Game {
     this.audio = new AudioSys();
     this.font = new Font();
     this.input = new Input(canvas);
-    this.state = 'loading';          // loading | title | play | pause | clear | gameover
+    this.state = 'loading';          // loading | title | difficulty | play | pause | clear | gameover
     this.stateT = 0;
-    this.startLives = START_LIVES;
     this.world = null;
     this.titleWorld = null;
     this.acc = 0;
     this.last = performance.now();
     this.params = new URLSearchParams(location.search);
+    // Difficulty: URL override > last choice (localStorage) > default.
+    const stored = safeStorageGet('gothic.difficulty');
+    const urlDiff = this.params.get('difficulty');
+    this.difficultyKey = DIFFICULTIES[urlDiff] ? urlDiff : DIFFICULTIES[stored] ? stored : DEFAULT_DIFFICULTY;
+    this.difficulty = DIFFICULTIES[this.difficultyKey];
+    this.menuIndex = DIFFICULTY_ORDER.indexOf(this.difficultyKey);
     this.input.onFirstInteraction = () => this.audio.unlock();
     window.addEventListener('resize', () => this.fit());
     this.fit();
@@ -48,6 +53,7 @@ class Game {
     this.titleWorld.camera.snapTo(8 * 32, 12 * 32);
     this.titleWorld.camera.x = 2 * 32;
     this.setState('title');
+    if (this.params.get('screen') === 'difficulty') this.setState('difficulty');   // testing aid
     if (this.params.has('demo')) this.startDemo();
     // Testing aids: ?skip=N pre-simulates N fixed steps before the first draw.
     const skip = parseInt(this.params.get('skip') || '0', 10);
@@ -57,6 +63,14 @@ class Game {
   }
 
   setState(s) { this.state = s; this.stateT = 0; }
+
+  /** Locks in a difficulty preset and remembers it for next time. */
+  chooseDifficulty(key) {
+    this.difficultyKey = DIFFICULTIES[key] ? key : DEFAULT_DIFFICULTY;
+    this.difficulty = DIFFICULTIES[this.difficultyKey];
+    this.menuIndex = DIFFICULTY_ORDER.indexOf(this.difficultyKey);
+    safeStorageSet('gothic.difficulty', this.difficultyKey);
+  }
 
   startGame() {
     this.world = new World(this, STAGE1);
@@ -120,15 +134,21 @@ class Game {
 
     switch (this.state) {
       case 'title':
-        this.titleWorld.parallax.update(dt);
-        this.titleWorld.particles.update(dt);
-        this.titleWorld.updateLightning(dt);
-        this.titleWorld.time += dt;
-        this.titleWorld.camera.x += dt * 14;
-        if (this.titleWorld.camera.x > 92 * 32) this.titleWorld.camera.x = 4 * 32;
+        this.updateTitleBackdrop(dt);
         this.audio.playMusic('title');
-        if (inp.pressed.start || inp.pressed.jump || inp.pressed.attack) this.startGame();
+        if (inp.pressed.start || inp.pressed.jump || inp.pressed.attack) { this.setState('difficulty'); this.audio.sfx('select'); }
         break;
+      case 'difficulty': {
+        this.updateTitleBackdrop(dt);
+        const n = DIFFICULTY_ORDER.length;
+        if (inp.pressed.up || inp.pressed.left) { this.menuIndex = (this.menuIndex + n - 1) % n; this.audio.sfx('bone'); }
+        if (inp.pressed.down || inp.pressed.right) { this.menuIndex = (this.menuIndex + 1) % n; this.audio.sfx('bone'); }
+        if (this.stateT > 0.25 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) {
+          this.chooseDifficulty(DIFFICULTY_ORDER[this.menuIndex]);
+          this.startGame();
+        }
+        break;
+      }
       case 'play':
         if (inp.pressed.start && this.world.phase === 'play') { this.setState('pause'); this.audio.sfx('pause'); break; }
         this.world.update(dt, inp);
@@ -147,11 +167,22 @@ class Game {
     }
   }
 
+  updateTitleBackdrop(dt) {
+    const tw = this.titleWorld;
+    tw.parallax.update(dt);
+    tw.particles.update(dt);
+    tw.updateLightning(dt);
+    tw.time += dt;
+    tw.camera.x += dt * 14;
+    if (tw.camera.x > 92 * 32) tw.camera.x = 4 * 32;
+  }
+
   draw() {
     const ctx = this.ctx;
     ctx.imageSmoothingEnabled = false;
     switch (this.state) {
       case 'title': this.drawTitle(ctx); break;
+      case 'difficulty': this.drawDifficulty(ctx); break;
       case 'play': case 'pause':
         this.world.draw(ctx);
         drawHud(ctx, this.font, this.assets, this.world);
@@ -203,13 +234,48 @@ class Game {
     f.draw(ctx, '2026', W / 2, H - 12, { align: 'center', color: '#5b6b86' });
   }
 
+  drawDifficulty(ctx) {
+    const tw = this.titleWorld;
+    tw.draw(ctx, { hud: false });
+    ctx.fillStyle = 'rgba(4, 3, 10, 0.6)';
+    ctx.fillRect(0, 0, W, H);
+    const f = this.font;
+    f.draw(ctx, 'GOTHIC NOCTURNE', W / 2, 30, { scale: 2, align: 'center', color: '#8a9ab5', spacing: 2, shadow: '#120f1c' });
+    f.draw(ctx, 'CHOOSE YOUR FATE', W / 2, 66, { scale: 3, align: 'center', color: '#e8e2c8', shadow: '#5b2a3a' });
+    ctx.fillStyle = '#5b6b86';
+    ctx.fillRect(W / 2 - 170, 100, 340, 1);
+
+    const colors = { easy: '#9ad17a', normal: '#ffd27a', hard: '#e23c3c' };
+    const top = 122, rowH = 54;
+    DIFFICULTY_ORDER.forEach((key, i) => {
+      const d = DIFFICULTIES[key];
+      const y = top + i * rowH;
+      const selected = i === this.menuIndex;
+      if (selected) {
+        ctx.fillStyle = 'rgba(232, 226, 200, 0.07)';
+        ctx.fillRect(W / 2 - 230, y - 8, 460, rowH - 10);
+        ctx.fillStyle = colors[key];
+        ctx.fillRect(W / 2 - 230, y - 8, 3, rowH - 10);
+        const bob = Math.round(Math.sin(this.stateT * 6) * 2);
+        this.assets.draw(ctx, 'items', 'heart_small', W / 2 - 205 + bob, y + 16);
+      }
+      f.draw(ctx, d.name, W / 2 - 185, y, { scale: 3, color: selected ? colors[key] : '#6f6a80', shadow: '#120f1c' });
+      f.draw(ctx, d.tagline, W / 2 - 185 + f.width(d.name, 3) + 18, y + 12, { color: selected ? '#e8e2c8' : '#5b5670', shadow: '#120f1c' });
+      f.draw(ctx, d.desc, W / 2 - 185, y + 28, { color: selected ? '#c9c3b0' : '#4e4a5e', shadow: '#120f1c' });
+    });
+
+    const pulse = 0.5 + 0.5 * Math.sin(this.stateT * 2.2);
+    if (pulse > 0.25) f.draw(ctx, '↑↓ SELECT     ENTER / JUMP / WHIP CONFIRM', W / 2, 300, { align: 'center', color: '#ffd27a', shadow: '#120f1c' });
+    f.draw(ctx, 'YOUR CHOICE IS REMEMBERED FOR NEXT TIME', W / 2, 322, { align: 'center', color: '#5b6b86' });
+  }
+
   drawClear(ctx) {
     const w = this.world;
     const k = Math.min(1, this.stateT / 0.6);
     ctx.save();
     ctx.globalAlpha = k;
     ctx.fillStyle = 'rgba(4, 3, 10, 0.55)'; ctx.fillRect(0, 0, W, H);
-    this.banner(['STAGE CLEAR'], 96, { scale: 4, color: '#ffd27a' });
+    this.banner(['STAGE CLEAR'], 96, { scale: 4, color: '#ffd27a', sub: `${w.difficulty.name} · SCORE X${w.difficulty.scoreMult}` });
     const lines = [
       ['TIME BONUS', w.timeBonus],
       ['HEART BONUS', w.heartBonus],
@@ -232,3 +298,10 @@ game.boot().catch((e) => {
   const el = document.getElementById('boot');
   el.textContent = 'Failed to load: ' + e.message;
 });
+
+function safeStorageGet(key) {
+  try { return window.localStorage.getItem(key); } catch (e) { return null; }
+}
+function safeStorageSet(key, value) {
+  try { window.localStorage.setItem(key, value); } catch (e) { /* private mode */ }
+}

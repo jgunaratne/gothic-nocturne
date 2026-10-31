@@ -6,11 +6,13 @@ import { Enemy } from './enemies.js';
 import { Projectile } from './objects.js';
 
 export class Reaper extends Enemy {
-  constructor(x, y, arena) {
+  constructor(x, y, arena, difficulty) {
     super(x, y);
     this.w = 44; this.h = 96; this.hp = 48; this.maxHp = 48;
     this.score = SCORE.boss; this.sheet = 'boss'; this.flies = true; this.gravityScale = 0;
     this.arena = arena;
+    this.tempo = difficulty ? difficulty.bossTempo : 1;         // < 1 = attacks sooner
+    this.phase2At = difficulty ? difficulty.bossPhase2 : 0.5;   // fraction of max HP
     this.facing = -1;                 // source art faces LEFT; facing=-1 means "unflipped"
     this.touchDamage = 3;
     this.state = 'enter'; this.stateT = 0; this.t = 0;
@@ -41,7 +43,7 @@ export class Reaper extends Enemy {
       if (this.deathT > 2.6) { this.dead = true; world.onBossDefeated(this); }
       return;
     }
-    if (!this.phase2 && this.hp <= this.maxHp * 0.5) { this.phase2 = true; world.sfx('boss_roar'); world.camera.shake(5, 0.5); }
+    if (!this.phase2 && this.hp <= this.maxHp * this.phase2At) { this.phase2 = true; world.sfx('boss_roar'); world.camera.shake(5, 0.5); }
     const hover = Math.sin(this.t * 2.2) * 10;
     const faceP = () => { this.facing = p.x > this.x ? 1 : -1; };
     this.swingBoxActive = false;
@@ -66,7 +68,7 @@ export class Reaper extends Enemy {
         this.baseY = clamp(this.baseY, this.arena.floorY - 160, this.arena.floorY - 4);
         this.y = this.baseY + hover;
         this.frame = Math.floor(this.t * 3) % 2 ? 'idle0' : 'idle1';
-        const dur = this.phase2 ? 1.5 : 2.2;
+        const dur = (this.phase2 ? 1.5 : 2.2) * this.tempo;
         if (this.stateT > dur) {
           const dx = Math.abs(p.x - this.x);
           const roll = Math.random();

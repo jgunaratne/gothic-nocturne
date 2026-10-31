@@ -132,9 +132,10 @@ export class Player extends Entity {
     return false;
   }
 
-  /** Applies damage with knockback; returns true if it connected. */
+  /** Applies damage (scaled by difficulty) with knockback; returns true if it connected. */
   hurt(amount, fromX, world) {
     if (this.invuln > 0 || this.state === 'dead') return false;
+    amount = Math.max(1, Math.round(amount * world.difficulty.damageTaken));
     this.hp -= amount;
     world.sfx('hurt');
     world.camera.shake(3, 0.2);

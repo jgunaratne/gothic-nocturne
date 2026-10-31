@@ -46,6 +46,30 @@ export const SCORE = {
   money: 500, timeBonus: 10,
 };
 
-export const STAGE_TIME = 420;
-export const START_LIVES = 3;
-export const START_HEARTS = 5;
+// Difficulty presets chosen on the title screen. Multipliers apply on top of
+// the base tuning above and in the enemy classes.
+export const DIFFICULTIES = {
+  easy: {
+    key: 'easy', name: 'EASY', tagline: 'A GENTLE NIGHT',
+    desc: '5 LIVES · HALF DAMAGE · 600 SEC · FEWER FIENDS · HALF SCORE',
+    lives: 5, hearts: 10, time: 600,
+    damageTaken: 0.5, enemyHp: 0.75, spawnInterval: 1.5, maxAlive: 2,
+    throwCooldown: 1.4, bossTempo: 1.3, bossPhase2: 0.4, scoreMult: 0.5,
+  },
+  normal: {
+    key: 'normal', name: 'NORMAL', tagline: 'THE CLASSIC HUNT',
+    desc: '3 LIVES · 420 SEC · STANDARD FIENDS',
+    lives: 3, hearts: 5, time: 420,
+    damageTaken: 1, enemyHp: 1, spawnInterval: 1, maxAlive: 3,
+    throwCooldown: 1, bossTempo: 1, bossPhase2: 0.5, scoreMult: 1,
+  },
+  hard: {
+    key: 'hard', name: 'HARD', tagline: 'NO MERCY AT MIDNIGHT',
+    desc: '2 LIVES · 1.5X DAMAGE · 300 SEC · RELENTLESS FIENDS · 2X SCORE',
+    lives: 2, hearts: 3, time: 300,
+    damageTaken: 1.5, enemyHp: 1.5, spawnInterval: 0.65, maxAlive: 4,
+    throwCooldown: 0.7, bossTempo: 0.75, bossPhase2: 0.65, scoreMult: 2,
+  },
+};
+export const DIFFICULTY_ORDER = ['easy', 'normal', 'hard'];
+export const DEFAULT_DIFFICULTY = 'normal';

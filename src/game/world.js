@@ -2,7 +2,7 @@
 // draw order. The Game (main.js) drives it and layers menus on top.
 
 import {
-  W, H, TILE, T_GATE, T_BLOCK, SCORE, STAGE_TIME, START_HEARTS, PLAYER,
+  W, H, TILE, T_GATE, T_BLOCK, SCORE, PLAYER,
 } from '../engine/constants.js';
 import { Camera } from '../engine/camera.js';
 import { Particles } from '../engine/particles.js';
@@ -20,14 +20,15 @@ export class World {
     this.audio = game.audio;
     this.font = game.font;
     this.data = data;
+    this.difficulty = game.difficulty;
     this.level = new Level(data);
     this.parallax = new Parallax(this.assets, this.level.height);
     this.particles = new Particles();
     this.camera = new Camera(this.level.width, this.level.height);
     this.score = 0;
-    this.lives = game.startLives;
-    this.hearts = START_HEARTS;
-    this.timeLeft = STAGE_TIME;
+    this.lives = this.difficulty.lives;
+    this.hearts = this.difficulty.hearts;
+    this.timeLeft = this.difficulty.time;
     this.checkpoint = 0;
     this.time = 0;
     this.flash = 0;
@@ -62,8 +63,8 @@ export class World {
       this.candles.push(new Candle(c[0] * TILE + TILE / 2, c[1] * TILE, c[2] || null));
     }
     for (const e of d.enemies) {
-      if (e.type === 'skeleton') this.enemies.push(new Skeleton(e.tx * TILE + TILE / 2, e.row * TILE, e.min * TILE, (e.max + 1) * TILE));
-      else if (e.type === 'bat') this.enemies.push(new Bat(e.tx * TILE + TILE / 2, e.ty * TILE + 16));
+      if (e.type === 'skeleton') this.spawnEnemy(new Skeleton(e.tx * TILE + TILE / 2, e.row * TILE, e.min * TILE, (e.max + 1) * TILE));
+      else if (e.type === 'bat') this.spawnEnemy(new Bat(e.tx * TILE + TILE / 2, e.ty * TILE + 16));
     }
     const cx = d.checkpoints[this.checkpoint];
     const col = Math.floor(cx / TILE);
@@ -78,9 +79,16 @@ export class World {
 
   // --------------------------------------------------------- utilities
   sfx(name) { this.audio.sfx(name); }
-  addScore(n) { this.score += n; }
+  addScore(n) { this.score += Math.round(n * this.difficulty.scoreMult); }
   showMessage(text, sub, dur = 2) { this.messages.push({ text, sub, t: 0, dur }); }
-  spawnEnemy(e) { this.enemies.push(e); }
+  /** Registers an enemy, scaling multi-hit health by the difficulty preset. */
+  spawnEnemy(e) {
+    if (e.hp > 1) {
+      e.hp = Math.max(1, Math.round(e.hp * this.difficulty.enemyHp));
+      if (e.maxHp) e.maxHp = e.hp;
+    }
+    this.enemies.push(e);
+  }
   spawnProjectile(p) { this.projectiles.push(p); }
   spawnFire(x, y) { this.fires.push(new Fire(x, y)); this.sfx('fire'); }
   spawnItem(type, x, y) { if (type) this.items.push(new Item(type, x, y)); }
@@ -126,7 +134,7 @@ export class World {
       if (this.phaseT > 2.3) {
         this.lives -= 1;
         if (this.lives < 0) { this.phase = 'gameover'; this.phaseT = 0; this.game.onGameOver(); }
-        else { this.timeLeft = STAGE_TIME; this.spawnAll(); this.game.onRespawn(); }
+        else { this.timeLeft = this.difficulty.time; this.spawnAll(); this.game.onRespawn(); }
       }
       return;
     }
@@ -299,10 +307,10 @@ export class World {
     this.gateClosed = true;
     for (let r = b.gateRows[0]; r <= b.gateRows[1]; r++) this.level.set(b.gateCol, r, T_GATE);
     this.camera.setBounds(b.camX, b.camX);
-    this.boss = new Reaper(b.spawn.x, b.spawn.y, b.arena);
+    this.boss = new Reaper(b.spawn.x, b.spawn.y, b.arena, this.difficulty);
+    this.spawnEnemy(this.boss);
     const dbgHp = parseInt(this.game.params.get('bosshp') || '0', 10);   // testing aid
     if (dbgHp > 0) this.boss.hp = dbgHp;
-    this.enemies.push(this.boss);
     this.enemies = this.enemies.filter((e) => e === this.boss || e.x > b.camX - 100);
     this.sfx('gate');
     this.camera.shake(4, 0.5);

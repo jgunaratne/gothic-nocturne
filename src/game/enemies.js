@@ -119,7 +119,10 @@ export class Skeleton extends Enemy {
           world.spawnProjectile(new Projectile('bone', this.x + this.facing * 10, this.y - 46, this.facing, 'enemy'));
           world.sfx('bone');
         }
-        if (this.stateT > 0.75) { this.state = 'walk'; this.thrown = false; this.throwT = 2.2 + Math.random() * 1.2; }
+        if (this.stateT > 0.75) {
+          this.state = 'walk'; this.thrown = false;
+          this.throwT = (2.2 + Math.random() * 1.2) * world.difficulty.throwCooldown;
+        }
       }
     }
     this.physics(level, dt);
@@ -265,13 +268,14 @@ export class Spawner {
 
   update(dt, world) {
     const p = world.player;
+    const diff = world.difficulty;
     this.alive = this.alive.filter((e) => !e.dead);
     if (!p.alive || world.bossActive) return;
     if (p.x < this.x0 - 100 || p.x > this.x1 + 100) { this.timer = Math.min(this.timer, 1.0); return; }
     this.timer -= dt;
     if (this.timer > 0) return;
     if (this.type === 'zombie') {
-      if (this.alive.length >= 3) { this.timer = 0.6; return; }
+      if (this.alive.length >= diff.maxAlive) { this.timer = 0.6; return; }
       // Rise just off-screen-ish ahead or behind the hunter on real ground.
       for (let tries = 0; tries < 6; tries++) {
         const side = Math.random() < 0.7 ? p.facing : -p.facing;
@@ -285,16 +289,16 @@ export class Spawner {
         this.alive.push(z);
         break;
       }
-      this.timer = 2.4 + Math.random() * 0.8;
+      this.timer = (2.4 + Math.random() * 0.8) * diff.spawnInterval;
     } else if (this.type === 'medusa') {
-      if (this.alive.length >= 3) { this.timer = 0.6; return; }
+      if (this.alive.length >= diff.maxAlive) { this.timer = 0.6; return; }
       const dir = -p.facing;
       const x = p.facing > 0 ? world.camera.x + 640 + 30 : world.camera.x - 30;
       const y = p.y - 30 - Math.random() * 30;
       const m = new MedusaHead(x, y, dir);
       world.spawnEnemy(m);
       this.alive.push(m);
-      this.timer = 2.0 + Math.random() * 0.8;
+      this.timer = (2.0 + Math.random() * 0.8) * diff.spawnInterval;
     }
   }
 }

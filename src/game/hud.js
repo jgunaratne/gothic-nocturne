@@ -17,6 +17,8 @@ export function drawHud(ctx, font, assets, world) {
   font.draw(ctx, `TIME ${String(Math.max(0, Math.ceil(world.timeLeft))).padStart(4, '0')}`, 190, 7, { color: ivory, shadow });
   font.draw(ctx, 'STAGE 01', 300, 7, { color: ivory, shadow });
   font.draw(ctx, `P-${String(world.lives).padStart(2, '0')}`, 392, 7, { color: ivory, shadow });
+  const diff = world.difficulty;
+  font.draw(ctx, diff.name, 450, 7, { color: diff.key === 'hard' ? '#e23c3c' : diff.key === 'easy' ? '#9ad17a' : dim, shadow });
 
   // Health bars
   font.draw(ctx, 'PLAYER', 12, 20, { color: dim, shadow });

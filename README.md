@@ -33,6 +33,20 @@ Whip candelabra for hearts, money, and sub-weapons (dagger, axe, holy water).
 Breakable blocks hide meat and gold. Spike pits hurt; bottomless pits kill.
 Reach the inner sanctum, defeat the Phantom Reaper, and claim the orb.
 
+## Difficulty
+
+Chosen on the "Choose your fate" screen after the title (remembered in
+`localStorage`, overridable with `?difficulty=easy|normal|hard`):
+
+| | Lives | Hearts | Timer | Damage taken | Enemy HP | Spawn pressure | Boss | Score |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Easy** | 5 | 10 | 600 s | ×0.5 | ×0.75 | slower, max 2 | slower, phase 2 at 40 % | ×0.5 |
+| **Normal** | 3 | 5 | 420 s | ×1 | ×1 | standard, max 3 | standard, phase 2 at 50 % | ×1 |
+| **Hard** | 2 | 3 | 300 s | ×1.5 | ×1.5 | faster, max 4 | faster, phase 2 at 65 % | ×2 |
+
+One-hit fodder (bats, zombies, medusa heads) stays one-hit on every setting;
+skeletons and the Reaper scale. Presets live in `src/engine/constants.js`.
+
 ## Layout
 
 ```
@@ -73,4 +87,6 @@ tools/screenshot.sh "demo=1&skip=600" /tmp/shot.png
 
 URL parameters: `demo=1` drives the hunter with a scripted input loop,
 `skip=N` pre-simulates N fixed steps before the first frame, `at=<column>`
-teleports to a tile column, `bosshp=N` weakens the boss.
+teleports to a tile column, `bosshp=N` weakens the boss,
+`difficulty=easy|normal|hard` presets the difficulty, `screen=difficulty`
+opens the select screen directly.
