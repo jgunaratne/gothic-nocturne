@@ -52,8 +52,8 @@ every stage.
 | Whip (also while crouching or airborne) | X or K | X / Y / RB / RT |
 | Throw sub-weapon (costs 1 heart) | ↑ + whip | ↑ + attack |
 | Pause / start | Enter or Esc | Start |
-| Mute | M | — |
-| Toggle shaders (bloom, grading, scanlines) | F | — |
+| Mute | M | Back / Select / View |
+| Toggle shaders (bloom, grading, scanlines) | F | Left stick click (L3) |
 
 Whip candelabra for hearts, money, and sub-weapons (dagger, axe, holy water).
 Breakable blocks hide meat and gold. Spike pits hurt; bottomless pits kill.
@@ -140,7 +140,7 @@ src/game/             level grid + 2.5D mechanics/tiles, stage3d (perspective
                       factory), forest_assets (Darkwood pixel art), objects
                       (candles/items/projectiles/fire), world (combat, scripting,
                       draw order), castlemap (connected stage map), hud
-assets/               engine-ready PNGs + atlas.json, music/*.mp3, voice/*.mp3
+assets/               engine-ready PNGs + atlas.json, music/*.mp3, voice/*.mp3, sfx/*.mp3
 art/raw/              untouched generations (provenance)   art/PROMPTS.md
 tools/                process_assets.py (pipeline), asset_manifest.json,
                       import_raw.py, generate_voices.sh, screenshot.sh
