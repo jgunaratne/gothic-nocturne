@@ -376,8 +376,8 @@ class Game {
         const bob = Math.round(Math.sin(this.stateT * 6) * 2);
         this.assets.draw(ctx, 'items', 'heart_small', W / 2 - 205 + bob, y + 16);
       }
-      f.draw(ctx, d.name, W / 2 - 185, y, { scale: 3, color: selected ? colors[key] : '#6f6a80', shadow: '#120f1c' });
-      f.draw(ctx, d.tagline, W / 2 - 185 + f.width(d.name, 3) + 18, y + 12, { color: selected ? '#e8e2c8' : '#5b5670', shadow: '#120f1c' });
+      f.draw(ctx, d.name, W / 2 - 185, y, { scale: 3, gothic: false, color: selected ? colors[key] : '#6f6a80', shadow: '#120f1c' });
+      f.draw(ctx, d.tagline, W / 2 - 185 + f.width(d.name, 3, 1, false) + 18, y + 12, { color: selected ? '#e8e2c8' : '#5b5670', shadow: '#120f1c' });
       f.draw(ctx, d.desc, W / 2 - 185, y + 28, { color: selected ? '#c9c3b0' : '#4e4a5e', shadow: '#120f1c' });
     });
 

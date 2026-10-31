@@ -104,8 +104,8 @@ export class Font {
     } catch (e) { console.warn('gothic font unavailable, using pixel font', e); }
   }
 
-  _set(scale) {
-    if (!this.gothic || scale < GOTHIC_MIN_SCALE) return null;
+  _set(scale, gothic = true) {
+    if (!this.gothic || !gothic || scale < GOTHIC_MIN_SCALE) return null;
     const cap = CAP_FOR_SCALE[Math.min(4, Math.max(1, Math.round(scale)))];
     return this.gothic.caps[String(cap)] || null;
   }
@@ -161,9 +161,9 @@ export class Font {
     return (GLYPH_W + spacing) * scale;
   }
 
-  width(text, scale = 1, spacing = 1) {
+  width(text, scale = 1, spacing = 1, gothic = true) {
     text = String(text).toUpperCase();
-    const set = this._set(scale);
+    const set = this._set(scale, gothic);
     let w = 0;
     for (const ch of text) w += this._advance(ch, scale, spacing, set);
     return Math.max(0, w - (set ? 0 : spacing * scale));
@@ -184,11 +184,12 @@ export class Font {
     return lines;
   }
 
-  /** Draws text; align: 'left' | 'center' | 'right'. Optional shadow colour. */
-  draw(ctx, text, x, y, { color = '#e8e2c8', scale = 1, align = 'left', shadow = null, spacing = 1 } = {}) {
+  /** Draws text; align: 'left' | 'center' | 'right'. Optional shadow colour.
+   *  gothic:false forces the plain pixel font even at large scales (menus). */
+  draw(ctx, text, x, y, { color = '#e8e2c8', scale = 1, align = 'left', shadow = null, spacing = 1, gothic = true } = {}) {
     text = String(text).toUpperCase();
-    const set = this._set(scale);
-    const w = this.width(text, scale, spacing);
+    const set = this._set(scale, gothic);
+    const w = this.width(text, scale, spacing, gothic);
     let cx = align === 'center' ? x - Math.floor(w / 2) : align === 'right' ? x - w : x;
     cx = Math.round(cx);
     y = Math.round(y);

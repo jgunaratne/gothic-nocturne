@@ -6,14 +6,20 @@
 #
 # Usage:  ELEVENLABS_API_KEY=... bash tools/generate_sfx.sh
 set -euo pipefail
-: "${ELEVENLABS_API_KEY:?Set ELEVENLABS_API_KEY (ElevenLabs account -> Profile -> API keys)}"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# Load the key from .env (git-ignored) when not already exported; accept either name.
+if [ -z "${ELEVENLABS_API_KEY:-}" ] && [ -f "${ROOT_DIR}/.env" ]; then
+  set -a; . "${ROOT_DIR}/.env"; set +a
+fi
+ELEVENLABS_API_KEY="${ELEVENLABS_API_KEY:-${ELEVENLABS:-}}"
+: "${ELEVENLABS_API_KEY:?Set ELEVENLABS_API_KEY in .env (ElevenLabs account -> Profile -> API keys)}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${ROOT}/assets/sfx"
 mkdir -p "${OUT}"
 
 # name | duration seconds | prompt  (keep each short, punchy, dry, game-ready)
 SFX=(
-  "whip|0.6|short sharp leather bullwhip crack, dry, close, punchy, no reverb tail"
+  "whip|0.7|fast leather bullwhip: quick air swish then a sharp loud crack, dry, close, punchy"
   "jump|0.4|quick soft cloth and leather hop effort, short, 16-bit game jump feel but realistic foley"
   "land|0.35|heavy boots landing on stone, short thud, dry"
   "hit|0.4|whip strike impact on a creature, wet thwack with a tiny bone crack"
@@ -42,12 +48,14 @@ for entry in "${SFX[@]}"; do
   dst="${OUT}/${name}.mp3"
   if [ -s "${dst}" ]; then echo "= ${name} exists"; continue; fi
   tmp="/tmp/sfx_${name}.mp3"
+  # The sound-generation endpoint accepts 0.5s..22s
+  dur="$(python3 -c 'import sys; print(max(0.5, min(22.0, float(sys.argv[1]))))' "${dur}")"
   echo "> ${name} (${dur}s)"
-  curl -sS --fail -X POST "https://api.elevenlabs.io/v1/sound-generation" \
+  curl -sS --fail-with-body -X POST "https://api.elevenlabs.io/v1/sound-generation" \
     -H "xi-api-key: ${ELEVENLABS_API_KEY}" \
     -H "Content-Type: application/json" \
     -d "$(python3 -c 'import json,sys; print(json.dumps({"text": sys.argv[1], "duration_seconds": float(sys.argv[2]), "prompt_influence": 0.55}))' "${prompt}" "${dur}")" \
-    -o "${tmp}"
+    -o "${tmp}" || { echo "ERROR ${name}: $(head -c 400 "${tmp}")"; rm -f "${tmp}"; continue; }
   # Normalise and trim trailing silence so hits land exactly on the frame they trigger
   ffmpeg -y -hide_banner -loglevel error -i "${tmp}" \
     -af "silenceremove=start_periods=1:start_silence=0.02:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_silence=0.08:start_threshold=-50dB,areverse,loudnorm=I=-18:TP=-1.5:LRA=9" \
