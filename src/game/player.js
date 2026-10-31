@@ -172,7 +172,7 @@ export class Player extends Entity {
       // Classic 6-frame whip-hero stride: wide deliberate steps, ~12 fps at full
       // speed, advanced by distance travelled (one frame per ~10 px) so the planted
       // boot never slides.
-      this.animT += Math.max(6, Math.abs(this.vx) / 10) * dt;
+      this.animT += Math.max(4.5, Math.abs(this.vx) / 13.5) * dt; // ~6 fps stride at walk speed
       this.walkFrame = Math.floor(this.animT) % 6;
     } else this.animT = 0;
   }
