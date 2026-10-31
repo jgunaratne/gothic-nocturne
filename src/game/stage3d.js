@@ -1560,18 +1560,50 @@ export class Stage3D {
       }
     }
 
-    // 3-step polished marble dais + gold-bordered royal crimson carpet runner
-    for (let s = 0; s < 3; s++) {
-      const w = 156 - s * 32, h = 10, y = floorY - s * 10;
-      this.drawBox3D(ctx, camX, camY, cx - w / 2, y - h, 78 + s * 14, w, h, 34, 'marble');
-      this.drawBox3D(ctx, camX, camY, cx - w * 0.28, y - h - 1, 76 + s * 14, w * 0.56, 3, 36,
-        'carpet', { vFit: 32 });
+    // The Count's throne: generated obsidian-and-crimson throne on its own carved dais,
+    // flanked by iron candle pillars and great heraldic banners (projected at depth).
+    const A = this.assets;
+    const sheet = A.info('throne_props') ? 'throne_props' : null;
+    if (sheet) {
+      const drawProp = (name, wx, wy, z, flip = false) => {
+        const f = A.frame(sheet, name);
+        const pr = project3D(wx, wy, z, camX, camY);
+        const dw = f.w * pr.s, dh = f.h * pr.s;
+        ctx.save();
+        ctx.translate(Math.round(pr.x), Math.round(pr.y));
+        if (flip) ctx.scale(-1, 1);
+        ctx.drawImage(A.img(sheet), f.x, f.y, f.w, f.h, Math.round(-f.ax * pr.s), Math.round(-dh), Math.round(dw), Math.round(dh));
+        ctx.restore();
+        return pr;
+      };
+      drawProp('great_banner', cx - 112, floorY - 150, 150);
+      drawProp('great_banner', cx + 112, floorY - 150, 150, true);
+      drawProp('candle_pillar', cx - 86, floorY, 104);
+      drawProp('candle_pillar', cx + 86, floorY, 104, true);
+      const tp = drawProp('throne', cx, floorY + 2, 96);
+      // Candle glows on the pillars and a crimson aura behind the throne crown
+      const glowA = getGlowCanvas('amber');
+      const glowC = getGlowCanvas('crimson');
+      if (glowA) {
+        for (const side of [-1, 1]) {
+          const gp = project3D(cx + side * 86, floorY - 150, 104, camX, camY);
+          const r = 26 * gp.s;
+          ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 + 0.1 * Math.sin(time * 9 + side);
+          ctx.drawImage(glowA, gp.x - r, gp.y - r, r * 2, r * 2); ctx.restore();
+        }
+      }
+      if (glowC) {
+        const f = A.frame(sheet, 'throne');
+        const r = 54 * tp.s;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.28 + 0.08 * Math.sin(time * 1.7);
+        ctx.drawImage(glowC, tp.x - r, tp.y - f.h * tp.s * 0.8 - r, r * 2, r * 2); ctx.restore();
+      }
+    } else {
+      for (let s2 = 0; s2 < 3; s2++) {
+        const w = 156 - s2 * 32, h = 10, y = floorY - s2 * 10;
+        this.drawBox3D(ctx, camX, camY, cx - w / 2, y - h, 78 + s2 * 14, w, h, 34, 'marble');
+      }
     }
-    const base = floorY - 30;
-    this.drawBox3D(ctx, camX, camY, cx - 24, base - 98, 120, 48, 98, 16, 'wood_carved');
-    this.drawBox3D(ctx, camX, camY, cx - 20, base - 90, 117, 40, 88, 16, 'velvet');
-    this.drawBox3D(ctx, camX, camY, cx - 28, base - 34, 104, 10, 34, 24, 'brass_rim');
-    this.drawBox3D(ctx, camX, camY, cx + 18, base - 34, 104, 10, 34, 24, 'brass_rim');
   }
 
   /** Stage 2 Boss Centerpiece: Ring of Texture-Mapped 3D Harvest Rune Monoliths! */

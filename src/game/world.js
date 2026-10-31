@@ -17,10 +17,25 @@ import { createBoss } from './bosses.js';
 import { THEMES } from './builder.js';
 import { Candle, Item, Projectile, Fire, rollDrop, rectsOverlap } from './objects.js';
 
+/** Frame sequences while a posed boss idles / speaks (idle pose vs. gesture). */
+const BOSS_TALK_FRAMES = {
+  giantbat: { idle: ['fly1', 'fly0', 'fly1', 'fly2'], talk: ['fly1', 'dive', 'fly0', 'fly1', 'fly2', 'dive'] },
+  treant: { idle: ['idle0', 'idle1'], talk: ['idle0', 'roar', 'idle1', 'roar', 'slam'] },
+  greatjack: { idle: ['flame0', 'flame1'], talk: ['flame0', 'spit', 'flame1', 'flame0', 'spit'] },
+  devilsanta: { idle: ['idle'], talk: ['idle', 'throw', 'idle', 'lunge', 'throw'] },
+  bonecaptain: { idle: ['walk0'], talk: ['walk0', 'throw0', 'walk1', 'throw1', 'walk0'] },
+  reaper: { idle: ['idle0', 'idle1'], talk: ['idle0', 'windup', 'idle1', 'swing', 'idle0'] },
+  gorgon: { idle: ['a', 'b'], talk: ['a', 'stare', 'b', 'a', 'stare'] },
+  automaton: { idle: ['idle'], talk: ['idle', 'walk', 'overload', 'idle', 'punch'] },
+  archivist: { idle: ['idle'], talk: ['idle', 'cast', 'summon', 'idle', 'shield'] },
+  reaperlord: { idle: ['idle0', 'idle1'], talk: ['idle0', 'windup', 'idle1', 'swing'] },
+  count: { idle: ['idle'], talk: ['idle', 'cast', 'cape', 'idle', 'cast'] },
+};
+
 /** Idle pose frame shown while a boss speaks (for sheets without a 'walk0'). */
 const BOSS_POSE_FRAME = {
   giantbat: 'fly1', gorgon: 'a', greatjack: 'flame0', bonecaptain: 'walk0', treant: 'idle0',
-  automaton: 'idle', archivist: 'idle', archon: 'idle', devilsanta: 'idle', count: 'idle', reaper: 'idle0', reaperlord: 'idle0',
+  automaton: 'idle', archivist: 'idle', archon: 'roar', devilsanta: 'idle', count: 'idle', reaper: 'idle0', reaperlord: 'idle0',
 };
 
 export const BOSS_LINES = {
@@ -443,16 +458,31 @@ export class World {
     }
     const intro = this.bossIntro;
     intro.t += dt;
-    // Posed boss: fade in, breathe, never acts or takes hits until the battle starts.
+    // Posed boss: fade in, breathe and gesture while it speaks; never acts or takes hits until the battle starts.
     if (this.boss && this.boss.introPose) {
       const bs = this.boss;
       bs.alpha = Math.min(1, bs.alpha + dt / 1.1);
       bs.t += dt; bs.flash = 0;
-      if (bs.flies) bs.y = bs.poseY + Math.sin(bs.t * 2.2) * 6;
-      else { bs.vx = 0; bs.physics(this.level, dt); }
+      const talking = intro.stage === 'voice';
+      // Slow pacing / drifting on the dais (bounded to +-16 px around the spawn point)
+      if (bs.poseX == null) bs.poseX = bs.x;
+      const sway = Math.sin(bs.t * (talking ? 1.1 : 0.6)) * (talking ? 16 : 6);
+      if (bs.flies) {
+        bs.x = bs.poseX + sway;
+        bs.y = bs.poseY + Math.sin(bs.t * 2.2) * 6 + (talking ? Math.sin(bs.t * 3.1) * 3 : 0);
+      } else {
+        bs.vx = (bs.poseX + sway - bs.x) * 6;
+        bs.physics(this.level, dt);
+      }
       bs.facing = p.x > bs.x ? 1 : -1;
-      if (intro.stage === 'voice' && Math.floor(bs.t * 6) % 2 === 0) {
-        // Faint talking shimmer while the line plays
+      // Talking gestures: alternate each boss's idle pose with characteristic gesture frames
+      const G = BOSS_TALK_FRAMES[this.data.boss.type];
+      if (bs.sheet === 'archon') bs.frame = Math.floor(bs.t * 6) % 2 ? 'pounce' : 'roar';
+      else if (G) {
+        const seq = talking ? G.talk : G.idle;
+        bs.frame = seq[Math.floor(bs.t * (talking ? 1.6 : 0.8)) % seq.length];
+      }
+      if (talking && Math.floor(bs.t * 6) % 2 === 0) {
         if (Math.random() < 0.25) this.particles.sparks(bs.x + (Math.random() - 0.5) * bs.w, bs.y - bs.h * 0.8, 1, '#ffd27a');
       }
     }
@@ -500,8 +530,10 @@ export class World {
       this.boss.introPose = false;
       this.boss.alpha = 1;
       this.boss.state = 'enter'; this.boss.stateT = 99; this.boss.fired = false;
+      this.boss.facing = this.player.x >= this.boss.x ? 1 : -1;   // always square up to the hunter first
     } else {
       this.boss = createBoss(b.type || 'reaper', b.spawn.x, b.spawn.y, b.arena, this.difficulty);
+      this.boss.facing = this.player.x >= this.boss.x ? 1 : -1;
     }
     this.spawnEnemy(this.boss);
     const dbgHp = parseInt(this.game.params.get('bosshp') || '0', 10);

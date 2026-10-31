@@ -968,7 +968,7 @@ export class SpectralArchivist extends Boss {
         this.y = this.centerY + bob; this.frame = 'summon';
         if (this.stateT >= 0.5 && !this.fired) {
           this.fired = true;
-          const n = this.phase2 ? 3 : 2;
+          const n = this.phase2 ? 2 : 1;
           for (let i = 0; i < n; i++) {
             const fromLeft = i % 2 === 0;
             const t = new CursedTome(fromLeft ? a.x0 + 20 : a.x1 - 20, a.floorY - 150 - i * 30);
@@ -1029,7 +1029,7 @@ export class GargoyleArchon extends Boss {
     this.hp = 46; this.maxHp = 46;
     this.flies = true; this.gravityScale = 0;
     this.perchY = arena.ceilY + 70; this.y = this.perchY;
-    this.facing = -1; this.cycle = 0; this.frame = 'idle';
+    this.facing = -1; this.cycle = 0; this.frame = 'roar';
     this.auraKind = 'crimson';
   }
 
@@ -1045,17 +1045,19 @@ export class GargoyleArchon extends Boss {
     const p = world.player, a = this.arena;
     const dx = p.x - this.x;
     const bob = Math.sin(this.t * 2) * 5;
+    // Airborne wingbeat: wings spread wide, then swept back, ~3 beats a second.
+    const flap = Math.floor(this.t * 6) % 2 ? 'pounce' : 'roar';
     switch (this.state) {
       case 'enter':
         this.alpha = Math.min(1, this.stateT / 1.4);
-        this.frame = 'idle'; this.y = this.perchY + bob;
+        this.frame = flap; this.y = this.perchY + bob;
         if (this.stateT > 1.7) this.setState('perch');
         break;
       case 'perch': {
         this.alpha = 1; this.faceP(p);
         const tx = clamp(p.x, a.x0 + 80, a.x1 - 80);
         this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), (this.phase2 ? 120 : 85) * dt);
-        this.y = this.perchY + bob; this.frame = 'idle';
+        this.y = this.perchY + bob; this.frame = flap;
         if (this.stateT > (this.phase2 ? 1.0 : 1.6) * this.tempo) {
           this.cycle++;
           if (this.cycle % 4 === 0) this.setState('roar');
@@ -1078,7 +1080,7 @@ export class GargoyleArchon extends Boss {
         const nx = q(this.from.x, this.via.x, this.to.x);
         this.facing = nx >= this.x ? 1 : -1;
         this.x = nx; this.y = q(this.from.y, this.via.y, this.to.y);
-        this.frame = k < 0.75 ? 'pounce' : 'roar';
+        this.frame = k < 0.75 ? 'pounce' : flap;
         if (k > 0.4 && k < 0.6 && Math.random() < 0.5) world.particles.dust(this.x, this.y, 2, '#9a9aa8');
         if (k >= 1) { this.setState('perch'); }
         break;

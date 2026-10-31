@@ -169,10 +169,11 @@ export class Player extends Entity {
       // 8-frame alternating walk cycle (hero_walk sheet). The cycle advances with
       // distance travelled (one frame per ~8 px) so the feet never slide, with a
       // floor so slow acceleration frames still read as steps.
-      // 12-frame rotoscope-style cycle: one frame per ~5.5 px of travel so the
-      // planted foot never slides; a floor keeps slow steps readable.
-      this.animT += Math.max(7, Math.abs(this.vx) / 5.5) * dt;
-      this.walkFrame = Math.floor(this.animT) % 12;
+      // Classic 6-frame whip-hero stride: wide deliberate steps, ~12 fps at full
+      // speed, advanced by distance travelled (one frame per ~10 px) so the planted
+      // boot never slides.
+      this.animT += Math.max(6, Math.abs(this.vx) / 10) * dt;
+      this.walkFrame = Math.floor(this.animT) % 6;
     } else this.animT = 0;
   }
 

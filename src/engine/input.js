@@ -61,6 +61,8 @@ export class Input {
       s.jump = b(0) || b(1);
       s.attack = b(2) || b(3) || b(5) || b(7);
       s.start = b(9);
+      s.mute = b(8);          // Back / View
+      s.fx = b(10);           // left-stick click toggles shaders
       if (Object.values(s).some(Boolean)) {
         if (!this._interacted) { this._interacted = true; this.onFirstInteraction && this.onFirstInteraction(); }
       }

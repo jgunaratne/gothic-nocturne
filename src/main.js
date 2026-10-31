@@ -1,6 +1,6 @@
 // Gothic Nocturne — entry point: boot, scaling, game loop and menu states.
 
-import { W, H, DT, DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY } from './engine/constants.js';
+import { W, H, DT, DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, ASSET_VERSION } from './engine/constants.js';
 import { Input } from './engine/input.js';
 import { Assets } from './engine/assets.js';
 import { AudioSys } from './engine/audio.js';
@@ -60,7 +60,7 @@ class Game {
   }
 
   async boot() {
-    await this.assets.load();
+    await Promise.all([this.assets.load(), this.font.load(ASSET_VERSION)]);
     const bootEl = document.getElementById('boot');
     if (bootEl) bootEl.remove();
     this.titleWorld = new World(this, STAGES[0]);
@@ -490,7 +490,7 @@ class Game {
       if (t > a && t < b) { const k = 1 - Math.abs((t - (a + b) / 2) / ((b - a) / 2)); ctx.fillStyle = `rgba(5, 4, 10, ${k})`; ctx.fillRect(0, 0, W, H); }
     }
     // Letterbox + timed captions in step with the narration
-    ctx.fillStyle = '#05040a'; ctx.fillRect(0, 0, W, 22); ctx.fillRect(0, H - 40, W, 40);
+    ctx.fillStyle = '#05040a'; ctx.fillRect(0, 0, W, 22); ctx.fillRect(0, H - 42, W, 42);
     const caps = [
       [2.4, 8.0, 'AND SO THE COUNT WAS DUST, AND HIS KEEP FELL SILENT.'],
       [8.6, 14.5, 'THE BELLS OF MIDNIGHT CRACKED AND TUMBLED FROM THE BELFRY,'],
@@ -502,7 +502,8 @@ class Game {
       if (t < a || t > b) continue;
       const k = Math.min(1, (t - a) / 0.4, (b - t) / 0.4);
       ctx.save(); ctx.globalAlpha = Math.max(0, k);
-      f.draw(ctx, text, W / 2, H - 26, { align: 'center', color: '#e8e2c8', shadow: '#120f1c' });
+      const lines = f.wrap(text, W - 60, 1);
+      lines.forEach((ln, i) => f.draw(ctx, ln, W / 2, H - 14 - (lines.length - i) * 12, { align: 'center', color: '#e8e2c8', shadow: '#120f1c' }));
       ctx.restore();
     }
   }

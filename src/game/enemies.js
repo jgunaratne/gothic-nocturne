@@ -764,11 +764,11 @@ export class Phantom extends Enemy {
 export class CursedTome extends Enemy {
   constructor(x, y) {
     super(x, y);
-    this.w = 22; this.h = 16; this.hp = 1; this.score = SCORE.tome || 150; this.touchDamage = 2;
+    this.w = 22; this.h = 16; this.hp = 1; this.score = SCORE.tome || 150; this.touchDamage = 1;
     this.sheet = 'tome'; this.frame = 'shut';
     this.flies = true; this.gravityScale = 0;
     this.state = 'shelf'; this.t = Math.random() * 4; this.homeX = x; this.homeY = y;
-    this.chompT = 0.8 + Math.random() * 0.6;
+    this.chompT = 1.4 + Math.random() * 0.8;
   }
   wake(dir) { this.state = 'fly'; this.facing = dir; this.vx = dir * 60; this.vy = -90; this.t = 0; }
   update(dt, level, world) {
@@ -779,7 +779,7 @@ export class CursedTome extends Enemy {
     const dx = p.x - this.x, dy = (p.y - 28) - this.y;
     if (this.state === 'shelf') {
       this.frame = 'shut';
-      if (p.alive && Math.abs(dx) < 190 && Math.abs(dy) < 130) {
+      if (p.alive && Math.abs(dx) < 150 && Math.abs(dy) < 110) {
         this.wake(dx >= 0 ? 1 : -1);
         world.particles.dust(this.x, this.y, 6, '#c9b58a');
         world.sfx('candle');
@@ -789,23 +789,25 @@ export class CursedTome extends Enemy {
     if (this.state === 'fly') {
       // Flap toward the hunter with a bobbing path
       this.facing = dx >= 0 ? 1 : -1;
-      this.vx += Math.sign(dx) * 260 * dt; this.vy += Math.sign(dy) * 200 * dt;
-      const sp = Math.hypot(this.vx, this.vy), max = 135;
+      this.vx += Math.sign(dx) * 180 * dt; this.vy += Math.sign(dy) * 150 * dt;
+      const sp = Math.hypot(this.vx, this.vy), max = 98;
       if (sp > max) { this.vx *= max / sp; this.vy *= max / sp; }
       this.x += this.vx * dt; this.y += this.vy * dt + Math.sin(this.t * 9) * 0.6;
       this.frame = Math.floor(this.t * 9) % 2 ? 'flap1' : 'flap0';
       this.chompT -= dt;
-      if (this.chompT <= 0 && Math.abs(dx) < 90 && Math.abs(dy) < 60) {
+      if (this.chompT <= 0 && Math.abs(dx) < 80 && Math.abs(dy) < 50) {
+        // Telegraph: snap shut and hang for a beat before the bite
         this.state = 'chomp'; this.t = 0;
         const d = Math.hypot(dx, dy) || 1;
-        this.vx = (dx / d) * 300; this.vy = (dy / d) * 300;
+        this.vx = (dx / d) * 210; this.vy = (dy / d) * 210;
+        this.frame = 'shut';
         world.sfx('bone');
       }
     } else {
       this.frame = this.t < 0.18 ? 'chomp' : 'shut';
       this.x += this.vx * dt; this.y += this.vy * dt;
       this.vx *= 0.94; this.vy *= 0.94;
-      if (this.t > 0.42) { this.state = 'fly'; this.chompT = 0.9 + Math.random() * 0.5; }
+      if (this.t > 0.42) { this.state = 'fly'; this.chompT = 1.6 + Math.random() * 0.8; }
     }
     if (this.x < -60 || this.x > level.width + 60 || this.y > level.height + 40) this.dead = true;
   }
@@ -952,10 +954,10 @@ export class Spawner {
       this.alive.push(m);
       this.timer = (2.0 + Math.random() * 0.8) * diff.spawnInterval;
     } else if (this.type === 'tome') {
-      // Books tear themselves off the shelves behind the hunter, two at a time.
-      if (this.alive.length >= diff.maxAlive) { this.timer = 0.7; return; }
-      for (let i = 0; i < 2; i++) {
-        const side = i === 0 ? p.facing : -p.facing;
+      // Books tear themselves off the shelves ahead of the hunter, one at a time.
+      if (this.alive.length >= Math.max(1, diff.maxAlive - 1)) { this.timer = 0.9; return; }
+      for (let i = 0; i < 1; i++) {
+        const side = Math.random() < 0.7 ? p.facing : -p.facing;
         const x = p.x + side * (120 + Math.random() * 120);
         if (x < this.x0 || x > this.x1) continue;
         const t = new CursedTome(x, p.y - 70 - Math.random() * 60);
@@ -965,7 +967,7 @@ export class Spawner {
         world.particles.dust(t.x, t.y, 5, '#c9b58a');
       }
       world.sfx('candle');
-      this.timer = (2.6 + Math.random() * 0.9) * diff.spawnInterval;
+      this.timer = (4.0 + Math.random() * 1.2) * diff.spawnInterval;
     } else if (this.type === 'gargoyle') {
       if (this.alive.length >= Math.max(1, diff.maxAlive - 1)) { this.timer = 0.9; return; }
       const side = Math.random() < 0.75 ? p.facing : -p.facing;

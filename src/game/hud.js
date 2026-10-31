@@ -67,7 +67,7 @@ export function drawHud(ctx, font, assets, world) {
     if (k > 0.01) {
       ctx.save();
       ctx.globalAlpha = k;
-      const px = 16, py = H - 46, pw = W - 32, ph = 38;
+      const px = 16, py = H - 50, pw = W - 32, ph = 42;
       ctx.fillStyle = 'rgba(6, 4, 14, 0.88)';
       ctx.fillRect(px, py, pw, ph);
       ctx.strokeStyle = '#9e2f42';
@@ -87,8 +87,9 @@ export function drawHud(ctx, font, assets, world) {
         ctx.fillStyle = i % 2 === 0 ? '#ffd27a' : '#e25566';
         ctx.fillRect(px + 10 + i * 4, py + 19 - (bh >> 1), 2, bh);
       }
-      font.draw(ctx, cue.speaker, px + 32, py + 7, { color: '#ffd27a', shadow });
-      font.draw(ctx, `"${cue.text}"`, px + 32, py + 21, { color: ivory, shadow });
+      font.draw(ctx, cue.speaker, px + 32, py + 6, { color: '#ffd27a', shadow });
+      const lines = font.wrap(cue.text, pw - 44, 1);
+      lines.slice(0, 2).forEach((ln, i) => font.draw(ctx, ln, px + 32, py + 18 + i * 11, { color: ivory, shadow }));
       ctx.restore();
     }
   }
@@ -115,7 +116,7 @@ function drawBar(ctx, x, y, value, max, color, hi) {
 export function drawBanner(ctx, font, lines, y, { scale = 2, color = '#e8e2c8', band = true, sub = null } = {}) {
   if (band) {
     ctx.fillStyle = 'rgba(4, 3, 10, 0.72)';
-    const h = lines.length * (9 * scale + 6) + 22 + (sub ? 16 : 0);
+    const h = lines.length * (font.lineHeight(scale) + 6) + 22 + (sub ? 16 : 0);
     ctx.fillRect(0, y - 12, W, h);
     ctx.fillStyle = '#5b6b86';
     ctx.fillRect(0, y - 12, W, 1); ctx.fillRect(0, y - 12 + h - 1, W, 1);
@@ -123,7 +124,7 @@ export function drawBanner(ctx, font, lines, y, { scale = 2, color = '#e8e2c8', 
   let yy = y;
   for (const line of lines) {
     font.draw(ctx, line, W / 2, yy, { scale, color, align: 'center', shadow: '#120f1c' });
-    yy += 9 * scale + 6;
+    yy += font.lineHeight(scale) + 6;
   }
   if (sub) font.draw(ctx, sub, W / 2, yy + 2, { scale: 1, color: '#8a9ab5', align: 'center', shadow: '#120f1c' });
 }

@@ -791,14 +791,6 @@
      "walk3",
      "walk4",
      "walk5"
-    ],
-    [
-     "walk6",
-     "walk7",
-     "walk8",
-     "walk9",
-     "walk10",
-     "walk11"
     ]
    ]
   },
@@ -1154,6 +1146,20 @@
      "roar",
      "pounce",
      "shell"
+    ]
+   ]
+  },
+  "throne_props": {
+   "type": "sheet",
+   "src": "throne_props_sheet.png",
+   "height": 190,
+   "ref": "throne",
+   "colors": 40,
+   "rows": [
+    [
+     "throne",
+     "candle_pillar",
+     "great_banner"
     ]
    ]
   }
