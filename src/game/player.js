@@ -168,13 +168,15 @@ export class Player extends Entity {
     world.sfx('hurt');
     world.camera.shake(3, 0.2);
     if (this.hp <= 0) { this.hp = 0; this.die(world); return true; }
-    this.invuln = PLAYER.invuln;
+    const d = world.difficulty;
+    this.invuln = PLAYER.invuln * (d.invulnMul || 1);
     this.hurtT = PLAYER.hurtTime;
     this.attackT = -1;
     this.crouching = false; this.h = PLAYER.height;
     const dir = fromX > this.x ? -1 : 1;
-    this.vx = dir * 150;
-    this.vy = -230;
+    const kb = d.knockbackMul == null ? 1 : d.knockbackMul;
+    this.vx = dir * 150 * kb;
+    this.vy = -230 * kb;
     this.onGround = false;
     return true;
   }

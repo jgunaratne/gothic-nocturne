@@ -61,10 +61,11 @@ export const SCORE = {
 export const DIFFICULTIES = {
   easy: {
     key: 'easy', name: 'EASY', tagline: 'A GENTLE NIGHT',
-    desc: '5 LIVES · HALF DAMAGE · 600 SEC · FEWER FIENDS · HALF SCORE',
-    lives: 5, hearts: 10, time: 600,
-    damageTaken: 0.5, enemyHp: 0.75, spawnInterval: 1.5, maxAlive: 2,
-    throwCooldown: 1.4, bossTempo: 1.3, bossPhase2: 0.4, scoreMult: 0.5,
+    desc: '7 LIVES · 1 DMG HITS · 900 SEC · PITS FORGIVE · STRONG WHIP',
+    lives: 7, hearts: 15, time: 900,
+    damageTaken: 0.4, enemyHp: 0.6, spawnInterval: 2.2, maxAlive: 1,
+    throwCooldown: 2.0, bossTempo: 1.6, bossPhase2: 0.3, scoreMult: 0.5,
+    playerDamage: 1.5, invulnMul: 1.6, pitForgiving: true, knockbackMul: 0.6,
   },
   normal: {
     key: 'normal', name: 'NORMAL', tagline: 'THE CLASSIC HUNT',
@@ -72,6 +73,7 @@ export const DIFFICULTIES = {
     lives: 3, hearts: 5, time: 420,
     damageTaken: 1, enemyHp: 1, spawnInterval: 1, maxAlive: 3,
     throwCooldown: 1, bossTempo: 1, bossPhase2: 0.5, scoreMult: 1,
+    playerDamage: 1, invulnMul: 1, pitForgiving: false, knockbackMul: 1,
   },
   hard: {
     key: 'hard', name: 'HARD', tagline: 'NO MERCY AT MIDNIGHT',
@@ -79,6 +81,7 @@ export const DIFFICULTIES = {
     lives: 2, hearts: 3, time: 300,
     damageTaken: 1.5, enemyHp: 1.5, spawnInterval: 0.65, maxAlive: 4,
     throwCooldown: 0.7, bossTempo: 0.75, bossPhase2: 0.65, scoreMult: 2,
+    playerDamage: 1, invulnMul: 1, pitForgiving: false, knockbackMul: 1,
   },
 };
 export const DIFFICULTY_ORDER = ['easy', 'normal', 'hard'];

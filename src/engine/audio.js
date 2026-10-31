@@ -5,6 +5,7 @@ const TRACKS = {
   title: 'assets/music/title.mp3',
   graveyard: 'assets/music/graveyard.mp3',
   jack: 'assets/music/jack.mp3',
+  yule: 'assets/music/yule.mp3',
   ramparts: 'assets/music/ramparts.mp3',
   catacombs: 'assets/music/catacombs.mp3',
   ossuary: 'assets/music/ossuary.mp3',
@@ -15,6 +16,7 @@ const TRACKS = {
   gameover: 'assets/music/gameover.mp3',
   ending: 'assets/music/ending.mp3',
 };
+const FALLBACK_TRACK = 'graveyard';
 const MAX_DECODED = 3;   // full-length tracks decode to ~50 MB of PCM each
 
 export class AudioSys {
@@ -95,6 +97,7 @@ export class AudioSys {
 
   /** Plays a track; loops with a short crossfade unless loop=false. */
   playMusic(name, loop = true) {
+    if (!TRACKS[name]) { console.warn('unknown track', name, '-> fallback'); name = FALLBACK_TRACK; }
     if (!this.ctx) { this.pendingTrack = { name, loop }; return; }
     if (this.current && this.current.name === name) return;
     this.stopMusic(0.6);
@@ -102,7 +105,8 @@ export class AudioSys {
     this.current = entry;
     (async () => {
       const buf = await this.ensureBuffer(name);
-      if (entry.stopped || !buf) return;  // superseded while the buffer was loading
+      if (entry.stopped) return;  // superseded while the buffer was loading
+      if (!buf) { if (this.current === entry) this.current = null; return; }  // allow a retry later
       entry.gain = this.ctx.createGain();
       entry.gain.gain.value = 1;
       entry.gain.connect(this.musicBus);

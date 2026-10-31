@@ -77,12 +77,16 @@ Chosen on the "Choose your fate" screen after the title (remembered in
 
 | | Lives | Hearts | Timer | Damage taken | Enemy HP | Spawn pressure | Boss | Score |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Easy** | 5 | 10 | 600 s | ×0.5 | ×0.75 | slower, max 2 | slower, phase 2 at 40 % | ×0.5 |
+| **Easy** | 7 | 15 | 900 s | ×0.4 (most hits = 1) | ×0.6 | much slower, max 1 | slower, phase 2 at 30 % | ×0.5 |
 | **Normal** | 3 | 5 | 420 s | ×1 | ×1 | standard, max 3 | standard, phase 2 at 50 % | ×1 |
 | **Hard** | 2 | 3 | 300 s | ×1.5 | ×1.5 | faster, max 4 | faster, phase 2 at 65 % | ×2 |
 
-One-hit fodder (bats, zombies, medusa heads) stays one-hit on every setting;
-skeletons and the Reaper scale. Presets live in `src/engine/constants.js`.
+Easy also hits 1.5× harder with whip and sub-weapons, grants longer
+invincibility and softer knockback after a hit, and forgives bottomless pits:
+you climb back out at your last solid footing for a little damage instead of
+losing a life. One-hit fodder (bats, zombies, medusa heads) stays one-hit on
+every setting; skeletons, brutes and bosses scale. Presets live in
+`src/engine/constants.js`.
 
 ## Layout
 

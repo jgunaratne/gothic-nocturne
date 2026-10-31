@@ -163,7 +163,21 @@ export class World {
       if (p.x >= this.data.checkpoints[i]) { this.checkpoint = i; break; }
     }
     if (!this.bossActive && !this.boss && p.x >= this.data.boss.triggerX && live) this.startBoss();
-    if (p.y > lvl.height + 80 && p.alive) { p.hp = 0; p.die(this); }
+    // Remember the last solid footing (for forgiving pit falls on Easy).
+    if (p.onGround && p.alive) {
+      const tx = Math.floor(p.x / TILE), ty = Math.floor((p.y + 1) / TILE);
+      if (lvl.isSolid(tx, ty) && lvl.isSolid(tx - 1, ty) && lvl.isSolid(tx + 1, ty)) this.lastSafe = { x: p.x, y: p.y };
+    }
+    if (p.y > lvl.height + 80 && p.alive) {
+      if (this.difficulty.pitForgiving && this.lastSafe) {
+        // Easy: climb back out at the last safe footing, bruised.
+        p.x = this.lastSafe.x; p.y = this.lastSafe.y; p.vx = 0; p.vy = 0;
+        p.invuln = 0; p.hurt(4, p.x + 1, this);
+        p.vx = 0; p.vy = -120;
+        this.camera.snapTo(p.x, p.y);
+        this.particles.dust(p.x, p.y, 10);
+      } else { p.hp = 0; p.die(this); }
+    }
 
     // Enemies
     for (const s of this.spawners) s.update(dt, this);
@@ -218,10 +232,11 @@ export class World {
         this.particles.shards(tx * TILE + 16, ty * TILE + 30, 12, '#8a9ab5', ty * TILE + 32);
         if (drop) this.spawnItem(drop, tx * TILE + 16, ty * TILE + 20);
       }
+      const whipDmg = Math.round(PLAYER.whipDamage * (this.difficulty.playerDamage || 1));
       for (const e of this.enemies) {
         if (!e.alive) continue;
         const died = rectsOverlap(whip, e.box()) || (e === this.boss && rectsOverlap(whip, e.box(10)));
-        if (died) { e.takeHit(PLAYER.whipDamage, p.x, this); hitSomething = true; this.camera.shake(1.5, 0.08); }
+        if (died) { e.takeHit(whipDmg, p.x, this); hitSomething = true; this.camera.shake(1.5, 0.08); }
       }
       for (const pr of this.projectiles) {
         if (pr.owner === 'enemy' && pr.type !== 'sickle' && rectsOverlap(whip, pr.box)) {
@@ -240,7 +255,7 @@ export class World {
         if (!e.alive || pr.hitSet.has(e)) continue;
         if (rectsOverlap(pr.box, e.box())) {
           pr.hitSet.add(e);
-          e.takeHit(pr.damage, pr.x, this);
+          e.takeHit(Math.round(pr.damage * (this.difficulty.playerDamage || 1)), pr.x, this);
           if (pr.pierce > 0) pr.pierce--; else pr.dead = true;
           if (pr.type === 'holy_water') { this.spawnFire(pr.x, Math.floor((e.y) / TILE) * TILE); pr.dead = true; }
           if (pr.dead) break;
