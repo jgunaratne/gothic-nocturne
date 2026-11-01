@@ -9,11 +9,12 @@ const KEYMAP = {
   Space: 'jump', KeyZ: 'jump', KeyJ: 'jump',
   KeyX: 'attack', KeyK: 'attack',
   Enter: 'start', Escape: 'start',
-  KeyM: 'mute',
+  KeyM: 'map', Tab: 'map',
+  KeyN: 'mute', KeyU: 'mute',
   KeyF: 'fx',
 };
 
-const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'start', 'mute', 'fx'];
+const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'start', 'map', 'mute', 'fx'];
 
 export class Input {
   constructor(target) {
@@ -32,6 +33,7 @@ export class Input {
       if (this.onFirstInteraction) this.onFirstInteraction();
     };
     window.addEventListener('keydown', (e) => {
+      if (e.code === 'Escape') this.keyState._escape = true;
       const a = KEYMAP[e.code];
       if (a) {
         this.keyState[a] = true;
@@ -40,6 +42,7 @@ export class Input {
       noteInteraction();
     });
     window.addEventListener('keyup', (e) => {
+      if (e.code === 'Escape') this.keyState._escape = false;
       const a = KEYMAP[e.code];
       if (a) { this.keyState[a] = false; e.preventDefault(); }
     });
@@ -61,8 +64,9 @@ export class Input {
       s.jump = b(0) || b(1);
       s.attack = b(2) || b(3) || b(5) || b(7);
       s.start = b(9);
-      s.mute = b(8);          // Back / View
+      s.map = b(8);           // Back / View / Select toggles Castle Map
       s.fx = b(10);           // left-stick click toggles shaders
+      s.mute = b(11);         // right-stick click toggles mute
       if (Object.values(s).some(Boolean)) {
         if (!this._interacted) { this._interacted = true; this.onFirstInteraction && this.onFirstInteraction(); }
       }
@@ -87,6 +91,9 @@ export class Input {
       this.released[a] = !now && this.down[a];
       this.down[a] = now;
     }
+    const escNow = !!this.keyState._escape;
+    this.pressed.escape = escNow && !this._escapeDown;
+    this._escapeDown = escNow;
   }
 
   /** True if any action was pressed this frame. */

@@ -82,9 +82,10 @@ export class Parallax {
     const sky = this.assets.img('sky');
     const off = mod(-(cam.rx * 0.04) - this.time * 1.5, sky.width);
     for (let x = off - sky.width; x < W; x += sky.width) ctx.drawImage(sky, Math.round(x), 0);
-    // Shader cloud banks drifting behind the mountains (illuminated from within during lightning)
+    // Shader aurora (Frozen Yule), cloud banks, and forked storm lightning
     const fx = getFxLayers();
     if (fx) {
+      if (this.setName === 'yule') fx.aurora(ctx, cam.rx);
       fx.clouds(ctx, cam.rx, this.setName, flash);
       if (flash > 0.03) fx.lightning(ctx, boltX, boltSeed, flash, 232);
     }
@@ -114,7 +115,9 @@ export class Parallax {
 
   /** Drawn after 3D outdoor vistas so moonlight beams & mist unify 2D and 3D depth. */
   drawAtmosphere(ctx, cam) {
-    if (this.shafts) this.drawShafts(ctx, cam);
+    const fx = getFxLayers();
+    if (fx && fx.enabled) fx.godRays(ctx, cam.rx, this.setName, 1.0);
+    else if (this.shafts) this.drawShafts(ctx, cam);
     this.drawFog(ctx, cam, 0.62, 0.20, 36, 22);
   }
 

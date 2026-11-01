@@ -1290,6 +1290,71 @@
      "erupt"
     ]
    ]
+  },
+  "grand_doors": {
+   "type": "sheet",
+   "src": "grand_doors_sheet.png",
+   "height": 124,
+   "ref": "open",
+   "colors": 48,
+   "rows": [
+    [
+     "open",
+     "sealed",
+     "royal"
+    ]
+   ]
+  },
+  "falling_tiles": {
+   "type": "sheet",
+   "src": "falling_tiles_sheet.png",
+   "height": 40,
+   "ref": "intact",
+   "colors": 36,
+   "rows": [
+    [
+     "intact",
+     "cracked",
+     "breaking",
+     "chunk"
+    ]
+   ]
+  },
+  "shrines": {
+   "type": "sheet",
+   "src": "exploration_shrines_sheet.png",
+   "height": 76,
+   "ref": "sanctuary_idle",
+   "colors": 64,
+   "rows": [
+    [
+     "sanctuary_idle",
+     "sanctuary_lit",
+     "vessel_full",
+     "vessel_empty"
+    ]
+   ]
+  },
+  "projectiles": {
+   "type": "sheet",
+   "src": "projectiles_sheet.png",
+   "height": 24,
+   "ref": "cog",
+   "colors": 64,
+   "rows": [
+    [
+     "bone",
+     "sickle",
+     "skull",
+     "cog"
+    ],
+    [
+     "present",
+     "iceshard",
+     "page",
+     "magmaball"
+    ]
+   ]
   }
  }
 }

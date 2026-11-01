@@ -221,6 +221,22 @@ export class Projectile {
 
   draw(ctx, assets, camX, camY) {
     const x = Math.round(this.x - camX), y = Math.round(this.y - camY);
+    if (x < -56 || x > 696 || y < -56 || y > 416) return;
+    const fx = getFxLayers();
+    const useFx = !!(fx && fx.enabled);
+    const pImg = assets ? assets.img('projectiles') : null;
+    const drawProjSprite = (name, rot = 0, flipX = false, scale = 1) => {
+      const f = assets && assets.frame('projectiles', name);
+      if (!f || !pImg) return false;
+      ctx.save();
+      if (rot) ctx.rotate(rot);
+      if (flipX || scale !== 1) ctx.scale(flipX ? -scale : scale, scale);
+      ctx.drawImage(pImg, f.x, f.y, f.w, f.h, -f.w / 2, -f.h / 2, f.w, f.h);
+      ctx.restore();
+      return true;
+    };
+    const seed = (this.x0 || 0) * 0.013 + (this.y0 || 0) * 0.019;
+
     ctx.save();
     ctx.translate(x, y);
     switch (this.type) {
@@ -243,32 +259,59 @@ export class Projectile {
         break;
       }
       case 'bone': {
-        ctx.rotate(this.spin);
-        ctx.fillStyle = '#e8e2c8';
-        ctx.fillRect(-7, -2, 14, 4);
-        ctx.fillRect(-8, -4, 3, 8); ctx.fillRect(5, -4, 3, 8);
+        if (!drawProjSprite('bone', this.spin, false, 0.9)) {
+          ctx.rotate(this.spin);
+          ctx.fillStyle = '#e8e2c8';
+          ctx.fillRect(-7, -2, 14, 4);
+          ctx.fillRect(-8, -4, 3, 8); ctx.fillRect(5, -4, 3, 8);
+        }
         break;
       }
       case 'sickle': {
-        ctx.rotate(this.spin);
-        ctx.strokeStyle = '#d8dde8'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(0, 0, 10, Math.PI * 0.1, Math.PI * 1.3); ctx.stroke();
-        ctx.strokeStyle = '#8a9ab5'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(0, 0, 10, Math.PI * 0.1, Math.PI * 1.3); ctx.stroke();
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 16, ry: 16, dirX: Math.cos(this.spin), dirY: Math.sin(this.spin),
+            mode: 3, seed, core: [0.92, 0.88, 1.0], rim: [0.58, 0.34, 0.98], alpha: 0.72,
+          });
+        }
+        if (!drawProjSprite('sickle', this.spin)) {
+          ctx.rotate(this.spin);
+          ctx.strokeStyle = '#d8dde8'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(0, 0, 10, Math.PI * 0.1, Math.PI * 1.3); ctx.stroke();
+          ctx.strokeStyle = '#8a9ab5'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(0, 0, 10, Math.PI * 0.1, Math.PI * 1.3); ctx.stroke();
+        }
         break;
       }
       case 'skull': {
         const t = this.time;
-        ctx.fillStyle = `rgba(150, 90, 255, ${0.25 + 0.15 * Math.sin(t * 12)})`;
-        ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#e8e2c8';
-        ctx.fillRect(-5, -6, 10, 9); ctx.fillRect(-3, 3, 6, 3);
-        ctx.fillStyle = '#2a1040';
-        ctx.fillRect(-4, -3, 3, 3); ctx.fillRect(1, -3, 3, 3);
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 14, ry: 22, dirX: this.vx || this.dir, dirY: this.vy,
+            mode: 0, seed, core: [0.92, 0.82, 1.0], rim: [0.52, 0.22, 0.96], alpha: 0.78,
+          });
+        } else {
+          ctx.fillStyle = `rgba(150, 90, 255, ${0.25 + 0.15 * Math.sin(t * 12)})`;
+          ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI * 2); ctx.fill();
+        }
+        if (!drawProjSprite('skull', 0, (this.vx || this.dir) < 0, 0.9)) {
+          ctx.fillStyle = '#e8e2c8';
+          ctx.fillRect(-5, -6, 10, 9); ctx.fillRect(-3, 3, 6, 3);
+          ctx.fillStyle = '#2a1040';
+          ctx.fillRect(-4, -3, 3, 3); ctx.fillRect(1, -3, 3, 3);
+        }
         break;
       }
       case 'hellfire': {
-        // Blue-violet flame orb with a flickering core and tail.
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 13, ry: 26, dirX: this.vx || this.dir, dirY: this.vy,
+            mode: 0, seed, core: [0.94, 0.90, 1.0], rim: [0.46, 0.24, 1.0], alpha: 0.95,
+          });
+          ctx.fillStyle = '#f2ecff';
+          ctx.fillRect(-2, -2, 4, 4);
+          break;
+        }
         const t = this.time;
         const g = ctx.createRadialGradient(0, 0, 1, 0, 0, 16);
         g.addColorStop(0, 'rgba(200, 180, 255, 0.9)');
@@ -284,7 +327,15 @@ export class Projectile {
         break;
       }
       case 'gaze': {
-        // Petrifying stare: a bright streak with a soft tail.
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 24, ry: 8, dirX: this.vx || this.dir, dirY: this.vy,
+            mode: 1, seed, core: [1.0, 0.98, 0.80], rim: [0.42, 0.96, 0.58], alpha: 0.95,
+          });
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(this.dir * 8 - 2, -1, 5, 2);
+          break;
+        }
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = 'rgba(255, 220, 120, 0.35)';
         ctx.fillRect(-20, -5, 40, 10);
@@ -295,8 +346,15 @@ export class Projectile {
         break;
       }
       case 'gas': {
-        // Petrifying breath: overlapping violet-grey puffs that thin out.
-        const k = 1 - this.time / 2.6, r = this.w / 2;
+        const k = Math.max(0.15, 1 - this.time / 2.6), r = this.w / 2;
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: r * 1.15, ry: r * 1.15, dirX: this.dir, dirY: 0,
+            mode: 2, seed, core: [0.86, 0.78, 1.0], rim: [0.42, 0.30, 0.62],
+            alpha: 0.72 * k + 0.14, composite: 'source-over',
+          });
+          break;
+        }
         ctx.globalAlpha = 0.55 * k + 0.15;
         for (let i = 0; i < 5; i++) {
           const a = this.time * 1.5 + i * 1.26;
@@ -310,6 +368,15 @@ export class Projectile {
         break;
       }
       case 'fireball': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 12, ry: 24, dirX: this.vx || this.dir, dirY: this.vy,
+            mode: 0, seed, core: [1.0, 0.96, 0.72], rim: [1.0, 0.38, 0.08], alpha: 0.96,
+          });
+          ctx.fillStyle = '#fff6c8';
+          ctx.fillRect(-2, -2, 4, 4);
+          break;
+        }
         const t = this.time;
         const g = ctx.createRadialGradient(0, 0, 1, 0, 0, 14);
         g.addColorStop(0, 'rgba(255, 240, 180, 0.95)');
@@ -325,11 +392,20 @@ export class Projectile {
         break;
       }
       case 'iceshard': {
-        ctx.rotate(Math.atan2(this.vy, this.vx));
-        ctx.fillStyle = '#dff4ff';
-        ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-6, -4); ctx.lineTo(-4, 0); ctx.lineTo(-6, 4); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#8ac8ff';
-        ctx.fillRect(-4, -1, 8, 2);
+        const ang = Math.atan2(this.vy, this.vx);
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 10, ry: 20, dirX: Math.cos(ang), dirY: Math.sin(ang),
+            mode: 0, seed, core: [0.92, 0.98, 1.0], rim: [0.32, 0.74, 1.0], alpha: 0.68,
+          });
+        }
+        if (!drawProjSprite('iceshard', ang, false, 0.85)) {
+          ctx.rotate(ang);
+          ctx.fillStyle = '#dff4ff';
+          ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-6, -4); ctx.lineTo(-4, 0); ctx.lineTo(-6, 4); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#8ac8ff';
+          ctx.fillRect(-4, -1, 8, 2);
+        }
         break;
       }
       case 'snowball': {
@@ -340,26 +416,36 @@ export class Projectile {
         break;
       }
       case 'present': {
-        ctx.rotate(this.spin * 0.5);
-        ctx.fillStyle = '#9b1c2c';
-        ctx.fillRect(-7, -7, 14, 14);
-        ctx.fillStyle = '#1a1420';
-        ctx.fillRect(-7, -1, 14, 2); ctx.fillRect(-1, -7, 2, 14);
-        ctx.fillStyle = '#e8c35a';
-        ctx.fillRect(-3, -9, 6, 3);
+        if (useFx) fx.addFlame(x, y - 9, 7, 9, [1.0, 0.62, 0.18], seed);
+        if (!drawProjSprite('present', this.spin * 0.45, false, 0.9)) {
+          ctx.rotate(this.spin * 0.5);
+          ctx.fillStyle = '#9b1c2c';
+          ctx.fillRect(-7, -7, 14, 14);
+          ctx.fillStyle = '#1a1420';
+          ctx.fillRect(-7, -1, 14, 2); ctx.fillRect(-1, -7, 2, 14);
+          ctx.fillStyle = '#e8c35a';
+          ctx.fillRect(-3, -9, 6, 3);
+        }
         break;
       }
       case 'spore': {
-        const glow = getGlowCanvas('emerald');
-        if (glow) {
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.globalAlpha = 0.72;
-          ctx.drawImage(glow, -14, -14, 28, 28);
-          ctx.globalAlpha = 1;
-          ctx.globalCompositeOperation = 'source-over';
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 11, ry: 18, dirX: this.vx || this.dir, dirY: this.vy,
+            mode: 0, seed, core: [0.86, 1.0, 0.94], rim: [0.18, 0.92, 0.68], alpha: 0.88,
+          });
+        } else {
+          const glow = getGlowCanvas('emerald');
+          if (glow) {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.72;
+            ctx.drawImage(glow, -14, -14, 28, 28);
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';
+          }
         }
         ctx.fillStyle = '#52e8b8';
-        ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#d8fff0';
         ctx.fillRect(-2, -2, 3, 3);
         break;
@@ -373,28 +459,45 @@ export class Projectile {
         break;
       }
       case 'page': {
-        // Fluttering razor page: a pale leaf that twists as it flies
-        ctx.rotate(Math.atan2(this.vy, this.vx) + Math.sin(this.time * 18) * 0.5);
-        ctx.fillStyle = '#e8e2c8';
-        ctx.fillRect(-7, -4, 14, 8);
-        ctx.fillStyle = '#9a8c6a';
-        ctx.fillRect(-5, -2, 10, 1); ctx.fillRect(-5, 1, 8, 1);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(5, -4, 2, 8);
+        const ang = Math.atan2(this.vy, this.vx) + Math.sin(this.time * 18) * 0.45;
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 9, ry: 16, dirX: Math.cos(ang), dirY: Math.sin(ang),
+            mode: 0, seed, core: [0.94, 0.88, 1.0], rim: [0.58, 0.36, 0.96], alpha: 0.52,
+          });
+        }
+        if (!drawProjSprite('page', ang, false, 0.85)) {
+          ctx.rotate(ang);
+          ctx.fillStyle = '#e8e2c8';
+          ctx.fillRect(-7, -4, 14, 8);
+          ctx.fillStyle = '#9a8c6a';
+          ctx.fillRect(-5, -2, 10, 1); ctx.fillRect(-5, 1, 8, 1);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(5, -4, 2, 8);
+        }
         break;
       }
       case 'cog': {
-        ctx.rotate(this.spin);
-        ctx.fillStyle = '#b98a3a';
-        for (let i = 0; i < 8; i++) { ctx.rotate(Math.PI / 4); ctx.fillRect(-2, -9, 4, 18); }
-        ctx.fillStyle = '#e2b55c';
-        ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#4a3418';
-        ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.fill();
+        if (!drawProjSprite('cog', this.spin, false, 0.92)) {
+          ctx.rotate(this.spin);
+          ctx.fillStyle = '#b98a3a';
+          for (let i = 0; i < 8; i++) { ctx.rotate(Math.PI / 4); ctx.fillRect(-2, -9, 4, 18); }
+          ctx.fillStyle = '#e2b55c';
+          ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#4a3418';
+          ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.fill();
+        }
         break;
       }
       case 'thorn': {
-        ctx.rotate(Math.atan2(this.vy, this.vx));
+        const ang = Math.atan2(this.vy, this.vx);
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 8, ry: 16, dirX: Math.cos(ang), dirY: Math.sin(ang),
+            mode: 0, seed, core: [0.78, 1.0, 0.88], rim: [0.20, 0.78, 0.56], alpha: 0.55,
+          });
+        }
+        ctx.rotate(ang);
         ctx.fillStyle = '#4a352c';
         ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-7, -4); ctx.lineTo(-4, 0); ctx.lineTo(-7, 4); ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#62f2c2';
@@ -402,24 +505,40 @@ export class Projectile {
         break;
       }
       case 'magmaball': {
-        ctx.rotate(this.spin * 0.6);
-        const glow = getGlowCanvas('amber');
-        if (glow) {
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.globalAlpha = 0.78;
-          ctx.drawImage(glow, -18, -18, 36, 36);
-          ctx.globalAlpha = 1;
-          ctx.globalCompositeOperation = 'source-over';
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 14, ry: 26, dirX: this.vx || this.dir, dirY: this.vy,
+            mode: 0, seed, core: [1.0, 0.92, 0.52], rim: [0.98, 0.30, 0.05], alpha: 0.90,
+          });
+        } else {
+          const glow = getGlowCanvas('amber');
+          if (glow) {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.78;
+            ctx.drawImage(glow, -18, -18, 36, 36);
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';
+          }
         }
-        ctx.fillStyle = '#2d1414';
-        ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#ff6a1a';
-        ctx.fillRect(-5, -2, 10, 4); ctx.fillRect(-2, -6, 4, 12);
-        ctx.fillStyle = '#ffe878';
-        ctx.fillRect(-2, -2, 4, 4);
+        if (!drawProjSprite('magmaball', this.spin * 0.6, false, 0.92)) {
+          ctx.rotate(this.spin * 0.6);
+          ctx.fillStyle = '#2d1414';
+          ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ff6a1a';
+          ctx.fillRect(-5, -2, 10, 4); ctx.fillRect(-2, -6, 4, 12);
+          ctx.fillStyle = '#ffe878';
+          ctx.fillRect(-2, -2, 4, 4);
+        }
         break;
       }
       case 'crimson_wave': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 18, ry: 18, dirX: this.dir, dirY: 0,
+            mode: 3, seed, core: [1.0, 0.88, 0.92], rim: [1.0, 0.16, 0.32], alpha: 0.96,
+          });
+          break;
+        }
         ctx.scale(this.dir, 1);
         ctx.globalCompositeOperation = 'lighter';
         ctx.strokeStyle = 'rgba(255, 64, 96, 0.85)';

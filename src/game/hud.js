@@ -2,6 +2,7 @@
 
 import { W, H, PLAYER } from '../engine/constants.js';
 import { BOSS_RELICS, RELIC_ORDER } from './relics.js';
+import { drawMiniMap } from './castlemap.js';
 
 export function drawHud(ctx, font, assets, world) {
   const p = world.player;
@@ -19,16 +20,17 @@ export function drawHud(ctx, font, assets, world) {
   font.draw(ctx, `STAGE ${String(world.stage.id || 1).padStart(2, '0')}`, 300, 7, { color: ivory, shadow });
   font.draw(ctx, `P-${String(world.lives).padStart(2, '0')}`, 392, 7, { color: ivory, shadow });
   const diff = world.difficulty;
-  font.draw(ctx, diff.name, 450, 7, { color: diff.key === 'hard' ? '#e23c3c' : diff.key === 'easy' ? '#9ad17a' : dim, shadow });
+  font.draw(ctx, diff.name, 442, 7, { color: diff.key === 'hard' ? '#e23c3c' : diff.key === 'easy' ? '#9ad17a' : dim, shadow });
+  const rightCol = 569;
   const relicCount = world.relics ? world.relics.size : 0;
   if (relicCount > 0) {
-    font.draw(ctx, `RELICS ${String(relicCount).padStart(2, '0')}`, W - 12, 7, { align: 'right', color: '#ffd27a', shadow });
+    font.draw(ctx, `RELICS ${String(relicCount).padStart(2, '0')}`, rightCol, 7, { align: 'right', color: '#ffd27a', shadow });
   }
 
   // Health bars
   font.draw(ctx, 'PLAYER', 12, 20, { color: dim, shadow });
   const pMaxHp = p.maxHp || PLAYER.maxHp;
-  drawBar(ctx, 60, 19, p.hp, pMaxHp, '#e23c3c', '#ffb0a0', pMaxHp > 16 ? 20 : 16);
+  drawBar(ctx, 60, 19, p.hp, pMaxHp, '#e23c3c', '#ffb0a0', Math.max(16, pMaxHp));
   font.draw(ctx, 'ENEMY', 12, 32, { color: dim, shadow });
   const boss = world.boss;
   const bossHp = boss ? Math.max(0, boss.hp) : 16;
@@ -53,7 +55,7 @@ export function drawHud(ctx, font, assets, world) {
   if (relicCount > 0) {
     const activeKeys = RELIC_ORDER.filter((k) => world.hasRelic(k));
     const totalW = activeKeys.length * 8 - 2;
-    let rx = W - 12 - totalW;
+    let rx = rightCol - totalW;
     const ry = 20;
     for (const k of activeKeys) {
       const r = BOSS_RELICS[k];
@@ -67,13 +69,16 @@ export function drawHud(ctx, font, assets, world) {
     }
     if (world.hasRelic('graveyard')) {
       const wingReady = p.onGround || p.airJumpsLeft > 0;
-      font.draw(ctx, wingReady ? '* 2X JUMP' : '· 2X JUMP', W - 12, 31, {
+      font.draw(ctx, wingReady ? '* 2X JUMP' : '· 2X JUMP', rightCol, 31, {
         align: 'right',
         color: wingReady ? '#c8a8ff' : '#5e5078',
         shadow,
       });
     }
   }
+
+  // Live Castle Grid Mini-Map radar (top-right, M to expand)
+  drawMiniMap(ctx, font, world, 577, 6);
 
   // Companion status badge (Darkwood Guardian Turtle)
   if (world.ally && world.ally.alive) {
@@ -129,8 +134,8 @@ export function drawHud(ctx, font, assets, world) {
 }
 
 function drawBar(ctx, x, y, value, max, color, hi, segs = 16) {
-  const step = segs > 16 ? 6 : 7;
-  const sw = segs > 16 ? 5 : 6;
+  const step = segs > 16 ? Math.max(4, Math.floor(138 / segs)) : 7;
+  const sw = step - 1;
   const filled = Math.round((value / max) * segs);
   for (let i = 0; i < segs; i++) {
     const sx = x + i * step;

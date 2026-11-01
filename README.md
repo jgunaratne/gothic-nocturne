@@ -35,14 +35,20 @@ arena with spoken Daikon boss voice lines at the end of every stage.
   `assets/sfx/` when generated with `tools/generate_sfx.sh` (ElevenLabs Sound
   Effects API, needs `ELEVENLABS_API_KEY`).
 - **Engine**: plain HTML5 canvas + ES modules, no build step, no dependencies.
-  Native 640×360, integer-scaled with nearest-neighbour sampling, composited
-  through a WebGL post-process (`src/engine/postfx.js`: quarter-res bloom,
-  per-stage colour grading, phosphor scanlines, film grain, directional storm-lightning
-  exposure and damage pulse; press F to toggle, `?nofx` to disable) plus
-  procedural shader layers (`src/engine/fxlayers.js`: storm-lit cloud banks,
-  forked sky lightning bolts on outdoor stages, flowing / frozen water and churning
+  Native 640×360, full-viewport 16:9 aspect-fit scaled (snapping to exact integer
+  multiples when close and using band-limited sharp sub-pixel anti-aliased
+  texel sampling at fractional/HiDPI scales to prevent shimmer), composited
+  through a WebGL post-process (`src/engine/postfx.js`: half-res 320×180 bloom,
+  per-stage colour grading across all 13 realms, phosphor scanlines, film grain,
+  convective lower-screen lava heat haze, radial shockwave refraction +
+  chromatic dispersion, directional storm-lightning exposure, and damage pulse;
+  press F to toggle, `?nofx` to disable) plus native-res 640×360 procedural
+  shader layers (`src/engine/fxlayers.js`: storm-lit cloud banks, Arctic aurora
+  borealis curtains, moonlit and stained-glass volumetric god-rays with drifting
+  dust motes, forked sky lightning bolts, flowing / frozen water and churning
   molten lava pools, living flames on torches, braziers, candelabra, chandeliers
-  and fire pools, and rolling foreground mist).
+  and fire pools, enemy & boss plasma/beam/miasma/crescent attack shaders,
+  expanding arena shockwave rings, and rolling foreground mist).
 
 ## Play
 
@@ -55,25 +61,25 @@ arena with spoken Daikon boss voice lines at the end of every stage.
 | Move / crouch | ← → / ↓ (WASD) | Left stick / D-pad |
 | Jump (hold for height; ↓+jump drops through ledges) | Z, J or Space | A / B |
 | Whip (also while crouching or airborne) | X or K | X / Y / RB / RT |
+| Enter passageways / doorways | ↑ (at arched portal) | ↑ (at arched portal) |
 | Throw sub-weapon (costs 1 heart) | ↑ + whip | ↑ + attack |
+| Castle Exploration Map (live location & fast travel) | M or Tab | Back / Select / View |
 | Pause / start | Enter or Esc | Start |
-| Mute | M | Back / Select / View |
+| Mute | N or U | Right stick click (R3) |
 | Toggle shaders (bloom, grading, scanlines) | F | Left stick click (L3) |
 
 Whip candelabra for hearts, money, and sub-weapons (dagger, axe, holy water).
 Breakable blocks hide meat and gold. Spike pits hurt; bottomless pits kill.
 Defeat each stage's boss and claim the orb to march into the next stage.
 
-## Stages
+## Castle Exploration Map & Interconnected Regions
 
-The stages form one connected **castle map** (shown after the difficulty
-choice): regions are laid out as rooms on a cell grid joined by passages, and a
-any region can be entered at any time; passages show the natural route and
-light up as neighbouring regions are cleared. The Graveyard Road
-is the entrance; the woods lie to the west, the catacombs beneath, the ramparts
-and the east-wing Arcade lead up to the Clock Tower and finally the Throne Hall.
-Clearing a stage carries score, lives, hearts and sub-weapon back to the map;
-clearing the Throne Hall plays the ending.
+All thirteen stages fit together as an interlocking **34×14 architectural cell grid** (`168` rooms across cobalt halls, crimson boss chambers, emerald-cyan Sanctuaries, and amber-gold secret vaults):
+
+- **Press `M` (or `Tab` / Gamepad Select) Anytime**: Opens the full-screen **Castle Exploration Map** during gameplay, highlighting explored cells (`MAP XX% · RELICS XX/13 · VESSELS XX/13`) alongside a pulsing **`YOU` location beacon** tracking the hunter's exact room cell and fractional position, paired with a live **7×4 HUD Mini-Map radar** in the top-right corner.
+- **Physical Passage Gateways (`↑`)**: Carved Gothic portals inside every stage connect directly into neighbouring regions on the map — carrying health, hearts, sub-weapon, lives, and score seamlessly across doorways. Five shortcut doorways are sealed by **ability-gated runic barriers** that open once their corresponding Boss Relic is claimed (*Night Wings*, *Lantern Flame*, *Soul Harvest*, *Clockwork Heart*).
+- **Sanctuary Waystones & Fast Travel**: Walking past a region's carved **Sanctuary Waystone** mends `+4 HP` and attunes that Sanctuary so the hunter can warp between discovered Sanctuaries from the `M` map.
+- **13 Hidden Ancient Life Vessels**: Each region hides one golden **Ancient Vessel** inside a sunken crypt vault or atop a high stone balcony reachable only with *Night Wings* Double Jump, permanently granting **`+1 Max HP`** and **`+2 Starting Hearts`**.
 
 | # | Stage | Theme | Signature 2.5D set-pieces & hazards | Boss | Boss Relic Power-Up |
 | --- | --- | --- | --- | --- | --- |
@@ -143,10 +149,11 @@ src/game/             level grid + 2.5D mechanics/tiles, stage3d (perspective
                       builder (prefabs + themes), stages, level_data (stage 1),
                       parallax, entities, player, ally (guardian turtle),
                       relics (boss power-ups), enemies, boss (Reaper), bosses
-                      (all other bosses + factory), forest_assets (Darkwood
-                      pixel art), objects (candles/items/projectiles/fire),
-                      world (combat, scripting, draw order), castlemap
-                      (connected stage map), hud
+                      forest_assets (Darkwood pixel art), objects
+                      (candles/items/projectiles/fire), exploration (Sanctuary
+                      Waystones, Passage Gateways & Ancient Vessels), world
+                      (combat, scripting, draw order), castlemap (interlocking
+                      34x14 cell map & HUD mini-map), hud
 assets/               engine-ready PNGs + atlas.json, music/*.mp3, voice/*.mp3, sfx/*.mp3
 art/raw/              untouched generations (provenance)   art/PROMPTS.md
 tools/                process_assets.py (pipeline), asset_manifest.json,
@@ -182,5 +189,6 @@ teleports to a tile column, `boss=1` teleports to the boss vestibule,
 enables boss power-ups, `lightning=1` triggers an immediate outdoor storm bolt,
 `ending=<seconds>` jumps into the ending sequence,
 `difficulty=easy|normal|hard` presets the difficulty, `stage=1..13` picks the
-stage, `screen=play|difficulty|stageselect|clear|ending` opens a screen directly, `nofx`
+stage, `screen=play|map|difficulty|stageselect|clear|ending` opens a screen directly,
+`discovered=all`, `vessels=all`, and `explored=all` unlock map exploration state, and `nofx`
 disables the shader post-process.

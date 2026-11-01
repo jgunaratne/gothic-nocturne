@@ -11,7 +11,9 @@ import { World } from './game/world.js';
 import { STAGES } from './game/stages.js';
 import { THEMES } from './game/builder.js';
 import { drawHud, drawBanner } from './game/hud.js';
-import { drawCastleMap, moveCursor, nextRoomAfter, stageIndexOf } from './game/castlemap.js';
+import {
+  drawCastleMap, moveCursor, nextRoomAfter, stageIndexOf, isDiscovered, MAP_ROOMS,
+} from './game/castlemap.js';
 import { BOSS_RELICS, resolveActiveRelics } from './game/relics.js';
 
 class Game {
@@ -25,7 +27,7 @@ class Game {
     this.input = new Input(canvas);
     this.postfx = new PostFX(canvas);
     if (new URLSearchParams(location.search).has('nofx')) { this.postfx.setEnabled(false); const fl = getFxLayers(); if (fl) fl.setEnabled(false); }
-    this.state = 'loading';          // loading | title | difficulty | stageselect | play | pause | clear | ending | gameover
+    this.state = 'loading';          // loading | title | difficulty | stageselect | play | map | pause | clear | ending | gameover
     this.stateT = 0;
     this.world = null;
     this.titleWorld = null;
@@ -38,8 +40,15 @@ class Game {
     this.difficultyKey = DIFFICULTIES[urlDiff] ? urlDiff : DIFFICULTIES[stored] ? stored : DEFAULT_DIFFICULTY;
     this.difficulty = DIFFICULTIES[this.difficultyKey];
     this.menuIndex = DIFFICULTY_ORDER.indexOf(this.difficultyKey);
-    // Stage progress: bitmask of cleared stages, last played stage.
-    this.cleared = parseInt(safeStorageGet('gothic.cleared.v3') || '0', 10) || 0;
+    // Stage & exploration progress: cleared bosses, discovered sanctuaries, hidden vessels, explored map cells.
+    const allMask = (1 << STAGES.length) - 1;
+    const storedCleared = parseInt(safeStorageGet('gothic.cleared.v3') || '0', 10) || 0;
+    this.cleared = this.params.get('cleared') === 'all' ? allMask : storedCleared;
+    const storedDisc = parseInt(safeStorageGet('gothic.discovered.v1') || '1', 10) || 1;
+    this.discovered = this.params.get('discovered') === 'all' ? allMask : (storedDisc | 1 | this.cleared);
+    const storedVessels = parseInt(safeStorageGet('gothic.vessels.v1') || '0', 10) || 0;
+    this.vessels = this.params.get('vessels') === 'all' ? allMask : storedVessels;
+    this.exploredCells = loadExploredSet('gothic.explored.v1', this.params.get('explored') === 'all');
     const urlStage = parseInt(this.params.get('stage') || '0', 10);
     this.stageIndex = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1
       : Math.min(STAGES.length - 1, parseInt(safeStorageGet('gothic.stage') || '0', 10) || 0);
@@ -48,15 +57,25 @@ class Game {
     this.carryState = null;          // score/lives/hearts carried between connected stages
     this.input.onFirstInteraction = () => this.audio.unlock();
     window.addEventListener('resize', () => this.fit());
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.fit());
     this.fit();
   }
 
   fit() {
-    const scale = Math.max(1, Math.floor(Math.min(window.innerWidth / W, window.innerHeight / H)));
-    const fits = W * scale <= window.innerWidth && H * scale <= window.innerHeight;
-    const s = fits ? scale : Math.min(window.innerWidth / W, window.innerHeight / H);
-    this.canvas.style.width = Math.floor(W * s) + 'px';
-    this.canvas.style.height = Math.floor(H * s) + 'px';
+    const vw = Math.max(1, window.innerWidth);
+    const vh = Math.max(1, window.innerHeight);
+    const raw = Math.min(vw / W, vh / H);
+    const nearest = Math.max(1, Math.round(raw));
+    // Snap to exact integer multiple when within 6% so 720p/1080p/1440p/4K fullscreen
+    // lands on exact 2x/3x/4x/6x, while arbitrary browser windows fill the viewport
+    // cleanly and rely on PostFX's band-limited sub-pixel sharp AA texel filter.
+    const snap = raw >= 1
+      && Math.abs(raw - nearest) / nearest <= 0.06
+      && W * nearest <= vw
+      && H * nearest <= vh;
+    const s = snap ? nearest : raw;
+    this.canvas.style.width = Math.max(1, Math.round(W * s)) + 'px';
+    this.canvas.style.height = Math.max(1, Math.round(H * s)) + 'px';
     if (this.postfx) this.postfx.fit();
   }
 
@@ -81,6 +100,9 @@ class Game {
       this.setState(screen);
     } else if (screen === 'play') {
       this.startGame();
+    } else if (screen === 'map') {
+      this.startGame();
+      this.openMap();
     } else if (screen === 'clear') {
       this.startGame();
       this.world.timeBonus = 1234;
@@ -111,6 +133,60 @@ class Game {
     return resolveActiveRelics(this.cleared, STAGES, this.params);
   }
 
+  /** Persists newly charted Castle Grid cell coordinates (`"c,r"`). */
+  markCellsExplored(cellKeys) {
+    if (!cellKeys || !cellKeys.length) return;
+    const before = this.exploredCells.size;
+    for (const k of cellKeys) if (k) this.exploredCells.add(k);
+    if (this.exploredCells.size !== before) {
+      safeStorageSet('gothic.explored.v1', JSON.stringify([...this.exploredCells]));
+    }
+  }
+
+  /** Marks a stage Sanctuary as discovered for Castle Map fast travel. */
+  discoverStage(idx) {
+    if (idx < 0 || idx >= STAGES.length) return false;
+    const bit = 1 << idx;
+    const wasNew = (this.discovered & bit) === 0;
+    if (wasNew) {
+      this.discovered |= bit;
+      safeStorageSet('gothic.discovered.v1', String(this.discovered));
+    }
+    return wasNew;
+  }
+
+  /** Permanently records a collected Ancient Life Vessel (+1 Max HP, +2 Starting Hearts). */
+  collectVessel(idx) {
+    if (idx < 0 || idx >= STAGES.length) return false;
+    const bit = 1 << idx;
+    const wasNew = (this.vessels & bit) === 0;
+    if (wasNew) {
+      this.vessels |= bit;
+      safeStorageSet('gothic.vessels.v1', String(this.vessels));
+    }
+    return wasNew;
+  }
+
+  /** Number of Ancient Life Vessels collected across all castle regions. */
+  getVesselCount() {
+    let n = 0;
+    let m = this.vessels;
+    for (let i = 0; i < STAGES.length; i++) {
+      if (m & 1) n++;
+      m >>= 1;
+    }
+    return n;
+  }
+
+  /** Opens the full-screen Castle Exploration Map (`M`) showing the hunter's live location. */
+  openMap() {
+    if (!this.world) return;
+    this.world.recordExploration();
+    this.mapCursor = STAGES[this.stageIndex].key;
+    this.setState('map');
+    this.audio.sfx('select');
+  }
+
   /** Starts a stage; `carry` continues score/lives/hearts from the previous one. */
   startGame(stageIndex = this.stageIndex, carry = this.carryState) {
     this.stageIndex = Math.max(0, Math.min(STAGES.length - 1, stageIndex));
@@ -126,6 +202,10 @@ class Game {
       this.world.player.x = stage.boss.triggerX + 4;
       this.world.player.y = stage.boss.arena.floorY;
       this.world.camera.snapTo(this.world.player.x, this.world.player.y);
+      if (this.params.get('boss') === '2') {
+        this.world.startBoss();
+        this.world.messages = [];
+      }
     }
     // ?at=<tile column> teleports the hunter for testing.
     let at = parseInt(this.params.get('at') || '-1', 10);
@@ -142,6 +222,10 @@ class Game {
       this.world.player.x = at * 32 + 16;
       this.world.player.y = (row >= 0 ? row : 12) * 32;
       this.world.camera.snapTo(this.world.player.x, this.world.player.y);
+      this.world.recordExploration();
+    }
+    if (this.world.bossActive || (this.params.has('boss') && stage.boss && !carry)) {
+      this.world.recordExploration();
     }
     this.setState('play');
     this.audio.playMusic(this.world.theme.music);
@@ -204,6 +288,11 @@ class Game {
       if (fxWorld.flash > 0.02) this.postfx.strike(fxWorld.flash);
       if (fxWorld.fxHurt) { this.postfx.damage(fxWorld.fxHurt); fxWorld.fxHurt = 0; }
       if (fxWorld.fxRoar) { this.postfx.flash(fxWorld.fxRoar); fxWorld.fxRoar = 0; }
+      if (fxWorld.fxShock) {
+        const sh = fxWorld.fxShock;
+        this.postfx.shockwave(sh.x, sh.y, sh.strength);
+        fxWorld.fxShock = null;
+      }
     } else if ((this.state === 'title' || this.state === 'difficulty' || this.state === 'stageselect') && this.titleWorld && this.titleWorld.flash > 0.02) {
       this.postfx.strike(this.titleWorld.flash);
     }
@@ -250,10 +339,40 @@ class Game {
         break;
       }
       case 'play':
+        if (inp.pressed.map) { this.openMap(); break; }
         if (inp.pressed.start && this.world.phase === 'play') { this.setState('pause'); this.audio.sfx('pause'); break; }
         this.world.update(dt, inp);
         break;
+      case 'map': {
+        let c = this.mapCursor;
+        if (inp.pressed.left) c = moveCursor(c, -1, 0);
+        else if (inp.pressed.right) c = moveCursor(c, 1, 0);
+        else if (inp.pressed.up) c = moveCursor(c, 0, -1);
+        else if (inp.pressed.down) c = moveCursor(c, 0, 1);
+        if (c !== this.mapCursor) { this.mapCursor = c; this.audio.sfx('bone'); }
+        if (inp.pressed.map || inp.pressed.escape) {
+          this.setState('play');
+          this.audio.sfx('pause');
+          break;
+        }
+        if (this.stateT > 0.16 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) {
+          const curKey = STAGES[this.stageIndex].key;
+          if (this.mapCursor === curKey) {
+            this.setState('play');
+            this.audio.sfx('pause');
+          } else if (isDiscovered(this.mapCursor, this.cleared, this.discovered)) {
+            this.startGame(
+              stageIndexOf(this.mapCursor),
+              this.world.carry({ enterFromDoorId: 'sanctuary' }),
+            );
+          } else {
+            this.audio.sfx('block');
+          }
+        }
+        break;
+      }
       case 'pause':
+        if (inp.pressed.map) { this.openMap(); break; }
         if (inp.pressed.start) { this.setState('play'); this.audio.sfx('pause'); }
         break;
       case 'clear':
@@ -290,12 +409,13 @@ class Game {
       case 'title': this.drawTitle(ctx); break;
       case 'difficulty': this.drawDifficulty(ctx); break;
       case 'stageselect': this.drawStageSelect(ctx); break;
+      case 'map': this.drawLiveMap(ctx); break;
       case 'play': case 'pause':
         this.world.draw(ctx);
         drawHud(ctx, this.font, this.assets, this.world);
         if (this.state === 'pause') {
           ctx.fillStyle = 'rgba(4, 3, 10, 0.55)'; ctx.fillRect(0, 0, W, H);
-          this.banner(['PAUSED'], 150, { scale: 3, sub: 'ENTER TO RESUME  ·  M TO MUTE' });
+          this.banner(['PAUSED'], 150, { scale: 3, sub: 'ENTER TO RESUME  ·  M FOR MAP  ·  N TO MUTE' });
         }
         break;
       case 'clear':
@@ -377,8 +497,8 @@ class Game {
       ctx.fillStyle = '#3a2e22'; ctx.fillRect(W / 2 - 236, 284, 472, 1); ctx.fillRect(W / 2 - 236, 327, 472, 1);
       const lines = [
         '←→ MOVE    ↓ CROUCH    Z/J/SPACE JUMP    X/K WHIP',
-        '↑ + WHIP THROWS YOUR SUB-WEAPON (COSTS A HEART)',
-        'ENTER PAUSE    M MUTE    F SHADERS    GAMEPAD SUPPORTED',
+        '↑ ENTER PASSAGEWAYS  ·  ↑ + WHIP THROWS SUB-WEAPON',
+        'ENTER PAUSE    M MAP    N MUTE    F SHADERS',
       ];
       lines.forEach((l, i) => f.draw(ctx, l, W / 2, 290 + i * 12, { align: 'center', color: i === 1 ? '#ffb0a0' : '#c9c3b0', shadow: '#120f1c' }));
       f.draw(ctx, 'ART · GEMINI     MUSIC · LYRIA 3     VOICE · DAIKON     2026', W / 2, H - 16, { align: 'center', color: '#5b6b86' });
@@ -479,7 +599,36 @@ class Game {
     const tw = this.titleWorld;
     tw.draw(ctx, { hud: false });
     drawCastleMap(ctx, this.font, this.assets, {
-      cursor: this.mapCursor, cleared: this.cleared, time: this.stateT, difficultyName: this.difficulty.name,
+      cursor: this.mapCursor,
+      cleared: this.cleared,
+      discovered: this.discovered,
+      vessels: this.vessels,
+      explored: this.exploredCells,
+      relics: this.getActiveRelics(),
+      time: this.stateT,
+      difficultyName: this.difficulty.name,
+      mode: 'select',
+    });
+  }
+
+  drawLiveMap(ctx) {
+    if (this.world) this.world.draw(ctx, { hud: false });
+    const normX = this.world && this.world.level.width > 0
+      ? this.world.player.x / this.world.level.width
+      : 0;
+    drawCastleMap(ctx, this.font, this.assets, {
+      cursor: this.mapCursor,
+      cleared: this.cleared,
+      discovered: this.discovered,
+      vessels: this.vessels,
+      explored: this.exploredCells,
+      relics: this.getActiveRelics(),
+      time: this.stateT,
+      difficultyName: this.difficulty.name,
+      mode: 'live',
+      currentStageKey: STAGES[this.stageIndex].key,
+      playerNormX: normX,
+      inSecret: !!(this.world && this.world.inSecretArea),
     });
   }
 
@@ -627,6 +776,23 @@ game.boot().catch((e) => {
   const el = document.getElementById('boot');
   el.textContent = 'Failed to load: ' + e.message;
 });
+
+function loadExploredSet(key, revealAll = false) {
+  const out = new Set(['9,8']);
+  if (revealAll) {
+    for (const rm of Object.values(MAP_ROOMS)) {
+      for (const [c, r] of rm.allCells) out.add(`${c},${r}`);
+    }
+    return out;
+  }
+  const raw = safeStorageGet(key);
+  if (!raw) return out;
+  try {
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) for (const item of arr) if (typeof item === 'string') out.add(item);
+  } catch (e) { /* ignore malformed storage */ }
+  return out;
+}
 
 function safeStorageGet(key) {
   try { return window.localStorage.getItem(key); } catch (e) { return null; }

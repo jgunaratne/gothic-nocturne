@@ -16,6 +16,8 @@ import { Spawner, createEnemy } from './enemies.js';
 import { createBoss } from './bosses.js';
 import { THEMES } from './builder.js';
 import { Candle, Item, Projectile, Fire, rollDrop, rectsOverlap } from './objects.js';
+import { populateExploration } from './exploration.js';
+import { cellsToRevealAt, stageIndexOf } from './castlemap.js';
 
 /** Frame sequences while a posed boss idles / speaks (idle pose vs. gesture). */
 const BOSS_TALK_FRAMES = {
@@ -74,8 +76,11 @@ export class World {
     this.camera = new Camera(this.level.width, this.level.height);
     this.score = carry ? carry.score : 0;
     this.lives = carry ? carry.lives : this.difficulty.lives;
-    this.hearts = carry ? carry.hearts : this.difficulty.hearts;
+    const bonusVessels = game.getVesselCount ? game.getVesselCount() : 0;
+    this.hearts = carry ? carry.hearts : (this.difficulty.hearts + bonusVessels * 2);
     this.subWeaponCarry = carry ? carry.subWeapon : null;
+    this.carryHp = carry && carry.hp ? carry.hp : null;
+    this.enterFromDoorId = carry && carry.enterFromDoorId ? carry.enterFromDoorId : null;
     this.timeLeft = this.difficulty.time;
     this.checkpoint = 0;
     this.time = 0;
@@ -91,6 +96,7 @@ export class World {
     this.nextLightning = forceBolt ? 0.12 : (4.5 + Math.random() * 5.5);
     this.thunderDelay = -1;
     this.messages = [];          // {text, sub, t, dur}
+    this.shockRings = [];        // {x, y, t, dur, maxR, color}
     this.phase = 'intro';        // intro | play | dying | respawn | clear | gameover
     this.phaseT = 0;
     this.bossActive = false;
@@ -138,27 +144,62 @@ export class World {
       const en = createEnemy(e);
       if (en) this.spawnEnemy(en);
     }
+    const exp = populateExploration(this);
+    this.sanctuary = exp.sanctuary;
+    this.passages = exp.passages;
+    this.vessel = exp.vessel;
+    this.inSecretArea = false;
+
     const cx = d.checkpoints[this.checkpoint];
     const col = Math.floor(cx / TILE);
     const row = this.level.surfaceRow(col);
     this.player = new Player(cx, (row >= 0 ? row : 11) * TILE);
     this.player.onGround = row >= 0;
-    this.player.maxHp = this.hasRelic('cathedral') ? 20 : PLAYER.maxHp;
-    this.player.hp = this.player.maxHp;
+    const vesselBonus = this.game.getVesselCount ? this.game.getVesselCount() : 0;
+    this.player.maxHp = (this.hasRelic('cathedral') ? 20 : PLAYER.maxHp) + vesselBonus;
+    this.player.hp = (this.carryHp && this.checkpoint === 0)
+      ? Math.min(this.player.maxHp, this.carryHp)
+      : this.player.maxHp;
+    this.carryHp = null;
     this.player.airJumpsLeft = this.hasRelic('graveyard') ? 1 : 0;
     this.player.facing = 1;
     this.player.subWeapon = this.subWeaponCarry;
+
+    let enteredViaPassage = false;
+    if (this.enterFromDoorId && this.checkpoint === 0) {
+      const target = this.enterFromDoorId === 'sanctuary'
+        ? this.sanctuary
+        : this.passages.find((g) => g.id === this.enterFromDoorId);
+      if (target) {
+        this.player.x = target.x;
+        this.player.y = target.y;
+        this.player.onGround = true;
+        if (target === this.sanctuary) target.usedThisVisit = true;
+        enteredViaPassage = true;
+      }
+      this.enterFromDoorId = null;
+    }
+
     const hasTurtle = d.ally === 'turtle' || this.theme.ally === 'turtle';
     this.ally = hasTurtle ? new TurtleAlly(this.player.x + 28, this.player.y) : null;
     this.camera.snapTo(this.player.x, this.player.y);
-    this.phase = 'intro'; this.phaseT = 0;
-    this.showMessage(`STAGE ${d.id || 1}`, d.name, 2.6);
+    if (enteredViaPassage) {
+      this.phase = 'play';
+      this.phaseT = 0;
+      this.messages = [];
+      this.showMessage(d.name, d.subtitle || 'CONNECTED AREA', 1.9);
+    } else {
+      this.phase = 'intro';
+      this.phaseT = 0;
+      this.showMessage(`STAGE ${d.id || 1}`, d.name, 2.6);
+    }
+    this.recordExploration();
   }
 
   // --------------------------------------------------------- utilities
   sfx(name) { this.audio.sfx(name); }
   addScore(n) { this.score += Math.round(n * this.difficulty.scoreMult); }
-  showMessage(text, sub, dur = 2) { this.messages.push({ text, sub, t: 0, dur }); }
+  showMessage(text, sub, dur = 2) { this.messages = [{ text, sub, t: 0, dur }]; }
   /** Registers an enemy, scaling multi-hit health by the difficulty preset. */
   spawnEnemy(e) {
     if (e.hp > 1) {
@@ -199,7 +240,30 @@ export class World {
 
   /** Post-FX hooks (consumed by main.js each frame). */
   onPlayerHurt(dmg) { this.fxHurt = Math.min(1, 0.45 + dmg * 0.12); }
-  onBossRoar() { this.fxRoar = 0.8; }
+  onBossRoar() {
+    this.fxRoar = 0.8;
+    if (this.boss) {
+      const col = this.data.theme === 'darkwood' ? [0.22, 0.96, 0.72]
+        : this.data.theme === 'darkcave' ? [1.0, 0.42, 0.10]
+        : this.data.theme === 'cathedral' || this.data.theme === 'throne' ? [0.98, 0.18, 0.34]
+        : [0.72, 0.42, 1.0];
+      this.emitShockwave(this.boss.x, this.boss.y - this.boss.h * 0.42, { maxR: 124, dur: 0.48, strength: 0.95, color: col });
+    }
+  }
+
+  /** Spawns an expanding world-space WebGL shockwave ring + PostFX radial lens wave. */
+  emitShockwave(worldX, worldY, { maxR = 136, dur = 0.48, strength = 0.85, color = [1.0, 0.72, 0.34] } = {}) {
+    if (this.shockRings.length < 8) {
+      this.shockRings.push({ x: worldX, y: worldY, t: 0, dur, maxR, color });
+    }
+    if (strength > 0 && this.camera) {
+      this.fxShock = {
+        x: (worldX - this.camera.rx) / W,
+        y: (worldY - this.camera.ry) / H,
+        strength,
+      };
+    }
+  }
 
   onPlayerDeath() {
     this.phase = 'dying'; this.phaseT = 0;
@@ -214,6 +278,7 @@ export class World {
     const maxY = a.floorY - 48;
     const ox = Math.max(a.x0 + 48, Math.min(a.x1 - 48, boss.x));
     const oy = Math.max(minY, Math.min(maxY, boss.y - 36));
+    this.emitShockwave(ox, oy, { maxR: 190, dur: 0.65, strength: 1.25, color: [1.0, 0.82, 0.42] });
     const orb = new Item('orb', ox, oy);
     orb.arenaFloorY = a.floorY;
     orb.arenaX0 = a.x0 + 28;
@@ -236,6 +301,8 @@ export class World {
     this.updateWeather(dt);
     for (const m of this.messages) m.t += dt;
     this.messages = this.messages.filter((m) => m.t < m.dur);
+    for (const r of this.shockRings) r.t += dt;
+    this.shockRings = this.shockRings.filter((r) => r.t < r.dur);
     if (this.voiceCue) {
       this.voiceCue.t += dt;
       if (this.voiceCue.t >= this.voiceCue.dur) this.voiceCue = null;
@@ -332,7 +399,19 @@ export class World {
       else { this.ally.vx = 0; this.ally.physics(lvl, dt); }
     }
 
-    if (live && p.alive) this.resolveCombat(dt);
+    if (live && p.alive) {
+      this.inSecretArea = false;
+      if (this.sanctuary) this.sanctuary.update(p, this);
+      if (this.vessel) this.vessel.update(p, this);
+      if (this.passages) {
+        for (const g of this.passages) {
+          g.update(p, input, this);
+          if (this.game && this.game.world && this.game.world !== this) return;
+        }
+      }
+      this.recordExploration();
+      this.resolveCombat(dt);
+    }
 
     this.enemies = this.enemies.filter((e) => !e.dead);
     this.projectiles = this.projectiles.filter((e) => !e.dead);
@@ -643,13 +722,79 @@ export class World {
   }
 
   /** Snapshot of what persists into the next stage. */
-  carry() {
-    return { score: this.score, lives: this.lives, hearts: this.hearts, subWeapon: this.player.subWeapon || this.subWeaponCarry };
+  carry(extra = null) {
+    return Object.assign({
+      score: this.score,
+      lives: this.lives,
+      hearts: this.hearts,
+      subWeapon: this.player.subWeapon || this.subWeaponCarry,
+      hp: this.player && this.player.alive ? this.player.hp : null,
+    }, extra);
+  }
+
+  /** Marks the Castle Grid cell(s) around the hunter's current coordinates as explored. */
+  recordExploration(extraOpts = {}) {
+    if (!this.game || !this.game.markCellsExplored || !this.player || !this.stage.key) return;
+    const normX = this.level.width > 0 ? this.player.x / this.level.width : 0;
+    const sIdx = Math.max(0, (this.stage.id || 1) - 1);
+    const vesselFound = !!(this.game.vessels && ((this.game.vessels >> sIdx) & 1));
+    const cells = cellsToRevealAt(this.stage.key, normX, Object.assign({
+      inSecret: this.inSecretArea,
+      vesselFound,
+    }, extraOpts));
+    this.game.markCellsExplored(cells);
+  }
+
+  onSanctuaryAttuned(stone) {
+    const sIdx = Math.max(0, (this.stage.id || 1) - 1);
+    const wasNew = this.game && this.game.discoverStage ? this.game.discoverStage(sIdx) : false;
+    this.recordExploration({ sanctuary: true });
+    const p = this.player;
+    const maxHp = p.maxHp || PLAYER.maxHp;
+    const healed = p.hp < maxHp;
+    p.hp = Math.min(maxHp, p.hp + 4);
+    this.particles.sparks(stone.x, stone.y - 24, 12, '#62f2c2');
+    if (wasNew) {
+      this.sfx('pickup');
+      this.emitShockwave(stone.x, stone.y - 38, { maxR: 108, dur: 0.44, strength: 0.55, color: [0.35, 0.96, 0.82] });
+      this.showMessage('SANCTUARY ATTUNED', 'PRESS M ANYTIME TO VIEW THE CASTLE MAP', 2.2);
+    } else if (healed) {
+      this.sfx('pickup');
+    }
+  }
+
+  onVesselCollected(vessel) {
+    if (this.game && this.game.collectVessel) this.game.collectVessel(vessel.stageIndex);
+    this.inSecretArea = true;
+    this.recordExploration({ inSecret: true, vesselFound: true });
+    this.player.maxHp = (this.player.maxHp || PLAYER.maxHp) + 1;
+    this.player.hp = Math.min(this.player.maxHp, this.player.hp + 6);
+    this.hearts = Math.min(99, this.hearts + 3);
+    this.addScore(2000);
+    this.sfx('orb');
+    this.particles.sparks(vessel.x, vessel.y - 22, 18, '#ffd27a');
+    this.emitShockwave(vessel.x, vessel.y - 44, { maxR: 132, dur: 0.52, strength: 0.75, color: [1.0, 0.84, 0.36] });
+    this.showMessage('ANCIENT VESSEL FOUND', 'MAX VITALITY +1 · STARTING HEARTS +2', 2.6);
+  }
+
+  traversePassage(gate) {
+    const destIdx = stageIndexOf(gate.targetKey);
+    if (destIdx < 0 || !this.game || !this.game.startGame) return;
+    if (this.game.markCellsExplored) {
+      this.game.markCellsExplored([
+        `${gate.cell[0]},${gate.cell[1]}`,
+        `${gate.destCell[0]},${gate.destCell[1]}`,
+      ]);
+    }
+    if (this.game.discoverStage) this.game.discoverStage(destIdx);
+    this.sfx('select');
+    this.game.startGame(destIdx, this.carry({ enterFromDoorId: gate.id }));
   }
 
   stageClear() {
     this.phase = 'clear'; this.phaseT = 0;
     this.player.invuln = 999;
+    this.recordExploration({ cleared: true });
     this.audio.playMusic('clear', false);
     this.timeBonus = Math.ceil(this.timeLeft) * SCORE.timeBonus;
     this.heartBonus = this.hearts * 100;
@@ -771,9 +916,13 @@ export class World {
     this.stage3d.drawInterior3D(ctx, cam, t);
     this.stage3d.drawBossCenterpiece3D(ctx, cam, t);
 
-    // 3. Far/mid weather particles + stage decor (with extruded 3D cogwheels)
+    // 3. Far/mid weather particles + stage decor (with extruded 3D cogwheels) + indoor god-rays
     this.drawWeather(ctx, false);
     this.level.drawDecor(ctx, cam, this.assets, t, this.stage3d);
+    const fxl = getFxLayers();
+    if (fxl && fxl.enabled && !showOutdoor) {
+      fxl.godRays(ctx, camX, this.data.theme, 1.0);
+    }
 
     // 4. Boss gate + 2.5D extruded terrain, viaduct arches, crumble slabs & moving lifts
     if (this.gateClosed) {
@@ -786,6 +935,9 @@ export class World {
     this.level.drawContactShadows(ctx, cam, this.player, this.enemies, this.candles, this.ally);
 
     // 6. Crisp z = 0 sprite gameplay layer
+    if (this.passages) for (const g of this.passages) g.draw(ctx, cam, this.font, this, t);
+    if (this.sanctuary) this.sanctuary.draw(ctx, cam, this.font, t, this);
+    if (this.vessel) this.vessel.draw(ctx, cam, this.font, this, t);
     for (const c of this.candles) if (Math.abs(c.x - camX - W / 2) < W) c.draw(ctx, this.assets, camX, camY, t);
     for (const f of this.fires) f.draw(ctx, camX, camY, t);
     for (const it of this.items) it.draw(ctx, this.assets, camX, camY, t);
@@ -794,8 +946,27 @@ export class World {
     if (this.ally) this.ally.draw(ctx, this.assets, camX, camY, t);
     this.player.draw(ctx, this.assets, camX, camY);
     for (const pr of this.projectiles) pr.draw(ctx, this.assets, camX, camY);
-    const fxl = getFxLayers();
-    if (fxl) fxl.flushFlames(ctx);
+    if (this.shockRings.length) {
+      for (const r of this.shockRings) {
+        const p = Math.min(1, r.t / r.dur);
+        const rad = 12 + (r.maxR - 12) * (1 - (1 - p) * (1 - p));
+        const alpha = (1 - p) * 0.9;
+        const sx = Math.round(r.x - camX), sy = Math.round(r.y - camY);
+        if (fxl && fxl.enabled) {
+          fxl.addShockRing(sx, sy, rad, 8 - p * 4, r.color, alpha);
+        } else {
+          ctx.save();
+          ctx.strokeStyle = `rgba(${Math.round(r.color[0] * 255)},${Math.round(r.color[1] * 255)},${Math.round(r.color[2] * 255)},${(alpha * 0.65).toFixed(3)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.ellipse(sx, sy, rad, rad * 0.78, 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+    if (fxl) {
+      fxl.flushFlames(ctx);
+      fxl.flushAttacks(ctx);
+    }
     this.particles.draw(ctx, camX, camY);
 
     // 7. Foreground z < 0 framing silhouettes (auto-fading near player/threats) & near weather
@@ -835,6 +1006,8 @@ export class World {
   }
 
   drawOverlays(ctx) {
+    if (this.sanctuary) this.sanctuary.drawPrompt(ctx, this.camera, this.font);
+    if (this.passages) for (const g of this.passages) g.drawPrompt(ctx, this.camera, this.font, this);
     for (const m of this.messages) {
       const k = Math.min(1, m.t / 0.3, (m.dur - m.t) / 0.4);
       ctx.save();

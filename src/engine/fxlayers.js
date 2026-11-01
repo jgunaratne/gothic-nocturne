@@ -226,6 +226,241 @@ void main() {
 }
 `;
 
+// Flowing Arctic Aurora Borealis curtains for Frozen Yule sky
+const AURORA_FRAG = `
+precision mediump float;
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uScroll;
+${NOISE}
+void main() {
+  vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
+  if (px.y > 156.0) discard;
+  float wx = px.x + uScroll * 0.05;
+  // Swaying curtain baseline across the sky
+  float wave = sin(wx * 0.011 + uTime * 0.35) * 18.0
+             + cos(wx * 0.023 - uTime * 0.24) * 11.0;
+  float baseLine = 98.0 + wave;
+  float h = baseLine - px.y; // positive upward along curtainfolds
+  if (h < -26.0 || h > 92.0) discard;
+  // Vertical pleated folds + slow upward shimmer
+  float fold = vnoise(vec2(wx * 0.048 + sin(uTime * 0.22 + wx * 0.006) * 1.4, uTime * 0.14));
+  float fine = vnoise(vec2(wx * 0.13 - uTime * 0.31, px.y * 0.025 - uTime * 0.45));
+  float streak = smoothstep(0.28, 0.86, fold * 0.72 + fine * 0.38);
+  float vert = smoothstep(-22.0, 6.0, h) * (1.0 - smoothstep(14.0, 88.0, h));
+  float a = streak * vert * 0.52;
+  if (a <= 0.015) discard;
+  float hNorm = clamp((h + 12.0) / 76.0, 0.0, 1.0);
+  vec3 lowCol = vec3(0.22, 0.96, 0.72);   // emerald curtain skirt
+  vec3 midCol = vec3(0.32, 0.78, 1.00);   // glacial cyan body
+  vec3 topCol = vec3(0.68, 0.36, 0.96);   // twilight violet crown
+  vec3 col = hNorm < 0.48
+    ? mix(lowCol, midCol, hNorm / 0.48)
+    : mix(midCol, topCol, (hNorm - 0.48) / 0.52);
+  a = floor(a * 6.0) / 6.0;
+  col = floor(col * 8.0) / 8.0;
+  gl_FragColor = vec4(col * a, a);
+}
+`;
+
+// Volumetric diagonal light shafts & stained-glass god-rays with drifting motes
+const GODRAYS_FRAG = `
+precision mediump float;
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uScroll;
+uniform vec3 uColA;
+uniform vec3 uColB;
+uniform vec3 uColC;
+uniform float uMulti;    // 1 = stained-glass tri-colour cycling, 0 = blend ColA..ColB
+uniform float uLean;     // horizontal slant top-to-bottom (px)
+uniform float uAlpha;
+${NOISE}
+void main() {
+  vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
+  float yFrac = px.y / uRes.y;
+  if (yFrac > 0.96) discard;
+  // Project pixel back to top-of-hall coordinate along the diagonal ray angle
+  float rx = px.x - yFrac * uLean + uScroll * 0.36;
+  float cellW = 148.0;
+  float cid = floor(rx / cellW);
+  float local = fract(rx / cellW);
+  float jitter = hash(vec2(cid, 7.3)) * 0.26;
+  float center = 0.36 + jitter;
+  float halfW = (0.11 + 0.06 * hash(vec2(cid, 19.1))) * (1.0 + yFrac * 0.55);
+  float dist = abs(local - center);
+  float beam = 1.0 - smoothstep(halfW * 0.32, halfW, dist);
+  if (beam <= 0.01) discard;
+  // Subtle internal mullion streaks + slow breathing
+  float streak = 0.65 + 0.35 * vnoise(vec2(rx * 0.09, yFrac * 1.6 - uTime * 0.12));
+  float fadeY = smoothstep(0.0, 0.09, yFrac) * (1.0 - smoothstep(0.52, 0.95, yFrac));
+  // Tiny luminous dust motes drifting inside the lit shaft
+  vec2 mp = vec2(px.x * 0.075 + uScroll * 0.04, px.y * 0.075 - uTime * 0.35);
+  float mote = smoothstep(0.84, 0.95, vnoise(mp)) * beam * 0.55;
+  float a = (beam * streak * fadeY * 0.22 + mote * fadeY * 0.18) * uAlpha;
+  if (a <= 0.008) discard;
+  float mIdx = mod(abs(cid), 3.0);
+  vec3 col = uMulti > 0.5
+    ? (mIdx < 0.9 ? uColA : (mIdx < 1.9 ? uColB : uColC))
+    : mix(uColA, uColB, hash(vec2(cid, 3.1)));
+  a = floor(a * 10.0) / 10.0;
+  gl_FragColor = vec4(col * a, a);
+}
+`;
+
+// Scissored enemy & boss attack shader:
+//   uMode 0 = swirling plasma orb + directional comet wake
+//   uMode 1 = serpentine petrifying gaze beam
+//   uMode 2 = billowing FBM petrifying miasma cloud
+//   uMode 3 = blazing crescent slash wave
+const ATTACK_FRAG = `
+precision mediump float;
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform vec4 uCenter;    // cx, cy, rx, ry in scene px
+uniform vec4 uDirSeed;   // dirX, dirY (unit or velocity dir), mode, seed
+uniform vec3 uCoreCol;
+uniform vec3 uRimCol;
+uniform float uAlpha;
+${NOISE}
+void main() {
+  vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
+  vec2 rel = px - uCenter.xy;
+  vec2 dir = uDirSeed.xy;
+  float dLen = length(dir);
+  vec2 fwd = dLen > 0.001 ? dir / dLen : vec2(1.0, 0.0);
+  vec2 perp = vec2(-fwd.y, fwd.x);
+  // Local coordinates aligned with projectile travel: lx > 0 ahead, lx < 0 in wake
+  float lx = dot(rel, fwd);
+  float ly = dot(rel, perp);
+  float mode = uDirSeed.z;
+  float seed = uDirSeed.w;
+
+  if (mode < 0.5) {
+    // Mode 0: Plasma orb + comet tail
+    float r = uCenter.z;
+    float headR = length(rel) / max(1.0, r);
+    // Elongated wake behind the orb (lx < 0)
+    float tailLen = max(1.0, uCenter.w);
+    float tailT = clamp(-lx / tailLen, 0.0, 1.0);
+    float tailW = r * mix(0.82, 0.08, tailT);
+    float n = fbm(vec2(lx * 0.11 - uTime * 7.5 + seed, ly * 0.14 + seed * 2.1));
+    float orb = 1.0 - smoothstep(0.25, 1.05, headR - (n - 0.5) * 0.28);
+    float wake = (lx < r * 0.25)
+      ? (1.0 - smoothstep(tailW * 0.25, max(1.0, tailW), abs(ly + (n - 0.5) * r * 0.55 * tailT))) * (1.0 - tailT) * 0.85
+      : 0.0;
+    float e = max(orb, wake);
+    if (e <= 0.03) discard;
+    vec3 col = mix(uRimCol, uCoreCol, smoothstep(0.32, 0.88, e));
+    float a = floor(clamp(e * uAlpha, 0.0, 1.0) * 5.0) / 5.0;
+    gl_FragColor = vec4(col * a, a);
+  } else if (mode < 1.5) {
+    // Mode 1: Serpentine petrifying gaze beam
+    float halfL = max(1.0, uCenter.z);
+    float halfH = max(1.0, uCenter.w);
+    if (abs(lx) > halfL || abs(ly) > halfH * 1.35) discard;
+    float along = lx / halfL; // -1..1
+    float wave1 = sin(lx * 0.26 - uTime * 22.0 + seed) * (halfH * 0.34);
+    float wave2 = -sin(lx * 0.26 - uTime * 22.0 + seed + 1.5) * (halfH * 0.34);
+    float s1 = exp(-abs(ly - wave1) / (halfH * 0.28));
+    float s2 = exp(-abs(ly - wave2) / (halfH * 0.28)) * 0.8;
+    float spine = exp(-abs(ly) / (halfH * 0.32));
+    float tip = 1.0 - smoothstep(0.65, 1.0, abs(along));
+    float pulse = 0.78 + 0.22 * sin(lx * 0.45 - uTime * 30.0);
+    float e = clamp((max(s1, s2) * 0.85 + spine * 0.75) * tip * pulse, 0.0, 1.2);
+    if (e <= 0.04) discard;
+    vec3 col = mix(uRimCol, uCoreCol, smoothstep(0.38, 0.92, e));
+    float a = floor(clamp(e * uAlpha, 0.0, 1.0) * 5.0) / 5.0;
+    gl_FragColor = vec4(col * a, a);
+  } else if (mode < 2.5) {
+    // Mode 2: Billowing FBM petrifying miasma cloud
+    float r = max(1.0, uCenter.z);
+    float d = length(rel) / r;
+    if (d > 1.15) discard;
+    vec2 p = rel / max(8.0, r * 0.48);
+    float swirl = fbm(p + vec2(uTime * 0.9 + seed, -uTime * 0.65)) * 0.65
+                + fbm(p * 2.1 - vec2(uTime * 1.4, seed)) * 0.35;
+    float body = (1.0 - smoothstep(0.35, 1.05, d)) * smoothstep(0.24, 0.76, swirl);
+    float spark = smoothstep(0.76, 0.90, vnoise(p * 3.4 + uTime * 2.0)) * (1.0 - d);
+    float a = clamp((body * 0.78 + spark * 0.55) * uAlpha, 0.0, 0.95);
+    if (a <= 0.02) discard;
+    vec3 col = mix(uRimCol, uCoreCol, clamp(swirl * 0.8 + spark * 0.9, 0.0, 1.0));
+    a = floor(a * 5.0) / 5.0;
+    gl_FragColor = vec4(col * a, a);
+  } else {
+    // Mode 3: Blazing crescent slash / spinning scythe arc
+    float r = max(1.0, uCenter.z);
+    vec2 q = vec2(lx, ly);
+    // Curved crescent centered slightly behind origin so the convex blade leads forward
+    vec2 arcC = vec2(-r * 0.32, 0.0);
+    float rad = length(q - arcC);
+    float ang = atan(q.y, q.x - arcC.x);
+    float arcMask = 1.0 - smoothstep(0.82, 1.28, abs(ang));
+    float ring = exp(-abs(rad - r * 0.82) / max(1.5, r * 0.16));
+    float wisp = fbm(vec2(q.x * 0.16 - uTime * 9.0 + seed, q.y * 0.16));
+    float trail = (lx < r * 0.45 && abs(ly) < r * 0.95)
+      ? exp(-abs(rad - r * 0.66) / max(2.0, r * 0.34)) * wisp * 0.65 * arcMask
+      : 0.0;
+    float e = clamp(ring * arcMask + trail, 0.0, 1.2);
+    if (e <= 0.04) discard;
+    vec3 col = mix(uRimCol, uCoreCol, smoothstep(0.4, 0.92, e));
+    float a = floor(clamp(e * uAlpha, 0.0, 1.0) * 5.0) / 5.0;
+    gl_FragColor = vec4(col * a, a);
+  }
+}
+`;
+
+// Expanding pixel-quantized energy shockwave ring for boss slams, roars & shrine attunements
+const SHOCKRING_FRAG = `
+precision mediump float;
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform vec4 uRing;      // cx, cy, currentRadius, thickness (scene px)
+uniform vec3 uColor;
+uniform float uAlpha;
+${NOISE}
+void main() {
+  vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
+  vec2 d = px - uRing.xy;
+  // Perspective foreshortening so arena shockwaves hug the castle floor plane
+  d.y *= 1.45;
+  float dist = length(d);
+  float band = max(2.5, uRing.w);
+  float crest = exp(-pow((dist - uRing.z) / band, 2.0));
+  // Subtle trailing inner plasma wake behind the leading wave
+  float wake = (dist < uRing.z)
+    ? exp(-max(0.0, uRing.z - dist) / max(6.0, band * 2.4)) * 0.32
+    : 0.0;
+  float energy = max(crest, wake);
+  if (energy <= 0.04) discard;
+  float ang = atan(d.y, d.x);
+  float jag = 0.68 + 0.32 * vnoise(vec2(ang * 6.0 + uTime * 7.0, uRing.z * 0.09));
+  float q = floor(clamp(energy * jag, 0.0, 1.0) * 5.0) / 5.0;
+  float a = q * uAlpha;
+  if (a <= 0.015) discard;
+  vec3 hot = min(vec3(1.0), uColor * 1.35 + vec3(0.28, 0.24, 0.20));
+  vec3 col = mix(uColor, hot, smoothstep(0.68, 0.98, crest) * uAlpha);
+  gl_FragColor = vec4(col * a, a);
+}
+`;
+
+const GODRAY_THEMES = {
+  graveyard: { a: [0.68, 0.74, 1.00], b: [0.52, 0.62, 0.95], c: [0.75, 0.80, 1.00], multi: 0, lean: 96, alpha: 0.72 },
+  ramparts:  { a: [0.66, 0.74, 1.00], b: [0.54, 0.64, 0.96], c: [0.78, 0.84, 1.00], multi: 0, lean: 104, alpha: 0.70 },
+  darkwood:  { a: [0.34, 0.96, 0.76], b: [0.24, 0.80, 0.72], c: [0.58, 1.00, 0.84], multi: 0, lean: 82, alpha: 0.85 },
+  forest:    { a: [1.00, 0.74, 0.42], b: [0.92, 0.56, 0.34], c: [1.00, 0.84, 0.52], multi: 0, lean: 92, alpha: 0.78 },
+  yule:      { a: [0.64, 0.86, 1.00], b: [0.46, 0.94, 0.84], c: [0.78, 0.90, 1.00], multi: 0, lean: 88, alpha: 0.74 },
+  cathedral: { a: [0.98, 0.32, 0.46], b: [1.00, 0.80, 0.36], c: [0.44, 0.64, 1.00], multi: 1, lean: 86, alpha: 1.05 },
+  throne:    { a: [0.98, 0.28, 0.38], b: [1.00, 0.72, 0.34], c: [0.76, 0.34, 0.92], multi: 1, lean: 90, alpha: 0.88 },
+  library:   { a: [1.00, 0.82, 0.48], b: [0.70, 0.62, 1.00], c: [1.00, 0.88, 0.62], multi: 0, lean: 74, alpha: 0.76 },
+  arcade:    { a: [1.00, 0.78, 0.44], b: [0.94, 0.58, 0.40], c: [1.00, 0.86, 0.56], multi: 0, lean: 70, alpha: 0.68 },
+  ossuary:   { a: [0.42, 0.92, 0.78], b: [0.34, 0.72, 0.78], c: [0.56, 0.96, 0.84], multi: 0, lean: 64, alpha: 0.62 },
+};
+
 const CLOUD_THEMES = {
   graveyard: { color: [0.62, 0.66, 0.82], shade: [0.16, 0.15, 0.28], density: 0.55, top: 0, bottom: 150 },
   ramparts: { color: [0.60, 0.65, 0.84], shade: [0.15, 0.15, 0.28], density: 0.6, top: 0, bottom: 150 },
@@ -238,14 +473,15 @@ export class FxLayers {
   constructor() {
     this.ok = false; this.enabled = false; this.time = 0;
     this.flames = [];
+    this.attacks = [];
+    this.rings = [];
     try { this.init(); } catch (e) { console.warn('FxLayers disabled:', e); this.ok = false; }
   }
 
   init() {
     if (typeof document === 'undefined') throw new Error('no document');
-    // Half-resolution render target: the layers are soft (clouds, mist, water) or
-    // tiny (flames), and the 2x blit keeps a chunky pixel-art grain. Quarter the fill cost.
-    this.scale = 0.5;
+    // Native 1:1 640x360 render target so scissored shaders match exact 1px sprite crispness.
+    this.scale = 1.0;
     const c = document.createElement('canvas');
     c.width = Math.round(W * this.scale); c.height = Math.round(H * this.scale);
     const gl = c.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, preserveDrawingBuffer: true });
@@ -261,6 +497,10 @@ export class FxLayers {
     this.pFire = this.program(VERT, FIRE_FRAG);
     this.pLightning = this.program(VERT, LIGHTNING_FRAG);
     this.pLava = this.program(VERT, LAVA_FRAG);
+    this.pAurora = this.program(VERT, AURORA_FRAG);
+    this.pGodRays = this.program(VERT, GODRAYS_FRAG);
+    this.pAttack = this.program(VERT, ATTACK_FRAG);
+    this.pShockRing = this.program(VERT, SHOCKRING_FRAG);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);
     this.ok = true; this.enabled = true;
@@ -390,6 +630,74 @@ export class FxLayers {
       this.run(ctx, this.pFire, { x: f.x - f.w * 0.7, y: f.y - f.h * 1.25, w: f.w * 1.4, h: f.h * 1.3 + 4 }, (gl, u) => {
         gl.uniform4f(u.uFlame, f.x, f.y, f.w, f.h);
         gl.uniform4f(u.uFlameCol, f.color[0], f.color[1], f.color[2], f.seed);
+      }, 'lighter');
+    }
+  }
+
+  /** Rippling Arctic Aurora Borealis curtain across upper sky (Stage 4: Frozen Yule). */
+  aurora(ctx, camX) {
+    this.run(ctx, this.pAurora, { x: 0, y: 0, w: W, h: 160 }, (gl, u) => {
+      gl.uniform1f(u.uScroll, camX);
+    }, 'lighter');
+  }
+
+  /** Volumetric diagonal stained-glass or moonlight shafts with drifting dust motes. */
+  godRays(ctx, camX, theme, alpha = 1) {
+    const T = GODRAY_THEMES[theme];
+    if (!T || alpha <= 0.01) return;
+    this.run(ctx, this.pGodRays, { x: 0, y: 0, w: W, h: H - 12 }, (gl, u) => {
+      gl.uniform1f(u.uScroll, camX);
+      gl.uniform3f(u.uColA, T.a[0], T.a[1], T.a[2]);
+      gl.uniform3f(u.uColB, T.b[0], T.b[1], T.b[2]);
+      gl.uniform3f(u.uColC, T.c[0], T.c[1], T.c[2]);
+      gl.uniform1f(u.uMulti, T.multi);
+      gl.uniform1f(u.uLean, T.lean);
+      gl.uniform1f(u.uAlpha, T.alpha * alpha);
+    }, 'lighter');
+  }
+
+  /** Queue an enemy/boss/relic shader attack effect in scene px. */
+  addAttack({
+    x, y, rx = 14, ry = 22, dirX = 1, dirY = 0, mode = 0, seed = 0,
+    core = [1, 0.95, 0.8], rim = [1, 0.4, 0.1], alpha = 0.9, composite = 'lighter',
+  }) {
+    if (!this.enabled || this.attacks.length >= 32) return;
+    const pad = Math.max(rx, ry) + 8;
+    if (x < -pad || x > W + pad || y < -pad || y > H + pad) return;
+    this.attacks.push({ x, y, rx, ry, dirX, dirY, mode, seed, core, rim, alpha, composite, pad });
+  }
+
+  /** Queue an expanding world-space shockwave energy ring (screen coords). */
+  addShockRing(x, y, radius, thickness = 7, color = [1.0, 0.65, 0.25], alpha = 0.85) {
+    if (!this.enabled || this.rings.length >= 10 || alpha <= 0.02) return;
+    const pad = radius + thickness * 2 + 4;
+    if (x + pad < 0 || x - pad > W || y + pad < 0 || y - pad > H) return;
+    this.rings.push({ x, y, radius, thickness, color, alpha, pad });
+  }
+
+  /** Flushes all queued enemy/boss shader attacks and shockwave rings. */
+  flushAttacks(ctx) {
+    const atk = this.attacks;
+    const rng = this.rings;
+    this.attacks = [];
+    this.rings = [];
+    if (!this.enabled) return;
+    for (const a of atk) {
+      const box = { x: a.x - a.pad, y: a.y - a.pad, w: a.pad * 2, h: a.pad * 2 };
+      this.run(ctx, this.pAttack, box, (gl, u) => {
+        gl.uniform4f(u.uCenter, a.x, a.y, a.rx, a.ry);
+        gl.uniform4f(u.uDirSeed, a.dirX, a.dirY, a.mode, a.seed);
+        gl.uniform3f(u.uCoreCol, a.core[0], a.core[1], a.core[2]);
+        gl.uniform3f(u.uRimCol, a.rim[0], a.rim[1], a.rim[2]);
+        gl.uniform1f(u.uAlpha, a.alpha);
+      }, a.composite);
+    }
+    for (const r of rng) {
+      const box = { x: r.x - r.pad, y: r.y - r.pad * 0.85, w: r.pad * 2, h: r.pad * 1.7 };
+      this.run(ctx, this.pShockRing, box, (gl, u) => {
+        gl.uniform4f(u.uRing, r.x, r.y, r.radius, r.thickness);
+        gl.uniform3f(u.uColor, r.color[0], r.color[1], r.color[2]);
+        gl.uniform1f(u.uAlpha, r.alpha);
       }, 'lighter');
     }
   }

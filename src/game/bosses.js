@@ -32,6 +32,9 @@ class Boss extends Enemy {
   checkPhase2(world) {
     if (!this.phase2 && this.hp <= this.maxHp * this.phase2At) {
       this.phase2 = true; world.sfx('boss_roar'); world.camera.shake(5, 0.5);
+      if (world.emitShockwave) {
+        world.emitShockwave(this.x, this.y - this.h * 0.45, { maxR: 165, dur: 0.55, strength: 1.0, color: [0.95, 0.45, 0.95] });
+      }
       this.onPhase2 && this.onPhase2(world);
     }
   }
@@ -553,6 +556,7 @@ export class GreatJack extends Boss {
           if (this.y >= a.floorY - 40) {
             this.y = a.floorY - 40; this.fired = true;
             world.camera.shake(7, 0.4); world.sfx('block');
+            if (world.emitShockwave) world.emitShockwave(this.x, a.floorY - 8, { maxR: 150, dur: 0.5, strength: 0.95, color: [1.0, 0.52, 0.14] });
             world.spawnFire(this.x - 50, a.floorY, 'enemy'); world.spawnFire(this.x + 50, a.floorY, 'enemy');
             for (const d of [-1, 1]) { const fb = new Projectile('fireball', this.x + d * 40, a.floorY - 16, d, 'enemy'); fb.vx = d * 200; fb.vy = 0; fb.gravity = 0; world.spawnProjectile(fb); }
           }
@@ -758,6 +762,7 @@ export class ElderTreant extends Boss {
           this.fired = true;
           world.camera.shake(6, 0.38);
           world.sfx('block');
+          if (world.emitShockwave) world.emitShockwave(this.x, a.floorY - 12, { maxR: 155, dur: 0.5, strength: 0.9, color: [0.24, 0.96, 0.72] });
           const count = this.phase2 ? 4 : 3;
           for (let i = 0; i < count; i++) {
             const rx = a.x0 + 56 + ((i + 0.5) / count) * (a.x1 - a.x0 - 112);
@@ -882,6 +887,7 @@ export class BrassAutomaton extends Boss {
             world.spawnProjectile(c);
           }
           world.sfx('boss_roar'); world.camera.shake(6, 0.4);
+          if (world.emitShockwave) world.emitShockwave(this.x, this.y - 76, { maxR: 155, dur: 0.5, strength: 0.95, color: [1.0, 0.72, 0.24] });
         }
         if (this.stateT > 1.6) this.setState('march');
         break;
@@ -1254,6 +1260,7 @@ export class CinderQueen extends Boss {
           this.fired = true;
           world.camera.shake(6, 0.4);
           world.sfx('boss_roar');
+          if (world.emitShockwave) world.emitShockwave(this.x, a.floorY - 18, { maxR: 165, dur: 0.54, strength: 1.0, color: [1.0, 0.42, 0.10] });
           for (const gx of this.eruptCols) {
             world.spawnFire(gx, a.floorY, 'enemy');
             world.particles.embers(gx, a.floorY - 16, 14);

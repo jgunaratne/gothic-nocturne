@@ -57,7 +57,7 @@ export class Level {
       this.set(tx, row, T_CRUMBLE);
       const key = `${tx},${row}`;
       if (!this.crumbleMap.has(key)) {
-        const rec = { tx, ty: row, state: 'idle', timer: 0 };
+        const rec = { tx, ty: row, state: 'idle', timer: 0, chunks: null };
         this.crumbles.push(rec);
         this.crumbleMap.set(key, rec);
       }
@@ -198,17 +198,32 @@ export class Level {
         if (c.timer <= 0) {
           c.state = 'gone';
           c.timer = 2.8;
+          c.chunks = [
+            { frame: 'breaking', dx: 0, dy: 2, vx: ((c.tx % 2) ? 1 : -1) * 14, vy: 28, rot: 0, vrot: ((c.tx % 2) ? 1 : -1) * 1.5, scale: 0.94 },
+            { frame: 'chunk', dx: -8, dy: 10, vx: -36, vy: 48, rot: -0.2, vrot: -3.2, scale: 0.72 },
+            { frame: 'chunk', dx: 9, dy: 12, vx: 38, vy: 60, rot: 0.25, vrot: 3.5, scale: 0.66 },
+          ];
           this.set(c.tx, c.ty, T_EMPTY);
           if (world) {
             world.sfx('block');
-            world.particles.shards(c.tx * TILE + 16, c.ty * TILE + 12, 7, '#8a92a8', c.ty * TILE + 48);
+            world.particles.shards(c.tx * TILE + 16, c.ty * TILE + 12, 8, '#8a92a8', c.ty * TILE + 56);
           }
         }
       } else if (c.state === 'gone') {
         c.timer -= dt;
+        if (c.chunks) {
+          for (const ch of c.chunks) {
+            ch.vy = Math.min(480, ch.vy + 740 * dt);
+            ch.dx += ch.vx * dt;
+            ch.dy += ch.vy * dt;
+            ch.rot += ch.vrot * dt;
+          }
+          if (c.timer < 1.2) c.chunks = null;
+        }
         if (c.timer <= 0) {
           c.state = 'idle';
           c.timer = 0;
+          c.chunks = null;
           this.set(c.tx, c.ty, T_CRUMBLE);
           if (world) world.particles.dust(c.tx * TILE + 16, c.ty * TILE + 8, 3, '#c8d0e0');
         }
@@ -614,8 +629,8 @@ export class Level {
       }
     }
 
-    // 5. Texture-mapped crumbling 3D stone slabs (fissured blocks + reform shimmer).
-    if (this.crumbles.length) this.drawCrumbles3D(ctx, camX, camY, tx0, tx1, time, bank);
+    // 5. Nano Banana Gothic crumbling & falling stone corbel slabs (intact, fissured, shattering & reforming).
+    if (this.crumbles.length) this.drawCrumbles3D(ctx, camX, camY, tx0, tx1, time, bank, assets);
 
     // 6. Moving platforms & orbiting clockwork gear gondolas.
     if (this.movers.length) this.drawMovers3D(ctx, camX, camY, pImg, plat, platTex, time, stage3d);
@@ -802,39 +817,81 @@ export class Level {
     }
   }
 
-  /** Renders texture-mapped crumbling 3D stone slabs (intact, trembling, or reforming). */
-  drawCrumbles3D(ctx, camX, camY, tx0, tx1, time, bank) {
+  /** Renders Gothic crumbling & falling stone corbel slabs (intact, fissured, plummeting, or reforming). */
+  drawCrumbles3D(ctx, camX, camY, tx0, tx1, time, bank, assets = null) {
+    const hasSheet = !!(
+      assets && assets.frame && assets.frame('falling_tiles', 'intact') &&
+      assets.img && assets.img('falling_tiles')
+    );
+    const sheetImg = hasSheet ? assets.img('falling_tiles') : null;
     const idleTex = bank ? bank.get('crumble_stone') : null;
     const shakeTex = bank ? bank.get('crumble_shake') : null;
+
     for (const c of this.crumbles) {
       if (c.tx < tx0 - 1 || c.tx > tx1 + 1) continue;
       const wx = c.tx * TILE, wy = c.ty * TILE;
       if (c.state === 'gone') {
+        // Tumbling carved masonry chunks falling into the abyss
+        if (hasSheet && c.chunks) {
+          for (const ch of c.chunks) {
+            const alpha = Math.max(0, Math.min(1, 1 - ch.dy / 168));
+            if (alpha <= 0.02) continue;
+            const fr = assets.frame('falling_tiles', ch.frame);
+            if (!fr) continue;
+            const cx = Math.round(wx - camX + 16 + ch.dx);
+            const cy = Math.round(wy - camY + 14 + ch.dy);
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(cx, cy);
+            ctx.rotate(ch.rot);
+            ctx.scale(ch.scale, ch.scale);
+            ctx.drawImage(sheetImg, fr.x, fr.y, fr.w, fr.h, Math.round(-fr.w * 0.5), Math.round(-fr.h * 0.5), fr.w, fr.h);
+            ctx.restore();
+          }
+        }
+        // Spectral stone reform materialisation right before becoming solid again
         if (c.timer < 0.65) {
-          const a = (1 - c.timer / 0.65) * 0.45;
-          ctx.strokeStyle = `rgba(180, 205, 255, ${a.toFixed(2)})`;
+          const k = 1 - c.timer / 0.65;
+          if (hasSheet) {
+            const riseY = Math.round((1 - k) * 9);
+            assets.draw(ctx, 'falling_tiles', 'intact', Math.round(wx - camX + 16), Math.round(wy - camY + 34 + riseY), false, k * 0.72);
+          }
+          const a = k * 0.45;
+          ctx.strokeStyle = `rgba(180, 210, 255, ${a.toFixed(2)})`;
           ctx.lineWidth = 1;
-          ctx.strokeRect(Math.round(wx - camX + 2), Math.round(wy - camY + 1), TILE - 4, 14);
+          ctx.strokeRect(Math.round(wx - camX + 1), Math.round(wy - camY), TILE - 2, 16);
         }
         continue;
       }
-      const shaking = c.state === 'shake';
-      const jx = shaking ? Math.round(Math.sin(time * 58 + c.tx * 3) * 2) : 0;
-      const jy = shaking ? Math.round(Math.cos(time * 47 + c.tx) * 1) : 0;
-      const slabTex = shaking ? shakeTex : idleTex;
-      if (wy > camY + EYE_Y + 4) {
-        this.drawTopDeck3D(ctx, camX, camY, wx + jx, wy + jy, TILE, 30, slabTex, 0.72);
-      }
-      this.drawSlabSide3D(ctx, camX, camY, wx + jx, wy + jy, 18, 30, -1, slabTex);
-      this.drawSlabSide3D(ctx, camX, camY, wx + TILE + jx, wy + jy, 18, 30, 1, slabTex);
 
-      const x = Math.round(wx - camX + jx), y = Math.round(wy - camY + jy);
-      if (slabTex) {
-        texQuad(
-          ctx, slabTex,
-          { x, y }, { x: x + TILE, y }, { x: x + TILE, y: y + 18 }, { x, y: y + 18 },
-          wx, 0, wx + TILE, 0, wx + TILE, 32, wx, 32, null,
-        );
+      const shaking = c.state === 'shake';
+      const lateShake = shaking && c.timer <= 0.24;
+      const jx = shaking ? Math.round(Math.sin(time * (lateShake ? 68 : 54) + c.tx * 3) * (lateShake ? 2.5 : 1.6)) : 0;
+      const jy = shaking ? Math.round(Math.cos(time * 47 + c.tx) * 1) + (lateShake ? 2 : 0) : 0;
+      const x = Math.round(wx - camX + jx);
+      const y = Math.round(wy - camY + jy);
+
+      if (hasSheet) {
+        const frameName = !shaking ? 'intact' : (lateShake ? 'breaking' : 'cracked');
+        if (shaking) {
+          ctx.fillStyle = lateShake ? 'rgba(255, 118, 52, 0.26)' : 'rgba(255, 150, 72, 0.16)';
+          ctx.fillRect(x - 1, y - 4, TILE + 2, 26);
+        }
+        assets.draw(ctx, 'falling_tiles', frameName, x + 16, y + 34);
+      } else {
+        const slabTex = shaking ? shakeTex : idleTex;
+        if (wy > camY + EYE_Y + 4) {
+          this.drawTopDeck3D(ctx, camX, camY, wx + jx, wy + jy, TILE, 30, slabTex, 0.72);
+        }
+        this.drawSlabSide3D(ctx, camX, camY, wx + jx, wy + jy, 18, 30, -1, slabTex);
+        this.drawSlabSide3D(ctx, camX, camY, wx + TILE + jx, wy + jy, 18, 30, 1, slabTex);
+        if (slabTex) {
+          texQuad(
+            ctx, slabTex,
+            { x, y }, { x: x + TILE, y }, { x: x + TILE, y: y + 18 }, { x, y: y + 18 },
+            wx, 0, wx + TILE, 0, wx + TILE, 32, wx, 32, null,
+          );
+        }
       }
     }
   }

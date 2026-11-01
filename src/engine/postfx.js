@@ -57,6 +57,8 @@ uniform float uBloomAmt;  // bloom strength
 uniform float uScan;      // scanline strength
 uniform float uGrain;
 uniform float uShimmer;   // heat shimmer amount (lightning, roars)
+uniform float uHeat;      // convective lower-screen heat haze (volcanic caverns)
+uniform vec4 uShock;      // (cx, cy in vUv, radius, amplitude)
 uniform float uHurt;      // crimson damage pulse
 uniform float uLightning; // electric storm exposure & blue-violet shadow lift
 uniform vec3 uTint;       // colour grade tint (multiplied)
@@ -66,6 +68,17 @@ uniform float uSat;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
+// Band-limited sharp pixel-art sampler: exact texel centers at integer scales,
+// and strictly 1-device-pixel anti-aliased seams at fractional / HiDPI scales.
+vec3 sampleSharp(vec2 uv) {
+  vec2 pix = clamp(uv, vec2(0.0), vec2(1.0)) * uSceneRes;
+  vec2 seam = floor(pix + 0.5);
+  vec2 dudv = uSceneRes / max(uRes, vec2(1.0));
+  vec2 f = clamp((pix - seam) / dudv + 0.5, 0.0, 1.0);
+  vec2 suv = (seam - 0.5 + f) / uSceneRes;
+  return texture2D(uScene, suv).rgb;
+}
+
 void main() {
   vec2 uv = vUv;
   // Heat shimmer: tiny horizontal wobble by scanline, fades with uShimmer
@@ -73,11 +86,40 @@ void main() {
     float w = sin(uv.y * uSceneRes.y * 0.9 + uTime * 28.0) * sin(uv.y * 13.0 + uTime * 7.0);
     uv.x += w * uShimmer * (1.6 / uSceneRes.x);
   }
-  // Snap to source texels so the pixel art stays razor sharp
-  vec2 texel = 1.0 / uSceneRes;
-  vec2 suv = (floor(uv * uSceneRes) + 0.5) * texel;
-  vec3 col = texture2D(uScene, suv).rgb;
-  vec3 bloom = texture2D(uBloom, uv).rgb;
+  // Convective heat haze rising off molten lava pools in lower third of frame
+  if (uHeat > 0.001) {
+    float low = smoothstep(0.46, 0.02, uv.y);
+    float hw = sin(uv.y * 42.0 - uTime * 5.2 + uv.x * 11.0)
+             + 0.5 * cos(uv.y * 74.0 - uTime * 8.4 - uv.x * 17.0);
+    uv.x += hw * low * uHeat * (0.85 / uSceneRes.x);
+    uv.y += cos(uv.x * 29.0 + uTime * 4.6) * low * uHeat * (0.45 / uSceneRes.y);
+  }
+
+  // Radial shockwave ring distortion + subtle chromatic dispersion along the wave crest
+  float chroma = 0.0;
+  vec2 shockDir = vec2(0.0);
+  if (uShock.w > 0.001) {
+    vec2 aspect = vec2(uSceneRes.x / uSceneRes.y, 1.0);
+    vec2 delta = (uv - uShock.xy) * aspect;
+    float dist = length(delta);
+    float band = 0.075;
+    float ring = exp(-pow((dist - uShock.z) / band, 2.0));
+    float deriv = -(dist - uShock.z) / band;
+    shockDir = dist > 0.0001 ? (delta / dist) / aspect : vec2(0.0);
+    float push = ring * deriv * uShock.w * 0.022;
+    uv += shockDir * push;
+    chroma = ring * uShock.w * 0.0045;
+  }
+
+  vec3 col;
+  if (chroma > 0.0002) {
+    col.r = sampleSharp(uv + shockDir * chroma).r;
+    col.g = sampleSharp(uv).g;
+    col.b = sampleSharp(uv - shockDir * chroma).b;
+  } else {
+    col = sampleSharp(uv);
+  }
+  vec3 bloom = texture2D(uBloom, clamp(uv, vec2(0.0), vec2(1.0))).rgb;
 
   // Bloom (screen blend keeps whites from clipping); storm lightning boosts halo bloom
   float bloomAmt = uBloomAmt + uLightning * 0.65;
@@ -101,12 +143,13 @@ void main() {
   // Phosphor scanlines at display scale (soft, never fully dark) + faint aperture mask
   float scale = uRes.y / uSceneRes.y;
   if (uScan > 0.001 && scale >= 2.0) {
+    float fade = clamp((scale - 1.75) * 0.8, 0.0, 1.0);
     float sy = fract(vUv.y * uSceneRes.y);
     float line = 0.5 + 0.5 * cos(sy * 6.2831853);
-    col *= 1.0 - uScan * (1.0 - line) * 0.55;
+    col *= 1.0 - uScan * fade * (1.0 - line) * 0.48;
     float px = mod(floor(vUv.x * uRes.x), 3.0);
-    vec3 mask = px < 1.0 ? vec3(1.0, 0.94, 0.94) : px < 2.0 ? vec3(0.94, 1.0, 0.94) : vec3(0.94, 0.94, 1.0);
-    col *= mix(vec3(1.0), mask, uScan * 0.5);
+    vec3 mask = px < 1.0 ? vec3(1.0, 0.95, 0.95) : px < 2.0 ? vec3(0.95, 1.0, 0.95) : vec3(0.95, 0.95, 1.0);
+    col *= mix(vec3(1.0), mask, uScan * fade * 0.42);
   }
 
   // Film grain
@@ -120,19 +163,21 @@ void main() {
 `;
 
 /** Per-theme grading presets: tint (multiply), lift (shadow colour), gamma, saturation, bloom. */
-const GRADES = {
-  graveyard: { tint: [0.96, 0.99, 1.08], lift: [0.012, 0.010, 0.030], gamma: 1.0, sat: 1.02, bloom: 0.55 },
-  darkwood: { tint: [0.90, 1.04, 1.02], lift: [0.006, 0.024, 0.020], gamma: 0.98, sat: 1.08, bloom: 0.75 },
-  forest: { tint: [1.08, 0.98, 0.90], lift: [0.022, 0.012, 0.010], gamma: 1.0, sat: 1.06, bloom: 0.62 },
-  yule: { tint: [0.94, 0.99, 1.10], lift: [0.012, 0.018, 0.036], gamma: 0.98, sat: 1.0, bloom: 0.58 },
-  ramparts: { tint: [0.97, 0.99, 1.06], lift: [0.010, 0.010, 0.026], gamma: 1.0, sat: 1.0, bloom: 0.5 },
-  catacombs: { tint: [1.04, 0.98, 0.92], lift: [0.016, 0.012, 0.008], gamma: 1.03, sat: 0.96, bloom: 0.5 },
-  darkcave: { tint: [1.10, 0.95, 0.88], lift: [0.028, 0.009, 0.006], gamma: 0.98, sat: 1.10, bloom: 0.78 },
+export const GRADES = {
+  graveyard: { tint: [0.96, 0.99, 1.08], lift: [0.012, 0.010, 0.030], gamma: 1.0, sat: 1.02, bloom: 0.58 },
+  darkwood: { tint: [0.90, 1.04, 1.02], lift: [0.006, 0.024, 0.020], gamma: 0.98, sat: 1.08, bloom: 0.76 },
+  forest: { tint: [1.08, 0.98, 0.90], lift: [0.022, 0.012, 0.010], gamma: 1.0, sat: 1.06, bloom: 0.64 },
+  yule: { tint: [0.94, 0.99, 1.10], lift: [0.012, 0.018, 0.036], gamma: 0.98, sat: 1.02, bloom: 0.62 },
+  ramparts: { tint: [0.97, 0.99, 1.06], lift: [0.010, 0.010, 0.026], gamma: 1.0, sat: 1.0, bloom: 0.54 },
+  catacombs: { tint: [1.04, 0.98, 0.92], lift: [0.016, 0.012, 0.008], gamma: 1.03, sat: 0.96, bloom: 0.52 },
+  darkcave: { tint: [1.10, 0.95, 0.88], lift: [0.028, 0.009, 0.006], gamma: 0.98, sat: 1.10, bloom: 0.80, heat: 1.0 },
   ossuary: { tint: [0.94, 1.02, 1.02], lift: [0.008, 0.020, 0.022], gamma: 1.02, sat: 1.0, bloom: 0.68 },
-  arcade: { tint: [1.06, 0.98, 0.94], lift: [0.020, 0.010, 0.012], gamma: 0.98, sat: 1.08, bloom: 0.7 },
-  clocktower: { tint: [1.06, 1.00, 0.92], lift: [0.018, 0.012, 0.006], gamma: 1.0, sat: 1.02, bloom: 0.6 },
-  throne: { tint: [1.06, 0.96, 0.98], lift: [0.022, 0.008, 0.014], gamma: 1.0, sat: 1.06, bloom: 0.62 },
-  menu: { tint: [0.98, 0.98, 1.04], lift: [0.010, 0.010, 0.022], gamma: 1.0, sat: 1.0, bloom: 0.5 },
+  arcade: { tint: [1.06, 0.98, 0.94], lift: [0.020, 0.010, 0.012], gamma: 0.98, sat: 1.08, bloom: 0.70 },
+  library: { tint: [1.05, 0.99, 1.04], lift: [0.018, 0.010, 0.024], gamma: 0.99, sat: 1.05, bloom: 0.66 },
+  cathedral: { tint: [1.02, 0.98, 1.08], lift: [0.016, 0.010, 0.028], gamma: 0.98, sat: 1.08, bloom: 0.74 },
+  clocktower: { tint: [1.06, 1.00, 0.92], lift: [0.018, 0.012, 0.006], gamma: 1.0, sat: 1.02, bloom: 0.62 },
+  throne: { tint: [1.06, 0.96, 0.98], lift: [0.022, 0.008, 0.014], gamma: 1.0, sat: 1.06, bloom: 0.66 },
+  menu: { tint: [0.98, 0.98, 1.04], lift: [0.010, 0.010, 0.022], gamma: 1.0, sat: 1.0, bloom: 0.52 },
 };
 
 export class PostFX {
@@ -144,8 +189,9 @@ export class PostFX {
     this.shimmer = 0;
     this.hurt = 0;
     this.lightning = 0;
-    this.scan = 0.35;
-    this.grain = 0.035;
+    this.shock = { x: 0.5, y: 0.5, r: 0, amp: 0 };
+    this.scan = 0.32;
+    this.grain = 0.032;
     this.theme = 'menu';
     try { this.init(); } catch (e) { console.warn('PostFX disabled:', e); this.ok = false; }
   }
@@ -170,8 +216,8 @@ export class PostFX {
     this.pBlur = this.program(VERT, BLUR_FRAG);
     this.pComp = this.program(VERT, COMPOSITE_FRAG);
 
-    this.sceneTex = this.texture(gl.NEAREST);
-    this.bw = 160; this.bh = 90;   // quarter-res bloom buffers
+    this.sceneTex = this.texture(gl.LINEAR);
+    this.bw = 320; this.bh = 180;   // half-res bloom buffers for silky halo gradients
     this.fbA = this.framebuffer(this.bw, this.bh);
     this.fbB = this.framebuffer(this.bw, this.bh);
     this.ok = true;
@@ -233,7 +279,7 @@ export class PostFX {
   /** Matches the FX canvas to the 2D canvas' CSS size (device pixels). */
   fit() {
     if (!this.ok) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
     const cw = parseFloat(this.src.style.width) || this.src.width;
     const chh = parseFloat(this.src.style.height) || this.src.height;
     this.out.style.width = cw + 'px';
@@ -249,6 +295,13 @@ export class PostFX {
     this.lightning = Math.max(this.lightning, amount);
     if (amount > 0.35) this.shimmer = Math.max(this.shimmer, amount * 0.65);
   }
+  /** Radial distortion wave centered at normalized screen coords (0..1, top-left origin). */
+  shockwave(nx = 0.5, ny = 0.5, strength = 1.0) {
+    this.shock.x = Math.max(0.05, Math.min(0.95, nx));
+    this.shock.y = Math.max(0.05, Math.min(0.95, 1.0 - ny));
+    this.shock.r = 0.025;
+    this.shock.amp = Math.min(1.6, Math.max(0.25, strength));
+  }
 
   draw(dt, theme) {
     if (!this.enabled) return;
@@ -257,6 +310,10 @@ export class PostFX {
     this.shimmer = Math.max(0, this.shimmer - dt * 2.2);
     this.hurt = Math.max(0, this.hurt - dt * 2.6);
     this.lightning = Math.max(0, this.lightning - dt * 3.8);
+    if (this.shock.amp > 0.001) {
+      this.shock.r += dt * 1.45;
+      this.shock.amp = Math.max(0, this.shock.amp - dt * 2.15);
+    }
     this.theme = theme || this.theme;
     const g = GRADES[this.theme] || GRADES.menu;
     this.fit();
@@ -312,6 +369,8 @@ export class PostFX {
     gl.uniform1f(u.uScan, this.scan);
     gl.uniform1f(u.uGrain, this.grain);
     gl.uniform1f(u.uShimmer, this.shimmer);
+    gl.uniform1f(u.uHeat, g.heat || 0);
+    gl.uniform4f(u.uShock, this.shock.x, this.shock.y, this.shock.r, this.shock.amp);
     gl.uniform1f(u.uHurt, this.hurt);
     gl.uniform1f(u.uLightning, this.lightning);
     gl.uniform3f(u.uTint, g.tint[0], g.tint[1], g.tint[2]);

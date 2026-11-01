@@ -885,6 +885,46 @@
   "type": "texture",
   "w": 640
  },
+ "falling_tiles": {
+  "file": "falling_tiles.png",
+  "frames": {
+   "breaking": {
+    "ax": 18.5,
+    "ay": 40,
+    "h": 40,
+    "w": 37,
+    "x": 77,
+    "y": 1
+   },
+   "chunk": {
+    "ax": 13.5,
+    "ay": 27,
+    "h": 27,
+    "w": 27,
+    "x": 115,
+    "y": 1
+   },
+   "cracked": {
+    "ax": 18.5,
+    "ay": 40,
+    "h": 40,
+    "w": 37,
+    "x": 39,
+    "y": 1
+   },
+   "intact": {
+    "ax": 18.5,
+    "ay": 40,
+    "h": 40,
+    "w": 37,
+    "x": 1,
+    "y": 1
+   }
+  },
+  "h": 42,
+  "type": "sheet",
+  "w": 143
+ },
  "fg": {
   "file": "fg.png",
   "h": 360,
@@ -1072,6 +1112,38 @@
   "h": 102,
   "type": "sheet",
   "w": 168
+ },
+ "grand_doors": {
+  "file": "grand_doors.png",
+  "frames": {
+   "open": {
+    "ax": 38.5,
+    "ay": 124,
+    "h": 124,
+    "w": 77,
+    "x": 1,
+    "y": 1
+   },
+   "royal": {
+    "ax": 38.5,
+    "ay": 110,
+    "h": 110,
+    "w": 77,
+    "x": 157,
+    "y": 1
+   },
+   "sealed": {
+    "ax": 38.5,
+    "ay": 124,
+    "h": 124,
+    "w": 77,
+    "x": 79,
+    "y": 1
+   }
+  },
+  "h": 126,
+  "type": "sheet",
+  "w": 235
  },
  "greatjack": {
   "file": "greatjack.png",
@@ -1719,6 +1791,78 @@
   "type": "texture",
   "w": 320
  },
+ "projectiles": {
+  "file": "projectiles.png",
+  "frames": {
+   "bone": {
+    "ax": 13.0,
+    "ay": 15,
+    "h": 15,
+    "w": 26,
+    "x": 1,
+    "y": 1
+   },
+   "cog": {
+    "ax": 11.5,
+    "ay": 24,
+    "h": 24,
+    "w": 23,
+    "x": 75,
+    "y": 1
+   },
+   "iceshard": {
+    "ax": 12.5,
+    "ay": 10,
+    "h": 10,
+    "w": 25,
+    "x": 120,
+    "y": 1
+   },
+   "magmaball": {
+    "ax": 11.0,
+    "ay": 22,
+    "h": 22,
+    "w": 22,
+    "x": 169,
+    "y": 1
+   },
+   "page": {
+    "ax": 11.0,
+    "ay": 20,
+    "h": 20,
+    "w": 22,
+    "x": 146,
+    "y": 1
+   },
+   "present": {
+    "ax": 10.0,
+    "ay": 23,
+    "h": 23,
+    "w": 20,
+    "x": 99,
+    "y": 1
+   },
+   "sickle": {
+    "ax": 12.5,
+    "ay": 24,
+    "h": 24,
+    "w": 25,
+    "x": 28,
+    "y": 1
+   },
+   "skull": {
+    "ax": 10.0,
+    "ay": 24,
+    "h": 24,
+    "w": 20,
+    "x": 54,
+    "y": 1
+   }
+  },
+  "h": 26,
+  "type": "sheet",
+  "w": 192
+ },
  "props": {
   "file": "props.png",
   "frames": {
@@ -1894,6 +2038,46 @@
   "h": 94,
   "type": "sheet",
   "w": 346
+ },
+ "shrines": {
+  "file": "shrines.png",
+  "frames": {
+   "sanctuary_idle": {
+    "ax": 20.5,
+    "ay": 76,
+    "h": 76,
+    "w": 41,
+    "x": 1,
+    "y": 1
+   },
+   "sanctuary_lit": {
+    "ax": 20.5,
+    "ay": 76,
+    "h": 76,
+    "w": 41,
+    "x": 43,
+    "y": 1
+   },
+   "vessel_empty": {
+    "ax": 17.0,
+    "ay": 46,
+    "h": 46,
+    "w": 34,
+    "x": 120,
+    "y": 1
+   },
+   "vessel_full": {
+    "ax": 17.0,
+    "ay": 59,
+    "h": 59,
+    "w": 34,
+    "x": 85,
+    "y": 1
+   }
+  },
+  "h": 78,
+  "type": "sheet",
+  "w": 155
  },
  "skeleton": {
   "file": "skeleton.png",
