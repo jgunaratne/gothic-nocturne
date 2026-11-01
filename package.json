@@ -5,10 +5,11 @@
   "description": "A 32-bit era gothic side-scrolling action platformer with multi-layer parallax, generated pixel art and a Lyria 3 score.",
   "type": "module",
   "scripts": {
-    "start": "python3 -m http.server 8711 --bind 0.0.0.0",
-    "check": "for f in src/*.js src/engine/*.js src/game/*.js; do node --check \"$f\" || exit 1; done && echo syntax ok",
+    "start": "bash serve.sh",
+    "check": "for f in src/*.js src/engine/*.js src/game/*.js; do node --check \"$f\" || exit 1; done && python3 -m py_compile tools/forge_server.py && echo syntax ok",
     "assets": ".venv/bin/python tools/process_assets.py --preview",
-    "shot": "bash tools/screenshot.sh"
+    "shot": "bash tools/screenshot.sh",
+    "forge": ".venv/bin/python tools/forge_server.py --port 8712"
   },
   "license": "UNLICENSED"
 }

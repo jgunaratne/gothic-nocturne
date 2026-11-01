@@ -41,6 +41,12 @@ export const VOICES = {
 const FALLBACK_TRACK = 'graveyard';
 const MAX_DECODED = 3;   // full-length tracks decode to ~50 MB of PCM each
 
+/** Registers a generated music track (Castle Forge) under `name`. */
+export function registerTrack(name, url) { TRACKS[name] = url; }
+/** Registers a generated boss voice clip (Castle Forge) under `key`. */
+export function registerVoice(key, url) { VOICES[key] = url; }
+export function hasTrack(name) { return !!TRACKS[name]; }
+
 export class AudioSys {
   constructor() {
     this.ctx = null;
@@ -80,6 +86,7 @@ export class AudioSys {
     this.voiceBus.connect(this.master);
     if (this.pendingTrack) { const t = this.pendingTrack; this.pendingTrack = null; this.playMusic(t.name, t.loop); }
     if (this.pendingVoice) { const v = this.pendingVoice; this.pendingVoice = null; this.playVoice(v.key, v.onDuration); }
+    if (this.pendingAmbient) { const a = this.pendingAmbient; this.pendingAmbient = null; this.ambient = null; this.playAmbient(a.url, a.volume); }
     for (const n of ['whip', 'jump', 'land', 'hit', 'hurt', 'candle', 'heart', 'pickup', 'throw', 'enemy_die', 'bone', 'block', 'boss_hit', 'boss_roar', 'gate', 'select', 'fire', 'orb', 'thunder', 'die', 'boss_die', 'pause']) this.ensureSfx(n);
   }
 
@@ -269,6 +276,52 @@ export class AudioSys {
       setTimeout(() => srcs.forEach((s) => { try { s.stop(); } catch (e) { /* already stopped */ } }), fade * 1000 + 50);
     }
     this.current = null;
+  }
+
+  // ------------------------------------------------------------- ambience
+
+  /**
+   * Quiet looping ambience bed (e.g. a generated "wind through empty streets"
+   * clip for a forged wing) layered under the music; `null` stops it.
+   */
+  playAmbient(url, volume = 0.22) {
+    if (this.ambient && this.ambient.url === url) return;
+    this.stopAmbient();
+    if (!url) return;
+    const entry = { url, src: null, gain: null, stopped: false };
+    this.ambient = entry;
+    if (!this.ctx) { this.pendingAmbient = { url, volume }; return; }
+    (async () => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const buf = await this.ctx.decodeAudioData(await res.arrayBuffer());
+        if (entry.stopped) return;
+        const g = this.ctx.createGain();
+        g.gain.value = 0;
+        g.gain.setTargetAtTime(volume, this.ctx.currentTime, 1.2);
+        g.connect(this.musicBus);
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf; src.loop = true;
+        src.connect(g);
+        src.start();
+        entry.src = src; entry.gain = g;
+      } catch (e) { console.warn('ambience load failed', url, e); }
+    })();
+  }
+
+  stopAmbient(fade = 0.8) {
+    const a = this.ambient;
+    this.pendingAmbient = null;
+    if (!a) return;
+    a.stopped = true;
+    if (a.gain && this.ctx) {
+      const t = this.ctx.currentTime;
+      a.gain.gain.setTargetAtTime(0, t, fade * 0.35);
+      const src = a.src;
+      setTimeout(() => { try { src.stop(); } catch (e) { /* already stopped */ } }, fade * 1000 + 60);
+    }
+    this.ambient = null;
   }
 
   // ------------------------------------------------------------------ sfx

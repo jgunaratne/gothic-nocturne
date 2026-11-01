@@ -31,6 +31,28 @@ export class Assets {
     return s && s.frames ? s.frames[name] || null : null;
   }
 
+  /**
+   * Registers an extra asset at runtime (Castle Forge wings): `info` follows the
+   * atlas.json record shape and `image` may be an Image or a canvas.
+   */
+  register(name, info, image) {
+    this.atlas[name] = info;
+    this.images[name] = image;
+    for (const k of [...this.tintCache.keys()]) if (k.startsWith(name + '|')) this.tintCache.delete(k);
+  }
+
+  /** Loads and registers an image under `name` (resolves false on failure). */
+  async registerFromUrl(name, info, url) {
+    try {
+      const img = await loadImage(url);
+      this.register(name, Object.assign({ w: img.width, h: img.height }, info), img);
+      return true;
+    } catch (e) {
+      console.warn('forge asset failed', name, url, e);
+      return false;
+    }
+  }
+
   img(name) { return this.images[name]; }
   info(name) { return this.atlas[name]; }
 

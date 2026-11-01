@@ -180,32 +180,181 @@ function edgeKey(c1, r1, c2, r2) {
     : `${c2},${r2}|${c1},${r1}`;
 }
 
-let _totalCells = 0;
-for (const [key, r] of Object.entries(MAP_ROOMS)) {
-  r.exits = [];
-  r.allCells = [...r.spine, ...r.extra];
-  r.cellSet = new Set(r.allCells.map(([c, rw]) => `${c},${rw}`));
-  r.bossSet = new Set(r.boss.map(([c, rw]) => `${c},${rw}`));
-  r.sanctuaryKey = `${r.sanctuary[0]},${r.sanctuary[1]}`;
-  r.secretKey = `${r.secret[0]},${r.secret[1]}`;
-  let minC = 99, maxC = -1, minR = 99, maxR = -1;
-  for (const [c, rw] of r.allCells) {
-    CELL_OWNER.set(`${c},${rw}`, key);
-    if (c < minC) minC = c;
-    if (c > maxC) maxC = c;
-    if (rw < minR) minR = rw;
-    if (rw > maxR) maxR = rw;
-    _totalCells++;
-  }
-  r.bounds = { minC, maxC, minR, maxR };
-  r.centerCell = [(minC + maxC + 1) * 0.5, (minR + maxR + 1) * 0.5];
-}
-export const TOTAL_MAP_CELLS = _totalCells;
+export let TOTAL_MAP_CELLS = 0;
 
-for (const d of MAP_DOORS) {
-  if (!MAP_ROOMS[d.a].exits.includes(d.b)) MAP_ROOMS[d.a].exits.push(d.b);
-  if (!MAP_ROOMS[d.b].exits.includes(d.a)) MAP_ROOMS[d.b].exits.push(d.a);
-  DOOR_EDGES.set(edgeKey(d.cellA[0], d.cellA[1], d.cellB[0], d.cellB[1]), d);
+/**
+ * (Re)derives every lookup structure from MAP_ROOMS / MAP_DOORS. Called once at
+ * load and again whenever the Castle Forge raises a new wing.
+ */
+export function rebuildMapIndex() {
+  CELL_OWNER.clear();
+  DOOR_EDGES.clear();
+  let total = 0;
+  for (const [key, r] of Object.entries(MAP_ROOMS)) {
+    r.exits = [];
+    r.allCells = [...r.spine, ...r.extra];
+    r.cellSet = new Set(r.allCells.map(([c, rw]) => `${c},${rw}`));
+    r.bossSet = new Set(r.boss.map(([c, rw]) => `${c},${rw}`));
+    r.sanctuaryKey = `${r.sanctuary[0]},${r.sanctuary[1]}`;
+    r.secretKey = `${r.secret[0]},${r.secret[1]}`;
+    let minC = 99, maxC = -1, minR = 99, maxR = -1;
+    for (const [c, rw] of r.allCells) {
+      CELL_OWNER.set(`${c},${rw}`, key);
+      if (c < minC) minC = c;
+      if (c > maxC) maxC = c;
+      if (rw < minR) minR = rw;
+      if (rw > maxR) maxR = rw;
+      total++;
+    }
+    r.bounds = { minC, maxC, minR, maxR };
+    r.centerCell = [(minC + maxC + 1) * 0.5, (minR + maxR + 1) * 0.5];
+  }
+  TOTAL_MAP_CELLS = total;
+  for (const d of MAP_DOORS) {
+    if (!MAP_ROOMS[d.a] || !MAP_ROOMS[d.b]) continue;
+    if (!MAP_ROOMS[d.a].exits.includes(d.b)) MAP_ROOMS[d.a].exits.push(d.b);
+    if (!MAP_ROOMS[d.b].exits.includes(d.a)) MAP_ROOMS[d.b].exits.push(d.a);
+    DOOR_EDGES.set(edgeKey(d.cellA[0], d.cellA[1], d.cellB[0], d.cellB[1]), d);
+  }
+}
+rebuildMapIndex();
+
+/**
+ * Adds a forged wing to the castle: `room` is a MAP_ROOMS record (spine, extra,
+ * boss, sanctuary, secret, labelPos, where, icon?) and `door` a MAP_DOORS record
+ * joining it to an existing region. Rebuilds the lookup index.
+ */
+export function registerMapRoom(key, room, door) {
+  MAP_ROOMS[key] = room;
+  if (door && !MAP_DOORS.some((d) => d.id === door.id)) MAP_DOORS.push(door);
+  rebuildMapIndex();
+}
+
+// ------------------------------------------------------------ forge placement
+
+/** Deterministic PRNG (mulberry32) so a forged wing lands on the same cells for everyone. */
+function seededRng(seed) {
+  let a = (seed >>> 0) || 1;
+  return () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/**
+ * Finds free grid cells for a new wing next to one of the `preferred` regions
+ * (falling back to any region) and returns a MAP_ROOMS record plus the door that
+ * joins it, or null when the castle is full. Pure w.r.t. MAP_ROOMS; nothing is
+ * registered here.
+ */
+export function placeForgedRoom(key, { preferred = [], seed = 1, spineLen = 7, extras = 2, exclude = null } = {}) {
+  const rng = seededRng(seed * 2654435761 + 97);
+  const occupied = new Set(CELL_OWNER.keys());
+  if (exclude) for (const k of exclude) occupied.add(k);
+  const inBounds = (c, r) => c >= 0 && c < GRID_COLS && r >= 0 && r < GRID_ROWS;
+  const free = (c, r) => inBounds(c, r) && !occupied.has(`${c},${r}`);
+  const order = [];
+  for (const p of preferred) if (MAP_ROOMS[p] && !order.includes(p)) order.push(p);
+  for (const k of Object.keys(MAP_ROOMS)) if (!order.includes(k)) order.push(k);
+
+  let best = null;
+  const consider = (cand) => {
+    if (!best || cand.score > best.score) best = cand;
+  };
+
+  order.forEach((anchorKey, anchorRank) => {
+    const anchor = MAP_ROOMS[anchorKey];
+    const anchorCells = anchor.spine.filter(([c, r]) => !anchor.bossSet.has(`${c},${r}`));
+    for (const [ac, ar] of anchorCells) {
+      for (const [dc, dr] of DIRS) {
+        const sc = ac + dc, sr = ar + dr;
+        if (!free(sc, sr)) continue;
+        // Grow the spine: keep heading `dir`, turning when blocked (seeded tie-breaks).
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const spine = [[sc, sr]];
+          const used = new Set([`${sc},${sr}`]);
+          let dir = [dc, dr];
+          let ok = true;
+          while (spine.length < spineLen) {
+            const [cc, cr] = spine[spine.length - 1];
+            const options = [];
+            const straight = [cc + dir[0], cr + dir[1]];
+            if (free(straight[0], straight[1]) && !used.has(`${straight[0]},${straight[1]}`)) options.push({ cell: straight, d: dir, w: attempt === 0 ? 3 : 1.6 });
+            for (const d of DIRS) {
+              if (d[0] === dir[0] && d[1] === dir[1]) continue;
+              if (d[0] === -dir[0] && d[1] === -dir[1]) continue;
+              const n = [cc + d[0], cr + d[1]];
+              if (free(n[0], n[1]) && !used.has(`${n[0]},${n[1]}`)) options.push({ cell: n, d, w: 1 });
+            }
+            if (!options.length) { ok = false; break; }
+            let total = 0;
+            for (const o of options) total += o.w;
+            let pick = rng() * total;
+            let chosen = options[options.length - 1];
+            for (const o of options) { pick -= o.w; if (pick <= 0) { chosen = o; break; } }
+            spine.push(chosen.cell);
+            used.add(`${chosen.cell[0]},${chosen.cell[1]}`);
+            dir = chosen.d;
+          }
+          if (!ok) continue;
+          // Side vaults: free cells touching the spine (never the entrance cell).
+          const extra = [];
+          const extraSet = new Set();
+          for (let i = 1; i < spine.length && extra.length < extras; i++) {
+            const [cc, cr] = spine[i];
+            const ns = DIRS.map(([x, y]) => [cc + x, cr + y]).filter(([x, y]) => free(x, y) && !used.has(`${x},${y}`) && !extraSet.has(`${x},${y}`));
+            if (!ns.length) continue;
+            const n = ns[Math.floor(rng() * ns.length)];
+            extra.push(n); extraSet.add(`${n[0]},${n[1]}`);
+          }
+          if (!extra.length) continue;       // the hidden vessel needs a vault cell
+          const last = spine[spine.length - 1];
+          const boss = [last];
+          const prev = spine[spine.length - 2];
+          const bossAdj = DIRS.map(([x, y]) => [last[0] + x, last[1] + y])
+            .filter(([x, y]) => free(x, y) && !used.has(`${x},${y}`) && !extraSet.has(`${x},${y}`) && !(x === prev[0] && y === prev[1]));
+          if (bossAdj.length) boss.push(bossAdj[0]);
+          const all = [...spine, ...extra, ...boss.slice(1)];
+          let minC = 99, maxC = -1, minR = 99, maxR = -1;
+          for (const [c, r] of all) { minC = Math.min(minC, c); maxC = Math.max(maxC, c); minR = Math.min(minR, r); maxR = Math.max(maxR, r); }
+          const area = (maxC - minC + 1) * (maxR - minR + 1);
+          const turns = spine.slice(2).filter((cell, i) => {
+            const a = spine[i], b = spine[i + 1];
+            return (b[0] - a[0]) !== (cell[0] - b[0]) || (b[1] - a[1]) !== (cell[1] - b[1]);
+          }).length;
+          const score = 100 - anchorRank * 12 - area * 0.9 - turns * 1.5 + extra.length * 4 + boss.length * 2 + rng() * 2;
+          consider({ score, anchorKey, anchorCell: [ac, ar], spine, extra: [...extra, ...boss.slice(1)], boss, bounds: { minC, maxC, minR, maxR } });
+        }
+      }
+    }
+  });
+  if (!best) return null;
+
+  const anchor = MAP_ROOMS[best.anchorKey];
+  let spineIdx = anchor.spine.findIndex(([c, r]) => c === best.anchorCell[0] && r === best.anchorCell[1]);
+  if (spineIdx < 0) spineIdx = Math.floor(anchor.spine.length / 2);
+  const fracA = Math.max(0.1, Math.min(0.82, (spineIdx + 0.5) / anchor.spine.length));
+  const b = best.bounds;
+  const room = {
+    spine: best.spine,
+    extra: best.extra,
+    boss: best.boss,
+    sanctuary: best.spine[1],
+    secret: best.extra[0],
+    labelPos: [(b.minC + b.maxC + 1) * 0.5, (b.minR + b.maxR + 1) * 0.5 - 0.1],
+    forged: true,
+  };
+  const door = {
+    id: `forge_${key}`,
+    a: best.anchorKey, cellA: best.anchorCell, fracA,
+    b: key, cellB: best.spine[0], fracB: 0.04,
+    gateRelic: null,
+  };
+  return { room, door, anchorKey: best.anchorKey };
 }
 
 export function roomRect(key) {
@@ -462,7 +611,7 @@ export function drawCastleMap(ctx, font, assets, {
   font.draw(ctx, 'CASTLE EXPLORATION MAP', W / 2, 16, { scale: 2, gothic: false, align: 'center', color: '#efe3bf', shadow: '#05040a' });
   font.draw(
     ctx,
-    `MAP ${pct}% · RELICS ${relicCount}/13 · VESSELS ${vesselCount}/13`,
+    `MAP ${pct}% · RELICS ${relicCount}/${STAGES.length} · VESSELS ${vesselCount}/${STAGES.length}`,
     W - 16,
     4,
     { align: 'right', color: '#ffd27a', shadow: '#05040a', gothic: false },
@@ -492,6 +641,7 @@ export function drawCastleMap(ctx, font, assets, {
   for (const [key, rm] of Object.entries(MAP_ROOMS)) {
     const sIdx = stageIndexOf(key);
     const st = STAGES[sIdx];
+    if (!st) continue;
     const theme = THEMES[st.theme] || THEMES.graveyard;
     const done = isCleared(key, cleared);
     const disc = isDiscovered(key, cleared, discovered) || key === currentStageKey;
@@ -614,6 +764,7 @@ export function drawCastleMap(ctx, font, assets, {
   // Pass 3: Selected region emblem/tag + compact wing names
   for (const [key, rm] of Object.entries(MAP_ROOMS)) {
     const st = STAGES[stageIndexOf(key)];
+    if (!st) continue;
     const sel = key === cursor;
     const disc = isDiscovered(key, cleared, discovered) || key === currentStageKey;
     if (!disc && !sel) continue;
@@ -699,11 +850,13 @@ export function drawCastleMap(ctx, font, assets, {
   ctx.fillStyle = theme.accent;
   ctx.fillRect(lx + 1, ly + 1, 3, lh - 2);
 
-  const iconL = assets.frame('map_icons', cursor);
-  if (iconL) assets.draw(ctx, 'map_icons', cursor, lx + 22, ly + 22 + iconL.h / 2);
+  const iconSpec = MAP_ROOMS[cursor].icon || { sheet: 'map_icons', frame: cursor };
+  const iconL = assets.frame(iconSpec.sheet, iconSpec.frame);
+  if (iconL) assets.draw(ctx, iconSpec.sheet, iconSpec.frame, lx + 22, ly + 22 + iconL.h / 2);
   const tx = lx + 42;
   const rx = lx + lw - 10;
-  font.draw(ctx, `AREA ${String(st.id).padStart(2, '0')} · ${MAP_ROOMS[cursor].where}`, tx, ly + 7, { color: theme.accent, shadow: '#05040a', gothic: false });
+  const areaTag = MAP_ROOMS[cursor].forged ? 'FORGED WING' : `AREA ${String(st.id).padStart(2, '0')}`;
+  font.draw(ctx, `${areaTag} · ${MAP_ROOMS[cursor].where}`, tx, ly + 7, { color: theme.accent, shadow: '#05040a', gothic: false });
   font.draw(ctx, st.name, tx, ly + 18, { scale: 2, gothic: false, color: '#efe3bf', shadow: '#05040a' });
 
   const relic = BOSS_RELICS[cursor];
@@ -750,7 +903,7 @@ export function drawCastleMap(ctx, font, assets, {
     ? `GATES · ${gateNotes.join('  |  ')}`
     : `PASSAGES · ${MAP_ROOMS[cursor].exits.map((n) => STAGES[stageIndexOf(n)].name.replace(/^THE /, '')).join(' · ')}`;
   font.draw(ctx, bottomLeft, tx, ly + 56, { color: '#8a9ab5', shadow: '#05040a', gothic: false });
-  font.draw(ctx, 'N MUTE', rx, ly + 56, { align: 'right', color: '#5b6b86', shadow: '#05040a', gothic: false });
+  font.draw(ctx, mode === 'select' ? 'P EXPAND THE CASTLE · N MUTE' : 'N MUTE', rx, ly + 56, { align: 'right', color: '#5b6b86', shadow: '#05040a', gothic: false });
 }
 
 /**

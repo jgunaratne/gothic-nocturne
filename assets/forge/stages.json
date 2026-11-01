@@ -1,0 +1,676 @@
+{
+ "version": 1,
+ "stages": [
+  {
+   "key": "abandoned_village",
+   "blueprint": {
+    "name": "THE ABANDONED VILLAGE",
+    "subtitle": "WHERE THE BELLS RING FOR NO ONE",
+    "where": "FORSAKEN HAMLET",
+    "description": "A plague-emptied hamlet of shuttered cottages, a dry well and a bell tower that still tolls at midnight.",
+    "base": "yule",
+    "connectsTo": [
+     "yule",
+     "graveyard"
+    ],
+    "palette": {
+     "accent": "#c9a86a",
+     "bg": "#0b0a12",
+     "hueShift": 12,
+     "saturate": 1.0
+    },
+    "weather": "snow",
+    "segments": [
+     {
+      "type": "flat",
+      "len": 12,
+      "candles": [
+       3,
+       9
+      ],
+      "enemies": [
+       [
+        "skeleton",
+        6,
+        {
+         "variant": "axe"
+        }
+       ],
+       [
+        "bat",
+        10,
+        {
+         "h": 5
+        }
+       ]
+      ]
+     },
+     {
+      "type": "stepUp",
+      "n": 2
+     },
+     {
+      "type": "vistaBridge",
+      "len": 10,
+      "candles": [
+       3,
+       7
+      ],
+      "enemies": [
+       [
+        "bat",
+        4,
+        {
+         "h": 5
+        }
+       ],
+       [
+        "skeleton",
+        7,
+        {
+         "variant": "axe"
+        }
+       ]
+      ]
+     },
+     {
+      "type": "crumbleRun",
+      "len": 5,
+      "safe": true
+     },
+     {
+      "type": "splitRoute",
+      "len": 14,
+      "reward": "meat",
+      "spawn": "zombie",
+      "enemies": [
+       [
+        "skeleton",
+        5
+       ],
+       [
+        "armor",
+        10
+       ]
+      ],
+      "upperEnemies": [
+       [
+        "bat",
+        8,
+        {
+         "h": 6
+        }
+       ]
+      ]
+     },
+     {
+      "type": "flat",
+      "len": 10,
+      "candles": [
+       [
+        4,
+        "dagger"
+       ],
+       8
+      ],
+      "enemies": [
+       [
+        "armor",
+        5
+       ],
+       [
+        "skeleton",
+        8,
+        {
+         "variant": "red"
+        }
+       ]
+      ],
+      "spawn": "ghost"
+     },
+     {
+      "type": "stepDown",
+      "n": 2
+     },
+     {
+      "type": "descent",
+      "h": 4,
+      "enemies": [
+       [
+        "bat",
+        3,
+        {
+         "h": 2
+        }
+       ]
+      ]
+     },
+     {
+      "type": "hiddenVault",
+      "reward": "heart_big",
+      "weapon": "holy_water",
+      "enemies": [
+       [
+        "skeleton",
+        5,
+        {
+         "variant": "red"
+        }
+       ],
+       [
+        "skeleton",
+        7,
+        {
+         "variant": "red"
+        }
+       ]
+      ]
+     },
+     {
+      "type": "swingRun",
+      "n": 3,
+      "period": 2.8,
+      "reward": "heart_small"
+     },
+     {
+      "type": "climb",
+      "n": 3,
+      "candles": true
+     },
+     {
+      "type": "blocks",
+      "h": 3,
+      "drops": [
+       "money",
+       "meat",
+       "money"
+      ]
+     },
+     {
+      "type": "gap",
+      "len": 4
+     },
+     {
+      "type": "flat",
+      "len": 10,
+      "candles": [
+       2,
+       8
+      ],
+      "enemies": [
+       [
+        "armor",
+        4
+       ],
+       [
+        "bat",
+        6,
+        {
+         "h": 4
+        }
+       ],
+       [
+        "skeleton",
+        8,
+        {
+         "variant": "axe"
+        }
+       ]
+      ]
+     }
+    ],
+    "boss": {
+     "type": "bonecaptain",
+     "name": "THE HOLLOW BELLRINGER",
+     "line": "NO ONE LEAVES THE VILLAGE ALIVE, HUNTER... THE BELLS TOLL FOR YOU!",
+     "voice": {
+      "female": false,
+      "direction": "Deep, resonant, and metallic, accompanied by the distorted tolling of a heavy bronze bell."
+     },
+     "art": "A gargantuan, decaying cadaver draped in tattered funeral robes, wielding a massive rusted iron bell as a mace."
+    },
+    "relic": {
+     "name": "BELL OF THE LOST",
+     "effect": "vitality",
+     "color": "#c9a86a"
+    },
+    "art": {
+     "palette": "RUSTED IRON, DULL COPPER, SNOW WHITE, ASH GREY",
+     "floorSurface": "CRACKED COBBLESTONES",
+     "floorBelow": "FROZEN MUD AND ANCIENT BONES",
+     "wall": "ROTTING TIMBER AND STONE MASONRY",
+     "backdrop": "SILHOUETTES OF CROOKED COTTAGES AGAINST A FRIGID MOONLIT SKY",
+     "props": [
+      {
+       "name": "WELL",
+       "desc": "A DRY STONE WELL WITH A BROKEN WINDLASS"
+      },
+      {
+       "name": "CART",
+       "desc": "AN OVERTURNED WOODEN CART FILLED WITH WITHERED GRAIN"
+      },
+      {
+       "name": "GALLOWS",
+       "desc": "A RICKETY GALLOWS STANDING SILENT IN THE WIND"
+      },
+      {
+       "name": "SHRINE",
+       "desc": "A SHRINE TO A FORGOTTEN SAINT, CRACKED AND OVERGROWN"
+      }
+     ],
+     "icon": "A CRACKED BRONZE BELL"
+    },
+    "music": "SLOW, DOOM-LADEN TEMPO IN D MINOR, FEATURING LOW-REGISTER CELLO, PLUCKED HARPSICHORD, AND DISTANT, REVERBERATING BELL TOLLS.",
+    "ambience": "HOWLING WIND WHISTLING THROUGH EMPTY WINDOWS, MIXED WITH THE DISTANT, MELANCHOLY CLANG OF A HEAVY IRON BELL.",
+    "source": "gemini",
+    "seed": 3646794466,
+    "outdoor": true,
+    "key": "abandoned_village"
+   },
+   "assets": {
+    "floor": {
+     "type": "strip",
+     "file": "forge/abandoned_village/floor.png",
+     "w": 512,
+     "h": 134,
+     "overhang": 6,
+     "tile": 32
+    },
+    "backdrop": {
+     "type": "texture",
+     "file": "forge/abandoned_village/backdrop.png",
+     "w": 1280,
+     "h": 360
+    },
+    "props": {
+     "type": "sheet",
+     "file": "forge/abandoned_village/props.png",
+     "w": 562,
+     "h": 114,
+     "frames": {
+      "well": {
+       "x": 1,
+       "y": 1,
+       "w": 71,
+       "h": 80,
+       "ax": 35.5,
+       "ay": 80
+      },
+      "cart": {
+       "x": 73,
+       "y": 1,
+       "w": 96,
+       "h": 64,
+       "ax": 48.0,
+       "ay": 64
+      },
+      "gallows": {
+       "x": 170,
+       "y": 1,
+       "w": 82,
+       "h": 112,
+       "ax": 41.0,
+       "ay": 112
+      },
+      "shrine": {
+       "x": 253,
+       "y": 1,
+       "w": 50,
+       "h": 88,
+       "ax": 25.0,
+       "ay": 88
+      }
+     }
+    },
+    "icon": {
+     "type": "sheet",
+     "file": "forge/abandoned_village/icon.png",
+     "w": 23,
+     "h": 28,
+     "frames": {
+      "icon": {
+       "x": 1,
+       "y": 1,
+       "w": 21,
+       "h": 26,
+       "ax": 10.5,
+       "ay": 26
+      }
+     }
+    }
+   },
+   "music": "forge/abandoned_village/music.mp3",
+   "voice": "forge/abandoned_village/voice.mp3",
+   "ambient": "forge/abandoned_village/ambient.mp3",
+   "createdAt": 1793554264779,
+   "source": "gemini",
+   "proposal": {
+    "name": "Abandoned Village",
+    "description": "A plague-emptied hamlet of shuttered cottages, a dry well and a bell tower that still tolls at midnight"
+   }
+  },
+  {
+   "key": "sunken_cistern",
+   "blueprint": {
+    "name": "THE SUNKEN CISTERN",
+    "subtitle": "WHERE DROWNED THINGS WAIT IN BLACK WATER",
+    "where": "SUNKEN CISTERN",
+    "description": "FLOODED BRICK VAULTS BENEATH THE KEEP WHERE DROWNED THINGS WAIT IN BLACK WATER.",
+    "base": "catacombs",
+    "connectsTo": [
+     "catacombs",
+     "ossuary",
+     "throne"
+    ],
+    "palette": {
+     "accent": "#4a9c9f",
+     "bg": "#0a0f12",
+     "hueShift": 180,
+     "saturate": 0.8
+    },
+    "weather": "none",
+    "segments": [
+     {
+      "type": "flat",
+      "len": 12,
+      "candles": [
+       3,
+       9
+      ],
+      "enemies": [
+       [
+        "skeleton",
+        4,
+        {
+         "variant": "axe"
+        }
+       ],
+       [
+        "ghost",
+        10,
+        {
+         "h": 4
+        }
+       ]
+      ]
+     },
+     {
+      "type": "stepDown",
+      "n": 2
+     },
+     {
+      "type": "corridor",
+      "len": 10,
+      "ceil": 3,
+      "candles": [
+       [
+        2,
+        "meat"
+       ],
+       8
+      ],
+      "enemies": [
+       [
+        "armor",
+        5
+       ]
+      ]
+     },
+     {
+      "type": "ferryGap",
+      "len": 8,
+      "rise": 0,
+      "candle": "holy_water",
+      "safeFloor": false
+     },
+     {
+      "type": "splitRoute",
+      "len": 14,
+      "reward": "heart_big",
+      "spawn": "ghost",
+      "enemies": [
+       [
+        "skeleton",
+        4
+       ],
+       [
+        "armor",
+        10
+       ]
+      ],
+      "upperEnemies": [
+       [
+        "ghost",
+        7,
+        {
+         "h": 6
+        }
+       ]
+      ]
+     },
+     {
+      "type": "crumbleRun",
+      "len": 4,
+      "safe": false,
+      "belowBlock": "money"
+     },
+     {
+      "type": "descent",
+      "h": 5,
+      "enemies": [
+       [
+        "ghost",
+        2,
+        {
+         "h": 3
+        }
+       ]
+      ]
+     },
+     {
+      "type": "flat",
+      "len": 10,
+      "candles": [
+       2,
+       8
+      ],
+      "enemies": [
+       [
+        "skeleton",
+        4
+       ],
+       [
+        "armor",
+        7
+       ]
+      ]
+     },
+     {
+      "type": "liftShaft",
+      "h": 4,
+      "spawn": "bat",
+      "reward": "dagger"
+     },
+     {
+      "type": "swingRun",
+      "n": 3,
+      "period": 2.5,
+      "reward": "heart_small"
+     },
+     {
+      "type": "climb",
+      "n": 4,
+      "candles": true
+     },
+     {
+      "type": "hiddenVault",
+      "reward": "meat",
+      "weapon": "holy_water",
+      "enemies": [
+       [
+        "armor",
+        6
+       ]
+      ]
+     },
+     {
+      "type": "gap",
+      "len": 6,
+      "safe": false
+     },
+     {
+      "type": "flat",
+      "len": 12,
+      "candles": [
+       4,
+       8
+      ],
+      "spawn": "wraith",
+      "enemies": [
+       [
+        "skeleton",
+        3
+       ],
+       [
+        "skeleton",
+        7
+       ],
+       [
+        "armor",
+        10
+       ]
+      ]
+     }
+    ],
+    "boss": {
+     "type": "bonecaptain",
+     "name": "THE DROWNED ADMIRAL",
+     "line": "MY BRIG IS FULL, HUNTER... BUT THERE IS ALWAYS ROOM FOR ONE MORE SOUL IN THE DEPTHS!",
+     "voice": {
+      "female": false,
+      "direction": "Gurgling, wet, heavy bass voice that sounds like it is straining against immense water pressure."
+     },
+     "art": "A massive, barnacle-encrusted suit of rusted armor held together by spectral kelp, dripping with perpetual dark brine."
+    },
+    "relic": {
+     "name": "TIDE-BORN AMULET",
+     "effect": "stride",
+     "color": "#4a9c9f"
+    },
+    "art": {
+     "palette": "deep teal, ink blue, rusted copper, bone white",
+     "floorSurface": "slick moss-covered flagstones",
+     "floorBelow": "submerged brick arches over oily black water",
+     "wall": "damp, salt-crusted brickwork with weeping alcoves",
+     "backdrop": "n/a",
+     "props": [
+      {
+       "name": "broken-pipe",
+       "desc": "an iron pipe spraying stagnant water"
+      },
+      {
+       "name": "chain-hook",
+       "desc": "a rusted anchor chain dangling from the ceiling"
+      },
+      {
+       "name": "float",
+       "desc": "rotting wooden crates bobbing in the tide"
+      },
+      {
+       "name": "shrine",
+       "desc": "a small alcove containing a votive candle extinguished by water"
+      }
+     ],
+     "icon": "a rusted iron anchor entwined with a skeletal finger"
+    },
+    "music": "110BPM, D-Minor, heavy reverberated pipe organ mixed with rhythmic splashing percussion and low-frequency cello drones, ominous and suffocating.",
+    "ambience": "distant slow dripping water, low-frequency pressure hum, wet dragging sounds, and periodic splashing from unseen things.",
+    "source": "gemini",
+    "seed": 1204441301,
+    "outdoor": false,
+    "key": "sunken_cistern"
+   },
+   "assets": {
+    "floor": {
+     "type": "strip",
+     "file": "forge/sunken_cistern/floor.png",
+     "w": 512,
+     "h": 132,
+     "overhang": 4,
+     "tile": 32
+    },
+    "wall": {
+     "type": "texture",
+     "file": "forge/sunken_cistern/wall.png",
+     "w": 256,
+     "h": 256
+    },
+    "props": {
+     "type": "sheet",
+     "file": "forge/sunken_cistern/props.png",
+     "w": 360,
+     "h": 99,
+     "frames": {
+      "broken_pipe": {
+       "x": 1,
+       "y": 1,
+       "w": 120,
+       "h": 80,
+       "ax": 60.0,
+       "ay": 80
+      },
+      "chain_hook": {
+       "x": 122,
+       "y": 1,
+       "w": 40,
+       "h": 97,
+       "ax": 20.0,
+       "ay": 97
+      },
+      "float": {
+       "x": 163,
+       "y": 1,
+       "w": 145,
+       "h": 48,
+       "ax": 72.5,
+       "ay": 48
+      },
+      "shrine": {
+       "x": 309,
+       "y": 1,
+       "w": 50,
+       "h": 74,
+       "ax": 25.0,
+       "ay": 74
+      }
+     }
+    },
+    "icon": {
+     "type": "sheet",
+     "file": "forge/sunken_cistern/icon.png",
+     "w": 22,
+     "h": 28,
+     "frames": {
+      "icon": {
+       "x": 1,
+       "y": 1,
+       "w": 20,
+       "h": 26,
+       "ax": 10.0,
+       "ay": 26
+      }
+     }
+    }
+   },
+   "music": "forge/sunken_cistern/music.mp3",
+   "voice": "forge/sunken_cistern/voice.mp3",
+   "ambient": "forge/sunken_cistern/ambient.mp3",
+   "createdAt": 1793554459269,
+   "source": "gemini",
+   "proposal": {
+    "name": "SUNKEN CISTERN",
+    "description": "FLOODED BRICK VAULTS BENEATH THE KEEP WHERE DROWNED THINGS WAIT IN BLACK WATER"
+   }
+  }
+ ]
+}

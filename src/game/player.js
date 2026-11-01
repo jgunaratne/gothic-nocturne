@@ -110,7 +110,7 @@ export class Player extends Entity {
 
     // Horizontal movement: full control on the ground, limited in the air;
     // whipping on the ground roots the hunter in place (classic commitment).
-    const moveSpeed = PLAYER.speed * (hasRelic('ramparts') ? 1.15 : 1);
+    const moveSpeed = PLAYER.speed * (hasRelic('ramparts') ? 1.15 : 1) * (1 + (world && world.relicBonus ? world.relicBonus('speed') : 0));
     const rooted = this.attacking && this.onGround;
     const target = rooted || this.crouching ? 0 : axis * moveSpeed;
     const accel = this.onGround ? PLAYER.accel : PLAYER.airAccel;
@@ -252,7 +252,7 @@ export class Player extends Entity {
     if (world.onPlayerHurt) world.onPlayerHurt(amount);
     if (this.hp <= 0) { this.hp = 0; this.die(world); return true; }
     const d = world.difficulty;
-    this.invuln = PLAYER.invuln * (d.invulnMul || 1) * (hasRelic('yule') ? 1.45 : 1);
+    this.invuln = PLAYER.invuln * (d.invulnMul || 1) * (hasRelic('yule') ? 1.45 : 1) * (1 + (world.relicBonus ? world.relicBonus('invuln') : 0));
     this.hurtT = PLAYER.hurtTime;
     this.attackT = -1;
     this.crouching = false; this.h = PLAYER.height;

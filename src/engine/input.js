@@ -12,9 +12,10 @@ const KEYMAP = {
   KeyM: 'map', Tab: 'map',
   KeyN: 'mute', KeyU: 'mute',
   KeyF: 'fx',
+  KeyP: 'forge',
 };
 
-const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'start', 'map', 'mute', 'fx'];
+const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'start', 'map', 'mute', 'fx', 'forge'];
 
 export class Input {
   constructor(target) {
@@ -26,6 +27,10 @@ export class Input {
     this.script = null;
     this.onFirstInteraction = null;
     this._interacted = false;
+    // Text-entry capture (Castle Forge proposal screen): while `typing`, raw
+    // keydown events go to `onTypeKey(e)` instead of the action map.
+    this.typing = false;
+    this.onTypeKey = null;
 
     const noteInteraction = () => {
       if (this._interacted) return;
@@ -33,13 +38,18 @@ export class Input {
       if (this.onFirstInteraction) this.onFirstInteraction();
     };
     window.addEventListener('keydown', (e) => {
+      noteInteraction();
+      if (this.typing && this.onTypeKey) {
+        this.onTypeKey(e);
+        if (e.code !== 'F5' && e.code !== 'F12' && !(e.ctrlKey || e.metaKey)) e.preventDefault();
+        return;
+      }
       if (e.code === 'Escape') this.keyState._escape = true;
       const a = KEYMAP[e.code];
       if (a) {
         this.keyState[a] = true;
         e.preventDefault();
       }
-      noteInteraction();
     });
     window.addEventListener('keyup', (e) => {
       if (e.code === 'Escape') this.keyState._escape = false;
@@ -76,6 +86,13 @@ export class Input {
 
   /** Attach a scripted driver: function(timeSeconds) -> {action: bool}. */
   setScript(fn) { this.script = fn; this.scriptTime = 0; }
+
+  /** Routes raw keystrokes to `handler(e)` (text fields); `null` restores game controls. */
+  setTyping(handler) {
+    this.typing = !!handler;
+    this.onTypeKey = handler || null;
+    this.keyState = {};   // never carry a held key across the mode switch
+  }
 
   update(dt) {
     this.pollGamepad();

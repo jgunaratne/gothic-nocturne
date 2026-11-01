@@ -15,6 +15,8 @@ import {
   drawCastleMap, moveCursor, nextRoomAfter, stageIndexOf, isDiscovered, MAP_ROOMS,
 } from './game/castlemap.js';
 import { BOSS_RELICS, resolveActiveRelics } from './game/relics.js';
+import { Forge } from './game/forge.js';
+import { ForgeScreens } from './game/forge_ui.js';
 
 class Game {
   constructor(canvas) {
@@ -27,7 +29,11 @@ class Game {
     this.input = new Input(canvas);
     this.postfx = new PostFX(canvas);
     if (new URLSearchParams(location.search).has('nofx')) { this.postfx.setEnabled(false); const fl = getFxLayers(); if (fl) fl.setEnabled(false); }
-    this.state = 'loading';          // loading | title | difficulty | stageselect | play | map | pause | clear | ending | gameover
+    this.state = 'loading';          // loading | title | difficulty | stageselect | forge | forging | play | map | pause | clear | ending | gameover
+    this.forge = new Forge(this);     // Castle Forge: player-proposed wings
+    this.forgeUI = new ForgeScreens(this);
+    this.titleMenu = 0;               // 0 = begin the hunt, 1 = expand the castle
+    this.wingBanner = null;           // { name, t } after a wing is raised in the background
     this.stateT = 0;
     this.world = null;
     this.titleWorld = null;
@@ -81,6 +87,15 @@ class Game {
 
   async boot() {
     await Promise.all([this.assets.load(), this.font.load(ASSET_VERSION)]);
+    // Wings raised by the Castle Forge (this server's registry + local ones) join the castle before anything is drawn.
+    try { await this.forge.loadRegistry(); } catch (e) { console.warn('Castle Forge registry unavailable', e); }
+    {
+      // Re-resolve the requested / remembered stage now that forged wings are part of STAGES.
+      const urlStage = parseInt(this.params.get('stage') || '0', 10);
+      const stored = parseInt(safeStorageGet('gothic.stage') || '0', 10) || 0;
+      const want = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1 : Math.min(STAGES.length - 1, stored);
+      if (want !== this.stageIndex) { this.stageIndex = want; this.stageCursor = want; this.mapCursor = STAGES[want].key; }
+    }
     const bootEl = document.getElementById('boot');
     if (bootEl) bootEl.remove();
     this.titleWorld = new World(this, STAGES[0]);
@@ -98,6 +113,8 @@ class Game {
       if (this.params.has('ending')) this.stateT = Math.max(0, parseFloat(this.params.get('ending')) || 0);
     } else if (screen === 'difficulty' || screen === 'stageselect') {
       this.setState(screen);
+    } else if (screen === 'forge') {
+      this.openForge('title');
     } else if (screen === 'play') {
       this.startGame();
     } else if (screen === 'map') {
@@ -111,6 +128,16 @@ class Game {
       this.stateT = 3.0;
     }
     if (this.params.has('demo')) this.startDemo();
+    // Testing aid: ?forge=<name>[&forgedesc=<text>] proposes a wing immediately (local=1 forces the offline forge).
+    if (this.params.has('forge')) {
+      if (this.params.get('local') === '1') this.forge.online = false;
+      this.forgeUI.openProposal('title');
+      this.forgeUI.name = String(this.params.get('forge') || 'Abandoned Village').toUpperCase().slice(0, 28);
+      this.forgeUI.desc = String(this.params.get('forgedesc') || '').toUpperCase().slice(0, 110);
+      this.setState('forge');
+      this.forgeUI.refreshPreview();
+      this.forgeUI.submit();
+    }
     // Testing aids: ?skip=N pre-simulates N fixed steps before the first draw.
     const skip = parseInt(this.params.get('skip') || '0', 10);
     for (let i = 0; i < skip; i++) { this.input.update(DT); this.update(DT); }
@@ -229,12 +256,13 @@ class Game {
     }
     this.setState('play');
     this.audio.playMusic(this.world.theme.music);
+    this.audio.playAmbient(this.world.theme.ambient || null);
     this.audio.sfx('select');
   }
 
   // Hooks from World
   onRespawn() { this.audio.playMusic(this.world.theme.music); }
-  onGameOver() { this.setState('gameover'); this.audio.playMusic('gameover', false); }
+  onGameOver() { this.setState('gameover'); this.audio.playMusic('gameover', false); this.audio.stopAmbient(); }
   onStageClear() {
     this.cleared |= 1 << this.stageIndex;
     safeStorageSet('gothic.cleared.v3', String(this.cleared));
@@ -251,6 +279,7 @@ class Game {
     this.mapCursor = nextRoomAfter(key, this.cleared) || key;
     this.setState('stageselect');
     this.audio.playMusic('title');
+    this.audio.stopAmbient();
   }
 
   banner(lines, y, opts) { drawBanner(this.ctx, this.font, lines, y, opts); }
@@ -296,7 +325,7 @@ class Game {
     } else if ((this.state === 'title' || this.state === 'difficulty' || this.state === 'stageselect') && this.titleWorld && this.titleWorld.flash > 0.02) {
       this.postfx.strike(this.titleWorld.flash);
     }
-    this.postfx.draw(dt, fxWorld ? fxWorld.data.theme : 'menu');
+    this.postfx.draw(dt, fxWorld ? (fxWorld.fxTheme || fxWorld.data.theme) : 'menu');
     requestAnimationFrame((t) => this.frame(t));
   }
 
@@ -311,7 +340,19 @@ class Game {
       case 'title':
         this.updateTitleBackdrop(dt);
         this.audio.playMusic('title');
-        if (inp.pressed.start || inp.pressed.jump || inp.pressed.attack) { this.setState('difficulty'); this.audio.sfx('select'); }
+        this.audio.stopAmbient();
+        if (inp.pressed.up || inp.pressed.down) { this.titleMenu = this.titleMenu ? 0 : 1; this.audio.sfx('bone'); }
+        if (inp.pressed.forge) { this.openForge('title'); break; }
+        if (inp.pressed.start || inp.pressed.jump || inp.pressed.attack) {
+          if (this.titleMenu === 1) this.openForge('title');
+          else { this.setState('difficulty'); this.audio.sfx('select'); }
+        }
+        break;
+      case 'forge':
+        this.forgeUI.updateProposal(dt, inp);
+        break;
+      case 'forging':
+        this.forgeUI.updateForging(dt, inp);
         break;
       case 'difficulty': {
         this.updateTitleBackdrop(dt);
@@ -327,6 +368,7 @@ class Game {
       }
       case 'stageselect': {
         this.updateTitleBackdrop(dt);
+        if (inp.pressed.forge) { this.openForge('stageselect'); break; }
         let c = this.mapCursor;
         if (inp.pressed.left) c = moveCursor(c, -1, 0);
         else if (inp.pressed.right) c = moveCursor(c, 1, 0);
@@ -408,7 +450,9 @@ class Game {
     switch (this.state) {
       case 'title': this.drawTitle(ctx); break;
       case 'difficulty': this.drawDifficulty(ctx); break;
-      case 'stageselect': this.drawStageSelect(ctx); break;
+      case 'stageselect': this.drawStageSelect(ctx); this.forgeUI.drawTicker(ctx, 230, 572, 'right'); break;
+      case 'forge': this.forgeUI.drawProposal(ctx); break;
+      case 'forging': this.forgeUI.drawForging(ctx); break;
       case 'map': this.drawLiveMap(ctx); break;
       case 'play': case 'pause':
         this.world.draw(ctx);
@@ -433,6 +477,50 @@ class Game {
       default: break;
     }
     if (this.muteT > 0) this.font.draw(ctx, this.muteFlash, W - 10, H - 14, { align: 'right', color: '#8a9ab5', shadow: '#120f1c' });
+    this.drawWingBanner(ctx);
+  }
+
+  /** Opens the Castle Forge proposal screen; `returnState` is where Esc leads back. */
+  openForge(returnState = 'title') {
+    if (this.forge.activeJob && this.forge.activeJob.status !== 'error') {
+      // A forge is running or just finished: show its progress / reveal instead of a new form.
+      this.forgeUI.returnState = returnState;
+      this.forgeUI.t = 0;
+      if (this.forge.activeJob.status !== 'done') this.forgeUI.revealT = -1;
+      this.setState('forging');
+      this.audio.sfx('select');
+      return;
+    }
+    this.forge.dismissJob();
+    this.forgeUI.openProposal(returnState);
+    this.setState('forge');
+    this.audio.sfx('select');
+  }
+
+  /** Called by the Forge when a wing finishes rising (possibly while playing). */
+  onWingRaised(stage) {
+    const idx = STAGES.indexOf(stage);
+    if (idx >= 0) this.discoverStage(idx);   // the player built it: it is charted at once
+    if (this.state !== 'forging') this.wingBanner = { name: stage.name, t: 0 };
+    if (this.state === 'stageselect') this.mapCursor = stage.key;
+  }
+
+  drawWingBanner(ctx) {
+    const b = this.wingBanner;
+    if (!b) return;
+    b.t += DT;
+    if (b.t > 6) { this.wingBanner = null; return; }
+    const k = Math.min(1, b.t / 0.4, (6 - b.t) / 0.6);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, k);
+    const y = this.state === 'play' || this.state === 'pause' ? 40 : 300;
+    ctx.fillStyle = 'rgba(5, 4, 12, 0.9)';
+    ctx.fillRect(W / 2 - 200, y, 400, 30);
+    ctx.fillStyle = '#ffd27a';
+    ctx.fillRect(W / 2 - 200, y, 400, 1); ctx.fillRect(W / 2 - 200, y + 29, 400, 1);
+    this.font.draw(ctx, 'THE CASTLE HAS GROWN', W / 2, y + 5, { align: 'center', color: '#ffd27a', shadow: '#05040a', gothic: false });
+    this.font.draw(ctx, `${b.name} NOW RISES ON THE MAP (M)`, W / 2, y + 16, { align: 'center', color: '#f6f0de', shadow: '#05040a', gothic: false });
+    ctx.restore();
   }
 
   drawTitle(ctx) {
@@ -490,18 +578,29 @@ class Game {
       ctx.fillStyle = '#8a6a3a'; ctx.fillRect(W / 2 - 150, 226, 300, 1);
       ctx.fillStyle = '#d9b36a'; ctx.fillRect(W / 2 - 2, 224, 4, 4); ctx.fillRect(W / 2 - 150, 225, 3, 3); ctx.fillRect(W / 2 + 147, 225, 3, 3);
       f.draw(ctx, 'A 32-BIT WHIP-CRACKING ACTION PLATFORMER', W / 2, 234, { align: 'center', color: '#a89a74', shadow: '#120f1c' });
-      if (pulse > 0.25) f.draw(ctx, 'PRESS ENTER OR START', W / 2, 256, { scale: 2, align: 'center', color: '#ffd27a', shadow: '#5b2a3a' });
+      // Title menu: begin the hunt, or propose a new wing for the Castle Forge to raise
+      const items = [
+        ['BEGIN THE HUNT', 'PRESS ENTER OR START'],
+        ['EXPAND THE CASTLE', `PROPOSE A NEW WING · ${this.forge.forgedCount ? `${this.forge.forgedCount} RAISED SO FAR` : 'AI-FORGED LEVEL, ART, MUSIC AND BOSS'}`],
+      ];
+      items.forEach(([label, sub], i) => {
+        const sel = this.titleMenu === i;
+        const y = 246 + i * 18;
+        const col = sel ? (pulse > 0.25 ? '#ffd27a' : '#e0b45a') : '#6f6a80';
+        f.draw(ctx, `${sel ? '→ ' : '  '}${label}${sel ? ' ←' : '  '}`, W / 2, y, { scale: 2, align: 'center', color: col, shadow: '#5b2a3a', gothic: false });
+        if (sel) f.draw(ctx, sub, W / 2, 284, { align: 'center', color: '#a89a74', shadow: '#120f1c', gothic: false });
+      });
       // Controls plate
       ctx.fillStyle = 'rgba(4, 3, 10, 0.55)';
-      ctx.fillRect(W / 2 - 236, 284, 472, 44);
-      ctx.fillStyle = '#3a2e22'; ctx.fillRect(W / 2 - 236, 284, 472, 1); ctx.fillRect(W / 2 - 236, 327, 472, 1);
+      ctx.fillRect(W / 2 - 236, 298, 472, 34);
+      ctx.fillStyle = '#3a2e22'; ctx.fillRect(W / 2 - 236, 298, 472, 1); ctx.fillRect(W / 2 - 236, 331, 472, 1);
       const lines = [
-        '←→ MOVE    ↓ CROUCH    Z/J/SPACE JUMP    X/K WHIP',
-        '↑ ENTER PASSAGEWAYS  ·  ↑ + WHIP THROWS SUB-WEAPON',
-        'ENTER PAUSE    M MAP    N MUTE    F SHADERS',
+        '←→ MOVE   ↓ CROUCH   Z/J/SPACE JUMP   X/K WHIP   ↑ PASSAGES / + WHIP THROWS',
+        'ENTER PAUSE   M MAP   P EXPAND THE CASTLE   N MUTE   F SHADERS',
       ];
-      lines.forEach((l, i) => f.draw(ctx, l, W / 2, 290 + i * 12, { align: 'center', color: i === 1 ? '#ffb0a0' : '#c9c3b0', shadow: '#120f1c' }));
-      f.draw(ctx, 'ART · GEMINI     MUSIC · LYRIA 3     VOICE · DAIKON     2026', W / 2, H - 16, { align: 'center', color: '#5b6b86' });
+      lines.forEach((l, i) => f.draw(ctx, l, W / 2, 304 + i * 12, { align: 'center', color: i === 1 ? '#ffb0a0' : '#c9c3b0', shadow: '#120f1c' }));
+      f.draw(ctx, 'ART · GEMINI     MUSIC · LYRIA 3     VOICE · DAIKON     FORGE · GEMINI + GEMPIX     2026', W / 2, H - 16, { align: 'center', color: '#5b6b86' });
+      this.forgeUI.drawTicker(ctx, 4);
     }
   }
 
@@ -637,6 +736,7 @@ class Game {
     this.setState('ending');
     this.endingNarrated = false;
     this.audio.playMusic('ending', false);
+    this.audio.stopAmbient();
     if (this.audio.prefetchVoice) this.audio.prefetchVoice('narrator_ending');
   }
 

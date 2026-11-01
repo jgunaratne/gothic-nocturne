@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Serves the game over HTTP (ES modules need it). Reachable on this machine as
-#   http://$(hostname -f):8711/  (or http://localhost:8711/)
+# Serves the game plus the Castle Forge API (player-proposed wings) over HTTP.
+# Reachable on this machine as http://$(hostname -f):8712/ (or http://localhost:8712/).
+# Uses the asset-pipeline venv when present so generated pixel art can be processed.
 set -euo pipefail
 cd "$(dirname "$0")"
-PORT="${PORT:-8711}"
-echo "Gothic Nocturne  →  http://$(hostname -f):${PORT}/   (Ctrl-C to stop)"
-exec python3 -m http.server "${PORT}" --bind 0.0.0.0
+PORT="${PORT:-8712}"
+PY="python3"
+[ -x .venv/bin/python ] && PY=".venv/bin/python"
+exec "$PY" tools/forge_server.py --port "${PORT}" --host "${HOST:-0.0.0.0}"

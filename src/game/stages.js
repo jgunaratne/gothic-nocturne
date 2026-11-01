@@ -465,3 +465,15 @@ export const STAGES = [
 
 /** Stage lookup by map key. */
 export const STAGE_BY_KEY = Object.fromEntries(STAGES.map((s) => [s.key, s]));
+
+/** Number of hand-made stages; everything after these was raised by the Castle Forge. */
+export const BUILTIN_STAGE_COUNT = STAGES.length;
+
+/** Appends a forged stage (ids stay `index + 1`, which exploration relies on). */
+export function registerStage(stage) {
+  if (STAGE_BY_KEY[stage.key]) return STAGE_BY_KEY[stage.key];
+  stage.id = STAGES.length + 1;
+  STAGES.push(stage);
+  STAGE_BY_KEY[stage.key] = stage;
+  return stage;
+}

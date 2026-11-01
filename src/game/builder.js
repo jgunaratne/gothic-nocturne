@@ -25,6 +25,13 @@ export const THEMES = {
 const px = (tx) => tx * TILE + TILE / 2;
 const py = (row) => row * TILE;
 
+/** Registers a Castle Forge theme (inherits unspecified fields from its `base`). */
+export function registerTheme(key, theme) {
+  const base = THEMES[theme.base] || THEMES.graveyard;
+  THEMES[key] = Object.assign({}, base, theme, { key });
+  return THEMES[key];
+}
+
 /** Small deterministic PRNG so stage decoration is stable between runs. */
 function mulberry32(a) {
   return () => {
@@ -70,6 +77,7 @@ export class StageBuilder {
   /** Theme-appropriate background decoration sprinkled on a ground run. */
   autoDecor(x0, x1, row, density = 1) {
     const kind = this.theme.decor;
+    const fp = this.theme.props;   // forged wings: { sheet, frames: [...] } generated props
     for (let tx = x0; tx <= x1; tx++) {
       const r = this.rng() / density;
       // Hanging 2.5D set pieces with real swing/foreshortening.
@@ -77,6 +85,15 @@ export class StageBuilder {
         if (kind === 'clockwork') this.decor.push({ type: 'pendulum', x: px(tx), y: py(row) - 250, len: 150 + Math.round(this.rng() * 40), r: 20 + Math.round(this.rng() * 8), period: 2.4 + this.rng() * 0.8, phase: this.rng() * 6 });
         else if (kind === 'castle' || kind === 'arcade' || kind === 'library' || kind === 'cathedral') this.decor.push({ type: 'chandelier', x: px(tx), y: py(row) - 290, len: 80 + Math.round(this.rng() * 36), r: 26 + Math.round(this.rng() * 10), phase: this.rng() * 6 });
         else if (kind === 'crypt' || kind === 'cavern') this.decor.push({ type: 'cage', x: px(tx), y: py(row) - 226, len: 60 + Math.round(this.rng() * 36), phase: this.rng() * 6 });
+      }
+      if (fp && fp.frames && fp.frames.length) {
+        // Generated props carry the wing's identity; torches/shrubs fill the gaps.
+        const n = fp.frames.length;
+        const slot = 0.06;
+        if (r < slot * n) this.deco(fp.sheet, fp.frames[Math.min(n - 1, Math.floor(r / slot))], tx, row);
+        else if (r < slot * n + 0.05) this.deco('props', this.theme.outdoor ? 'shrub' : 'torch', tx, row, 0, this.theme.outdoor ? 0 : -46);
+        else if (!this.theme.outdoor && r < slot * n + 0.08) this.deco('arch', 'chain', tx, row, 0, -96);
+        continue;
       }
       if (kind === 'graveyard') {
         if (r < 0.16) this.deco('props', 'tombstone', tx, row);
@@ -195,8 +212,10 @@ export class StageBuilder {
     if (o.spawn) this.spawners.push({ type: o.spawn, x0, x1, variant: o.spawnVariant || 'normal' });
     // Sparse bridge-post lanterns/torches every 6 tiles to frame the vista without clutter.
     const kind = this.theme.decor;
+    const fp = this.theme.props;
     for (let tx = x0 + 2; tx <= x1 - 2; tx += 6) {
-      if (kind === 'yule') this.deco('xmasprops', 'lamppost', tx, row);
+      if (fp && fp.frames && fp.frames.length) this.deco(fp.sheet, fp.frames[(tx >> 1) % fp.frames.length], tx, row);
+      else if (kind === 'yule') this.deco('xmasprops', 'lamppost', tx, row);
       else if (kind === 'darkwood') this.deco('darkwood_props', 'moss_lantern', tx, row);
       else if (kind === 'forest') this.deco('pumpkinprops', 'jack_small', tx, row);
       else this.deco('props', 'torch', tx, row, 0, -44);
@@ -370,7 +389,13 @@ export class StageBuilder {
     this.candle(x0 + 2, row, o.drop || 'heart_big');
     this.candle(x0 + 5, row, 'heart_big');
     const kind = this.theme.decor;
-    if (kind === 'cathedral') {
+    const fp = this.theme.props;
+    if (fp && fp.frames && fp.frames.length) {
+      const f = fp.frames;
+      this.deco(fp.sheet, f[0], x0 + 1, row);
+      this.deco(fp.sheet, f[Math.min(1, f.length - 1)], x0 + 5, row);
+      this.deco('props', 'torch', x0 + 3, row, 0, -46);
+    } else if (kind === 'cathedral') {
       this.deco('cathedral_props', 'angel', x0 + 1, row);
       this.deco('cathedral_props', 'angel', x0 + 5, row);
       this.deco('stained_glass', 'hunter', x0 + 3, row, 0, -70);
@@ -653,7 +678,14 @@ export class StageBuilder {
     this.candle(x0 + 4, row, 'heart_big');
     this.candle(x0 + 16, row, 'heart_big');
     const kind = this.theme.decor;
-    if (kind === 'graveyard') {
+    const fp = this.theme.props;
+    if (fp && fp.frames && fp.frames.length) {
+      const f = fp.frames;
+      [x0 + 3, x0 + 17].forEach((tx) => this.deco(fp.sheet, f[0], tx, row));
+      [x0 + 6, x0 + 14].forEach((tx) => this.deco(fp.sheet, f[Math.min(1, f.length - 1)], tx, row));
+      this.deco(fp.sheet, f[Math.min(2, f.length - 1)], x0 + 10, row);
+      this.deco('props', 'torch', x0 + 8, row, 0, -46); this.deco('props', 'torch', x0 + 12, row, 0, -46);
+    } else if (kind === 'graveyard') {
       this.deco('props', 'tombstone', x0 + 3, row); this.deco('props', 'tombstone', x0 + 17, row);
     } else if (kind === 'cathedral') {
       [x0 + 3, x0 + 17].forEach((tx) => this.deco('cathedral_props', 'angel', tx, row));

@@ -19,6 +19,20 @@ const _shadeCache = new Map();
 const _glowCache = new Map();
 const NO_SHADE = Object.freeze({ dark: null, spec: null });
 
+/** Forged (Castle Forge) terrain materials: tile id -> { strip, overhang, sideBg }. */
+const FORGED_MATERIALS = new Map();
+const _banks = new Set();
+
+/**
+ * Registers a generated terrain strip as a 3D material so forged wings get
+ * matching top decks and step side-returns. Safe to call before or after any
+ * texture bank exists.
+ */
+export function registerForgedMaterial(tileId, stripName, { overhang = 4, sideBg = '#100e1c' } = {}) {
+  FORGED_MATERIALS.set(tileId, { strip: stripName, overhang, sideBg });
+  for (const bank of _banks) bank.buildForgedMaterial(tileId);
+}
+
 const GLOW_STOPS = {
   flame: ['rgba(255, 195, 95, 0.85)', 'rgba(255, 140, 50, 0.30)', 'rgba(255, 110, 35, 0)'],
   emerald: ['rgba(110, 255, 195, 0.85)', 'rgba(38, 190, 140, 0.32)', 'rgba(18, 110, 90, 0)'],
@@ -398,6 +412,15 @@ class TextureBank3D {
     const patCtx = makeCanvas(4, 4).g;
     this._patCtx = patCtx;
     this.buildAll();
+    for (const id of FORGED_MATERIALS.keys()) this.buildForgedMaterial(id);
+    _banks.add(this);
+  }
+
+  /** Builds (or rebuilds) the top/side textures for a forged material tile id. */
+  buildForgedMaterial(tileId) {
+    const m = FORGED_MATERIALS.get(tileId);
+    if (!m || !this.assets.img(m.strip)) return;
+    this.buildStripPair(m.strip, `top_forge${tileId}`, `side_forge${tileId}`, m.overhang, 18, 0.2, m.sideBg);
   }
 
   reg(name, canvas) {
@@ -421,7 +444,7 @@ class TextureBank3D {
       case T_SNOW: return this.get('top_snow');
       case T_DARKWOOD: return this.get('top_darkwood');
       case T_CAVERN: return this.get('top_cavern');
-      default: return this.get('top_stone');
+      default: return this.map.get(`top_forge${t}`) || this.get('top_stone');
     }
   }
 
@@ -435,7 +458,7 @@ class TextureBank3D {
       case T_SNOW: return this.get('side_snow');
       case T_DARKWOOD: return this.get('side_darkwood');
       case T_CAVERN: return this.get('side_cavern');
-      default: return this.get('side_stone');
+      default: return this.map.get(`side_forge${t}`) || this.get('side_stone');
     }
   }
 

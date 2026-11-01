@@ -18,6 +18,7 @@ import { THEMES } from './builder.js';
 import { Candle, Item, Projectile, Fire, rollDrop, rectsOverlap } from './objects.js';
 import { populateExploration } from './exploration.js';
 import { cellsToRevealAt, stageIndexOf } from './castlemap.js';
+import { BOSS_RELICS, FORGED_RELIC_EFFECTS } from './relics.js';
 
 /** Frame sequences while a posed boss idles / speaks (idle pose vs. gesture). */
 const BOSS_TALK_FRAMES = {
@@ -68,23 +69,26 @@ export class World {
     this.data = data;
     this.stage = data;
     this.theme = THEMES[data.theme] || THEMES.graveyard;
+    // Forged wings inherit their base theme's 3D vistas, shader grading & cloud banks.
+    this.fxTheme = this.theme.base || data.theme || 'graveyard';
     this.difficulty = game.difficulty;
+    this.relics = game.getActiveRelics ? game.getActiveRelics() : new Set();
     this.level = new Level(data);
-    this.stage3d = new Stage3D(this.assets, this.level, data.theme || 'graveyard', data);
+    this.stage3d = new Stage3D(this.assets, this.level, this.fxTheme, data);
     this.parallax = new Parallax(this.assets, this.level.height, this.theme.layers || 'outdoor');
+    if (this.theme.base) this.parallax.setFxTheme(this.fxTheme);   // cloud banks, aurora & god rays of the base realm
     this.particles = new Particles();
     this.camera = new Camera(this.level.width, this.level.height);
     this.score = carry ? carry.score : 0;
     this.lives = carry ? carry.lives : this.difficulty.lives;
     const bonusVessels = game.getVesselCount ? game.getVesselCount() : 0;
-    this.hearts = carry ? carry.hearts : (this.difficulty.hearts + bonusVessels * 2);
+    this.hearts = carry ? carry.hearts : (this.difficulty.hearts + bonusVessels * 2 + this.relicBonus('hearts'));
     this.subWeaponCarry = carry ? carry.subWeapon : null;
     this.carryHp = carry && carry.hp ? carry.hp : null;
     this.enterFromDoorId = carry && carry.enterFromDoorId ? carry.enterFromDoorId : null;
     this.timeLeft = this.difficulty.time;
     this.checkpoint = 0;
     this.time = 0;
-    this.relics = game.getActiveRelics ? game.getActiveRelics() : new Set();
     this.regenT = 0;
     this.killCount = 0;
     this.freeThrow = false;
@@ -107,13 +111,30 @@ export class World {
     this.flakes = this.theme.weather === 'snow' ? makeFlakes(120, 'snow')
       : this.theme.weather === 'fireflies' ? makeFlakes(42, 'fireflies')
       : this.theme.weather === 'embers' ? makeFlakes(44, 'embers')
-      : (data.theme === 'forest' ? makeFlakes(36, 'leaves') : null);
+      : (this.theme.weather === 'leaves' || this.fxTheme === 'forest' ? makeFlakes(36, 'leaves') : null);
     this.spawnAll();
     if (this.audio.prefetch) this.audio.prefetch('boss');
-    if (data.boss && this.audio.prefetchVoice) this.audio.prefetchVoice(data.boss.type);
+    if (data.boss && this.audio.prefetchVoice) this.audio.prefetchVoice(data.boss.voice || data.boss.type);
   }
 
   hasRelic(key) { return this.relics ? this.relics.has(key) : false; }
+
+  /**
+   * Summed bonus of a given kind ('maxHp' | 'hearts' | 'whip' | 'speed' | 'invuln')
+   * from active Castle Forge relics, whose effects are generic and data-driven
+   * (`BOSS_RELICS[key].effect`), unlike the bespoke built-in relics.
+   */
+  relicBonus(kind) {
+    if (!this.relics) return 0;
+    let total = 0;
+    for (const key of this.relics) {
+      const r = BOSS_RELICS[key];
+      if (!r || !r.effect) continue;
+      const b = FORGED_RELIC_EFFECTS[r.effect];
+      if (b && b[kind]) total += b[kind];
+    }
+    return total;
+  }
 
   // ------------------------------------------------------------- setup
 
@@ -135,7 +156,7 @@ export class World {
     this.gateClosed = false;
     this.camera.resetBounds();
     this.level = new Level(d);     // restores breakable blocks & crumbling slabs
-    this.stage3d = new Stage3D(this.assets, this.level, d.theme || 'graveyard', d);
+    this.stage3d = new Stage3D(this.assets, this.level, this.fxTheme, d);
     this.level.updateMechanics(0, this.time, null, null);
     for (const c of d.candles) {
       this.candles.push(new Candle(c[0] * TILE + TILE / 2, c[1] * TILE, c[2] || null));
@@ -156,7 +177,7 @@ export class World {
     this.player = new Player(cx, (row >= 0 ? row : 11) * TILE);
     this.player.onGround = row >= 0;
     const vesselBonus = this.game.getVesselCount ? this.game.getVesselCount() : 0;
-    this.player.maxHp = (this.hasRelic('cathedral') ? 20 : PLAYER.maxHp) + vesselBonus;
+    this.player.maxHp = (this.hasRelic('cathedral') ? 20 : PLAYER.maxHp) + vesselBonus + this.relicBonus('maxHp');
     this.player.hp = (this.carryHp && this.checkpoint === 0)
       ? Math.min(this.player.maxHp, this.carryHp)
       : this.player.maxHp;
@@ -243,9 +264,9 @@ export class World {
   onBossRoar() {
     this.fxRoar = 0.8;
     if (this.boss) {
-      const col = this.data.theme === 'darkwood' ? [0.22, 0.96, 0.72]
-        : this.data.theme === 'darkcave' ? [1.0, 0.42, 0.10]
-        : this.data.theme === 'cathedral' || this.data.theme === 'throne' ? [0.98, 0.18, 0.34]
+      const col = this.fxTheme === 'darkwood' ? [0.22, 0.96, 0.72]
+        : this.fxTheme === 'darkcave' ? [1.0, 0.42, 0.10]
+        : this.fxTheme === 'cathedral' || this.fxTheme === 'throne' ? [0.98, 0.18, 0.34]
         : [0.72, 0.42, 1.0];
       this.emitShockwave(this.boss.x, this.boss.y - this.boss.h * 0.42, { maxR: 124, dur: 0.48, strength: 0.95, color: col });
     }
@@ -451,7 +472,7 @@ export class World {
         this.particles.shards(tx * TILE + 16, ty * TILE + 30, 12, '#8a9ab5', ty * TILE + 32);
         if (drop) this.spawnItem(drop, tx * TILE + 16, ty * TILE + 20);
       }
-      const baseWhip = PLAYER.whipDamage + (this.hasRelic('jack') ? 1 : 0);
+      const baseWhip = PLAYER.whipDamage + (this.hasRelic('jack') ? 1 : 0) + this.relicBonus('whip');
       const whipDmg = Math.round(baseWhip * (this.difficulty.playerDamage || 1));
       for (const e of this.enemies) {
         if (!e.alive) continue;
@@ -614,6 +635,7 @@ export class World {
       this.showMessage(b.name, 'DEFEAT IT TO CLAIM THE ORB', 3.2);
       // The boss materialises on its dais now, so it is on screen while it speaks.
       this.boss = createBoss(b.type || 'reaper', b.spawn.x, b.spawn.y, b.arena, this.difficulty);
+      this.applyBossOverrides(this.boss, b);
       this.boss.alpha = 0;
       this.boss.introPose = true;
       this.boss.poseY = this.boss.y;
@@ -661,14 +683,25 @@ export class World {
     }
   }
 
+  /**
+   * Forged wings reuse a built-in boss behaviour but may swap in a generated
+   * sprite sheet (same frame names) and tint; see forge.js.
+   */
+  applyBossOverrides(boss, b) {
+    if (!boss || !b) return;
+    if (b.sheet && this.assets.info(b.sheet)) boss.sheet = b.sheet;
+    else if (b.tint) boss.tint = b.tint;   // no generated sheet: recolour the base boss
+    if (b.aura) boss.aura = b.aura;
+  }
+
   triggerBossVoice() {
     const b = this.data.boss;
     if (!b || this.bossSpoken) return;
     this.bossSpoken = true;
-    const key = b.type || 'reaper';
+    const key = b.voice || b.type || 'reaper';   // forged bosses carry their own Daikon clip
     const cue = {
       speaker: b.name || 'BOSS',
-      text: BOSS_LINES[key] || 'NONE SHALL PASS BEYOND THIS THRESHOLD!',
+      text: b.line || BOSS_LINES[b.type || 'reaper'] || 'NONE SHALL PASS BEYOND THIS THRESHOLD!',
       t: 0,
       dur: 8.5,
       boss: true,
@@ -704,6 +737,7 @@ export class World {
       this.boss.facing = this.player.x >= this.boss.x ? 1 : -1;   // always square up to the hunter first
     } else {
       this.boss = createBoss(b.type || 'reaper', b.spawn.x, b.spawn.y, b.arena, this.difficulty);
+      this.applyBossOverrides(this.boss, b);
       this.boss.facing = this.player.x >= this.boss.x ? 1 : -1;
     }
     this.spawnEnemy(this.boss);
@@ -921,7 +955,7 @@ export class World {
     this.level.drawDecor(ctx, cam, this.assets, t, this.stage3d);
     const fxl = getFxLayers();
     if (fxl && fxl.enabled && !showOutdoor) {
-      fxl.godRays(ctx, camX, this.data.theme, 1.0);
+      fxl.godRays(ctx, camX, this.fxTheme, 1.0);
     }
 
     // 4. Boss gate + 2.5D extruded terrain, viaduct arches, crumble slabs & moving lifts
@@ -978,9 +1012,9 @@ export class World {
     // Shader ground mist hugging the hunter's footing (thicker outdoors and in the crypts)
     if (fxl) {
       const fogCol = outdoor
-        ? (this.data.theme === 'darkwood' ? [0.4, 0.75, 0.68] : [0.62, 0.66, 0.82])
-        : (this.data.theme === 'darkcave' ? [0.85, 0.34, 0.16] : [0.5, 0.48, 0.6]);
-      const amt = outdoor ? 0.42 : (this.data.theme === 'catacombs' || this.data.theme === 'ossuary' ? 0.34 : this.data.theme === 'darkcave' ? 0.24 : 0.16);
+        ? (this.fxTheme === 'darkwood' ? [0.4, 0.75, 0.68] : [0.62, 0.66, 0.82])
+        : (this.fxTheme === 'darkcave' ? [0.85, 0.34, 0.16] : [0.5, 0.48, 0.6]);
+      const amt = outdoor ? 0.42 : (this.fxTheme === 'catacombs' || this.fxTheme === 'ossuary' ? 0.34 : this.fxTheme === 'darkcave' ? 0.24 : 0.16);
       fxl.fog(ctx, camX, Math.round(this.player.y - camY) + 6, fogCol, amt);
     }
     this.drawWeather(ctx, true);

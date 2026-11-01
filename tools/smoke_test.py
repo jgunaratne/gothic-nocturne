@@ -4,9 +4,10 @@ Chrome and fail on any uncaught JS error or missing render. Catches the class of
 bug `node --check` cannot (missing imports, bad frame names, draw-time throws)."""
 import os, subprocess, sys, tempfile
 
-BASE = 'http://127.0.0.1:8711/'
-N_STAGES = int(sys.argv[1]) if len(sys.argv) > 1 else 13
-scenes = [('title', '?skip=40'), ('map', '?screen=stageselect&skip=20'), ('ending', '?screen=ending&skip=700')]
+BASE = f"http://127.0.0.1:{os.environ.get('PORT', '8711')}/"
+N_STAGES = int(sys.argv[1]) if len(sys.argv) > 1 else 13   # pass 13 + number of forged wings to cover them too
+scenes = [('title', '?skip=40'), ('map', '?screen=stageselect&skip=20'), ('ending', '?screen=ending&skip=700'),
+          ('forge', '?screen=forge&skip=30'), ('forging-local', '?forge=Smoke%20Test%20Wing&local=1&skip=30')]
 for i in range(1, N_STAGES + 1):
     scenes.append((f'stage{i}-start', f'?demo=1&stage={i}&skip=240'))
     scenes.append((f'stage{i}-boss', f'?screen=play&stage={i}&at=999&skip=900'))

@@ -165,8 +165,13 @@ export class Stage3D {
       });
       this.drawForestColonnade3D(ctx, camX, camY, time);
     } else if (k === 'graveyard') {
-      const roomX = this.level.rooms.length ? this.level.rooms[0].x0 * TILE : Infinity;
-      if (camX < roomX + 96) {
+      const hasRoom = this.level.rooms.length > 0;
+      const roomX = hasRoom ? this.level.rooms[0].x0 * TILE : Infinity;
+      if (!hasRoom) {
+        // Forged moorland wings: open moor and fence all the way, no barbican set-piece.
+        this.drawScanlinePlane(ctx, cam, time, { kind: 'moor', horizon: 208, fx: 0.44, focal: 96, fog: [13, 12, 26] });
+        this.drawCemeteryFence3D(ctx, camX, camY, this.level.cols - 1);
+      } else if (camX < roomX + 96) {
         const portalX = Math.round(project3D(roomX - 18, EYE_Y, 40, camX, camY).x);
         this.drawScanlinePlane(ctx, cam, time, {
           kind: 'moor', horizon: 208, fx: 0.44, focal: 96,

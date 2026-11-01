@@ -60,6 +60,28 @@ const LAYER_SETS = {
   },
 };
 
+/**
+ * Registers a parallax layer set for a forged wing: `backdropImg` (a generated
+ * seamless 1280x360 mid-distance layer) is stacked twice behind the play plane,
+ * the far copy darkened, over the shared mountain silhouettes.
+ */
+export function registerLayerSet(name, { backdropImg = null, baseSet = 'outdoor', accentRgb = [200, 210, 255] } = {}) {
+  const base = LAYER_SETS[baseSet] || LAYER_SETS.outdoor;
+  const layers = backdropImg
+    ? [
+      { img: 'mountains', fx: 0.08, fy: 0.06, dy: 4, dark: 0.3 },
+      { img: backdropImg, fx: 0.2, fy: 0.1, dy: -32, dark: 0.52 },
+      { img: backdropImg, fx: 0.46, fy: 0.26, dy: 6 },
+    ]
+    : base.layers.slice();
+  LAYER_SETS[name] = {
+    layers,
+    front: false,
+    flock: base.flock ? Object.assign({}, base.flock) : { count: 6, cx: 0.55, cy: 0.22, rx: 200, ry: 56 },
+    shafts: { count: 3, color: `rgba(${accentRgb[0]}, ${accentRgb[1]}, ${accentRgb[2]}, 0.05)` },
+  };
+}
+
 export class Parallax {
   constructor(assets, levelH, setName = 'outdoor') {
     this.assets = assets;
@@ -75,6 +97,9 @@ export class Parallax {
     this.shafts = set.shafts ? makeShafts(set.shafts) : null;
     this.fog = makeFogStrip();
   }
+
+  /** Theme key used for shader cloud banks / god rays (forged sets inherit their base). */
+  setFxTheme(key) { if (key) this.setName = key; }
 
   update(dt) { this.time += dt; }
 

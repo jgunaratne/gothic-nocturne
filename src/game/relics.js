@@ -112,6 +112,35 @@ export const BOSS_RELICS = {
 export const RELIC_ORDER = Object.keys(BOSS_RELICS);
 
 /**
+ * Generic, data-driven effects available to Castle Forge relics. Each forged
+ * wing's relic names one of these; World.relicBonus() sums them.
+ */
+export const FORGED_RELIC_EFFECTS = {
+  vitality: { maxHp: 2, short: 'VITALITY', desc: '+2 MAX HP FOR THE REST OF THE HUNT' },
+  hearts: { hearts: 3, short: 'HEART HOARD', desc: '+3 STARTING HEARTS FOR SUB-WEAPONS' },
+  whip: { whip: 1, short: 'SEARING LASH', desc: '+1 WHIP DAMAGE ON EVERY STRIKE' },
+  stride: { speed: 0.1, short: 'FLEET STRIDE', desc: '+10% MOVE SPEED ACROSS THE CASTLE' },
+  ward: { invuln: 0.3, short: 'WARDING', desc: '+30% MERCY INVULNERABILITY AFTER A HIT' },
+};
+
+/** Registers the relic dropped by a forged wing's boss. */
+export function registerRelic(key, relic) {
+  const eff = FORGED_RELIC_EFFECTS[relic.effect] || FORGED_RELIC_EFFECTS.vitality;
+  BOSS_RELICS[key] = {
+    key,
+    boss: relic.boss || '???',
+    name: relic.name || 'FORGED RELIC',
+    short: relic.short || eff.short,
+    desc: relic.desc || eff.desc,
+    color: relic.color || '#d9b36a',
+    effect: FORGED_RELIC_EFFECTS[relic.effect] ? relic.effect : 'vitality',
+    forged: true,
+  };
+  if (!RELIC_ORDER.includes(key)) RELIC_ORDER.push(key);
+  return BOSS_RELICS[key];
+}
+
+/**
  * Resolves the Set of active relic stage keys from the player's cleared bitmask
  * (plus optional `?relics=all` or `?relics=graveyard,darkcave` URL test override).
  */

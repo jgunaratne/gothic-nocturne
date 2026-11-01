@@ -53,8 +53,12 @@ arena with spoken Daikon boss voice lines at the end of every stage.
 ## Play
 
 ```bash
-./serve.sh            # http://<host>:8711/   (ES modules need HTTP)
+./serve.sh            # http://<host>:8712/   (game + Castle Forge API; ES modules need HTTP)
 ```
+
+`serve.sh` runs `tools/forge_server.py` (plain Python, uses `.venv` when present so
+generated pixel art can be processed). Any static server still works for playing;
+without the forge API the castle can only be expanded in local procedural mode.
 
 | Action | Keyboard | Gamepad |
 | --- | --- | --- |
@@ -64,6 +68,7 @@ arena with spoken Daikon boss voice lines at the end of every stage.
 | Enter passageways / doorways | ↑ (at arched portal) | ↑ (at arched portal) |
 | Throw sub-weapon (costs 1 heart) | ↑ + whip | ↑ + attack |
 | Castle Exploration Map (live location & fast travel) | M or Tab | Back / Select / View |
+| Expand the Castle (propose a new wing) | P, or the title menu | title menu |
 | Pause / start | Enter or Esc | Start |
 | Mute | N or U | Right stick click (R3) |
 | Toggle shaders (bloom, grading, scanlines) | F | Left stick click (L3) |
@@ -118,6 +123,49 @@ from prefab segments by `src/game/builder.js` (`flat`, `vistaBridge`, `lavaRun`,
 `spikeRun`, `stepUp/stepDown`, `climb`, `corridor`, `blocks`, `arena`) in
 `src/game/stages.js`, so adding a stage is a dozen lines.
 
+## Expand the Castle (Castle Forge)
+
+The title screen's second entry, **EXPAND THE CASTLE** (also `P` on the castle
+map), lets the player *propose* a new wing — "Abandoned Village", "Sunken
+Cistern", "Alchemist's Observatory"… — and the castle raises it:
+
+1. **Blueprint** — Gemini (`generate text`) designs the wing as strict JSON:
+   name, subtitle, which of the thirteen base realms it inherits (3D vistas,
+   grading, enemy feel), weather, palette, 12–20 prefab segments for
+   `StageBuilder`, enemy placements, a new boss (name, look, spoken line) built
+   on an existing boss behaviour, a relic with one of five generic effects, art
+   prompts, a Lyria prompt and an ambience prompt. The client always ships a
+   deterministic procedural blueprint as the fallback, so a bad draft never
+   blocks the forge.
+2. **Art** — Gempix paints the wing's terrain cross-section strip, a seamless
+   wall (indoor) or a parallax skyline (outdoor), four themed props, a map
+   emblem and, for single-row boss sheets, a new boss sprite sheet; everything
+   runs through the same `process_assets.py` pipeline as the hand-made art
+   (chroma key, palette, seams, surface alignment, atlas packing). Whatever is
+   missing is inherited from the base realm and hue-shifted on the client.
+3. **Music** — a full-length Lyria 3 stage theme, streamed and looped like the
+   others. **Voice** — a Daikon performance of the boss's approach line,
+   ducked under the boss theme with its subtitle plate. **Ambience** — an
+   optional ElevenLabs loop under the music (needs `ELEVENLABS_API_KEY`).
+4. **The castle expands** — the wing's rooms are placed deterministically in
+   free cells next to a fitting neighbour on the 34×14 castle grid, a passage
+   gateway appears inside that neighbouring stage, the new region gets a
+   Sanctuary, a hidden Ancient Vessel, a boss chamber and a relic, and the map
+   shows the ghost rooms materialising while the forge works. Press `Esc` to
+   keep playing; a ticker tracks the forge and a banner announces the new wing.
+
+Raised wings live in `assets/forge/<key>/` with a registry in
+`assets/forge/stages.json`, so every player on that server gets them at boot
+(up to 16). Offline (plain static hosting) the forge still works in local
+procedural mode and remembers wings in `localStorage`.
+
+```
+POST /api/forge              {name, description, fallback}  -> job
+GET  /api/forge/job/<id>     steps, blueprint, registry entry
+GET  /api/forge/stages       raised wings
+GET  /api/forge/health       capabilities (generate CLI, pipeline, ffmpeg, ElevenLabs)
+```
+
 ## Difficulty
 
 Chosen on the "Choose your fate" screen after the title (remembered in
@@ -153,11 +201,15 @@ src/game/             level grid + 2.5D mechanics/tiles, stage3d (perspective
                       (candles/items/projectiles/fire), exploration (Sanctuary
                       Waystones, Passage Gateways & Ancient Vessels), world
                       (combat, scripting, draw order), castlemap (interlocking
-                      34x14 cell map & HUD mini-map), hud
-assets/               engine-ready PNGs + atlas.json, music/*.mp3, voice/*.mp3, sfx/*.mp3
+                      34x14 cell map, forge placement & HUD mini-map), hud,
+                      forge (blueprints, validation, wing registration, API
+                      client), forge_ui (proposal / forging / reveal screens)
+assets/               engine-ready PNGs + atlas.json, music/*.mp3, voice/*.mp3, sfx/*.mp3,
+                      forge/<key>/ (raised wings) + forge/stages.json (registry)
 art/raw/              untouched generations (provenance)   art/PROMPTS.md
-tools/                process_assets.py (pipeline), asset_manifest.json,
-                      import_raw.py, generate_voices.sh, screenshot.sh
+tools/                forge_server.py (game + Castle Forge API), process_assets.py
+                      (pipeline), asset_manifest.json, import_raw.py,
+                      generate_voices.sh, screenshot.sh, smoke_test.py
 ```
 
 ## Asset pipeline
@@ -188,7 +240,13 @@ teleports to a tile column, `boss=1` teleports to the boss vestibule,
 `bosshp=N` weakens the boss, `relics=all` (or `relics=graveyard,darkcave`)
 enables boss power-ups, `lightning=1` triggers an immediate outdoor storm bolt,
 `ending=<seconds>` jumps into the ending sequence,
-`difficulty=easy|normal|hard` presets the difficulty, `stage=1..13` picks the
-stage, `screen=play|map|difficulty|stageselect|clear|ending` opens a screen directly,
+`difficulty=easy|normal|hard` presets the difficulty, `stage=1..N` picks the
+stage (forged wings follow the thirteen built-in ones),
+`screen=play|map|difficulty|stageselect|forge|clear|ending` opens a screen directly,
+`forge=<name>[&forgedesc=<text>][&local=1]` proposes a wing immediately
+(`local=1` forces the offline procedural forge),
 `discovered=all`, `vessels=all`, and `explored=all` unlock map exploration state, and `nofx`
 disables the shader post-process.
+
+`PORT=8712 .venv/bin/python tools/smoke_test.py 15` loads every screen and stage
+(13 built-in + forged) in headless Chrome and fails on uncaught errors.

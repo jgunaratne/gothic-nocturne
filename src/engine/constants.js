@@ -41,10 +41,20 @@ export const MATERIAL_STRIP = {
 };
 export const isMaterialTile = (t) => t in MATERIAL_STRIP;
 
+/** First tile id handed out to forged (player-proposed) terrain materials. */
+export const T_FORGE_BASE = 32;
+
+/**
+ * Registers a new solid terrain material drawn from `stripName` (an atlas
+ * entry of type "strip"). Used by the Castle Forge for generated wings.
+ */
+export function registerMaterial(tileId, stripName) {
+  MATERIAL_STRIP[tileId] = stripName;
+  return tileId;
+}
+
 export const isSolidTile = (t) =>
-  t === T_GROUND || t === T_STONE || t === T_CATACOMB || t === T_CLOCK ||
-  t === T_FOREST || t === T_SNOW || t === T_DARKWOOD || t === T_CAVERN ||
-  t === T_BLOCK || t === T_GATE || t === T_BOUND;
+  (t in MATERIAL_STRIP) || t === T_BLOCK || t === T_GATE || t === T_BOUND;
 
 // Gameplay tuning
 export const PLAYER = {
