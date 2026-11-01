@@ -22,7 +22,10 @@ arena with spoken Daikon boss voice lines at the end of every stage.
 
 - **Art**: tiles, sprites and backdrops generated with Gemini's image
   model and normalized into crisp pixel art, paired with procedural 32-bit
-  pixel-art sheets and 3D surface textures.
+  pixel-art sheets and 3D surface textures. The hunter's animation clips
+  (breathing idle, 8-frame walk, 8-phase whip crack, jump arc with landing
+  squash, flinch and death) are cut from **Gemini Omni** video of the sprite
+  itself (`tools/animate_sprites.py`).
 - **Music**: seventeen full-length tracks (2–3 minutes each) generated with
   **Lyria 3**: a distinct theme for every stage plus title, symphonic orchestral
   boss battle, stage-clear, game-over and ending, streamed on demand and looped
@@ -211,7 +214,8 @@ src/game/             level grid + 2.5D mechanics/tiles, stage3d (perspective
                       projection, vistas, vaulted halls, 3D gears & boss arenas),
                       tex3d (pixel-art 3D polygon texture rasterizer & bank),
                       builder (prefabs + themes), stages, level_data (stage 1),
-                      parallax, entities, player, ally (guardian turtle),
+                      parallax, entities, player, hero_anim (hunter clips,
+                      squash/stretch, whip timeline), ally (guardian turtle),
                       relics (boss power-ups), enemies, boss (Reaper), bosses
                       forest_assets (Darkwood pixel art), objects
                       (candles/items/projectiles/fire), exploration (Sanctuary
@@ -223,8 +227,10 @@ src/game/             level grid + 2.5D mechanics/tiles, stage3d (perspective
 assets/               engine-ready PNGs + atlas.json, music/*.mp3, voice/*.mp3, sfx/*.mp3,
                       forge/<key>/ (raised wings) + forge/stages.json (registry)
 art/raw/              untouched generations (provenance)   art/PROMPTS.md
+art/raw/clips/        Omni animation clips (.mp4) + the frame sheets cut from them
 tools/                forge_server.py (game + Castle Forge API), process_assets.py
                       (pipeline), asset_manifest.json, import_raw.py,
+                      animate_sprites.py (video -> sprite clips),
                       generate_voices.sh, screenshot.sh, smoke_test.py
 ```
 
@@ -241,6 +247,48 @@ median-cut palette (no dither), then either seam repair (`blend` for textures,
 `mirror` for parallax layers), terrain-strip surface alignment, or sprite-sheet
 segmentation (row bands → column runs → per-frame anchors) packed into an
 atlas. Previews land in `art/work/`.
+
+### Animating sprites with video (Gemini Omni)
+
+Multi-frame animations come from short video clips rather than hand-posed
+sheets, so the in-betweens, arm swing, hair and whip follow-through are real
+motion. `tools/animate_sprites.py` cuts a reference pose out of its raw sheet,
+puts it on flat green and hands it to the Omni video model (image-to-video,
+locked camera, one action per 10 s clip); the frames come back through the same
+chroma-key / box-downscale steps as the hand-made art, with the scale calibrated
+against the atlas, the colours matched and locked to the sheet's palette,
+detached specks (impact flashes, dropped props) removed and every frame anchored
+at the feet / body centre:
+
+```bash
+.venv/bin/python tools/animate_sprites.py hero_walk8 --sheet hero --frame idle \
+    --action walk --subject "vampire hunter" --select period --count 8 --names walk
+.venv/bin/python tools/animate_sprites.py hero_whip --sheet hero --frame idle \
+    --action whip --stop-after contact        # pick frames from art/work/clips/hero_whip/contact.png
+.venv/bin/python tools/animate_sprites.py hero_whip --sheet hero --frame idle \
+    --pick 34,46,58,67,72,76,93,116 --names whip
+.venv/bin/python tools/animate_sprites.py hero_jump --sheet hero --frame idle --select jump
+.venv/bin/python tools/process_assets.py --only hero_whip    # type "clip" in the manifest
+```
+
+Frame selection: `--select period` autocorrelates the silhouette to find a loop
+(walk, idle breathing), `--select motion` spaces one-shot frames by equal
+cumulative motion, `--select jump` reads the feet trajectory (crouch, rise,
+apex, fall, land, recover), and `--pick` takes explicit frame indices. Clips are
+kept in `art/raw/clips/` as provenance next to the generated
+`<name>_sheet.png` + `<name>_frames.json` the manifest's `clip` entries copy
+into `assets/`.
+
+The hunter's clips (`hero_idle`, `hero_walk8`, `hero_whip`, `hero_cwhip`,
+`hero_jump`, `hero_hurt`) are all optional: `src/game/hero_anim.js` picks the
+frame for the local hunter and the network hunters alike and falls back to the
+classic `hero.png` poses for any clip that is missing. The whip's eight phases
+are tied to `PLAYER.whipActive` in normalized time, so the extended frames are
+exactly the ticks the hit box is live however the Chrono Pendulum rescales the
+lash. On top of the frames the engine adds the timing the sheets cannot:
+landing squash and take-off stretch, a lean into acceleration and stops,
+footstep sound + dust on the boot-contact frames, and a few ticks of hit-stop
+when the whip connects (`world.hitStop`).
 
 ## Testing aids
 

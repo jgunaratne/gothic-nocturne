@@ -794,6 +794,36 @@
     ]
    ]
   },
+  "hero_idle": {
+   "type": "clip",
+   "src": "clips/hero_idle_sheet.png",
+   "frames": "clips/hero_idle_frames.json"
+  },
+  "hero_walk8": {
+   "type": "clip",
+   "src": "clips/hero_walk8_sheet.png",
+   "frames": "clips/hero_walk8_frames.json"
+  },
+  "hero_whip": {
+   "type": "clip",
+   "src": "clips/hero_whip_sheet.png",
+   "frames": "clips/hero_whip_frames.json"
+  },
+  "hero_cwhip": {
+   "type": "clip",
+   "src": "clips/hero_cwhip_sheet.png",
+   "frames": "clips/hero_cwhip_frames.json"
+  },
+  "hero_jump": {
+   "type": "clip",
+   "src": "clips/hero_jump_sheet.png",
+   "frames": "clips/hero_jump_frames.json"
+  },
+  "hero_hurt": {
+   "type": "clip",
+   "src": "clips/hero_hurt_sheet.png",
+   "frames": "clips/hero_hurt_frames.json"
+  },
   "giantbat": {
    "type": "sheet",
    "src": "giantbat_sheet.png",

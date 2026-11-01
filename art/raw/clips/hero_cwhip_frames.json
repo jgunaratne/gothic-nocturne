@@ -1,0 +1,59 @@
+{
+ "frames": {
+  "cwhip0": {
+   "ax": 33.0,
+   "ay": 50.0,
+   "clipFrame": 46,
+   "h": 50,
+   "w": 60,
+   "x": 1,
+   "y": 1
+  },
+  "cwhip1": {
+   "ax": 12.5,
+   "ay": 43.0,
+   "clipFrame": 69,
+   "h": 43,
+   "w": 89,
+   "x": 62,
+   "y": 1
+  },
+  "cwhip2": {
+   "ax": 13.0,
+   "ay": 42.0,
+   "clipFrame": 73,
+   "h": 42,
+   "w": 89,
+   "x": 152,
+   "y": 1
+  },
+  "cwhip3": {
+   "ax": 24.0,
+   "ay": 43.0,
+   "clipFrame": 93,
+   "h": 43,
+   "w": 64,
+   "x": 242,
+   "y": 1
+  }
+ },
+ "sheet": "hero_cwhip_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "hero_cwhip.mp4",
+  "frame": "crouch",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   46,
+   69,
+   73,
+   93
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1264,
+  "select": "pick",
+  "sheet": "hero"
+ }
+}

@@ -58,23 +58,28 @@ export class Assets {
 
   /**
    * Draws a sheet frame with its anchor at (x, y). `flip` mirrors around the
-   * anchor so a right-facing source can face left. Optional uniform `scale`
-   * and a `tint` colour (multiplied over the sprite, cached per frame).
+   * anchor so a right-facing source can face left. Optional uniform `scale`,
+   * a `tint` colour (multiplied over the sprite, cached per frame) and `xf`
+   * {sx, sy, skew}: squash/stretch about the anchor and a shear in world
+   * direction (positive skew leans the top toward +x), both about the feet.
    */
-  draw(ctx, sheet, name, x, y, flip = false, alpha = 1, scale = 1, tint = null) {
+  draw(ctx, sheet, name, x, y, flip = false, alpha = 1, scale = 1, tint = null, xf = null) {
     const f = this.frame(sheet, name);
     if (!f) return;
     let img = this.images[sheet];
     let sx = f.x, sy = f.y;
     if (tint) { img = this.tinted(sheet, name, tint); sx = 0; sy = 0; }
     if (alpha !== 1) { ctx.save(); ctx.globalAlpha = alpha; }
-    if (!flip && scale === 1) {
+    if (!flip && scale === 1 && !xf) {
       ctx.drawImage(img, sx, sy, f.w, f.h, Math.round(x - f.ax), Math.round(y - f.ay), f.w, f.h);
     } else {
+      const kx = scale * (xf && xf.sx ? xf.sx : 1);
+      const ky = scale * (xf && xf.sy ? xf.sy : 1);
       ctx.save();
-      ctx.translate(Math.round(x), Math.round(y - f.ay * scale));
-      ctx.scale(flip ? -scale : scale, scale);
-      ctx.drawImage(img, sx, sy, f.w, f.h, Math.round(-f.ax), 0, f.w, f.h);
+      ctx.translate(Math.round(x), Math.round(y));
+      if (xf && xf.skew) ctx.transform(1, 0, -xf.skew, 1, 0, 0);
+      ctx.scale(flip ? -kx : kx, ky);
+      ctx.drawImage(img, sx, sy, f.w, f.h, Math.round(-f.ax), Math.round(-f.ay), f.w, f.h);
       ctx.restore();
     }
     if (alpha !== 1) ctx.restore();

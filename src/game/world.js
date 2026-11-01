@@ -104,6 +104,7 @@ export class World {
     this.shockRings = [];        // {x, y, t, dur, maxR, color}
     this.phase = 'intro';        // intro | play | dying | respawn | clear | gameover
     this.phaseT = 0;
+    this.hitStop = 0;               // frozen ticks after a whip connects (hit-stop)
     this.bossActive = false;
     this.boss = null;
     this.bossSpoken = false;
@@ -386,6 +387,13 @@ export class World {
       this.voiceCue.t += dt;
       if (this.voiceCue.t >= this.voiceCue.dur) this.voiceCue = null;
     }
+    // Hit-stop: a few frozen ticks when the whip lands (particles, weather and
+    // the shake keep moving). A jump pressed inside the freeze is buffered.
+    if (this.hitStop > 0) {
+      this.hitStop -= dt;
+      if (input && input.pressed && input.pressed.jump && this.player.alive) this.player.jumpBuffer = PLAYER.buffer;
+      return;
+    }
 
     if (this.phase === 'intro' && this.phaseT > 0.6) this.phase = 'play';
     if (this.phase === 'clear') { this.updateEntities(dt, input, false); return; }
@@ -536,6 +544,7 @@ export class World {
         hitSomething = true;
         this.sfx('block');
         this.camera.shake(2, 0.12);
+        this.hitStop = Math.max(this.hitStop, 0.03);
         this.particles.shards(tx * TILE + 16, ty * TILE + 30, 12, '#8a9ab5', ty * TILE + 32);
         if (drop) this.spawnItem(drop, tx * TILE + 16, ty * TILE + 20);
       }
@@ -562,6 +571,7 @@ export class World {
           }
           hitSomething = true;
           this.camera.shake(1.5, 0.08);
+          this.hitStop = Math.max(this.hitStop, e === this.boss ? 0.07 : 0.05);
         }
       }
       for (const pr of this.projectiles) {

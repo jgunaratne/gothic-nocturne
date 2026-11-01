@@ -414,6 +414,7 @@ export class AudioSys {
         break;
       case 'jump': this._osc('square', 220, 520, 0.14, 0.12); break;
       case 'land': this._noise(0.06, 0.18, 300, 'lowpass'); break;
+      case 'step': this._noise(0.03, 0.06, 420, 'lowpass'); break;   // boot contact on walk frames
       case 'hit':
         this._noise(0.08, 0.3, 1800);
         this._osc('square', 300, 90, 0.12, 0.18);

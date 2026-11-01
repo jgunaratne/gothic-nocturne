@@ -1,0 +1,99 @@
+{
+ "frames": {
+  "whip0": {
+   "ax": 15.5,
+   "ay": 63.0,
+   "clipFrame": 34,
+   "h": 63,
+   "w": 35,
+   "x": 1,
+   "y": 1
+  },
+  "whip1": {
+   "ax": 21.0,
+   "ay": 69.0,
+   "clipFrame": 46,
+   "h": 69,
+   "w": 46,
+   "x": 37,
+   "y": 1
+  },
+  "whip2": {
+   "ax": 24.5,
+   "ay": 58.0,
+   "clipFrame": 58,
+   "h": 58,
+   "w": 59,
+   "x": 84,
+   "y": 1
+  },
+  "whip3": {
+   "ax": 25.0,
+   "ay": 55.0,
+   "clipFrame": 67,
+   "h": 55,
+   "w": 98,
+   "x": 144,
+   "y": 1
+  },
+  "whip4": {
+   "ax": 25.0,
+   "ay": 55.0,
+   "clipFrame": 72,
+   "h": 55,
+   "w": 98,
+   "x": 243,
+   "y": 1
+  },
+  "whip5": {
+   "ax": 25.0,
+   "ay": 55.0,
+   "clipFrame": 76,
+   "h": 55,
+   "w": 101,
+   "x": 342,
+   "y": 1
+  },
+  "whip6": {
+   "ax": 23.5,
+   "ay": 57.0,
+   "clipFrame": 93,
+   "h": 57,
+   "w": 92,
+   "x": 444,
+   "y": 1
+  },
+  "whip7": {
+   "ax": 12.5,
+   "ay": 62.0,
+   "clipFrame": 116,
+   "h": 62,
+   "w": 57,
+   "x": 537,
+   "y": 1
+  }
+ },
+ "sheet": "hero_whip_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "hero_whip.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   34,
+   46,
+   58,
+   67,
+   72,
+   76,
+   93,
+   116
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1221,
+  "select": "pick",
+  "sheet": "hero"
+ }
+}

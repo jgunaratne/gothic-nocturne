@@ -5,6 +5,7 @@
 // - Off-screen directional edge beacons for peers in the same castle region
 
 import { W, H, TILE, PLAYER } from '../engine/constants.js';
+import { heroFrame, drawStretchedWhip, drawProceduralLash } from './hero_anim.js';
 
 export const HUNTER_PALETTES = [
   {
@@ -157,39 +158,28 @@ function drawCloakFrame(ctx, assets, sheet, frameName, slot, x, y, flip = false,
   ctx.restore();
 }
 
-function drawRemoteWhipStrike(ctx, assets, slot, reach, x, y, flip, alpha) {
-  const f = assets.frame('hero', 'whip1');
-  if (!f) return;
-  const tinted = getCloakSprite(assets, 'hero', 'whip1', slot) || assets.img('hero');
-  if (!tinted) return;
-  const sxBase = tinted === assets.img('hero') ? f.x : 0;
-  const syBase = tinted === assets.img('hero') ? f.y : 0;
-  const bodyW = 34, tipW = 6, midW = f.w - bodyW - tipW;
-  const total = Math.round(f.ax + (reach || PLAYER.whipReach) + 10);
-  const midDest = Math.max(midW, total - bodyW - tipW);
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(Math.round(x), Math.round(y - f.ay));
-  if (flip) ctx.scale(-1, 1);
-  const ox = Math.round(-f.ax);
-  ctx.drawImage(tinted, sxBase, syBase, bodyW, f.h, ox, 0, bodyW, f.h);
-  ctx.drawImage(tinted, sxBase + bodyW, syBase, midW, f.h, ox + bodyW, 0, midDest, f.h);
-  ctx.drawImage(tinted, sxBase + bodyW + midW, syBase, tipW, f.h, ox + bodyW + midDest, 0, tipW, f.h);
-  ctx.restore();
+function drawRemoteWhipStrike(ctx, assets, slot, reach, x, y, flip, alpha, sheet = 'hero', name = 'whip1') {
+  const tinted = getCloakSprite(assets, sheet, name, slot);
+  drawStretchedWhip(ctx, assets, sheet, name, x, y, flip, alpha, reach,
+    tinted || null, tinted ? 0 : null, tinted ? 0 : null);
 }
 
-function remoteFrameName(p) {
+function remoteFrame(assets, p) {
   const whipScale = ((p.relicsMask >> 11) & 1) ? 0.75 : 1;
-  const activeStart = PLAYER.whipActive[0] * whipScale;
-  switch (p.anim) {
-    case 'walk': return 'walk' + (p.walkFrame % 6);
-    case 'jump': return 'jump';
-    case 'crouch': return 'crouch';
-    case 'attack': return p.throwing ? 'whip1' : (p.attackT < activeStart ? 'whip0' : 'whip1');
-    case 'hurt':
-    case 'dead': return 'hurt';
-    default: return 'idle';
-  }
+  return heroFrame(assets, {
+    state: p.anim,
+    walkFrame: p.walkFrame,
+    attackT: p.attackT,
+    whipTime: PLAYER.whipTime * whipScale,
+    whipActive: [PLAYER.whipActive[0] * whipScale, PLAYER.whipActive[1] * whipScale],
+    throwing: p.throwing,
+    attackCrouch: p.attackCrouch,
+    vy: p.vy,
+    idleT: p.idleT || 0,
+    deadT: p.deadT || 0,
+    hurtT: p.hurtT || 0,
+    landT: 0,
+  });
 }
 
 /**
@@ -266,48 +256,24 @@ export function drawRemotePlayers(ctx, world, peersInStage, time = 0) {
     const baseAlpha = p.screen === 'map' || p.screen === 'pause' ? 0.72 : 0.96;
     const alpha = blink ? baseAlpha * 0.35 : baseAlpha;
     const flip = p.facing < 0;
-    const name = remoteFrameName(p);
+    const fr = remoteFrame(assets, p);
     const whipScale = ((p.relicsMask >> 11) & 1) ? 0.75 : 1;
     const activeStart = PLAYER.whipActive[0] * whipScale;
 
     if (p.petrified > 0) {
-      const pose = (name === 'whip0' || name === 'whip1' || name.startsWith('walk')) ? 'idle' : name;
-      assets.draw(ctx, 'hero', pose, sx, sy, flip, 0.9, 1, 'rgba(150, 150, 165, 0.82)');
-    } else if (p.anim === 'attack' && p.attackCrouch && !p.throwing) {
-      drawCloakFrame(ctx, assets, 'hero', 'crouch', p.slot, sx, sy, flip, alpha);
-      if (p.attackT >= activeStart - 0.03) {
-        const lx0 = Math.round(sx + p.facing * 8);
-        const ly0 = Math.round(sy - 30);
-        const k = Math.min(1, (p.attackT - activeStart + 0.03) / 0.08);
-        const len = (p.whipReach || PLAYER.whipReach) * k;
-        ctx.save();
-        ctx.strokeStyle = pal.whip;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(lx0, ly0);
-        ctx.quadraticCurveTo(lx0 + p.facing * len * 0.5, ly0 + 4, lx0 + p.facing * len, ly0 - 1);
-        ctx.stroke();
-        ctx.fillStyle = '#ffffff';
-        const tx = lx0 + p.facing * len, ty = ly0 - 1;
-        ctx.beginPath();
-        ctx.moveTo(tx + p.facing * 2.5, ty);
-        ctx.lineTo(tx, ty - 1.8);
-        ctx.lineTo(tx - p.facing * 2, ty);
-        ctx.lineTo(tx, ty + 1.8);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
-    } else if (p.anim === 'attack' && !p.attackCrouch && !p.throwing && name === 'whip1') {
-      drawRemoteWhipStrike(ctx, assets, p.slot, p.whipReach, sx, sy, flip, alpha);
+      const still = p.anim === 'attack' || p.anim === 'walk' ? { sheet: 'hero', name: 'idle' } : fr;
+      assets.draw(ctx, still.sheet, still.name, sx, sy, flip, 0.9, 1, 'rgba(150, 150, 165, 0.82)');
+    } else if (fr.proceduralLash) {
+      drawCloakFrame(ctx, assets, fr.sheet, fr.name, p.slot, sx, sy, flip, alpha);
+      drawProceduralLash(ctx, sx, sy, p.facing, p.attackT, activeStart, p.whipReach, pal.whip, '#ffffff');
+    } else if (fr.stretch) {
+      drawRemoteWhipStrike(ctx, assets, p.slot, p.whipReach, sx, sy, flip, alpha, fr.sheet, fr.name);
       // Fiery whip embers if remote hunter holds Jack-o'-Lantern relic (index 2)
       if (((p.relicsMask >> 2) & 1) && world.particles && Math.random() < 0.45) {
         world.particles.embers(p.x + p.facing * (14 + Math.random() * p.whipReach), p.y - 42, 1);
       }
     } else {
-      const sheet = p.anim === 'walk' && assets.info('hero_walk') ? 'hero_walk' : 'hero';
-      const fName = sheet === 'hero' && name.startsWith('walk') ? 'walk' + (p.walkFrame % 6) : name;
-      drawCloakFrame(ctx, assets, sheet, fName, p.slot, sx, sy, flip, alpha);
+      drawCloakFrame(ctx, assets, fr.sheet, fr.name, p.slot, sx, sy, flip, alpha);
     }
 
     // 5. Floating Nameplate, Salute Banner & Mini HP Bar

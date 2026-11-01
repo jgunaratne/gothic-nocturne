@@ -11,6 +11,8 @@ Operations (per asset):
   quantize   palette reduction (median cut, no dither) on opaque pixels only
   sheet      segment a sprite sheet into named frames and pack an atlas
   strip      terrain cross-section: locate the surface line and align it
+  clip       frames animated by tools/animate_sprites.py (Gemini Omni video ->
+             pixel art), copied as packed and merged into the atlas
 
 Run:  .venv/bin/python tools/process_assets.py [--only name] [--preview]
 """
@@ -384,6 +386,25 @@ def process_sheet(name, spec, report, preview):
         write_preview(name, frames)
 
 
+def process_clip(name, spec, report):
+    """Frames animated with tools/animate_sprites.py (Gemini Omni clip -> pixel
+    art): the packed sheet is already at native resolution, palette-locked and
+    anchored at the feet, so it is copied as-is and its records merged."""
+    img = Image.open(os.path.join(RAW, spec["src"])).convert("RGBA")
+    with open(os.path.join(RAW, spec["frames"])) as fh:
+        meta = json.load(fh)
+    out = spec.get("out", name + ".png")
+    img.save(os.path.join(OUT, out))
+    keys = ("x", "y", "w", "h", "ax", "ay")
+    report[name] = {
+        "type": "sheet", "file": out, "w": img.width, "h": img.height,
+        "frames": {fname: {k: rec[k] for k in keys} for fname, rec in meta["frames"].items()},
+    }
+    src = meta.get("source", {})
+    print(f"  {name}: {len(meta['frames'])} clip frames from {src.get('clip', '?')} "
+          f"({src.get('model', '?')}) -> assets/{out}")
+
+
 def write_preview(name, frames, cell=160):
     os.makedirs(WORK, exist_ok=True)
     cols = min(8, len(frames))
@@ -431,6 +452,8 @@ def main():
                 process_strip(name, spec, report)
             elif kind == "sheet":
                 process_sheet(name, spec, report, args.preview)
+            elif kind == "clip":
+                process_clip(name, spec, report)
         except Exception as exc:  # keep going; report at the end
             print(f"  ! {name}: {exc}")
             raise

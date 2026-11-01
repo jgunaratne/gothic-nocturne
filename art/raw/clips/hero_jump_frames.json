@@ -1,0 +1,102 @@
+{
+ "frames": {
+  "apex": {
+   "ax": 15.0,
+   "ay": 48.0,
+   "clipFrame": 70,
+   "h": 48,
+   "w": 32,
+   "x": 98,
+   "y": 1
+  },
+  "crouch": {
+   "ax": 18.0,
+   "ay": 47.0,
+   "clipFrame": 29,
+   "h": 47,
+   "w": 36,
+   "x": 1,
+   "y": 1
+  },
+  "fall0": {
+   "ax": 17.0,
+   "ay": 49.0,
+   "clipFrame": 83,
+   "h": 49,
+   "w": 34,
+   "x": 131,
+   "y": 1
+  },
+  "fall1": {
+   "ax": 21.0,
+   "ay": 63.0,
+   "clipFrame": 94,
+   "h": 63,
+   "w": 35,
+   "x": 166,
+   "y": 1
+  },
+  "land0": {
+   "ax": 24.0,
+   "ay": 55.0,
+   "clipFrame": 107,
+   "h": 55,
+   "w": 41,
+   "x": 202,
+   "y": 1
+  },
+  "land1": {
+   "ax": 17.0,
+   "ay": 49.0,
+   "clipFrame": 122,
+   "h": 49,
+   "w": 35,
+   "x": 244,
+   "y": 1
+  },
+  "rise0": {
+   "ax": 15.5,
+   "ay": 59.0,
+   "clipFrame": 56,
+   "h": 59,
+   "w": 28,
+   "x": 38,
+   "y": 1
+  },
+  "rise1": {
+   "ax": 13.5,
+   "ay": 49.0,
+   "clipFrame": 63,
+   "h": 49,
+   "w": 30,
+   "x": 67,
+   "y": 1
+  }
+ },
+ "sheet": "hero_jump_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "apex": 70,
+  "clip": "hero_jump.mp4",
+  "frame": "idle",
+  "landing": 98,
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   29,
+   56,
+   63,
+   70,
+   83,
+   94,
+   107,
+   122
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1221,
+  "select": "jump",
+  "sheet": "hero",
+  "takeoff": 52
+ }
+}
