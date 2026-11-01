@@ -193,6 +193,9 @@ export class PostFX {
     this.scan = 0.32;
     this.grain = 0.032;
     this.theme = 'menu';
+    this.mobileDprCap = typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(pointer: coarse)').matches
+      : false;
     try { this.init(); } catch (e) { console.warn('PostFX disabled:', e); this.ok = false; }
   }
 
@@ -276,10 +279,10 @@ export class PostFX {
 
   toggle() { this.setEnabled(!this.enabled); return this.enabled; }
 
-  /** Matches the FX canvas to the 2D canvas' CSS size (device pixels). */
+  /** Matches the FX canvas to the 2D canvas' CSS size (device pixels; capped at 2x on mobile GPUs). */
   fit() {
     if (!this.ok) return;
-    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const dpr = Math.min(this.mobileDprCap ? 2 : 3, window.devicePixelRatio || 1);
     const cw = parseFloat(this.src.style.width) || this.src.width;
     const chh = parseFloat(this.src.style.height) || this.src.height;
     this.out.style.width = cw + 'px';

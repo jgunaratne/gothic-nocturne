@@ -74,20 +74,20 @@ Opening the URL in multiple browsers or across machines on the network automatic
 - **Explore Any Region Independently**: Each hunter can roam any of the 13 castle stages simultaneously at their own pace while seeing every other hunter's live position across the **Castle Exploration Map (`M`)** and **7×4 HUD Mini-Map**.
 - **Pass By One Another in Real Time**: When two or more hunters enter the same region, directional edge chevrons (`< VESPER 14M`) show which way nearby hunters are, and crossing paths renders each hunter in a distinct pixel-art cloak palette with smooth 60 fps stride/jump/whip interpolation, cooperative whip & sub-weapon combat, floating nameplates, **`G` Salute flares**, and a **Soul-Lantern resonance** spark shimmer as they pass one another.
 
-| Action | Keyboard | Gamepad |
-| --- | --- | --- |
-| Move / crouch | ← → / ↓ (WASD) | Left stick / D-pad |
-| Jump (hold for height; ↓+jump drops through ledges) | Z, J or Space | A / B |
-| Whip (also while crouching or airborne) | X or K | X / Y / RB / RT |
-| Enter passageways / doorways | ↑ (at arched portal) | ↑ (at arched portal) |
-| Throw sub-weapon (costs 1 heart) | ↑ + whip | ↑ + attack |
-| Castle Exploration Map (live location & fast travel) | M or Tab | Back / Select / View |
-| Expand the Castle (propose a new wing) | P, or the title menu | title menu |
-| Salute / greet nearby hunters | G | — |
-| Edit Hunter Callsign (on Title / Map / Pause) | C | — |
-| Pause / start | Enter or Esc | Start |
-| Mute | N or U | Right stick click (R3) |
-| Toggle shaders (bloom, grading, scanlines) | F | Left stick click (L3) |
+| Action | Keyboard | Gamepad | Mobile / Touch |
+| --- | --- | --- | --- |
+| Move / crouch | ← → / ↓ (WASD) | Left stick / D-pad | Virtual 8-way D-pad |
+| Jump (hold for height; ↓+jump drops through ledges) | Z, J or Space | A / B | **JUMP** button (hold for height) |
+| Whip (also while crouching or airborne) | X or K | X / Y / RB / RT | **WHIP** button |
+| Enter passageways / doorways | ↑ (at arched portal) | ↑ (at arched portal) | D-pad **▲**, portal prompt pill, or tap portal |
+| Throw sub-weapon (costs 1 heart) | ↑ + whip | ↑ + attack | **SUB** button (or tap HUD sub-weapon box) |
+| Castle Exploration Map (live location & fast travel) | M or Tab | Back / Select / View | **MAP** pill or tap HUD Mini-Map (tap rooms to inspect / warp) |
+| Expand the Castle (propose a new wing) | P, or the title menu | title menu | **FORGE** pill or tap **EXPAND THE CASTLE** (opens OS keyboard) |
+| Salute / greet nearby hunters | G | — | **SALUTE** pill |
+| Edit Hunter Callsign (on Title / Map / Pause) | C | — | **NAME** pill or tap online status line |
+| Pause / start | Enter or Esc | Start | **PAUSE** / **START** pill (auto-pauses on background) |
+| Mute | N or U | Right stick click (R3) | **SOUND** pill |
+| Toggle shaders (bloom, grading, scanlines) | F | Left stick click (L3) | **FX ON** pill (**FULL** toggles fullscreen) |
 
 Whip candelabra for hearts, money, and sub-weapons (dagger, axe, holy water).
 Breakable blocks hide meat and gold. Spike pits hurt; bottomless pits kill.
@@ -237,8 +237,9 @@ every setting; skeletons, brutes and bosses scale. Presets live in
 ```
 index.html            canvas shell
 src/main.js           boot, scaling, fixed-step loop, title/pause/clear/game-over
-src/engine/           input (keyboard, gamepad, scripted), assets, audio, font,
-                      particles, camera, constants
+src/engine/           input (keyboard, gamepad, touch, scripted), touch (mobile
+                      portrait deck, landscape overlay, canvas tap & IME proxy),
+                      assets, audio, font, particles, camera, constants
 src/game/             level grid + 2.5D mechanics/tiles, stage3d (perspective
                       projection, vistas, vaulted halls, 3D gears & boss arenas),
                       tex3d (pixel-art 3D polygon texture rasterizer & bank),
@@ -364,7 +365,8 @@ stage (forged wings follow the thirteen built-in ones),
 `screen=play|map|difficulty|stageselect|forge|clear|ending` opens a screen directly,
 `forge=<name>[&forgedesc=<text>][&local=1]` proposes a wing immediately
 (`local=1` forces the offline procedural forge),
-`discovered=all`, `vessels=all`, and `explored=all` unlock map exploration state, and `nofx`
+`discovered=all`, `vessels=all`, and `explored=all` unlock map exploration state,
+`touch=1` (or `touch=0`) forces the mobile touch controller UI on or off, and `nofx`
 disables the shader post-process.
 
 `PORT=8712 .venv/bin/python tools/smoke_test.py 15` loads every screen and stage

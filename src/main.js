@@ -18,6 +18,7 @@ import {
 import { BOSS_RELICS, resolveActiveRelics } from './game/relics.js';
 import { Forge } from './game/forge.js';
 import { ForgeScreens } from './game/forge_ui.js';
+import { TouchControls } from './engine/touch.js';
 
 class Game {
   constructor(canvas) {
@@ -75,26 +76,33 @@ class Game {
       }
     };
     this.input.onFirstInteraction = () => this.audio.unlock();
+    this.touch = new TouchControls(this);
     window.addEventListener('resize', () => this.fit());
     if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.fit());
     this.fit();
   }
 
   fit() {
-    const vw = Math.max(1, window.innerWidth);
-    const vh = Math.max(1, window.innerHeight);
-    const raw = Math.min(vw / W, vh / H);
-    const nearest = Math.max(1, Math.round(raw));
-    // Snap to exact integer multiple when within 6% so 720p/1080p/1440p/4K fullscreen
-    // lands on exact 2x/3x/4x/6x, while arbitrary browser windows fill the viewport
-    // cleanly and rely on PostFX's band-limited sub-pixel sharp AA texel filter.
-    const snap = raw >= 1
-      && Math.abs(raw - nearest) / nearest <= 0.06
-      && W * nearest <= vw
-      && H * nearest <= vh;
-    const s = snap ? nearest : raw;
-    this.canvas.style.width = Math.max(1, Math.round(W * s)) + 'px';
-    this.canvas.style.height = Math.max(1, Math.round(H * s)) + 'px';
+    let s;
+    if (this.touch) {
+      this.touch.updateViewportMetrics();
+      s = this.touch.computeCanvasScale();
+    } else {
+      const vw = Math.max(1, window.innerWidth);
+      const vh = Math.max(1, window.innerHeight);
+      const raw = Math.min(vw / W, vh / H);
+      const nearest = Math.max(1, Math.round(raw));
+      const snap = raw >= 1
+        && Math.abs(raw - nearest) / nearest <= 0.06
+        && W * nearest <= vw
+        && H * nearest <= vh;
+      s = snap ? nearest : raw;
+    }
+    const cw = Math.max(1, Math.round(W * s));
+    const ch = Math.max(1, Math.round(H * s));
+    this.canvas.style.width = cw + 'px';
+    this.canvas.style.height = ch + 'px';
+    this.canvas.style.imageRendering = cw < W ? 'auto' : '';
     if (this.postfx) this.postfx.fit();
   }
 
@@ -154,11 +162,19 @@ class Game {
     // Testing aids: ?skip=N pre-simulates N fixed steps before the first draw.
     const skip = parseInt(this.params.get('skip') || '0', 10);
     for (let i = 0; i < skip; i++) { this.input.update(DT); this.update(DT); }
-    this.canvas.focus();
+    this.fit();
+    if (!this.touch || !this.touch.active) this.canvas.focus();
     requestAnimationFrame((t) => this.frame(t));
   }
 
-  setState(s) { this.state = s; this.stateT = 0; }
+  setState(s) {
+    const prev = this.state;
+    this.state = s;
+    this.stateT = 0;
+    if (this.touch && this.touch.active) {
+      this.touch.onStateChange(prev, s);
+    }
+  }
 
   /** Locks in a difficulty preset and remembers it for next time. */
   chooseDifficulty(key) {
@@ -224,6 +240,7 @@ class Game {
     this.callsignDraft = this.net.name || '';
     this.input.setTyping((e) => this.handleCallsignKey(e));   // shared text-entry mode (also used by the Castle Forge)
     this.audio.sfx('select');
+    if (this.touch && this.touch.active) { this.touch.syncUI(true); this.fit(); }
   }
 
   closeCallsignEditor(save = false) {
@@ -237,6 +254,10 @@ class Game {
     }
     this.editingCallsign = false;
     this.input.setTyping(null);
+    if (this.touch) {
+      this.touch.blurTextProxy();
+      if (this.touch.active) { this.touch.syncUI(true); this.fit(); }
+    }
     this.audio.sfx('select');
   }
 
@@ -424,6 +445,7 @@ class Game {
       this.acc -= DT;
       steps++;
     }
+    if (this.touch) this.touch.update();
     this.draw();
     const fxWorld = (this.state === 'play' || this.state === 'pause' || this.state === 'clear' || this.state === 'gameover') ? this.world : null;
     if (fxWorld) {
@@ -480,6 +502,7 @@ class Game {
         break;
       case 'difficulty': {
         this.updateTitleBackdrop(dt);
+        if (inp.pressed.escape) { this.setState('title'); this.audio.sfx('pause'); break; }
         const n = DIFFICULTY_ORDER.length;
         if (inp.pressed.up || inp.pressed.left) { this.menuIndex = (this.menuIndex + n - 1) % n; this.audio.sfx('bone'); }
         if (inp.pressed.down || inp.pressed.right) { this.menuIndex = (this.menuIndex + 1) % n; this.audio.sfx('bone'); }
@@ -492,6 +515,7 @@ class Game {
       }
       case 'stageselect': {
         this.updateTitleBackdrop(dt);
+        if (inp.pressed.escape) { this.setState('difficulty'); this.audio.sfx('pause'); break; }
         if (inp.pressed.forge) { this.openForge('stageselect'); break; }
         let c = this.mapCursor;
         if (inp.pressed.left) c = moveCursor(c, -1, 0);
@@ -539,18 +563,18 @@ class Game {
       }
       case 'pause':
         if (inp.pressed.map) { this.openMap(); break; }
-        if (inp.pressed.start) { this.setState('play'); this.audio.sfx('pause'); }
+        if (inp.pressed.start || inp.pressed.escape) { this.setState('play'); this.audio.sfx('pause'); }
         break;
       case 'clear':
         this.world.update(dt, inp);
-        if (this.stateT > 2 && inp.pressed.start) this.advance();
+        if (this.stateT > 2 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) this.advance();
         break;
       case 'ending':
-        if (this.stateT > 6 && (inp.pressed.start || inp.pressed.jump)) { this.setState('title'); this.audio.stopMusic(); this.endingNarrated = false; }
+        if (this.stateT > 6 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) { this.setState('title'); this.audio.stopMusic(); this.endingNarrated = false; }
         if (this.state === 'ending' && !this.endingNarrated && this.stateT > 2.4) { this.endingNarrated = true; this.audio.playVoice('narrator_ending'); }
         break;
       case 'gameover':
-        if (this.stateT > 1.5 && (inp.pressed.start || inp.pressed.jump)) { this.setState('title'); this.audio.stopMusic(); }
+        if (this.stateT > 1.5 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) { this.setState('title'); this.audio.stopMusic(); }
         break;
       default: break;
     }
@@ -583,9 +607,10 @@ class Game {
         drawHud(ctx, this.font, this.assets, this.world);
         if (this.state === 'pause') {
           ctx.fillStyle = 'rgba(4, 3, 10, 0.55)'; ctx.fillRect(0, 0, W, H);
+          const isTouch = !!(this.touch && this.touch.active);
           const netSub = this.net && this.net.connected
-            ? `${this.net.onlineCount} ONLINE (${this.net.room.toUpperCase()}) · C CALLSIGN (${this.net.name})`
-            : 'ENTER RESUME · M MAP · C CALLSIGN · N MUTE';
+            ? `${this.net.onlineCount} ONLINE (${this.net.room.toUpperCase()}) · ${isTouch ? 'TAP TO RESUME · NAME' : 'C CALLSIGN'} (${this.net.name})`
+            : isTouch ? 'TAP SCREEN OR RESUME · MAP · NAME · SOUND' : 'ENTER RESUME · M MAP · C CALLSIGN · N MUTE';
           this.banner(['PAUSED'], 146, { scale: 3, sub: netSub });
         }
         break;
@@ -598,7 +623,7 @@ class Game {
       case 'gameover':
         this.world.draw(ctx, { hud: false });
         ctx.fillStyle = 'rgba(4, 3, 10, 0.6)'; ctx.fillRect(0, 0, W, H);
-        this.banner(['GAME OVER'], 140, { scale: 4, color: '#e23c3c', sub: this.stateT > 1.5 ? 'PRESS ENTER' : ' ' });
+        this.banner(['GAME OVER'], 140, { scale: 4, color: '#e23c3c', sub: this.stateT > 1.5 ? ((this.touch && this.touch.active) ? 'TAP OR PRESS START' : 'PRESS ENTER') : ' ' });
         this.font.draw(ctx, `SCORE ${String(this.world.score).padStart(7, '0')}`, W / 2, 215, { align: 'center', scale: 2, shadow: '#120f1c' });
         break;
       default: break;
@@ -753,9 +778,10 @@ class Game {
       ctx.fillStyle = '#8a6a3a'; ctx.fillRect(W / 2 - 150, 226, 300, 1);
       ctx.fillStyle = '#d9b36a'; ctx.fillRect(W / 2 - 2, 224, 4, 4); ctx.fillRect(W / 2 - 150, 225, 3, 3); ctx.fillRect(W / 2 + 147, 225, 3, 3);
       f.draw(ctx, 'A 32-BIT WHIP-CRACKING ACTION PLATFORMER', W / 2, 234, { align: 'center', color: '#a89a74', shadow: '#120f1c' });
+      const isTouch = !!(this.touch && this.touch.active);
       // Title menu: begin the hunt, or propose a new wing for the Castle Forge to raise
       const items = [
-        ['BEGIN THE HUNT', 'PRESS ENTER OR START'],
+        ['BEGIN THE HUNT', isTouch ? 'TAP OR PRESS START' : 'PRESS ENTER OR START'],
         ['EXPAND THE CASTLE', `PROPOSE A NEW WING · ${this.forge.forgedCount ? `${this.forge.forgedCount} RAISED SO FAR` : 'AI-FORGED LEVEL, ART, MUSIC AND BOSS'}`],
       ];
       items.forEach(([label, sub], i) => {
@@ -769,14 +795,17 @@ class Game {
       ctx.fillStyle = 'rgba(4, 3, 10, 0.55)';
       ctx.fillRect(W / 2 - 236, 298, 472, 34);
       ctx.fillStyle = '#3a2e22'; ctx.fillRect(W / 2 - 236, 298, 472, 1); ctx.fillRect(W / 2 - 236, 331, 472, 1);
-      const lines = [
+      const lines = isTouch ? [
+        'D-PAD MOVE & CROUCH   JUMP (HOLD FOR HEIGHT)   WHIP   SUB THROWS WEAPON',
+        '↑ ENTER PASSAGES   TAP MINI-MAP FOR FAST TRAVEL   TOOLBAR FOR FORGE & SOUND',
+      ] : [
         '←→ MOVE   ↓ CROUCH   Z/J/SPACE JUMP   X/K WHIP   ↑ PASSAGES / + WHIP THROWS',
         'ENTER PAUSE   M MAP   P EXPAND THE CASTLE   G SALUTE   C CALLSIGN   N MUTE   F SHADERS',
       ];
       lines.forEach((l, i) => f.draw(ctx, l, W / 2, 304 + i * 12, { align: 'center', color: i === 1 ? '#ffb0a0' : '#c9c3b0', shadow: '#120f1c' }));
       if (this.net && this.net.enabled) {
         const netLine = this.net.connected
-          ? `ONLINE · ${this.net.onlineCount} IN ${this.net.room.toUpperCase()} · AS ${this.net.name} (PRESS C)`
+          ? `ONLINE · ${this.net.onlineCount} IN ${this.net.room.toUpperCase()} · AS ${this.net.name} (${isTouch ? 'TAP TO RENAME' : 'PRESS C'})`
           : 'CONNECTING TO SHARED CASTLE REALM...';
         f.draw(ctx, netLine, W / 2, H - 16, {
           align: 'center',
@@ -822,7 +851,10 @@ class Game {
     });
 
     const pulse = 0.5 + 0.5 * Math.sin(this.stateT * 2.2);
-    if (pulse > 0.25) f.draw(ctx, '↑↓ SELECT     ENTER / JUMP / WHIP CONFIRM', W / 2, 300, { align: 'center', color: '#ffd27a', shadow: '#120f1c' });
+    const diffPrompt = (this.touch && this.touch.active)
+      ? 'TAP A FATE OR USE D-PAD + OK'
+      : '↑↓ SELECT     ENTER / JUMP / WHIP CONFIRM';
+    if (pulse > 0.25) f.draw(ctx, diffPrompt, W / 2, 300, { align: 'center', color: '#ffd27a', shadow: '#120f1c' });
     f.draw(ctx, 'YOUR CHOICE IS REMEMBERED FOR NEXT TIME', W / 2, 322, { align: 'center', color: '#5b6b86' });
   }
 
@@ -876,7 +908,11 @@ class Game {
 
     if (this.stateT > 2.4 && Math.floor(this.stateT * 2.2) % 2 === 0) {
       const last = STAGES[this.stageIndex].key === 'throne';
-      this.font.draw(ctx, last ? 'PRESS ENTER' : 'PRESS ENTER FOR THE CASTLE MAP', W / 2, 286, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#120f1c' });
+      const isTouch = !!(this.touch && this.touch.active);
+      const clearPrompt = isTouch
+        ? (last ? 'TAP TO CONTINUE' : 'TAP FOR THE CASTLE MAP')
+        : (last ? 'PRESS ENTER' : 'PRESS ENTER FOR THE CASTLE MAP');
+      this.font.draw(ctx, clearPrompt, W / 2, 286, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#120f1c' });
     }
     ctx.restore();
   }
@@ -1014,7 +1050,7 @@ class Game {
       const pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
       ctx.save();
       ctx.globalAlpha = pulse;
-      f.draw(ctx, 'PRESS ENTER', W / 2, 306, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
+      f.draw(ctx, (this.touch && this.touch.active) ? 'TAP OR PRESS START' : 'PRESS ENTER', W / 2, 306, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
       ctx.restore();
     }
     // Crossfades between panels

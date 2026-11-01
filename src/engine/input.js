@@ -26,6 +26,9 @@ export class Input {
     this.released = Object.fromEntries(ACTIONS.map((a) => [a, false]));
     this.keyState = {};
     this.padState = {};
+    this.touchState = {};
+    this._latched = {};
+    this._escapeLatched = false;
     this.script = null;
     this.onFirstInteraction = null;
     this._interacted = false;
@@ -35,13 +38,25 @@ export class Input {
     this.onTypeKey = null;
 
     const noteInteraction = () => {
-      if (this._interacted) return;
       this._interacted = true;
       if (this.onFirstInteraction) this.onFirstInteraction();
     };
     window.addEventListener('keydown', (e) => {
       noteInteraction();
       if (this.typing && this.onTypeKey) {
+        // When typing through the mobile software-keyboard proxy <input>, let
+        // printable characters, Backspace and IME composition flow through its
+        // native `input` event; only intercept navigation/submit keys here.
+        if (e.target && e.target.dataset && e.target.dataset.mobileProxy === '1') {
+          if (
+            e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter'
+            || e.code === 'Tab' || e.code === 'ArrowUp' || e.code === 'ArrowDown'
+          ) {
+            this.onTypeKey(e);
+            e.preventDefault();
+          }
+          return;
+        }
         this.onTypeKey(e);
         if (e.code !== 'F5' && e.code !== 'F12' && !(e.ctrlKey || e.metaKey)) e.preventDefault();
         return;
@@ -58,8 +73,16 @@ export class Input {
       const a = KEYMAP[e.code];
       if (a) { this.keyState[a] = false; e.preventDefault(); }
     });
-    window.addEventListener('blur', () => { this.keyState = {}; });
-    target.addEventListener('pointerdown', () => { target.focus(); noteInteraction(); });
+    window.addEventListener('blur', () => { this.keyState = {}; this.touchState = {}; });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { this.keyState = {}; this.touchState = {}; }
+    });
+    target.addEventListener('pointerdown', () => {
+      if (!this.typing) target.focus({ preventScroll: true });
+      noteInteraction();
+    });
+    window.addEventListener('touchstart', () => noteInteraction(), { passive: true });
+    window.addEventListener('touchend', () => noteInteraction(), { passive: true });
   }
 
   pollGamepad() {
@@ -94,6 +117,30 @@ export class Input {
     this.typing = !!handler;
     this.onTypeKey = handler || null;
     this.keyState = {};   // never carry a held key across the mode switch
+    this.touchState = {};
+    this._latched = {};
+  }
+
+  /** Sets held state for a virtual touch button/direction (latches short taps so <16ms taps never drop). */
+  setTouch(action, isDown) {
+    if (!(action in this.down)) return;
+    this.touchState[action] = !!isDown;
+    if (isDown) this._latched[action] = true;
+  }
+
+  /** Queues a one-step press edge (e.g. tapping a menu item, HUD radar, or toolbar pill). */
+  pulse(action) {
+    if (action in this.down) this._latched[action] = true;
+  }
+
+  /** Queues a one-step Escape edge (mobile Back / Cancel). */
+  pulseEscape() {
+    this._escapeLatched = true;
+  }
+
+  /** Releases all held virtual touch inputs immediately. */
+  clearTouch() {
+    this.touchState = {};
   }
 
   update(dt) {
@@ -105,12 +152,32 @@ export class Input {
       if (!scripted) this.script = null;
     }
     for (const a of ACTIONS) {
-      const now = !!(this.keyState[a] || this.padState[a] || (scripted && scripted[a]));
+      let now = !!(this.keyState[a] || this.padState[a] || this.touchState[a] || (scripted && scripted[a]));
+      if (!now && this._latched[a]) {
+        if (this.down[a]) {
+          now = false; // allow one release tick so rapid double-taps register distinct edges
+        } else {
+          now = true;
+          this._latched[a] = false;
+        }
+      } else if (now) {
+        this._latched[a] = false;
+      }
       this.pressed[a] = now && !this.down[a];
       this.released[a] = !now && this.down[a];
       this.down[a] = now;
     }
-    const escNow = !!this.keyState._escape;
+    let escNow = !!this.keyState._escape;
+    if (!escNow && this._escapeLatched) {
+      if (this._escapeDown) {
+        escNow = false;
+      } else {
+        escNow = true;
+        this._escapeLatched = false;
+      }
+    } else if (escNow) {
+      this._escapeLatched = false;
+    }
     this.pressed.escape = escNow && !this._escapeDown;
     this._escapeDown = escNow;
   }
