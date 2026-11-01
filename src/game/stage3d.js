@@ -82,6 +82,35 @@ export function project3D(wx, wy, z, camX, camY) {
   };
 }
 
+// Halls whose far-wall lancets may open onto the night sky (the crypts stay buried).
+const SKY_THEMES = new Set(['graveyard', 'ramparts', 'throne', 'arcade', 'library', 'cathedral']);
+// Halls that get a slowly turning brass orrery landmark.
+const ORRERY_THEMES = new Set(['library', 'arcade']);
+const MOON_RGB = [186, 204, 255];
+const BAY_W = 8 * TILE;
+
+/**
+ * Mid-depth furnishings (z ≈ 90..104) standing on the receding hall floor between
+ * the play plane and the far wall: darkened 2D props or procedural 3D sarcophagi.
+ */
+const MID_PROPS = {
+  graveyard: [['cathedral_props', 'angel'], ['props', 'tombstone'], ['cathedral_props', 'angel']],
+  ramparts: [['cathedral_props', 'angel']],
+  throne: [['cathedral_props', 'angel'], ['throne_props', 'candle_pillar'], ['cathedral_props', 'angel'], ['throne_props', 'candle_pillar']],
+  cathedral: [['cathedral_props', 'pew'], ['cathedral_props', 'pew'], ['cathedral_props', 'angel'], ['cathedral_props', 'font'], ['cathedral_props', 'pew'], ['cathedral_props', 'pulpit']],
+  library: [['library_props', 'bookcase'], ['library_props', 'globe'], ['library_props', 'ladder'], ['library_props', 'bookcase'], ['library_props', 'lectern']],
+  arcade: [['arcade_props', 'sage_cabinet'], ['arcade_props', 'zoetrope'], ['arcade_props', 'chess_automaton'], ['arcade_props', 'magic_lantern'], ['arcade_props', 'oracle_engine']],
+  catacombs: 'sarcophagus',
+  ossuary: 'sarcophagus',
+  darkcave: [['cavern_props', 'stalagmite'], ['cavern_props', 'obsidian_pillar']],
+};
+
+function hash32(a, b = 0) {
+  let h = (a * 374761393 + b * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
 export class Stage3D {
   constructor(assets, level, themeKey, stageData) {
     this.assets = assets;
@@ -92,6 +121,9 @@ export class Stage3D {
     this.data = stageData;
     this.planeCache = new Map();
     this.wallPatterns = {};
+    this.landmarkXs = [];
+    this._bayKinds = new Map();      // far-wall bay index -> 2.5D feature kind
+    this._special = new Map();       // room index -> { stair, orrery } bay indices
     this.fgFrames = this.buildForegroundFrames();
   }
 
@@ -142,10 +174,125 @@ export class Stage3D {
    * passage doorways, sanctuary waystones, or ancient life vessels.
    */
   excludeLandmarks(landmarks) {
-    if (!landmarks || !landmarks.length || !this.fgFrames) return;
-    const pts = landmarks.filter((l) => l && Number.isFinite(l.x));
-    if (!pts.length) return;
+    const pts = (landmarks || []).filter((l) => l && Number.isFinite(l.x));
+    this.landmarkXs = pts.map((p) => p.x);
+    // Far-wall set-piece planning depends on doorway positions: re-plan lazily.
+    this._bayKinds.clear();
+    this._special.clear();
+    if (!pts.length || !this.fgFrames) return;
     this.fgFrames = this.fgFrames.filter((f) => pts.every((p) => Math.abs(p.x - f.wx) >= 132));
+  }
+
+  // ================================================= FAR-WALL BAY PLANNING
+  /**
+   * Footing row for a far-wall set-piece centred on `midX` (half-width `halfW`):
+   * the median ground row of the columns in front of it (capped at the hall
+   * floor), so stairs, passages and lancets sit at the level the hunter walks on
+   * there. Returns -1 when the bay is unusable: outside the hall, inside the
+   * boss arena, within reach of a passage doorway / shrine / vessel, or hidden
+   * behind solid terrain (one-way ledges don't count) covering the five rows
+   * above that footing.
+   */
+  bayFooting(r, midX, floorRow, halfW) {
+    const lv = this.level;
+    const x0 = midX - halfW, x1 = midX + halfW;
+    if (x0 < r.x0 * TILE + 24 || x1 > (r.x1 + 1) * TILE - 24) return -1;
+    const b = this.data.boss;
+    if (b && Number.isFinite(b.camX) && x1 > b.camX - 48) return -1;
+    for (const lx of this.landmarkXs) if (Math.abs(lx - midX) < halfW + 70) return -1;
+    const c0 = Math.floor(x0 / TILE), c1 = Math.floor(x1 / TILE);
+    const grounds = [];
+    for (let c = c0; c <= c1; c++) {
+      const g = lv.groundRow(c);
+      if (g >= 0) grounds.push(g);
+    }
+    grounds.sort((a, b2) => a - b2);
+    const row = grounds.length ? Math.min(floorRow, grounds[grounds.length >> 1]) : floorRow;
+    let solid = 0, total = 0;
+    for (let c = c0; c <= c1; c++) {
+      for (let rr = row - 5; rr < row; rr++) {
+        total++;
+        if (lv.isSolid(c, rr)) solid++;
+      }
+    }
+    return solid <= total * 0.34 ? row : -1;
+  }
+
+  /** Chooses the grand-staircase and orrery bays of a hall (once per room). */
+  specialBays(r, roomIndex, floorRow, abyssHall) {
+    const hit = this._special.get(roomIndex);
+    if (hit) return hit;
+    const out = { stair: null, stairRow: floorRow, orrery: null, orreryRow: floorRow };
+    if (!abyssHall && !r.cylinder) {
+      const roomX0 = r.x0 * TILE, roomW = (r.x1 - r.x0 + 1) * TILE;
+      const biMin = Math.floor(roomX0 / BAY_W), biMax = Math.floor((r.x1 * TILE) / BAY_W);
+      const pick = (frac, exclude) => {
+        const target = roomX0 + roomW * frac;
+        let best = null, bestRow = floorRow, bestD = Infinity;
+        for (let bi = biMin; bi <= biMax; bi++) {
+          const m = mod(bi, 6);
+          if ((m !== 5 && m !== 1) || bi === exclude) continue;
+          const midX = (bi + 0.5) * BAY_W;
+          const row = this.bayFooting(r, midX, floorRow, 118);
+          if (row < 0) continue;
+          const d = Math.abs(midX - target) + (m === 1 ? 600 : 0);   // prefer plain alcove slots
+          if (d < bestD) { bestD = d; best = bi; bestRow = row; }
+        }
+        return { bi: best, row: bestRow };
+      };
+      const st = pick(0.42, null);
+      out.stair = st.bi; out.stairRow = st.row;
+      if (ORRERY_THEMES.has(this.themeKey)) {
+        const orr = pick(0.72, out.stair);
+        out.orrery = orr.bi; out.orreryRow = orr.row;
+      }
+    }
+    this._special.set(roomIndex, out);
+    return out;
+  }
+
+  /**
+   * Which 2.5D feature fills the ground tier of far-wall bay `bi`, with its
+   * footing row: 'glass' (stained lancet) | 'crypt' (bone shelves) | 'alcove' |
+   * 'sky' (open lancet onto the night) | 'corridor' (deep perspective passage) |
+   * 'stair' | 'orrery'. Even bays keep their windows; each group of six bays
+   * places one corridor and (in castle halls) one sky lancet on whichever of
+   * its odd bays are clear, so blocked slots fall through to the next candidate.
+   */
+  bayKind(r, roomIndex, bi, floorRow, abyssHall) {
+    const key = roomIndex * 100000 + bi;
+    const hit = this._bayKinds.get(key);
+    if (hit) return hit;
+    const crypt = !!this.pal.crypt;
+    let kind = crypt ? 'crypt' : (mod(bi, 2) === 0 ? 'glass' : 'alcove');
+    let row = floorRow;
+    const special = this.specialBays(r, roomIndex, floorRow, abyssHall);
+    if (special.stair === bi) { kind = 'stair'; row = special.stairRow; }
+    else if (special.orrery === bi) { kind = 'orrery'; row = special.orreryRow; }
+    else {
+      const g = Math.floor(bi / 6) * 6;
+      const taken = (b) => b === special.stair || b === special.orrery;
+      const footing = (b, halfW) => (taken(b) ? -1 : this.bayFooting(r, (b + 0.5) * BAY_W, floorRow, halfW));
+      let corridor = null, corridorRow = floorRow;
+      for (const b of [g + 3, g + 5, g + 1]) {
+        const fr = footing(b, 110);
+        if (fr >= 0) { corridor = b; corridorRow = fr; break; }
+      }
+      let sky = null, skyRow = floorRow;
+      if (!crypt && SKY_THEMES.has(this.themeKey)) {
+        // Prefer a plain alcove slot; otherwise unglaze one of the group's stained lancets.
+        for (const b of [g + 1, g + 5, g + 3, g + 4, g + 2]) {
+          if (b === corridor) continue;
+          const fr = footing(b, 60);
+          if (fr >= 0) { sky = b; skyRow = fr; break; }
+        }
+      }
+      if (bi === corridor) { kind = 'corridor'; row = corridorRow; }
+      else if (bi === sky) { kind = 'sky'; row = skyRow; }
+    }
+    const res = { kind, row };
+    this._bayKinds.set(key, res);
+    return res;
   }
 
   // ========================================================= OUTDOOR 3D
@@ -227,6 +374,7 @@ export class Stage3D {
       if (!hasRoom) {
         // Forged moorland wings: open moor and fence all the way, no barbican set-piece.
         this.drawScanlinePlane(ctx, cam, time, { kind: 'moor', horizon: 238, fx: 0.44, focal: 96, fog: [13, 12, 26] });
+        this.drawMausoleums3D(ctx, camX, camY, time, this.level.cols - 1);
         this.drawCemeteryFence3D(ctx, camX, camY, this.level.cols - 1);
       } else if (camX < roomX + 96) {
         const portalX = Math.round(project3D(roomX - 18, EYE_Y, 40, camX, camY).x);
@@ -234,7 +382,9 @@ export class Stage3D {
           kind: 'moor', horizon: 238, fx: 0.44, focal: 96,
           fog: [13, 12, 26], clipRight: portalX + 8,
         });
-        this.drawCemeteryFence3D(ctx, camX, camY, Math.min(this.level.cols - 1, Math.floor(roomX / TILE) - 8));
+        const fenceEnd = Math.min(this.level.cols - 1, Math.floor(roomX / TILE) - 8);
+        this.drawMausoleums3D(ctx, camX, camY, time, fenceEnd);
+        this.drawCemeteryFence3D(ctx, camX, camY, fenceEnd);
         this.drawGatehouseSetPiece3D(ctx, camX, camY, time, Math.floor(roomX / TILE));
       }
     }
@@ -721,14 +871,15 @@ export class Stage3D {
   // ======================================================== INTERIOR 3D
   drawInterior3D(ctx, cam, time) {
     const camX = cam.rx, camY = cam.ry;
-    for (const r of this.level.rooms) {
+    for (let ri = 0; ri < this.level.rooms.length; ri++) {
+      const r = this.level.rooms[ri];
       const rx = r.x0 * TILE - camX, ry = r.y0 * TILE - camY;
       const rw = (r.x1 - r.x0 + 1) * TILE, rh = (r.y1 - r.y0 + 1) * TILE;
       if (rx > W || rx + rw < 0 || ry > H || ry + rh < 0) continue;
       if (r.cylinder) {
         this.drawClockShaft3D(ctx, r, camX, camY, rx, ry, rw, rh, time);
       } else {
-        this.drawVaultedHall3D(ctx, r, camX, camY, rx, ry, rw, rh, time);
+        this.drawVaultedHall3D(ctx, r, camX, camY, rx, ry, rw, rh, time, ri);
       }
     }
   }
@@ -760,14 +911,14 @@ export class Stage3D {
     return r._hallBounds;
   }
 
-  drawVaultedHall3D(ctx, r, camX, camY, rx, ry, rw, rh, time) {
+  drawVaultedHall3D(ctx, r, camX, camY, rx, ry, rw, rh, time, roomIndex = 0) {
     const key = r.wall || 'wall';
     const wallTex = this.tex(key);
     if (!wallTex) return;
     const Z_NEAR = 38, Z_WALL = 200, Z_NICHE = 248;
     const pal = this.pal;
     const abyssHall = this.themeKey === 'ossuary' || this.themeKey === 'darkcave';
-    const { floorY, ceilY } = this._roomBounds(r, abyssHall);
+    const { floorRow, floorY, ceilY } = this._roomBounds(r, abyssHall);
     const farFloor = project3D(0, floorY, Z_WALL, camX, camY);
 
     // When entering Stage 1's indoor castle behind the 3D gatehouse (r.x0 > 0),
@@ -838,6 +989,7 @@ export class Stage3D {
     const hallH = floorY - ceilY;
     const tierStep = 224;
     const tierCount = Math.min(3, Math.max(1, Math.floor((hallH - 36) / tierStep)));
+    const special = this.specialBays(r, roomIndex, floorRow, abyssHall);
     for (let bi = bStart; bi <= bEnd; bi++) {
       const bx0 = bi * bayW, bx1 = bx0 + bayW;
       const midX = (bx0 + bx1) * 0.5;
@@ -854,14 +1006,45 @@ export class Stage3D {
       }
 
       const nw0 = midX - 46, nw1 = midX + 46;
+      const plan = this.bayKind(r, roomIndex, bi, floorRow, abyssHall);
+      const kind = plan.kind;
+      const localY = plan.row * TILE;
+      // Top of a local-level set-piece: upper-tier niches that would collide with it are skipped.
+      const reserveTop = kind === 'corridor' ? localY - 176
+        : kind === 'stair' ? localY - 240
+          : kind === 'sky' ? Math.max(ceilY + 34, localY - 168)
+            : kind === 'orrery' ? localY - 190
+              : null;
       for (let ti = 0; ti < tierCount; ti++) {
         const tierBaseY = floorY - ti * tierStep;
         const nyBot = pal.crypt ? tierBaseY - 12 : tierBaseY - 38;
         const nyTop = Math.max(ceilY + 34, tierBaseY - 168);
         if (nyBot - nyTop < 72) continue;
+        if (ti > 0 && reserveTop != null && nyBot > reserveTop - 16) continue;
+        if (ti === 0 && kind === 'corridor') {
+          // Deep one-point-perspective passage cut through the far wall at the local floor level
+          this.drawCorridorBay3D(ctx, camX, camY, midX - 64, midX + 64, localY, localY - 150, Z_WALL, bi, time);
+          continue;
+        }
+        if (ti === 0 && (kind === 'stair' || kind === 'orrery')) {
+          // Drawn with the furnishings after the hall floor (the stair climbs into its own doorway)
+          if (kind === 'orrery' && localY === floorY) {
+            this.drawRecessedBay3D(ctx, camX, camY, nw0, nw1, nyTop, nyBot, Z_WALL, Z_NICHE, bi, time);
+          }
+          continue;
+        }
+        if (ti === 0 && kind === 'sky') {
+          // Open lancet at the local floor level (its stained-glass neighbours follow the hall floor)
+          const sTop = reserveTop, sBot = localY - 38;
+          if (sBot - sTop >= 72) {
+            this.drawRecessedBay3D(ctx, camX, camY, nw0, nw1, sTop, sBot, Z_WALL, Z_NICHE, bi, time, { sky: true });
+            if (plan.row === floorRow) windowSpots.push({ wx: midX, wyTop: sTop, wyBot: sBot, moon: true });
+          }
+          continue;
+        }
         this.drawRecessedBay3D(ctx, camX, camY, nw0, nw1, nyTop, nyBot, Z_WALL, Z_NICHE, bi + ti * 2, time);
-        if (!pal.crypt && mod(bi, 2) === 0 && ti === 0) {
-          windowSpots.push({ wx: midX, wyTop: nyTop, wyBot: nyBot });
+        if (ti === 0 && kind === 'glass') {
+          windowSpots.push({ wx: midX, wyTop: nyTop, wyBot: nyBot, moon: false });
         }
       }
     }
@@ -900,6 +1083,18 @@ export class Stage3D {
       this.drawPillar3D(ctx, camX, camY, px, ceilY + 22, floorY, 54, 22);
     }
 
+    // Mid-depth furnishings, the grand staircase and the brass orrery live on the
+    // receding hall floor (z = 60..200), in front of the far wall and colonnade.
+    if (!abyssHall) {
+      this.drawMidProps3D(ctx, camX, camY, r, roomIndex, bStart, bEnd, floorRow, floorY, abyssHall);
+      if (special.stair != null && special.stair >= bStart - 1 && special.stair <= bEnd + 1) {
+        this.drawGrandStair3D(ctx, camX, camY, (special.stair + 0.5) * bayW, special.stairRow * TILE, Z_WALL, time);
+      }
+      if (special.orrery != null && special.orrery >= bStart - 1 && special.orrery <= bEnd + 1) {
+        this.drawOrrery3D(ctx, camX, camY, (special.orrery + 0.5) * bayW, special.orreryRow * TILE, 150, time);
+      }
+    }
+
     if (windowSpots.length) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -909,9 +1104,10 @@ export class Stage3D {
         const fb0 = project3D(w.wx - 10, floorY, Z_NEAR + 10, camX, camY);
         const fb1 = project3D(w.wx + 68, floorY, Z_NEAR + 10, camX, camY);
         const pulse = 0.78 + 0.22 * Math.sin(time * 0.9 + w.wx * 0.01);
+        const tint = w.moon ? MOON_RGB : pal.glass;
         const g = ctx.createLinearGradient(wt.x, wt.y, fb0.x, fb0.y);
-        g.addColorStop(0, rgbA(pal.glass, 0.13 * pulse));
-        g.addColorStop(1, rgbA(pal.glass, 0.01));
+        g.addColorStop(0, rgbA(tint, (w.moon ? 0.16 : 0.13) * pulse));
+        g.addColorStop(1, rgbA(tint, 0.01));
         ctx.fillStyle = g;
         fillQuad(ctx, wt, { x: wb.x, y: wt.y + 18 }, fb1, fb0);
       }
@@ -939,7 +1135,7 @@ export class Stage3D {
   }
 
   /** Texture-mapped 3D recessed arched alcove or stained-glass lancet bay. */
-  drawRecessedBay3D(ctx, camX, camY, x0, x1, yTop, yBot, zFront, zBack, bayIndex, time) {
+  drawRecessedBay3D(ctx, camX, camY, x0, x1, yTop, yBot, zFront, zBack, bayIndex, time, opts = null) {
     const pal = this.pal;
     const fTL = project3D(x0, yTop + 26, zFront, camX, camY);
     const fTR = project3D(x1, yTop + 26, zFront, camX, camY);
@@ -958,13 +1154,23 @@ export class Stage3D {
     const wallTex = this.tex(pal.crypt ? 'crypt_stone' : 'wall');
     const trimTex = this.tex(pal.crypt ? 'crypt_stone' : 'stone_trim');
     const backShade = shadeOverlay32([0, 0, -1], pal.fog, 0.66, 0.58);
+    const skyBay = !!(opts && opts.sky);
 
-    // 1. Textured masonry back wall of the recess (z = zBack)
-    texQuad(ctx, wallTex, bTL, bTR, bBR, bBL, x0, yTop + 26, x1, yTop + 26, x1, yBot, x0, yBot, backShade);
-    texTri(ctx, wallTex, bTL, bApex, bTR, x0, yTop + 26, midX, yTop, x1, yTop + 26, backShade, 0.45);
+    if (skyBay) {
+      // 1'. Unglazed lancet: the moonlit night, drifting clouds and far ridges seen
+      // THROUGH the wall. The backdrop is screen-locked (it is infinitely far), so
+      // walking past the opening parallaxes it against the bricks and jambs.
+      this.drawSkyOpening3D(ctx, camX, camY, bTL, bApex, bTR, bBR, bBL, time);
+    } else {
+      // 1. Textured masonry back wall of the recess (z = zBack)
+      texQuad(ctx, wallTex, bTL, bTR, bBR, bBL, x0, yTop + 26, x1, yTop + 26, x1, yBot, x0, yBot, backShade);
+      texTri(ctx, wallTex, bTL, bApex, bTR, x0, yTop + 26, midX, yTop, x1, yTop + 26, backShade, 0.45);
+    }
 
     // 2. Stained-glass lancet panes (using `arch.window` pixel art!) or 3D crypt shelves
-    if (!pal.crypt && mod(bayIndex, 2) === 0 && this.bank) {
+    if (skyBay) {
+      // handled above
+    } else if (!pal.crypt && mod(bayIndex, 2) === 0 && this.bank) {
       const winTex = this.bank.stainedWindow(rgbA(pal.glass, 0.42));
       texQuad(ctx, winTex, bTL, bTR, bBR, bBL, 0, 26, 64, 26, 64, 128, 0, 128, null);
       texTri(ctx, winTex, bTL, bApex, bTR, 0, 26, 32, 0, 64, 26, null, 0.4);
@@ -1056,7 +1262,7 @@ export class Stage3D {
         const a1 = project3D(w.wx + 24, floorY, 172, camX, camY);
         const b1 = project3D(w.wx + 66, floorY, 56, camX, camY);
         const b0 = project3D(w.wx + 4, floorY, 56, camX, camY);
-        ctx.fillStyle = rgbA(pal.glass, 0.18 * pulse);
+        ctx.fillStyle = rgbA(w.moon ? MOON_RGB : pal.glass, (w.moon ? 0.20 : 0.18) * pulse);
         fillQuad(ctx, a0, a1, b1, b0);
       }
       ctx.restore();
@@ -1124,6 +1330,484 @@ export class Stage3D {
       'pillar_shaft', { uFit: 32 });
     this.drawBox3D(ctx, camX, camY, wx - w * 0.72, yTop, z - 4, w * 1.44, 14, w + 8, trimKey);
     this.drawBox3D(ctx, camX, camY, wx - w * 0.72, yBot - 16, z - 4, w * 1.44, 16, w + 8, trimKey);
+  }
+
+  // ======================================= FAR-WALL DEPTH SET-PIECES (PASS II)
+  /**
+   * Screen-locked night backdrop seen through open lancets: the sky dome with its
+   * drifting moon and shader cloud banks over darkened far ridges and castle
+   * crags. Composited at most once per frame, only while a sky bay is on screen.
+   */
+  getSkyView(camX, time) {
+    if (!this._skyView) {
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      this._skyView = c;
+      this._skyViewKey = null;
+    }
+    const key = `${Math.round(camX)}|${Math.round(time * 30)}`;
+    if (this._skyViewKey === key) return this._skyView;
+    this._skyViewKey = key;
+    const g = this._skyView.getContext('2d');
+    const A = this.assets;
+    const SKY_DY = 58;
+    g.fillStyle = '#1a1730';
+    g.fillRect(0, 0, W, H);
+    const sky = A.img('sky');
+    let off = 0;
+    if (sky) {
+      // Same slow drift as the outdoor sky dome, so the moon crosses the lancets over time.
+      off = mod(-(camX * 0.04) - time * 1.5, sky.width);
+      for (let x = off - sky.width; x < W; x += sky.width) g.drawImage(sky, Math.round(x), SKY_DY);
+    }
+    const fx = getFxLayers();
+    if (fx && fx.enabled) {
+      g.save();
+      g.translate(0, SKY_DY);
+      fx.clouds(g, camX, this.themeKey, 0);
+      g.restore();
+    }
+    // Cool night lift plus a luminous halo around the moon (at x≈470 of the sky art)
+    g.fillStyle = 'rgba(70, 90, 170, 0.14)';
+    g.fillRect(0, 0, W, 230);
+    if (sky) {
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      for (let x = off - sky.width; x < W; x += sky.width) {
+        const mx = x + 470, my = SKY_DY + 108;
+        if (mx < -120 || mx > W + 120) continue;
+        const halo = g.createRadialGradient(mx, my, 20, mx, my, 120);
+        halo.addColorStop(0, 'rgba(200, 212, 255, 0.30)');
+        halo.addColorStop(0.5, 'rgba(150, 165, 230, 0.12)');
+        halo.addColorStop(1, 'rgba(120, 130, 200, 0)');
+        g.fillStyle = halo;
+        g.fillRect(mx - 120, my - 120, 240, 240);
+      }
+      g.restore();
+    }
+    // Far ridges & castle crags, darkened, with the horizon in the lower third of the lancets.
+    for (const [name, f, dy, dark] of [['mountains', 0.12, 74, 0.30], ['castle', 0.24, 84, 0.46]]) {
+      if (!A.img(name)) continue;
+      const img = A.darkened(name, dark);
+      const o = mod(-(camX * f), img.width);
+      for (let x = o - img.width; x < W; x += img.width) g.drawImage(img, Math.round(x), dy);
+    }
+    return this._skyView;
+  }
+
+  /** Unglazed lancet opening: the night backdrop behind iron Y-tracery, clipped to the arch. */
+  drawSkyOpening3D(ctx, camX, camY, bTL, bApex, bTR, bBR, bBL, time) {
+    const view = this.getSkyView(camX, time);
+    const base = this.level.height - H;
+    // Climbing reveals a little more sky above the ridges (slight vertical parallax).
+    const viewY = Math.round(-(camY - base) * 0.10);
+    const left = Math.floor(Math.min(bTL.x, bBL.x)) - 1, right = Math.ceil(Math.max(bTR.x, bBR.x)) + 1;
+    const top = Math.floor(bApex.y) - 1, bottom = Math.ceil(Math.max(bBL.y, bBR.y)) + 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(bBL.x, bBL.y + 1); ctx.lineTo(bTL.x, bTL.y); ctx.lineTo(bApex.x, bApex.y);
+    ctx.lineTo(bTR.x, bTR.y); ctx.lineTo(bBR.x, bBR.y + 1);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(view, 0, viewY);
+    // Night haze keeps the opening from outshining the play layer.
+    ctx.fillStyle = 'rgba(10, 12, 32, 0.10)';
+    ctx.fillRect(left, top, right - left, bottom - top);
+    // Iron tracery: central mullion, transom and Y-tracery branching into the arch head.
+    const s = Math.max(0.5, (bBR.x - bBL.x) / 92);
+    const mx = (bBL.x + bBR.x) * 0.5;
+    const springY = bTL.y, apexY = bApex.y;
+    const forkY = springY - (springY - apexY) * 0.30;
+    const transomY = springY + (bBL.y - springY) * 0.46;
+    ctx.strokeStyle = 'rgba(14, 14, 26, 0.94)';
+    ctx.lineWidth = Math.max(1, Math.round(2.5 * s));
+    ctx.beginPath();
+    ctx.moveTo(mx, bBL.y + 2); ctx.lineTo(mx, forkY);
+    ctx.moveTo(bBL.x, transomY); ctx.lineTo(bBR.x, transomY);
+    ctx.moveTo(mx, forkY); ctx.lineTo((mx + bTL.x) * 0.5, (springY + apexY) * 0.5);
+    ctx.moveTo(mx, forkY); ctx.lineTo((mx + bTR.x) * 0.5, (springY + apexY) * 0.5);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /**
+   * One-point-perspective arcaded passage receding from the far wall (z = zFront)
+   * deep into darkness: textured side walls, flagstone floor and pointed vault,
+   * repeating transverse arch ribs, fog-to-black falloff and torches at the far
+   * end. Crypt passages sink toward deeper vaults; cave tunnels glow amber.
+   */
+  drawCorridorBay3D(ctx, camX, camY, x0, x1, floorY, yTop, zFront, bayIndex, time) {
+    const pal = this.pal;
+    const crypt = !!pal.crypt;
+    const cave = this.themeKey === 'darkcave';
+    const wallTex = this.tex(cave ? 'cavernwall' : crypt ? 'crypt_stone' : 'wall');
+    const floorTex = this.tex(crypt ? 'crypt_floor' : 'hall_floor');
+    const trimKey = crypt ? 'crypt_stone' : 'stone_trim';
+    if (!wallTex || !floorTex) return;
+    const fog = pal.fog;
+    const mid = (x0 + x1) * 0.5;
+    const rise = 26;                                   // pointed-arch rise above the springing
+    const stations = [0, 54, 118, 194, 286, 400];      // depth stations beyond the wall
+    const descend = crypt && !cave ? 9 : 0;            // crypt passages sink toward deeper vaults
+    const proj = (px, py, pz) => project3D(px, py, pz, camX, camY);
+    const P = (wx, wy, dz) => project3D(wx, wy, zFront + dz, camX, camY);
+    const fogAt = (dz) => clamp01(0.20 + (dz / 400) * 0.84);
+
+    const nL = P(x0, floorY, 0), nR = P(x1, floorY, 0);
+    if (nR.x < -24 || nL.x > W + 24) return;
+
+    // Everything beyond the wall is only visible THROUGH the opening: clip to the arch.
+    const oL = P(x0, floorY + 1, 0), oTL = P(x0, yTop, 0), oA = P(mid, yTop - rise, 0), oTR = P(x1, yTop, 0), oR = P(x1, floorY + 1, 0);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(oL.x, oL.y); ctx.lineTo(oTL.x, oTL.y); ctx.lineTo(oA.x, oA.y); ctx.lineTo(oTR.x, oTR.y); ctx.lineTo(oR.x, oR.y);
+    ctx.closePath();
+    ctx.clip();
+
+    // Far end: fully fogged darkness.
+    const last = stations.length - 1;
+    const dzEnd = stations[last];
+    const endTop = yTop + descend * last - rise, endBot = floorY + descend * last;
+    ctx.fillStyle = rgbA(fog, 1);
+    fillQuad(ctx, P(x0, endTop, dzEnd), P(x1, endTop, dzEnd), P(x1, endBot, dzEnd), P(x0, endBot, dzEnd));
+
+    for (let k = last - 1; k >= 0; k--) {
+      const dz0 = stations[k], dz1 = stations[k + 1];
+      const fy0 = floorY + descend * k, fy1 = floorY + descend * (k + 1);
+      const cy0 = yTop + descend * k, cy1 = yTop + descend * (k + 1);
+      const fogK = fogAt((dz0 + dz1) * 0.5);
+      // Flagstone floor (perspective-subdivided near the mouth so stones never swim)
+      texQuadSubZ(
+        ctx, floorTex, proj,
+        { x: x0, y: fy1, z: zFront + dz1 }, { x: x1, y: fy1, z: zFront + dz1 },
+        { x: x1, y: fy0, z: zFront + dz0 }, { x: x0, y: fy0, z: zFront + dz0 },
+        x0, dz1, x1, dz1, x1, dz0, x0, dz0,
+        shadeOverlay32([0, -0.9, -0.4], fog, fogK, 0.9), k < 2 ? 2 : 1,
+      );
+      // Side walls (u runs along depth so the courses recede)
+      texQuad(ctx, wallTex, P(x0, cy0, dz0), P(x0, cy1, dz1), P(x0, fy1, dz1), P(x0, fy0, dz0),
+        dz0, cy0, dz1, cy1, dz1, fy1, dz0, fy0, shadeOverlay32([1, 0, -0.25], fog, fogK));
+      texQuad(ctx, wallTex, P(x1, cy1, dz1), P(x1, cy0, dz0), P(x1, fy0, dz0), P(x1, fy1, dz1),
+        dz1, cy1, dz0, cy0, dz0, fy0, dz1, fy1, shadeOverlay32([-1, 0, -0.25], fog, fogK));
+      // Pointed vault webs
+      texQuad(ctx, wallTex, P(x0, cy0, dz0), P(mid, cy0 - rise, dz0), P(mid, cy1 - rise, dz1), P(x0, cy1, dz1),
+        x0, dz0, mid, dz0, mid, dz1, x0, dz1, shadeOverlay32([0.5, 0.8, -0.3], fog, Math.min(1, fogK + 0.06)));
+      texQuad(ctx, wallTex, P(mid, cy0 - rise, dz0), P(x1, cy0, dz0), P(x1, cy1, dz1), P(mid, cy1 - rise, dz1),
+        mid, dz0, x1, dz0, x1, dz1, mid, dz1, shadeOverlay32([-0.5, 0.8, -0.3], fog, Math.min(1, fogK + 0.06)));
+      // Crypt steps: pale nosings down the sinking floor
+      if (descend) {
+        ctx.strokeStyle = rgbA([200, 190, 170], 0.22 * (1 - fogK));
+        ctx.lineWidth = 1;
+        for (let sIdx = 1; sIdx <= 2; sIdx++) {
+          const t = sIdx / 3;
+          const a = P(x0 + 2, fy0 + (fy1 - fy0) * t, dz0 + (dz1 - dz0) * t);
+          const b = P(x1 - 2, fy0 + (fy1 - fy0) * t, dz0 + (dz1 - dz0) * t);
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+      }
+    }
+
+    // Transverse arch ribs at every station inside the passage
+    for (let k = 1; k < last; k++) {
+      const dz = stations[k];
+      const fy = floorY + descend * k, cy = yTop + descend * k;
+      const r0 = P(x0, fy, dz), r1 = P(x0, cy, dz), rA = P(mid, cy - rise, dz), r2 = P(x1, cy, dz), r3 = P(x1, fy, dz);
+      ctx.strokeStyle = shade32(pal.trim, [0, -0.2, -0.95], fog, fogAt(dz));
+      ctx.lineWidth = Math.max(1, Math.round(4.2 * r0.s));
+      ctx.beginPath();
+      ctx.moveTo(r0.x, r0.y); ctx.lineTo(r1.x, r1.y); ctx.lineTo(rA.x, rA.y); ctx.lineTo(r2.x, r2.y); ctx.lineTo(r3.x, r3.y);
+      ctx.stroke();
+    }
+
+    // A lone torch at the far end and a wall sconce halfway down the left wall
+    const glow = getGlowCanvas(cave ? 'amber' : 'flame');
+    const torches = [
+      { p: P(mid, endTop + (endBot - endTop) * 0.42, dzEnd - 2), r: 36, seed: 0 },
+      { p: P(x0 + 3, yTop + descend * 2 + 34, stations[2]), r: 22, seed: 2.3 },
+    ];
+    for (const t of torches) {
+      const flick = 0.72 + 0.28 * Math.sin(time * 11 + bayIndex * 1.7 + t.seed);
+      const rr = Math.max(3, t.r * t.p.s);
+      if (glow) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.55 * flick;
+        ctx.drawImage(glow, t.p.x - rr * 2, t.p.y - rr * 2, rr * 4, rr * 4);
+        ctx.restore();
+      }
+      ctx.fillStyle = cave ? '#ffb45a' : '#ffd88a';
+      ctx.fillRect(Math.round(t.p.x - 1), Math.round(t.p.y - 2), 2, 3);
+    }
+    ctx.restore();
+
+    // Moulded archivolt & 3D stone jambs framing the opening in the far wall
+    ctx.strokeStyle = shade32(pal.trim, [-0.3, -0.5, -0.8], fog, 0.42);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(oL.x, oL.y - 1); ctx.lineTo(oTL.x, oTL.y); ctx.lineTo(oA.x, oA.y); ctx.lineTo(oTR.x, oTR.y); ctx.lineTo(oR.x, oR.y - 1);
+    ctx.stroke();
+    this.drawBox3D(ctx, camX, camY, x0 - 12, yTop - 4, zFront - 10, 12, floorY - yTop + 4, 10, trimKey);
+    this.drawBox3D(ctx, camX, camY, x1, yTop - 4, zFront - 10, 12, floorY - yTop + 4, 10, trimKey);
+  }
+
+  /**
+   * Mid-depth furnishings (z ≈ 88..103) standing on the receding hall floor:
+   * pews, bookcases, automata cabinets, angel statues or 3D sarcophagi, darkened
+   * toward the fog so the crisp play layer stays dominant, each grounded by a
+   * contact shadow. Deterministic per bay; never in front of set-piece bays or
+   * within reach of doorways and shrines.
+   */
+  drawMidProps3D(ctx, camX, camY, r, roomIndex, bStart, bEnd, floorRow, floorY) {
+    const set = MID_PROPS[this.themeKey];
+    if (!set) return;
+    const A = this.assets;
+    const fog = this.pal.fog;
+    const tint = `rgba(${fog[0]}, ${fog[1]}, ${fog[2]}, 0.42)`;
+    for (let bi = bStart; bi <= bEnd; bi++) {
+      const h = hash32(bi + 17, this.level.cols);
+      if ((h & 7) >= 5) continue;
+      const kind = this.bayKind(r, roomIndex, bi, floorRow, false).kind;
+      if (kind === 'stair' || kind === 'orrery' || kind === 'corridor') continue;
+      const midX = (bi + 0.5) * BAY_W;
+      const side = (bi & 1) ? -1 : 1;
+      const wx = midX + side * (42 + ((h >>> 3) & 31));
+      const z = 88 + ((h >>> 9) & 15);
+      // Stand on the level the hunter walks on in front of the prop.
+      const row = this.bayFooting(r, wx, floorRow, 40);
+      if (row < 0) continue;
+      const fy = row * TILE;
+      const p = project3D(wx, fy, z, camX, camY);
+      if (p.x < -60 || p.x > W + 60) continue;
+      if (set === 'sarcophagus') {
+        this.drawSarcophagus3D(ctx, camX, camY, wx, fy, z, h);
+        continue;
+      }
+      const [sheet, frame] = set[(h >>> 14) % set.length];
+      const f = A.frame(sheet, frame);
+      if (!f) continue;
+      ctx.fillStyle = 'rgba(2, 2, 8, 0.38)';
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y - 1, f.w * p.s * 0.46, Math.max(2, 3.5 * p.s), 0, 0, Math.PI * 2);
+      ctx.fill();
+      A.draw(ctx, sheet, frame, p.x, p.y, ((h >>> 20) & 1) === 1, 1, p.s, tint);
+    }
+  }
+
+  /** Texture-mapped 3D stone sarcophagus with a raised lid and carved effigy ridge. */
+  drawSarcophagus3D(ctx, camX, camY, wx, floorY, z, h) {
+    const w = 64 + (h & 15), d = 30;
+    this.drawBox3D(ctx, camX, camY, wx - w / 2, floorY - 24, z, w, 24, d, 'crypt_stone', { bright: 0.9 });
+    this.drawBox3D(ctx, camX, camY, wx - w / 2 - 3, floorY - 30, z - 2, w + 6, 6, d + 4, 'crypt_stone', { bright: 1.05 });
+    this.drawBox3D(ctx, camX, camY, wx - 6, floorY - 36, z + 4, 12, 6, d - 8, 'crypt_stone', { bright: 0.8 });
+  }
+
+  /**
+   * Grand 3D staircase set-piece: a texture-mapped flight rising away from the
+   * play plane to a balustraded landing and a doorway in the far wall, with a
+   * crimson runner in carpeted halls. Deepest geometry first.
+   */
+  drawGrandStair3D(ctx, camX, camY, cx, floorY, zWall, time) {
+    const pal = this.pal;
+    const crypt = !!pal.crypt;
+    const stepKey = crypt ? 'crypt_stone' : (pal.carpet ? 'marble' : 'stone_trim');
+    const trimKey = crypt ? 'crypt_stone' : 'stone_trim';
+    const n = 8, rise = 11, run = 15, halfW = 68;
+    const zTop = zWall - 12;
+    const z0 = zTop - n * run;
+    const landingY = floorY - (n + 1) * rise;
+    const pL = project3D(cx - halfW, floorY, z0, camX, camY), pR = project3D(cx + halfW, floorY, z0, camX, camY);
+    if (pR.x < -40 || pL.x > W + 40) return;
+
+    // The doorway the flight climbs into, then the landing tucked under its threshold.
+    this.drawCorridorBay3D(ctx, camX, camY, cx - 44, cx + 44, landingY, landingY - 112, zWall, 99, time);
+    this.drawBox3D(ctx, camX, camY, cx - halfW - 10, landingY, zTop, halfW * 2 + 20, rise, zWall - zTop + 28, trimKey);
+
+    const carpetTex = pal.carpet ? this.tex('carpet') : null;
+    const cShade = shadeOverlay32([0, -0.85, -0.5], pal.fog, 0.30, 0.96);
+    const proj = (px, py, pz) => project3D(px, py, pz, camX, camY);
+    for (let k = n - 1; k >= 0; k--) {
+      const z = z0 + k * run;
+      const y = floorY - (k + 1) * rise;
+      this.drawBox3D(ctx, camX, camY, cx - halfW, y, z, halfW * 2, rise, run + 0.5, stepKey);
+      if (carpetTex) {
+        // Runner over tread and riser
+        texQuad(ctx, carpetTex, proj(cx - 22, y, z + run), proj(cx + 22, y, z + run), proj(cx + 22, y, z), proj(cx - 22, y, z),
+          cx - 22, 0, cx + 22, 0, cx + 22, 32, cx - 22, 32, cShade);
+        texQuad(ctx, carpetTex, proj(cx - 22, y, z), proj(cx + 22, y, z), proj(cx + 22, y + rise, z), proj(cx - 22, y + rise, z),
+          cx - 22, 4, cx + 22, 4, cx + 22, 28, cx - 22, 28, shadeOverlay32([0, -0.15, -1], pal.fog, 0.30, 0.9));
+      }
+    }
+    if (carpetTex) {
+      texQuad(ctx, carpetTex, proj(cx - 22, landingY, zWall + 4), proj(cx + 22, landingY, zWall + 4), proj(cx + 22, landingY, zTop), proj(cx - 22, landingY, zTop),
+        cx - 22, 0, cx + 22, 0, cx + 22, 32, cx - 22, 32, cShade);
+    }
+
+    // Balustrades: newel posts every other step and a sloping handrail on both flanks
+    for (const side of [-1, 1]) {
+      const bx = cx + side * (halfW + 4);
+      const pts = [];
+      for (let k = 0; k <= n; k += 2) {
+        const z = z0 + k * run + 4;
+        const y = floorY - (k + 1) * rise;
+        this.drawBox3D(ctx, camX, camY, bx - 3, y - 36, z, 6, 36, 6, trimKey);
+        pts.push(project3D(bx, y - 38, z + 3, camX, camY));
+      }
+      pts.push(project3D(bx, landingY - 38, zWall + 4, camX, camY));
+      ctx.strokeStyle = shade32(pal.trim, [side * 0.6, -0.5, -0.6], pal.fog, 0.30);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(4, 4, 12, 0.55)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y + 2);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y + 2);
+      ctx.stroke();
+    }
+  }
+
+  /**
+   * Brass orrery landmark: a carved pedestal carrying three tilted armillary
+   * rings that turn about the axis at different rates, each with an orbiting
+   * planet, around a gilded sun. Segments are depth-sorted around the sun.
+   */
+  drawOrrery3D(ctx, camX, camY, wx, floorY, z, time) {
+    const c = project3D(wx, floorY, z, camX, camY);
+    if (c.x < -120 || c.x > W + 120) return;
+    this.drawBox3D(ctx, camX, camY, wx - 26, floorY - 4, z - 16, 52, 4, 38, 'brass_rim');
+    this.drawBox3D(ctx, camX, camY, wx - 16, floorY - 52, z - 10, 32, 48, 26, 'wood_carved');
+    this.drawBox3D(ctx, camX, camY, wx - 22, floorY - 56, z - 14, 44, 4, 34, 'brass_rim');
+    const cy = floorY - 56 - 62;
+    const centre = project3D(wx, cy, z, camX, camY);
+    const s = centre.s;
+
+    const rings = [
+      { r: 26, tilt: 0.42, speed: 0.55, col: [226, 182, 98] },
+      { r: 40, tilt: -0.62, speed: -0.32, col: [206, 164, 86] },
+      { r: 56, tilt: 0.18, speed: 0.20, col: [190, 150, 78] },
+    ];
+    const segs = 28;
+    const back = [], front = [];
+    for (let ri = 0; ri < rings.length; ri++) {
+      const ring = rings[ri];
+      const ct = Math.cos(ring.tilt), st = Math.sin(ring.tilt);
+      const rot = time * ring.speed + ri * 1.3;
+      let prev = null;
+      for (let i = 0; i <= segs; i++) {
+        const a = (i / segs) * Math.PI * 2 + rot;
+        const lz = Math.sin(a) * ring.r;
+        const p = project3D(wx + Math.cos(a) * ring.r, cy - st * lz, z + ct * lz, camX, camY);
+        if (prev) {
+          const depth = (prev.d + ct * lz) * 0.5;
+          (depth > 0 ? back : front).push({ a: prev, b: p, depth, col: ring.col });
+        }
+        prev = p;
+        prev.d = ct * lz;
+      }
+      const pa = rot * 1.7 + ri * 2.1;
+      const plz = Math.sin(pa) * ring.r;
+      const pp = project3D(wx + Math.cos(pa) * ring.r, cy - st * plz, z + ct * plz, camX, camY);
+      const pdepth = ct * plz;
+      (pdepth > 0 ? back : front).push({ planet: pp, depth: pdepth, r: (2.6 + ri * 1.1) * s, col: ring.col });
+    }
+    const drawList = (list) => {
+      list.sort((u, v) => v.depth - u.depth);
+      for (const item of list) {
+        if (item.planet) {
+          const pr = Math.max(1.5, item.r);
+          const g = ctx.createRadialGradient(item.planet.x - pr * 0.35, item.planet.y - pr * 0.35, 0.5, item.planet.x, item.planet.y, pr);
+          g.addColorStop(0, '#f4e4b4');
+          g.addColorStop(0.55, `rgb(${item.col[0]}, ${item.col[1]}, ${item.col[2]})`);
+          g.addColorStop(1, '#3a2a14');
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(item.planet.x, item.planet.y, pr, 0, Math.PI * 2); ctx.fill();
+          continue;
+        }
+        const k = 0.52 + 0.48 * clamp01(0.5 - item.depth / 120);
+        ctx.strokeStyle = `rgb(${Math.round(item.col[0] * k)}, ${Math.round(item.col[1] * k)}, ${Math.round(item.col[2] * k)})`;
+        ctx.lineWidth = Math.max(1, Math.round(3.2 * s * (item.depth > 0 ? 0.8 : 1.1)));
+        ctx.beginPath(); ctx.moveTo(item.a.x, item.a.y); ctx.lineTo(item.b.x, item.b.y); ctx.stroke();
+      }
+    };
+    drawList(back);
+    // Axis rod and the gilded sun with its warm glow
+    const axTop = project3D(wx, cy - 72, z, camX, camY), axBot = project3D(wx, floorY - 56, z, camX, camY);
+    ctx.strokeStyle = '#8a6a34';
+    ctx.lineWidth = Math.max(1, Math.round(2 * s));
+    ctx.beginPath(); ctx.moveTo(axBot.x, axBot.y); ctx.lineTo(axTop.x, axTop.y); ctx.stroke();
+    const glow = getGlowCanvas('amber');
+    if (glow) {
+      const gr = 28 * s;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.5 + 0.08 * Math.sin(time * 2.1);
+      ctx.drawImage(glow, centre.x - gr, centre.y - gr, gr * 2, gr * 2);
+      ctx.restore();
+    }
+    const sg = ctx.createRadialGradient(centre.x - 2 * s, centre.y - 2 * s, 1, centre.x, centre.y, 8 * s);
+    sg.addColorStop(0, '#fff2c0'); sg.addColorStop(0.6, '#e8b24a'); sg.addColorStop(1, '#7a4a12');
+    ctx.fillStyle = sg;
+    ctx.beginPath(); ctx.arc(centre.x, centre.y, 8 * s, 0, Math.PI * 2); ctx.fill();
+    drawList(front);
+  }
+
+  /**
+   * Small texture-mapped 3D family tombs with gabled slate roofs and lit lancets,
+   * standing on the moor behind the cemetery fence (z ≈ 112..136).
+   */
+  drawMausoleums3D(ctx, camX, camY, time, maxCol) {
+    const lv = this.level;
+    const spacing = 27, phase = 14;
+    const roofTex = this.tex('slate_roof');
+    const stoneTex = this.tex('keep_stone');
+    if (!roofTex || !stoneTex) return;
+    const txLo = Math.max(phase, Math.floor((camX - 260) / TILE));
+    const txHi = Math.min(maxCol - 14, Math.ceil((camX + W + 260) / TILE));
+    const eyeWorldX = camX + EYE_X;
+    for (let tx = Math.ceil((txLo - phase) / spacing) * spacing + phase; tx <= txHi; tx += spacing) {
+      const r = lv.groundRow(tx);
+      if (r < 0) continue;
+      const wx = tx * TILE + 16, wy = r * TILE;
+      if (this.landmarkXs.some((lx) => Math.abs(lx - wx) < 170)) continue;
+      const z = 112 + ((tx * 7) % 3) * 12;
+      const w = 58, h = 46, d = 48;
+      const fog = this.pal.fog;
+      const fogAmt = clamp01((z - 15) / 360) * 0.68;
+      this.drawBox3D(ctx, camX, camY, wx - w / 2, wy - h, z, w, h, d, 'keep_stone');
+      // Gabled slate roof: far-facing slope first
+      const ridgeY = wy - h - 24;
+      const slope = (dir) => {
+        const ex = wx + dir * (w / 2 + 4);
+        const a = project3D(ex, wy - h + 2, z - 3, camX, camY);
+        const b = project3D(wx, ridgeY, z - 3, camX, camY);
+        const c = project3D(wx, ridgeY, z + d + 3, camX, camY);
+        const e = project3D(ex, wy - h + 2, z + d + 3, camX, camY);
+        const sh = shadeOverlay32([dir * 0.7, -0.72, 0], fog, fogAmt);
+        texQuad(ctx, roofTex, a, b, c, e, 0, 0, 28, 0, 28, d + 6, 0, d + 6, sh);
+      };
+      const nearSide = wx < eyeWorldX ? 1 : -1;
+      slope(-nearSide);
+      slope(nearSide);
+      // Front gable, door and a lit lancet
+      const g0 = project3D(wx - w / 2, wy - h, z - 0.5, camX, camY);
+      const g1 = project3D(wx, ridgeY + 2, z - 0.5, camX, camY);
+      const g2 = project3D(wx + w / 2, wy - h, z - 0.5, camX, camY);
+      texTri(ctx, stoneTex, g0, g1, g2, wx - w / 2, wy - h, wx, ridgeY + 2, wx + w / 2, wy - h, shadeOverlay32([0, -0.15, -1], fog, fogAmt), 0.45);
+      const dr = project3D(wx - 7, wy - 28, z - 1, camX, camY);
+      ctx.fillStyle = '#07060e';
+      ctx.fillRect(Math.round(dr.x), Math.round(dr.y), Math.max(2, Math.round(14 * dr.s)), Math.max(3, Math.round(28 * dr.s)));
+      const ln = project3D(wx - 2, wy - h + 8, z - 1, camX, camY);
+      const pulse = 0.55 + 0.3 * Math.sin(time * 2.7 + tx);
+      ctx.fillStyle = `rgba(255, 190, 110, ${pulse.toFixed(2)})`;
+      ctx.fillRect(Math.round(ln.x), Math.round(ln.y), Math.max(1, Math.round(4 * ln.s)), Math.max(2, Math.round(9 * ln.s)));
+      // Cross finial on the ridge
+      const cr = project3D(wx, ridgeY - 12, z - 2, camX, camY);
+      ctx.fillStyle = '#2b2d44';
+      ctx.fillRect(Math.round(cr.x - 1), Math.round(cr.y), 2, Math.max(4, Math.round(12 * cr.s)));
+      ctx.fillRect(Math.round(cr.x - 3), Math.round(cr.y + 3 * cr.s), 6, 2);
+    }
   }
 
   // ============================================ CLOCK TOWER 3D CYLINDER & GEARS
