@@ -142,6 +142,37 @@ export class Level {
     return -1;
   }
 
+  /**
+   * Top row of the true ground mass at column tx: solid terrain material
+   * connected to the bottom of the map. Ignores one-way ledges, crumbling
+   * slabs, breakable blocks and 1-tile viaduct spans with open air beneath, so
+   * background scenery (3D tree colonnades, fences, mausoleums) is planted on
+   * the earth instead of hovering at the height of an upper gallery or bridge.
+   * Returns -1 over pits, abysses and lava.
+   */
+  groundRow(tx) {
+    if (tx < 0 || tx >= this.cols) return -1;
+    let y = this.rows - 1;
+    if (!isMaterialTile(this.tile(tx, y))) return -1;
+    while (y > 0 && isMaterialTile(this.tile(tx, y - 1))) y--;
+    return y;
+  }
+
+  /**
+   * Ground row at tx, or the nearest column's ground (searching outward up to
+   * `radius` columns) when tx is over a gap, so scenery behind a ravine stands
+   * level with the banks on either side. Falls back to `fallback`.
+   */
+  nearestGroundRow(tx, radius = 14, fallback = -1) {
+    for (let d = 0; d <= radius; d++) {
+      const a = this.groundRow(tx - d);
+      if (a >= 0) return a;
+      const b = this.groundRow(tx + d);
+      if (b >= 0) return b;
+    }
+    return fallback;
+  }
+
   /** Breaks a block tile; returns the drop item type (or null). */
   breakBlock(tx, ty) {
     if (this.tile(tx, ty) !== T_BLOCK) return null;

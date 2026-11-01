@@ -100,6 +100,13 @@ export class Stage3D {
     return this.bank ? this.bank.get(name) : null;
   }
 
+  /** The stage's starting floor row: last-resort footing for scenery over map-wide gaps. */
+  startRow() {
+    const s = this.data && this.data.start;
+    const r = s ? Math.round(s.y / TILE) : 11;
+    return r > 0 && r < this.level.rows ? r : 11;
+  }
+
   /**
    * Places foreground framing silhouettes strictly on calm, solid runs away
    * from pits, spikes, moving lifts and boss arenas so gameplay stays 100%
@@ -499,13 +506,14 @@ export class Stage3D {
     const tx1 = Math.min(maxCol, Math.ceil((camX + W) / TILE) + 3);
     const z = 54;
     for (let tx = tx0; tx <= tx1; tx += 3) {
-      const r = lv.surfaceRow(tx);
-      if (r < 0 || !lv.isSolid(tx, r)) continue;
+      // Posts stand on true ground only (never on viaduct spans or ledges over a gap).
+      const r = lv.groundRow(tx);
+      if (r < 0) continue;
       const wx = tx * TILE + 16, wy = r * TILE;
       this.drawBox3D(ctx, camX, camY, wx - 5, wy - 36, z, 10, 36, 14, 'wall');
       this.drawBox3D(ctx, camX, camY, wx - 7, wy - 40, z - 2, 14, 4, 18, 'stone_trim');
-      const nr = lv.surfaceRow(tx + 3);
-      if (tx + 3 <= maxCol && nr === r && lv.isSolid(tx + 3, nr)) {
+      const nr = lv.groundRow(tx + 3);
+      if (tx + 3 <= maxCol && nr === r) {
         const p0 = project3D(wx + 5, wy - 28, z + 4, camX, camY);
         const p1 = project3D((tx + 3) * TILE + 11, wy - 28, z + 4, camX, camY);
         const b0 = project3D(wx + 5, wy - 8, z + 4, camX, camY);
@@ -569,8 +577,9 @@ export class Stage3D {
       for (let i = i0; i <= i1; i++) {
         const wx = i * spacing + (pass ? 108 : 0);
         const col = Math.max(0, Math.min(this.level.cols - 1, Math.floor(wx / TILE)));
-        const r = this.level.surfaceRow(col);
-        const wy = (r > 0 ? r : 11) * TILE + 8;
+        // Plant trunks on the true ground (never on an upper gallery ledge, viaduct span or ferry gap).
+        const r = this.level.nearestGroundRow(col, 14, this.startRow());
+        const wy = r * TILE + 8;
         const w = pass === 0 ? 24 : 32;
         this.drawBox3D(ctx, camX, camY, wx - w / 2, wy - 380, z, w, 380, 26, 'bark', { bright });
         this.drawBox3D(ctx, camX, camY, wx - w * 0.95, wy - 22, z - 4, w * 1.9, 22, 32, 'bark_h', { bright, topTex: 'bark_h' });
@@ -625,8 +634,8 @@ export class Stage3D {
       for (let i = i0; i <= i1; i++) {
         const wx = i * spacing + P.dx;
         const col = Math.max(0, Math.min(this.level.cols - 1, Math.floor(wx / TILE)));
-        const r = this.level.surfaceRow(col);
-        const wy = (r > 0 ? r : 11) * TILE + 10;
+        const r = this.level.nearestGroundRow(col, 14, this.startRow());
+        const wy = r * TILE + 10;
         const pr = project3D(wx, wy, P.z, camX, camY);
         if (pr.x < -260 || pr.x > W + 260) continue;
         if (sheet) {
@@ -678,8 +687,8 @@ export class Stage3D {
     for (let i = i0 * 3; i <= i1 * 3; i++) {
       const wx = i * (spacing / 3) + 40 + Math.sin(time * 0.5 + i) * 18;
       const col = Math.max(0, Math.min(this.level.cols - 1, Math.floor(wx / TILE)));
-      const r = this.level.surfaceRow(col);
-      const wy = (r > 0 ? r : 11) * TILE - 60 - (Math.abs(i * 53) % 150) + Math.sin(time * 0.9 + i * 1.3) * 10;
+      const r = this.level.nearestGroundRow(col, 14, this.startRow());
+      const wy = r * TILE - 60 - (Math.abs(i * 53) % 150) + Math.sin(time * 0.9 + i * 1.3) * 10;
       const pm = project3D(wx, wy, 120, camX, camY);
       if (pm.x < -10 || pm.x > W + 10) continue;
       const a = 0.35 + 0.35 * Math.sin(time * 3 + i * 0.7);
