@@ -1,9 +1,10 @@
 # Gothic Nocturne
 
-A 32-bit era, whip-cracking 2.5D side-scrolling action platformer across twelve
+A 32-bit era, whip-cracking 2.5D side-scrolling action platformer across thirteen
 stages: a moonlit graveyard road, an ancient bioluminescent darkwood alongside a
 guardian turtle companion, a pumpkin-lit haunted forest, a snowbound
-village under northern lights, the castle ramparts, catacombs and an
+village under northern lights, the castle ramparts, catacombs, a molten subterranean
+dark cave of magma rivers and obsidian pillars, an
 ossuary abyss, an arcade gallery of ancient brass automata, a haunted library of phantoms and
 biting grimoires, a soaring cathedral of stained glass and waking gargoyles, a
 cylindrical clock tower of grinding 3D gears, and the vaulted
@@ -15,29 +16,33 @@ skeletons (and red reviving / axe-throwing variants), rising zombies and
 ghouls, swooping and fire bats, medusa heads, briar wolves, sporecap myconids,
 swooping night-owls, hopping and flaming jack-o'-lanterns, fire-breathing
 dragons, the petrifying catoblepas, ice golems, killer snowmen, frost wisps,
-and a bespoke 3D boss arena with spoken Daikon boss voice lines at the end of
-every stage.
+magma slimes, boulder-hurling lava golems, swooping cinder imps, shielded plate
+knights, teleporting shadow wraiths, bespoke boss relic power-ups, and a 3D boss
+arena with spoken Daikon boss voice lines at the end of every stage.
 
 - **Art**: tiles, sprites and backdrops generated with Gemini's image
   model and normalized into crisp pixel art, paired with procedural 32-bit
   pixel-art sheets and 3D surface textures.
-- **Music**: sixteen full-length tracks (2–2.5 minutes each) generated with
-  **Lyria 3**: a distinct theme for every stage plus title, boss, stage-clear,
-  game-over and ending, streamed on demand and looped with crossfades.
-- **Voice**: twelve bespoke boss voice performances plus a narrated epilogue generated with the
-  **Daikon** TTS model (`assets/voice/*.mp3`), triggered with music ducking and
-  a subtitle banner as the hunter nears each boss arena. Sound effects are
-  synthesized in-browser with Web Audio, or replaced by sampled effects in
+- **Music**: seventeen full-length tracks (2–3 minutes each) generated with
+  **Lyria 3**: a distinct theme for every stage plus title, symphonic orchestral
+  boss battle, stage-clear, game-over and ending, streamed on demand and looped
+  with crossfades.
+- **Voice**: thirteen bespoke male/female villain voice performances (with sinister laughs,
+  whispers, coughs, and shouts) plus a narrated epilogue generated with the
+  **Daikon** TTS model (`assets/voice/*.mp3`), triggered as the orchestral boss
+  music rises underneath with ducking and a subtitle plate as the hunter enters each boss arena. Sound effects are
+  synthesized in-browser with Web Audio (including multi-layered outdoor thunder), or replaced by sampled effects in
   `assets/sfx/` when generated with `tools/generate_sfx.sh` (ElevenLabs Sound
   Effects API, needs `ELEVENLABS_API_KEY`).
 - **Engine**: plain HTML5 canvas + ES modules, no build step, no dependencies.
   Native 640×360, integer-scaled with nearest-neighbour sampling, composited
   through a WebGL post-process (`src/engine/postfx.js`: quarter-res bloom,
-  per-stage colour grading, phosphor scanlines, film grain, lightning
-  shimmer and damage pulse; press F to toggle, `?nofx` to disable) plus
-  procedural shader layers (`src/engine/fxlayers.js`: drifting cloud banks,
-  flowing / frozen water on the 3D ground planes, living flames on torches,
-  candelabra, chandeliers and fire pools, and rolling foreground mist).
+  per-stage colour grading, phosphor scanlines, film grain, directional storm-lightning
+  exposure and damage pulse; press F to toggle, `?nofx` to disable) plus
+  procedural shader layers (`src/engine/fxlayers.js`: storm-lit cloud banks,
+  forked sky lightning bolts on outdoor stages, flowing / frozen water and churning
+  molten lava pools, living flames on torches, braziers, candelabra, chandeliers
+  and fire pools, and rolling foreground mist).
 
 ## Play
 
@@ -70,20 +75,21 @@ and the east-wing Arcade lead up to the Clock Tower and finally the Throne Hall.
 Clearing a stage carries score, lives, hearts and sub-weapon back to the map;
 clearing the Throne Hall plays the ending.
 
-| # | Stage | Theme | Signature 2.5D set-pieces & hazards | Boss |
-| --- | --- | --- | --- | --- |
-| 1 | The Graveyard Road | moonlit moor → barbican gate & hall | 3D rotating distant keep, moat drawbridge, vaulted hall gallery ferry | The Great Bat |
-| 2 | The Darkwood | 3D elder colonnade & bioluminescent stream | guardian turtle ally (shell-spin combat & shell-spring), root viaducts, log ferry | The Briar King |
-| 3 | The Jack-o'-Lantern | 3D forest colonnade & swaying lanterns | crumbling slabs, ravine trestle bridges, gorge ferry, canopy split route | The Great Jack |
-| 4 | The Frozen Yule | aurora sky & shimmering 3D ice lake | arched lake causeways, chain ice ferry, snow-gable split route | Devil Santa |
-| 5 | The Ramparts | high curtain walls over 3D torchlit bailey | open viaduct arches, diagonal siege lifts, crumbling battlements | The Bone Captain |
-| 6 | The Catacombs | vaulted skull-niche crypts | teach-then-test crumbling crypt slabs, burial gallery, vault ferry | The Phantom Reaper |
-| 7 | The Ossuary | broken colonnade over 3D spectral abyss | abyssal viaduct spans, spectral chain ferry, reliquary split route | The Gorgon Queen |
-| 8 | The Arcade | gilded gallery of ancient automata (fortune-teller, zoetrope, oracle engine, chess automaton, magic lantern) | gallery lifts, balcony split route, clockwork annex cog-wheel | The Brass Automaton |
-| 9 | The Library | towering bookshelf walls & reading-room apse | phantoms that phase through the whip, cursed tomes bursting off the shelves, page storms | The Spectral Archivist |
-| 10 | The Cathedral | 26-row nave, clerestory lancets & a great rose window | gargoyles that wake from the cornices, triforium climbs, organ-loft descent | The Gargoyle Archon |
-| 11 | The Clock Tower | cylindrical 3D shaft & extruded brass gears | orbiting 3D gear-wheel gondolas, counterweight shaft lift | The Reaper Lord |
-| 12 | The Throne Hall | crimson rib-vaulted nave & chandeliers | clerestory split route, sanctuary lift, rose-window & pipe-organ dais | The Count |
+| # | Stage | Theme | Signature 2.5D set-pieces & hazards | Boss | Boss Relic Power-Up |
+| --- | --- | --- | --- | --- | --- |
+| 1 | The Graveyard Road | moonlit moor → barbican gate & hall | 3D rotating distant keep, moat drawbridge, outdoor lightning & thunder | The Great Bat | **Night Wings** (Double Jump) |
+| 2 | The Darkwood | 3D elder colonnade & bioluminescent stream | guardian turtle ally (shell-spin combat), root viaducts, log ferry | The Briar King | **Briar Bark** (+1 HP / 8s Regen) |
+| 3 | The Jack-o'-Lantern | 3D forest colonnade & swaying lanterns | crumbling slabs, ravine trestle bridges, gorge ferry, canopy split route | The Great Jack | **Lantern Flame** (+1 Whip Damage & Ember Sparks) |
+| 4 | The Frozen Yule | aurora sky & shimmering 3D ice lake | arched lake causeways, chain ice ferry, snow-gable split route | Devil Santa | **Frost Aegis** (+45% Mercy Invuln & -50% Knockback) |
+| 5 | The Ramparts | high curtain walls over 3D torchlit bailey | open viaduct arches, diagonal siege lifts, shielded plate knights | The Bone Captain | **Iron Greaves** (+15% Speed & -50% Hazard Damage) |
+| 6 | The Catacombs | vaulted skull-niche crypts | crumbling crypt slabs, shadow wraiths, burial gallery, vault ferry | The Phantom Reaper | **Soul Harvest** (Every 6 Kills: +1 HP & +1 Heart) |
+| 7 | The Dark Cave | molten obsidian caverns & magma abyss | WebGL lava basins, stepping basalt islands, magma slimes, lava golems, cinder imps | The Cinder Queen | **Magma Heart** (-65% Lava/Fire Dmg & +1 Sub-Weapon Dmg) |
+| 8 | The Ossuary | broken colonnade over 3D spectral abyss | abyssal viaduct spans, spectral chain ferry, reliquary split route | The Gorgon Queen | **Aegis Mirror** (Stone Immunity & -15% Damage) |
+| 9 | The Arcade | gilded gallery of ancient automata | gallery lifts, balcony split route, clockwork annex cog-wheel | The Brass Automaton | **Clockwork Heart** (Every 2nd Throw Free & Loot Magnet) |
+| 10 | The Library | towering bookshelf walls & reading-room apse | phantoms that phase through the whip, biting grimoires, page storms | The Spectral Archivist | **Forbidden Tome** (+28% Extended Whip Reach) |
+| 11 | The Cathedral | 26-row nave, clerestory lancets & rose window | gargoyles that wake from the cornices, plate knights, organ-loft descent | The Gargoyle Archon | **Sanctuary Halo** (20 Max HP & Stronger Meat Healing) |
+| 12 | The Clock Tower | cylindrical 3D shaft & extruded brass gears | orbiting 3D gear-wheel gondolas, counterweight shaft lift | The Reaper Lord | **Chrono Pendulum** (+25% Faster Whip & Slower Enemy Shots) |
+| 13 | The Throne Hall | crimson rib-vaulted nave & chandeliers | clerestory split route, sanctuary lift, rose-window & pipe-organ dais | The Count | **Crimson Mantle** (Piercing Crimson Flame Wave on Whip) |
 
 The catoblepas breathes a petrifying cloud: touched by it, the hunter turns to
 stone for a moment — mash any button to break free sooner.
@@ -99,8 +105,8 @@ each stage's PNG tilesets alongside bespoke pixel-art procedural materials
 (lathe-turned riveted brass/iron gears, ashlar masonry, slate conical roofs,
 carved organ cases, and tufted velvet).
 
-Stage 1 is hand-built (`src/game/level_data.js`); stages 2–12 are composed
-from prefab segments by `src/game/builder.js` (`flat`, `vistaBridge`,
+Stage 1 is hand-built (`src/game/level_data.js`); stages 2–13 are composed
+from prefab segments by `src/game/builder.js` (`flat`, `vistaBridge`, `lavaRun`,
 `crumbleRun`, `ferryGap`, `splitRoute`, `gearWheel`, `liftShaft`, `descent`,
 `hiddenVault`, `swingRun`, `vestibule`, `gap`,
 `spikeRun`, `stepUp/stepDown`, `climb`, `corridor`, `blocks`, `arena`) in
@@ -136,10 +142,11 @@ src/game/             level grid + 2.5D mechanics/tiles, stage3d (perspective
                       tex3d (pixel-art 3D polygon texture rasterizer & bank),
                       builder (prefabs + themes), stages, level_data (stage 1),
                       parallax, entities, player, ally (guardian turtle),
-                      enemies, boss (Reaper), bosses (all other bosses +
-                      factory), forest_assets (Darkwood pixel art), objects
-                      (candles/items/projectiles/fire), world (combat, scripting,
-                      draw order), castlemap (connected stage map), hud
+                      relics (boss power-ups), enemies, boss (Reaper), bosses
+                      (all other bosses + factory), forest_assets (Darkwood
+                      pixel art), objects (candles/items/projectiles/fire),
+                      world (combat, scripting, draw order), castlemap
+                      (connected stage map), hud
 assets/               engine-ready PNGs + atlas.json, music/*.mp3, voice/*.mp3, sfx/*.mp3
 art/raw/              untouched generations (provenance)   art/PROMPTS.md
 tools/                process_assets.py (pipeline), asset_manifest.json,
@@ -170,7 +177,10 @@ tools/screenshot.sh "demo=1&skip=600" /tmp/shot.png
 
 URL parameters: `demo=1` drives the hunter with a scripted input loop,
 `skip=N` pre-simulates N fixed steps before the first frame, `at=<column>`
-teleports to a tile column, `bosshp=N` weakens the boss,
-`difficulty=easy|normal|hard` presets the difficulty, `stage=1..12` picks the
-stage, `screen=play|difficulty|stageselect|ending` opens a screen directly, `nofx`
+teleports to a tile column, `boss=1` teleports to the boss vestibule,
+`bosshp=N` weakens the boss, `relics=all` (or `relics=graveyard,darkcave`)
+enables boss power-ups, `lightning=1` triggers an immediate outdoor storm bolt,
+`ending=<seconds>` jumps into the ending sequence,
+`difficulty=easy|normal|hard` presets the difficulty, `stage=1..13` picks the
+stage, `screen=play|difficulty|stageselect|clear|ending` opens a screen directly, `nofx`
 disables the shader post-process.

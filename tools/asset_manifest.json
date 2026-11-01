@@ -936,7 +936,8 @@
      "library",
      "clocktower",
      "throne",
-     "cathedral"
+     "cathedral",
+     "darkcave"
     ]
    ]
   },
@@ -1160,6 +1161,133 @@
      "throne",
      "candle_pillar",
      "great_banner"
+    ]
+   ]
+  },
+  "cavernwall": {
+   "type": "texture",
+   "src": "tex_cavern_wall.png",
+   "size": [
+    384,
+    384
+   ],
+   "colors": 32,
+   "seamless": "blend"
+  },
+  "cavernfloor": {
+   "type": "strip",
+   "src": "tex_cavern_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 4,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "cavern_props": {
+   "type": "sheet",
+   "src": "cavern_props_sheet.png",
+   "height": 96,
+   "ref": "stalagmite",
+   "colors": 36,
+   "rows": [
+    [
+     "stalagmite",
+     "obsidian_pillar",
+     "magma_vent",
+     "brazier"
+    ]
+   ]
+  },
+  "magmaslime": {
+   "type": "sheet",
+   "src": "magmaslime_sheet.png",
+   "height": 30,
+   "ref": "crawl0",
+   "colors": 24,
+   "rows": [
+    [
+     "crawl0",
+     "crawl1",
+     "leap",
+     "land"
+    ]
+   ]
+  },
+  "lavagolem": {
+   "type": "sheet",
+   "src": "lavagolem_sheet.png",
+   "height": 78,
+   "ref": "walk0",
+   "colors": 28,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "hurl"
+    ]
+   ]
+  },
+  "cinderimp": {
+   "type": "sheet",
+   "src": "cinderimp_sheet.png",
+   "height": 38,
+   "ref": "fly0",
+   "colors": 24,
+   "rows": [
+    [
+     "fly0",
+     "fly1",
+     "spit"
+    ]
+   ]
+  },
+  "armor": {
+   "type": "sheet",
+   "src": "armor_sheet.png",
+   "height": 74,
+   "ref": "walk0",
+   "colors": 28,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "guard",
+     "slash"
+    ]
+   ],
+   "anchors": {
+    "slash": "left"
+   }
+  },
+  "wraith": {
+   "type": "sheet",
+   "src": "wraith_sheet.png",
+   "height": 54,
+   "ref": "float0",
+   "colors": 24,
+   "rows": [
+    [
+     "float0",
+     "float1",
+     "shriek"
+    ]
+   ]
+  },
+  "cinderqueen": {
+   "type": "sheet",
+   "src": "cinderqueen_sheet.png",
+   "height": 116,
+   "ref": "idle",
+   "colors": 32,
+   "rows": [
+    [
+     "idle",
+     "cast",
+     "surge",
+     "erupt"
     ]
    ]
   }

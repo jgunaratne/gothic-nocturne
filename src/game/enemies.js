@@ -21,6 +21,7 @@ export class Enemy extends Entity {
   }
 
   get alive() { return !this.dead && this.deathT < 0; }
+  meleeBox() { return null; }
 
   /** Common hit handling: returns true when it died. */
   takeHit(dmg, fromX, world) {
@@ -219,6 +220,7 @@ export class Zombie extends Enemy {
   }
 
   get alive() { return !this.dead && this.deathT < 0; }
+  meleeBox() { return null; }
 
   draw(ctx, assets, camX, camY) {
     if (this.rise > 0) {
@@ -878,11 +880,367 @@ export class Gargoyle extends Enemy {
   }
 }
 
+// ---------------------------------------------------- volcanic & castle foes
+
+/** Magma Slime: molten volcanic crawler (`magmaslime`). Creeps across basalt
+ *  or lava, leaps in an arcing magma pounce, and splashes an enemy floor flame
+ *  when it slams back down. Completely immune to lava! */
+export class MagmaSlime extends Enemy {
+  constructor(x, y, min, max) {
+    super(x, y);
+    this.w = 28; this.h = 24; this.hp = 3;
+    this.score = SCORE.magmaslime || 300;
+    this.touchDamage = 3;
+    this.sheet = 'magmaslime'; this.frame = 'crawl0';
+    this.minX = min; this.maxX = max; this.facing = -1;
+    this.lavaImmune = true;
+    this.state = 'crawl'; this.stateT = 0; this.animT = Math.random() * 4;
+    this.leapCd = 1.2 + Math.random() * 0.9;
+  }
+
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    const dx = p.x - this.x;
+    const near = p.alive && Math.abs(dx) < 280 && Math.abs(p.y - this.y) < 120;
+    this.stateT += dt;
+    this.leapCd = Math.max(0, this.leapCd - dt);
+    if (this.knock) { this.vx = this.knock * 85; this.vy = -100; this.knock = 0; }
+
+    if (this.state === 'crawl') {
+      if (near) this.facing = dx >= 0 ? 1 : -1;
+      const speed = near ? 48 : 32;
+      const nextX = this.x + this.facing * speed * dt;
+      const atEdge = (this.facing > 0 && nextX > this.maxX) || (this.facing < 0 && nextX < this.minX);
+      if (atEdge || this.blockedAhead(level)) {
+        if (!near) this.facing = -this.facing;
+        this.vx = 0;
+      } else {
+        this.vx = this.facing * speed;
+      }
+      this.animT += dt * 5.5;
+      this.frame = Math.floor(this.animT) % 2 ? 'crawl1' : 'crawl0';
+      if (Math.random() < 0.28) world.particles.embers(this.x + (Math.random() - 0.5) * 18, this.y - 8, 1);
+      if (near && this.onGround && this.leapCd <= 0 && Math.abs(dx) > 36 && Math.abs(dx) < 210) {
+        this.state = 'leap';
+        this.stateT = 0;
+        this.facing = dx >= 0 ? 1 : -1;
+        this.vx = this.facing * 155;
+        this.vy = -410;
+        this.onGround = false;
+        world.sfx('fire');
+        world.particles.embers(this.x, this.y - 10, 6);
+      }
+    } else if (this.state === 'leap') {
+      this.frame = 'leap';
+      if (Math.random() < 0.55) world.particles.embers(this.x, this.y - 12, 1);
+      if (this.onGround && this.stateT > 0.12) {
+        this.state = 'land';
+        this.stateT = 0;
+        this.vx = 0;
+        world.spawnFire(this.x, this.y, 'enemy');
+        world.particles.embers(this.x, this.y - 6, 8);
+      }
+    } else {
+      this.vx = 0;
+      this.frame = 'land';
+      if (this.stateT > 0.36) {
+        this.state = 'crawl';
+        this.stateT = 0;
+        this.leapCd = (1.6 + Math.random() * 0.6) * world.difficulty.throwCooldown;
+      }
+    }
+    this.physics(level, dt);
+    if (this.y > level.height + 60) this.dead = true;
+  }
+
+  kill(world) {
+    super.kill(world);
+    world.particles.embers(this.x, this.y - 12, 14);
+    world.particles.shards(this.x, this.y, 10, '#3a1a16', this.y);
+  }
+}
+
+/** Lava Golem: towering obsidian-and-magma colossus (`lavagolem`). Heavy,
+ *  unflinching brute that hurls explosive `'magmaball'` boulders across the cavern. */
+export class LavaGolem extends Brute {
+  constructor(x, y, min, max) {
+    super(x, y, min, max);
+    this.w = 36; this.h = 68; this.hp = 8;
+    this.score = SCORE.lavagolem || 550;
+    this.touchDamage = 4;
+    this.lavaImmune = true;
+    this.sheet = 'lavagolem';
+    this.walkFrames = ['walk0', 'walk1', 'walk2', 'walk1'];
+    this.attackFrame = 'hurl';
+    this.speed = 30;
+    this.attackRange = [65, 290];
+    this.attackAt = 0.44;
+    this.attackDur = 1.05;
+    this.attackCooldown = 2.7;
+  }
+
+  fire(world, p) {
+    const mb = new Projectile('magmaball', this.x + this.facing * 20, this.y - 68, this.facing, 'enemy');
+    const dist = Math.min(280, Math.max(80, Math.abs(p.x - this.x)));
+    mb.vx = this.facing * (120 + dist * 0.42);
+    mb.vy = -380 - dist * 0.22;
+    world.spawnProjectile(mb);
+    world.particles.embers(this.x + this.facing * 20, this.y - 68, 8);
+    world.sfx('fire');
+  }
+
+  kill(world) {
+    super.kill(world);
+    world.particles.embers(this.x, this.y - 30, 18);
+    world.particles.shards(this.x, this.y, 16, '#2d1818', this.y);
+    world.camera.shake(3.5, 0.25);
+  }
+}
+
+/** Cinder Imp: agile winged volcanic fiend (`cinderimp`) that darts above lava
+ *  pools, hovers out of easy reach, and spits aimed fireballs at the hunter. */
+export class CinderImp extends Enemy {
+  constructor(x, y, dir = -1) {
+    super(x, y);
+    this.w = 24; this.h = 30; this.hp = 2;
+    this.score = SCORE.cinderimp || 300;
+    this.touchDamage = 3;
+    this.sheet = 'cinderimp'; this.frame = 'fly0';
+    this.flies = true; this.gravityScale = 0; this.lavaImmune = true;
+    this.facing = dir; this.baseY = y; this.t = Math.random() * 6;
+    this.state = 'hover'; this.stateT = 0; this.spitCd = 1.3 + Math.random() * 0.9;
+  }
+
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); this.y += 95 * dt; return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    this.t += dt; this.stateT += dt; this.spitCd -= dt;
+    const dx = p.x - this.x;
+    const near = p.alive && Math.abs(dx) < 340;
+    if (Math.random() < 0.3) world.particles.embers(this.x, this.y - 10, 1);
+
+    if (this.state === 'hover') {
+      if (near) {
+        this.facing = dx >= 0 ? 1 : -1;
+        const wantX = p.x - this.facing * 125;
+        this.x += Math.sign(wantX - this.x) * Math.min(Math.abs(wantX - this.x), 108 * dt);
+        const wantY = p.y - 86;
+        this.baseY += Math.sign(wantY - this.baseY) * Math.min(Math.abs(wantY - this.baseY), 72 * dt);
+      } else {
+        this.x += this.facing * 65 * dt;
+      }
+      this.y = this.baseY + Math.sin(this.t * 5.2) * 14;
+      this.frame = Math.floor(this.t * 9) % 2 ? 'fly1' : 'fly0';
+      if (near && this.spitCd <= 0 && Math.abs(dx) < 290) {
+        this.state = 'spit'; this.stateT = 0; this.fired = false;
+      }
+    } else {
+      this.frame = 'spit';
+      this.y = this.baseY + Math.sin(this.t * 5.2) * 5;
+      if (!this.fired && this.stateT >= 0.28) {
+        this.fired = true;
+        this.facing = dx >= 0 ? 1 : -1;
+        const fb = new Projectile('fireball', this.x + this.facing * 16, this.y - 14, this.facing, 'enemy');
+        const ang = Math.atan2((p.y - 28) - (this.y - 14), p.x - (this.x + this.facing * 16));
+        fb.vx = Math.cos(ang) * 235; fb.vy = Math.sin(ang) * 235;
+        fb.gravity = 0; fb.dir = fb.vx >= 0 ? 1 : -1;
+        world.spawnProjectile(fb);
+        world.sfx('fire');
+      }
+      if (this.stateT > 0.72) {
+        this.state = 'hover';
+        this.spitCd = (2.1 + Math.random() * 0.7) * world.difficulty.throwCooldown;
+      }
+    }
+    if (this.x < -80 || this.x > level.width + 80) this.dead = true;
+  }
+
+  kill(world) {
+    super.kill(world);
+    world.particles.embers(this.x, this.y - 12, 12);
+    world.particles.smoke(this.x, this.y - 10, 5, 'rgba(130, 35, 25, 0.55)');
+  }
+}
+
+/** Plate Knight (`armor`): haunted suit of gothic plate armor wielding a heavy
+ *  halberd & shield. Deflects frontal blows briefly while raising its shield
+ *  (`guard`), then surges forward in a sweeping halberd cleave (`slash`). */
+export class PlateKnight extends Enemy {
+  constructor(x, y, min, max) {
+    super(x, y);
+    this.w = 28; this.h = 64; this.hp = 7;
+    this.score = SCORE.armor || 450;
+    this.touchDamage = 3;
+    this.sheet = 'armor'; this.frame = 'walk0';
+    this.minX = min; this.maxX = max; this.facing = -1;
+    this.state = 'march'; this.stateT = 0; this.animT = 0;
+    this.slashCd = 1.4 + Math.random() * 0.8;
+  }
+
+  takeHit(dmg, fromX, world) {
+    // Shield guard halves frontal damage with a metallic clang!
+    const frontal = (fromX - this.x) * this.facing > 0;
+    if (this.state === 'guard' && frontal) {
+      dmg = Math.max(1, Math.floor(dmg * 0.5));
+      world.sfx('block');
+      world.particles.sparks(this.x + this.facing * 14, this.y - 40, 6, '#ffd27a');
+    }
+    const died = super.takeHit(dmg, fromX, world);
+    this.knock = 0;
+    return died;
+  }
+
+  meleeBox() {
+    if (this.state !== 'slash' || this.stateT < 0.06 || this.stateT > 0.42) return null;
+    const reach = 46;
+    return {
+      x: this.facing > 0 ? this.x + 8 : this.x - 8 - reach,
+      y: this.y - 52,
+      w: reach,
+      h: 34,
+    };
+  }
+
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    const dx = p.x - this.x;
+    const near = p.alive && Math.abs(dx) < 280 && Math.abs(p.y - this.y) < 84;
+    this.stateT += dt;
+    this.slashCd = Math.max(0, this.slashCd - dt);
+
+    if (this.state === 'march') {
+      if (near) this.facing = dx >= 0 ? 1 : -1;
+      const speed = 38;
+      const nextX = this.x + this.facing * speed * dt;
+      const atEdge = (this.facing > 0 && nextX > this.maxX) || (this.facing < 0 && nextX < this.minX);
+      if (atEdge || this.blockedAhead(level)) {
+        if (!near) this.facing = -this.facing;
+        this.vx = 0;
+      } else {
+        this.vx = this.facing * speed;
+      }
+      this.animT += Math.abs(this.vx) > 1 ? dt * 4.5 : 0;
+      this.frame = Math.floor(this.animT) % 2 ? 'walk1' : 'walk0';
+      if (near && this.onGround && this.slashCd <= 0 && Math.abs(dx) < 135) {
+        this.state = 'guard';
+        this.stateT = 0;
+        this.vx = 0;
+        world.sfx('block');
+      }
+    } else if (this.state === 'guard') {
+      this.vx = 0;
+      this.frame = 'guard';
+      if (near) this.facing = dx >= 0 ? 1 : -1;
+      if (this.stateT >= 0.42) {
+        this.state = 'slash';
+        this.stateT = 0;
+        this.vx = this.facing * 175;
+        world.sfx('whip');
+        world.particles.sparks(this.x + this.facing * 24, this.y - 36, 5, '#e8eef8');
+      }
+    } else {
+      this.frame = 'slash';
+      if (this.stateT > 0.28 || this.blockedAhead(level)) this.vx *= 0.78;
+      if (this.stateT > 0.62) {
+        this.vx = 0;
+        this.state = 'march';
+        this.stateT = 0;
+        this.slashCd = (1.7 + Math.random() * 0.6) * world.difficulty.throwCooldown;
+      }
+    }
+    this.physics(level, dt);
+  }
+
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 16, '#8a9ab5', this.y);
+    world.particles.sparks(this.x, this.y - 30, 8, '#ffd27a');
+    world.camera.shake(2.5, 0.18);
+  }
+}
+
+/** Shadow Wraith (`wraith`): crimson-shrouded banshee spirit that glides along
+ *  halls and crypts, unleashing a homing spectral skull when it shrieks. */
+export class ShadowWraith extends Enemy {
+  constructor(x, y, dir = -1) {
+    super(x, y);
+    this.w = 24; this.h = 46; this.hp = 3;
+    this.score = SCORE.wraith || 350;
+    this.touchDamage = 3;
+    this.sheet = 'wraith'; this.frame = 'float0';
+    this.flies = true; this.gravityScale = 0;
+    this.facing = dir; this.baseY = y; this.t = Math.random() * 6;
+    this.state = 'glide'; this.stateT = 0; this.shriekCd = 1.6 + Math.random();
+  }
+
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    this.t += dt; this.stateT += dt; this.shriekCd -= dt;
+    const dx = p.x - this.x;
+    const near = p.alive && Math.abs(dx) < 340;
+    if (Math.random() < 0.32) {
+      world.particles.emit({
+        x: this.x - this.facing * 8, y: this.y - 18 + (Math.random() - 0.5) * 16,
+        vx: -this.facing * 10, vy: -8, life: 0.55,
+        color: 'rgba(225, 60, 95, 0.45)', size: 2, gravity: 0, glow: true,
+      });
+    }
+
+    if (this.state === 'glide') {
+      if (near) {
+        this.facing = dx >= 0 ? 1 : -1;
+        const tx = p.x - this.facing * 115;
+        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), 68 * dt);
+        const ty = p.y - 26;
+        this.baseY += Math.sign(ty - this.baseY) * Math.min(Math.abs(ty - this.baseY), 44 * dt);
+      } else {
+        this.x += this.facing * 52 * dt;
+      }
+      this.y = this.baseY + Math.sin(this.t * 3.1) * 16;
+      this.frame = Math.floor(this.t * 4.5) % 2 ? 'float1' : 'float0';
+      if (near && this.shriekCd <= 0 && Math.abs(dx) < 270) {
+        this.state = 'shriek'; this.stateT = 0; this.fired = false;
+      }
+    } else {
+      this.frame = 'shriek';
+      this.y = this.baseY + Math.sin(this.t * 8) * 4;
+      if (!this.fired && this.stateT >= 0.34) {
+        this.fired = true;
+        this.facing = dx >= 0 ? 1 : -1;
+        const sk = new Projectile('skull', this.x + this.facing * 16, this.y - 28, this.facing, 'enemy');
+        world.spawnProjectile(sk);
+        world.particles.sparks(this.x + this.facing * 14, this.y - 28, 7, '#ff4a66');
+        world.sfx('fire');
+      }
+      if (this.stateT > 0.85) {
+        this.state = 'glide';
+        this.shriekCd = (2.6 + Math.random() * 0.8) * world.difficulty.throwCooldown;
+      }
+    }
+    if (this.x < -80 || this.x > level.width + 80) this.dead = true;
+  }
+
+  kill(world) {
+    super.kill(world);
+    world.particles.sparks(this.x, this.y - 20, 12, '#ff4a66');
+    world.particles.smoke(this.x, this.y - 16, 6, 'rgba(140, 20, 45, 0.5)');
+  }
+}
+
 /** Wall-pacing spawner factory used by Spawner for float-in enemies. */
 function makeFloater(type, x, y, dir, variant) {
   if (type === 'lantern') return new Pumpkin(x, y, dir, 'lantern');
   if (type === 'wisp') return new FrostWisp(x, y, dir);
   if (type === 'ghost') return new Phantom(x, y, dir);
+  if (type === 'wraith') return new ShadowWraith(x, y, dir);
+  if (type === 'cinderimp') return new CinderImp(x, y, dir);
   return new MedusaHead(x, y, dir);
 }
 
@@ -905,6 +1263,11 @@ export function createEnemy(e) {
     case 'ghost': return new Phantom(cx, e.ty * TILE + 16, -1);
     case 'tome': return new CursedTome(cx, e.ty * TILE + 16);
     case 'gargoyle': return new Gargoyle(cx, e.ty * TILE + 16);
+    case 'magmaslime': return new MagmaSlime(cx, groundY, minX, maxX);
+    case 'lavagolem': return new LavaGolem(cx, groundY, minX, maxX);
+    case 'cinderimp': return new CinderImp(cx, e.ty * TILE + 16, -1);
+    case 'armor': return new PlateKnight(cx, groundY, minX, maxX);
+    case 'wraith': return new ShadowWraith(cx, e.ty * TILE + 16, -1);
     default: return null;
   }
 }
@@ -944,15 +1307,15 @@ export class Spawner {
         break;
       }
       this.timer = (2.4 + Math.random() * 0.8) * diff.spawnInterval;
-    } else if (this.type === 'medusa' || this.type === 'lantern' || this.type === 'wisp' || this.type === 'ghost') {
+    } else if (this.type === 'medusa' || this.type === 'lantern' || this.type === 'wisp' || this.type === 'ghost' || this.type === 'wraith' || this.type === 'cinderimp') {
       if (this.alive.length >= diff.maxAlive) { this.timer = 0.6; return; }
       const dir = -p.facing;
       const x = p.facing > 0 ? world.camera.x + 640 + 30 : world.camera.x - 30;
-      const y = p.y - 30 - Math.random() * 30;
+      const y = p.y - (this.type === 'cinderimp' ? 76 : 30) - Math.random() * 30;
       const m = makeFloater(this.type, x, y, dir, this.variant);
       world.spawnEnemy(m);
       this.alive.push(m);
-      this.timer = (2.0 + Math.random() * 0.8) * diff.spawnInterval;
+      this.timer = (this.type === 'wraith' || this.type === 'cinderimp' ? 3.2 : 2.0 + Math.random() * 0.8) * diff.spawnInterval;
     } else if (this.type === 'tome') {
       // Books tear themselves off the shelves ahead of the hunter, one at a time.
       if (this.alive.length >= Math.max(1, diff.maxAlive - 1)) { this.timer = 0.9; return; }

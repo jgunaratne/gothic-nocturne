@@ -3,7 +3,7 @@
 // boss arena as it goes. Coordinates are tiles; `row` is the walking surface.
 
 import {
-  TILE, T_GROUND, T_STONE, T_CATACOMB, T_CLOCK, T_FOREST, T_SNOW, T_DARKWOOD, T_BLOCK, T_SPIKES,
+  TILE, T_GROUND, T_STONE, T_CATACOMB, T_CLOCK, T_FOREST, T_SNOW, T_DARKWOOD, T_CAVERN, T_LAVA, T_BLOCK, T_SPIKES,
 } from '../engine/constants.js';
 
 export const THEMES = {
@@ -13,6 +13,7 @@ export const THEMES = {
   yule: { outdoor: true, layers: 'winter', material: T_SNOW, wall: 'wall', wallParallax: 1, dark: 0.42, music: 'yule', bg: '#0a0c18', decor: 'yule', accent: '#9ad8ff', platform: 'platform_wood', weather: 'snow' },
   ramparts: { outdoor: true, layers: 'ramparts', material: T_STONE, wall: 'wall', wallParallax: 1, dark: 0.42, music: 'ramparts', bg: '#0b0a14', decor: 'ramparts', accent: '#8a9ab5', platform: 'platform' },
   catacombs: { outdoor: false, layers: null, material: T_CATACOMB, wall: 'catacombwall', wallParallax: 0.6, dark: 0.48, music: 'catacombs', bg: '#050408', decor: 'crypt', accent: '#c9b58a', platform: 'platform' },
+  darkcave: { outdoor: false, layers: null, material: T_CAVERN, wall: 'cavernwall', wallParallax: 0.58, dark: 0.36, music: 'darkcave', bg: '#090304', decor: 'cavern', accent: '#ff6228', platform: 'platform', weather: 'embers' },
   ossuary: { outdoor: false, layers: null, material: T_CATACOMB, wall: 'catacombwall', wallParallax: 0.6, dark: 0.56, music: 'ossuary', bg: '#040306', decor: 'crypt', accent: '#b7a9c9', platform: 'platform' },
   clocktower: { outdoor: false, layers: null, material: T_CLOCK, wall: 'clockwall', wallParallax: 0.5, dark: 0.42, music: 'tower', bg: '#06050a', decor: 'clockwork', accent: '#d9a44a', platform: 'platform_wood', cylinder: true },
   throne: { outdoor: false, layers: null, material: T_STONE, wall: 'wall', wallParallax: 0.7, dark: 0.30, music: 'throne', bg: '#0a0710', decor: 'castle', accent: '#e23c3c', platform: 'platform' },
@@ -61,7 +62,7 @@ export class StageBuilder {
     for (const [type, off, o = {}] of list || []) {
       const tx = x0 + off;
       const base = { type, tx, variant: o.variant || 'normal', min: o.min == null ? x0 : o.min, max: o.max == null ? x1 : o.max };
-      if (type === 'bat' || type === 'dragon' || type === 'owl' || type === 'ghost' || type === 'tome' || type === 'gargoyle') this.enemies.push(Object.assign(base, { ty: row - (o.h || 5) }));
+      if (type === 'bat' || type === 'dragon' || type === 'owl' || type === 'ghost' || type === 'tome' || type === 'gargoyle' || type === 'cinderimp' || type === 'wraith') this.enemies.push(Object.assign(base, { ty: row - (o.h || 5) }));
       else this.enemies.push(Object.assign(base, { row: o.row == null ? row : o.row }));
     }
   }
@@ -75,7 +76,7 @@ export class StageBuilder {
       if (this.rng() < 0.042) {
         if (kind === 'clockwork') this.decor.push({ type: 'pendulum', x: px(tx), y: py(row) - 250, len: 150 + Math.round(this.rng() * 40), r: 20 + Math.round(this.rng() * 8), period: 2.4 + this.rng() * 0.8, phase: this.rng() * 6 });
         else if (kind === 'castle' || kind === 'arcade' || kind === 'library' || kind === 'cathedral') this.decor.push({ type: 'chandelier', x: px(tx), y: py(row) - 290, len: 80 + Math.round(this.rng() * 36), r: 26 + Math.round(this.rng() * 10), phase: this.rng() * 6 });
-        else if (kind === 'crypt') this.decor.push({ type: 'cage', x: px(tx), y: py(row) - 226, len: 60 + Math.round(this.rng() * 36), phase: this.rng() * 6 });
+        else if (kind === 'crypt' || kind === 'cavern') this.decor.push({ type: 'cage', x: px(tx), y: py(row) - 226, len: 60 + Math.round(this.rng() * 36), phase: this.rng() * 6 });
       }
       if (kind === 'graveyard') {
         if (r < 0.16) this.deco('props', 'tombstone', tx, row);
@@ -144,6 +145,13 @@ export class StageBuilder {
         else if (r < 0.17) this.deco('xmasprops', 'wreath', tx, row, 0, -70);
         else if (r < 0.22) this.deco('xmasprops', 'stump', tx, row);
         else if (r < 0.26) this.deco('props', 'tombstone', tx, row);
+      } else if (kind === 'cavern') {
+        if (r < 0.07) this.deco('cavern_props', 'stalagmite', tx, row);
+        else if (r < 0.13) this.deco('cavern_props', 'obsidian_pillar', tx, row);
+        else if (r < 0.19) this.deco('cavern_props', 'magma_vent', tx, row);
+        else if (r < 0.25) this.deco('cavern_props', 'brazier', tx, row);
+        else if (r < 0.30) this.deco('arch', 'chain', tx, row, 0, -96);
+        else if (r < 0.35) this.deco('props', 'torch', tx, row, 0, -46);
       }
     }
   }
@@ -384,6 +392,10 @@ export class StageBuilder {
     } else if (kind === 'yule') {
       this.deco('xmasprops', 'lamppost', x0 + 1, row);
       this.deco('xmasprops', 'lamppost', x0 + 5, row);
+    } else if (kind === 'cavern') {
+      this.deco('cavern_props', 'obsidian_pillar', x0 + 1, row);
+      this.deco('cavern_props', 'obsidian_pillar', x0 + 5, row);
+      this.deco('cavern_props', 'brazier', x0 + 3, row);
     } else {
       this.deco('arch', 'column', x0 + 1, row);
       this.deco('arch', 'column', x0 + 5, row);
@@ -522,6 +534,55 @@ export class StageBuilder {
     return this;
   }
 
+  /**
+   * Volcanic lava basin: sunken pool of molten `T_LAVA` (2 tiles deep over solid
+   * `this.mat`) with optional basalt stepping `islands` (`[[off, w], ...]`),
+   * `crumble` slabs, one-way `ledge`s, or a chain `ferry` gliding over the magma!
+   */
+  lavaRun(width, o = {}) {
+    const x0 = this.x, x1 = this.x + width - 1, row = this.row;
+    this.op((lv) => {
+      lv.ground(x0, x1, Math.min(this.rows - 1, row + 3), this.mat);
+      lv.fill(x0, x1, row + 1, Math.min(this.rows - 1, row + 2), T_LAVA);
+      for (const [off, w = 2, dr = 0] of o.islands || []) {
+        const ix0 = x0 + off, ix1 = Math.min(x1, ix0 + w - 1);
+        lv.ground(ix0, ix1, row + dr, this.mat);
+      }
+      if (o.crumble) {
+        for (const [off, w = 2] of o.crumble) {
+          lv.crumble(x0 + off, Math.min(x1, x0 + off + w - 1), row);
+        }
+      }
+    });
+    for (const [off, h, w = 2] of o.ledges || []) {
+      const lx0 = x0 + off, lx1 = lx0 + w - 1, lrow = row - h;
+      this.op((lv) => lv.platform(lx0, lx1, lrow));
+    }
+    if (o.ferry) {
+      const platTiles = o.platTiles || 3;
+      const halfPx = (platTiles * TILE) * 0.5;
+      this.movers.push({
+        kind: 'linear',
+        tiles: platTiles,
+        x0: x0 * TILE + halfPx + 4,
+        y0: py(row),
+        x1: (x1 + 1) * TILE - halfPx - 4,
+        y1: py(row),
+        period: o.period || 4.8,
+        phase: o.phase || 0,
+        dwell: 0.10,
+      });
+    }
+    for (const c of o.candles || []) {
+      if (Array.isArray(c)) this.candle(x0 + c[0], c[2] != null ? row - c[2] : row, c[1]);
+      else this.candle(x0 + c, row);
+    }
+    this.placeEnemies(o.enemies, x0, x1, row);
+    if (o.spawn) this.spawners.push({ type: o.spawn, x0, x1, variant: o.spawnVariant || 'normal' });
+    this.x += width;
+    return this;
+  }
+
   /** Staircase up: n steps, each 2 tiles wide and 1 tile tall. */
   stepUp(n) {
     for (let i = 1; i <= n; i++) {
@@ -626,6 +687,10 @@ export class StageBuilder {
     } else if (kind === 'clockwork') {
       this.deco('arch', 'column', x0 + 3, row); this.deco('arch', 'column', x0 + 18, row);
       this.deco('props', 'torch', x0 + 5, row, 0, -46); this.deco('props', 'torch', x0 + 16, row, 0, -46);
+    } else if (kind === 'cavern') {
+      [x0 + 3, x0 + 17].forEach((tx) => this.deco('cavern_props', 'obsidian_pillar', tx, row));
+      [x0 + 6, x0 + 14].forEach((tx) => this.deco('cavern_props', 'brazier', tx, row));
+      this.deco('cavern_props', 'magma_vent', x0 + 10, row);
     } else {
       this.deco('arch', 'column', x0 + 3, row); this.deco('arch', 'column', x0 + 18, row);
       [x0 + 5, x0 + 16].forEach((tx) => this.deco('arch', 'banner', tx, row, 0, -48));

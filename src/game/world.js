@@ -25,6 +25,7 @@ const BOSS_TALK_FRAMES = {
   devilsanta: { idle: ['idle'], talk: ['idle', 'throw', 'idle', 'lunge', 'throw'] },
   bonecaptain: { idle: ['walk0'], talk: ['walk0', 'throw0', 'walk1', 'throw1', 'walk0'] },
   reaper: { idle: ['idle0', 'idle1'], talk: ['idle0', 'windup', 'idle1', 'swing', 'idle0'] },
+  cinderqueen: { idle: ['idle'], talk: ['idle', 'cast', 'erupt', 'idle', 'cast'] },
   gorgon: { idle: ['a', 'b'], talk: ['a', 'stare', 'b', 'a', 'stare'] },
   automaton: { idle: ['idle'], talk: ['idle', 'walk', 'overload', 'idle', 'punch'] },
   archivist: { idle: ['idle'], talk: ['idle', 'cast', 'summon', 'idle', 'shield'] },
@@ -35,22 +36,24 @@ const BOSS_TALK_FRAMES = {
 /** Idle pose frame shown while a boss speaks (for sheets without a 'walk0'). */
 const BOSS_POSE_FRAME = {
   giantbat: 'fly1', gorgon: 'a', greatjack: 'flame0', bonecaptain: 'walk0', treant: 'idle0',
-  automaton: 'idle', archivist: 'idle', archon: 'roar', devilsanta: 'idle', count: 'idle', reaper: 'idle0', reaperlord: 'idle0',
+  cinderqueen: 'idle', automaton: 'idle', archivist: 'idle', archon: 'roar',
+  devilsanta: 'idle', count: 'idle', reaper: 'idle0', reaperlord: 'idle0',
 };
 
 export const BOSS_LINES = {
-  giantbat: 'COWER BENEATH THE MOON, HUNTER... MY WINGS SHALL DRINK YOUR WARMTH!',
-  treant: 'THE ANCIENT ROOTS AWAKEN, TRESPASSER... FEED YOUR BONES TO THE DARKWOOD!',
-  greatjack: 'STEP INTO THE HARVEST FIRE! MY GRINNING FLAMES WILL HOLLOW YOUR BONES!',
-  devilsanta: 'A NAUGHTY SOUL IN THE FROST! UNWRAP THE FROZEN GRAVE I MADE FOR YOU!',
-  bonecaptain: 'HALT ON THE BATTLEMENTS! NONE BREACH THESE WALLS WHILE MY LEGION STANDS!',
-  reaper: 'EVERY FOOTSTEP ECHOES CLOSER TO THE CRYPT... YIELD YOUR SOUL TO DEATH.',
-  gorgon: 'LIFT YOUR EYES TO PERFECTION, INTRUDER - JOIN MY GALLERY OF STONE!',
-  reaperlord: 'THE GEARS OF MIDNIGHT STRIKE YOUR FINAL HOUR! KNEEL BEFORE THE BELFRY!',
-  count: 'WELCOME TO MY THRONE HALL, HUNTER. TONIGHT, DARKNESS DRINKS ITS FILL!',
-  archon: 'A THOUSAND YEARS I HAVE WATCHED FROM THE RAFTERS, MORTAL. KNEEL BENEATH THE GLASS... OR BE GROUND TO DUST.',
-  archivist: 'SILENCE IN THE STACKS, HUNTER... EVERY TOME HERE HUNGERS, AND YOUR STORY ENDS ON THIS PAGE.',
-  automaton: 'INSERT YOUR SOUL, PLAYER. THE GALLERY DEMANDS ONE MORE GAME... THE HOUSE ALWAYS WINS.',
+  giantbat: 'SMELL THAT WARM PULSE IN THE MIST, LITTLE HUNTER... MY FANGS SHALL DRAIN YOUR VEINS DRY!',
+  treant: 'HEAR THE HUNGRY ROOTS COILING BENEATH YOUR BOOTS... FEED YOUR BONES TO THE DARKWOOD!',
+  greatjack: 'COME CLOSER TO THE LANTERN LIGHT, WANDERER... MY GRINNING FLAMES WILL ROAST YOUR SOUL!',
+  devilsanta: 'ANOTHER NAUGHTY MORTAL SHIVERING IN THE SNOW... UNWRAP THE FROZEN GRAVE I CARVED FOR YOU!',
+  bonecaptain: 'HALT UPON THE BATTLEMENTS, WORM! ARCHERS! CLEAVE THIS TRESPASSER TO RIBBONS!',
+  reaper: 'EVERY HEARTBEAT ECHOES CLOSER TO THE CRYPT, MORTAL... YIELD YOUR SOUL TO MY SCYTHE!',
+  cinderqueen: 'FEEL THE MAGMA RISING BENEATH YOUR HEELS, LITTLE MOTH... BURN TO ASH BEFORE THE CINDER THRONE!',
+  gorgon: 'DARE YOU LIFT YOUR TREMBLING EYES TO MINE, INTRUDER? SHATTER INTO ETERNAL STONE!',
+  automaton: 'INSERT YOUR BEATING HEART INTO THE SLOT, PLAYER... THE HOUSE ALWAYS COLLECTS IN BLOOD!',
+  archivist: 'SHHH... SILENCE IN THE FORBIDDEN STACKS, HUNTER... YOUR STORY ENDS IN BLOOD ON THIS PAGE!',
+  archon: 'A THOUSAND NIGHTS I HAVE HUNGERED IN THE RAFTERS, WORM! KNEEL BENEATH THE GLASS OR BE CRUSHED TO DUST!',
+  reaperlord: 'LISTEN... THE GEARS OF MIDNIGHT TOLL YOUR FINAL BREATH... BOW BEFORE THE LORD OF DEATH!',
+  count: 'SO... THE LITTLE HUNTER CRAWLS BLEEDING INTO MY THRONE HALL... TONIGHT THE DARKNESS DRINKS ITS FILL!',
 };
 
 export class World {
@@ -76,8 +79,16 @@ export class World {
     this.timeLeft = this.difficulty.time;
     this.checkpoint = 0;
     this.time = 0;
+    this.relics = game.getActiveRelics ? game.getActiveRelics() : new Set();
+    this.regenT = 0;
+    this.killCount = 0;
+    this.freeThrow = false;
     this.flash = 0;
-    this.nextLightning = 6 + Math.random() * 10;
+    this.boltX = -1;
+    this.boltSeed = 0;
+    this.restrikeT = -1;
+    const forceBolt = game.params && game.params.has && game.params.has('lightning');
+    this.nextLightning = forceBolt ? 0.12 : (4.5 + Math.random() * 5.5);
     this.thunderDelay = -1;
     this.messages = [];          // {text, sub, t, dur}
     this.phase = 'intro';        // intro | play | dying | respawn | clear | gameover
@@ -89,11 +100,14 @@ export class World {
     this.ally = null;
     this.flakes = this.theme.weather === 'snow' ? makeFlakes(120, 'snow')
       : this.theme.weather === 'fireflies' ? makeFlakes(42, 'fireflies')
+      : this.theme.weather === 'embers' ? makeFlakes(44, 'embers')
       : (data.theme === 'forest' ? makeFlakes(36, 'leaves') : null);
     this.spawnAll();
     if (this.audio.prefetch) this.audio.prefetch('boss');
     if (data.boss && this.audio.prefetchVoice) this.audio.prefetchVoice(data.boss.type);
   }
+
+  hasRelic(key) { return this.relics ? this.relics.has(key) : false; }
 
   // ------------------------------------------------------------- setup
 
@@ -128,6 +142,10 @@ export class World {
     const col = Math.floor(cx / TILE);
     const row = this.level.surfaceRow(col);
     this.player = new Player(cx, (row >= 0 ? row : 11) * TILE);
+    this.player.onGround = row >= 0;
+    this.player.maxHp = this.hasRelic('cathedral') ? 20 : PLAYER.maxHp;
+    this.player.hp = this.player.maxHp;
+    this.player.airJumpsLeft = this.hasRelic('graveyard') ? 1 : 0;
     this.player.facing = 1;
     this.player.subWeapon = this.subWeaponCarry;
     const hasTurtle = d.ally === 'turtle' || this.theme.ally === 'turtle';
@@ -150,17 +168,34 @@ export class World {
     this.enemies.push(e);
   }
   spawnProjectile(p) { this.projectiles.push(p); }
-  spawnFire(x, y) { this.fires.push(new Fire(x, y)); this.sfx('fire'); }
+  spawnFire(x, y, owner = 'player') { this.fires.push(new Fire(x, y, owner)); this.sfx('fire'); }
   spawnItem(type, x, y) { if (type) this.items.push(new Item(type, x, y)); }
 
   throwSubWeapon(player) {
-    this.hearts = Math.max(0, this.hearts - 1);
+    if (this.hasRelic('arcade')) {
+      if (!this.freeThrow) this.hearts = Math.max(0, this.hearts - 1);
+      this.freeThrow = !this.freeThrow;
+    } else {
+      this.hearts = Math.max(0, this.hearts - 1);
+    }
     const p = new Projectile(player.subWeapon, player.x + player.facing * 10, player.y - 44, player.facing, 'player');
+    if (this.hasRelic('darkcave')) p.damage += 1;
     this.projectiles.push(p);
     this.sfx('throw');
   }
 
-  onEnemyKilled() { /* hook for stats */ }
+  onEnemyKilled(enemy) {
+    // SOUL HARVEST relic (Catacombs): every 6 enemies slain restores +1 HP and +1 Heart!
+    if (this.hasRelic('catacombs') && enemy !== this.boss) {
+      this.killCount = (this.killCount || 0) + 1;
+      if (this.killCount % 6 === 0 && this.player && this.player.alive) {
+        const cap = this.player.maxHp || PLAYER.maxHp;
+        this.player.hp = Math.min(cap, this.player.hp + 1);
+        this.hearts = Math.min(99, this.hearts + 1);
+        this.particles.sparks(this.player.x, this.player.y - 32, 8, '#9ad17a');
+      }
+    }
+  }
 
   /** Post-FX hooks (consumed by main.js each frame). */
   onPlayerHurt(dmg) { this.fxHurt = Math.min(1, 0.45 + dmg * 0.12); }
@@ -226,6 +261,20 @@ export class World {
       this.timeLeft -= dt;
       if (this.timeLeft <= 0 && this.player.alive) { this.timeLeft = 0; this.player.hp = 0; this.player.die(this); }
     }
+    // BRIAR BARK relic (Darkwood): slowly mends +1 HP every 8 seconds in combat
+    if (this.phase === 'play' && this.hasRelic('darkwood') && this.player.alive) {
+      const cap = this.player.maxHp || PLAYER.maxHp;
+      if (this.player.hp < cap) {
+        this.regenT += dt;
+        if (this.regenT >= 8.0) {
+          this.regenT = 0;
+          this.player.hp = Math.min(cap, this.player.hp + 1);
+          this.particles.sparks(this.player.x, this.player.y - 28, 6, '#62f2c2');
+        }
+      } else {
+        this.regenT = 0;
+      }
+    }
     this.updateEntities(dt, input, true);
   }
 
@@ -276,7 +325,7 @@ export class World {
       }
     }
     for (const pr of this.projectiles) pr.update(dt, lvl, this);
-    for (const it of this.items) it.update(dt, lvl);
+    for (const it of this.items) it.update(dt, lvl, this);
     for (const f of this.fires) f.update(dt);
     if (this.ally) {
       if (live) this.ally.update(dt, lvl, this);
@@ -323,7 +372,8 @@ export class World {
         this.particles.shards(tx * TILE + 16, ty * TILE + 30, 12, '#8a9ab5', ty * TILE + 32);
         if (drop) this.spawnItem(drop, tx * TILE + 16, ty * TILE + 20);
       }
-      const whipDmg = Math.round(PLAYER.whipDamage * (this.difficulty.playerDamage || 1));
+      const baseWhip = PLAYER.whipDamage + (this.hasRelic('jack') ? 1 : 0);
+      const whipDmg = Math.round(baseWhip * (this.difficulty.playerDamage || 1));
       for (const e of this.enemies) {
         if (!e.alive) continue;
         const died = rectsOverlap(whip, e.box()) || (e === this.boss && rectsOverlap(whip, e.box(10)));
@@ -361,53 +411,88 @@ export class World {
       }
     }
 
-    // Fire pools vs enemies
+    // Fire pools vs enemies / player
+    const pb = p.box();
     for (const f of this.fires) {
       if (!f.shouldDamage()) continue;
-      for (const e of this.enemies) if (e.alive && rectsOverlap(f.box, e.box())) e.takeHit(1, f.x, this);
+      if (f.owner === 'enemy') {
+        if (rectsOverlap(f.box, pb)) {
+          const fireDmg = this.hasRelic('darkcave') ? 1 : 2;
+          p.hurt(fireDmg, f.x, this);
+        }
+      } else {
+        for (const e of this.enemies) if (e.alive && rectsOverlap(f.box, e.box())) e.takeHit(1, f.x, this);
+      }
     }
 
-    // Enemy contact / projectiles / spikes vs player
-    const pb = p.box();
+    // Enemy contact / melee / projectiles / spikes / lava vs player
     for (const e of this.enemies) {
       if (!e.alive) continue;
+      if (!e.flies && !e.lavaImmune) {
+        const etx = Math.floor(e.x / TILE), ety = Math.floor((e.y + 2) / TILE);
+        if (lvl.isLava(etx, ety)) { e.kill(this); this.particles.embers(e.x, e.y, 10); continue; }
+      }
       if (e === this.boss) {
         const sb = e.swingBox();
         if (sb && rectsOverlap(sb, pb)) { p.hurt(4, e.x, this); continue; }
         if (e.alpha > 0.7 && rectsOverlap(e.box(-6), pb)) p.hurt(e.touchDamage, e.x, this);
         continue;
       }
+      const mb = e.meleeBox && e.meleeBox();
+      if (mb && rectsOverlap(mb, pb)) { p.hurt(e.touchDamage + 1, e.x, this); continue; }
       if (rectsOverlap(e.box(-2), pb)) p.hurt(e.touchDamage, e.x, this);
     }
     for (const pr of this.projectiles) {
       if (pr.owner === 'enemy' && !pr.dead && rectsOverlap(pr.box, pb)) {
-        const connected = p.hurt(pr.damage, pr.x, this);
+        let dmg = pr.damage;
+        if (this.hasRelic('darkcave') && (pr.type === 'fireball' || pr.type === 'magmaball' || pr.type === 'hellfire')) {
+          dmg = Math.max(1, Math.round(dmg * 0.35));
+        }
+        const connected = p.hurt(dmg, pr.x, this);
         if (connected && pr.petrify) p.petrify(this);
         if (connected && !['sickle', 'skull', 'gas', 'gaze', 'hellfire'].includes(pr.type)) pr.dead = true;
         if (pr.type === 'skull' && p.invuln > 0) pr.dead = true;
       }
     }
-    // Spikes: feet region
+    // Spikes & Molten Lava: feet region
     const ftx0 = Math.floor(pb.x / TILE), ftx1 = Math.floor((pb.x + pb.w - 1) / TILE);
     const fty = Math.floor((p.y - 2) / TILE);
+    const lty = Math.floor((p.y + 2) / TILE);
     for (let tx = ftx0; tx <= ftx1; tx++) {
-      if (lvl.isSpike(tx, fty) && p.y - 2 > fty * TILE + 10) { p.hurt(3, p.x - p.facing * 10, this); break; }
+      if (lvl.isSpike(tx, fty) && p.y - 2 > fty * TILE + 10) {
+        const spikeDmg = this.hasRelic('ramparts') ? 1 : 3;
+        p.hurt(spikeDmg, p.x - p.facing * 10, this);
+        break;
+      }
+      if (lvl.isLava(tx, lty) && p.y >= lty * TILE + 2) {
+        let lavaDmg = 5;
+        if (this.hasRelic('ramparts')) lavaDmg *= 0.5;
+        if (this.hasRelic('darkcave')) lavaDmg *= 0.35;
+        p.hurt(Math.max(1, Math.round(lavaDmg)), p.x - p.facing * 10, this);
+        p.vy = -370;
+        p.onGround = false;
+        this.sfx('fire');
+        this.particles.embers(p.x, p.y - 6, 12);
+        break;
+      }
     }
 
     // Items
+    const itemPad = this.hasRelic('arcade') ? 10 : 2;
     for (const it of this.items) {
       if (it.dead) continue;
-      if (rectsOverlap(it.box(2), pb)) { it.dead = true; this.collect(it.type); }
+      if (rectsOverlap(it.box(itemPad), pb)) { it.dead = true; this.collect(it.type); }
     }
   }
 
   collect(type) {
     const p = this.player;
+    const maxHp = p.maxHp || PLAYER.maxHp;
     switch (type) {
       case 'heart_small': this.hearts = Math.min(99, this.hearts + 1); this.sfx('heart'); break;
       case 'heart_big': this.hearts = Math.min(99, this.hearts + 5); this.sfx('heart'); break;
       case 'money': this.addScore(SCORE.money); this.sfx('pickup'); break;
-      case 'meat': p.hp = Math.min(PLAYER.maxHp, p.hp + 8); this.sfx('pickup'); break;
+      case 'meat': p.hp = Math.min(maxHp, p.hp + (this.hasRelic('cathedral') ? 12 : 8)); this.sfx('pickup'); break;
       case 'dagger': case 'axe': case 'holy_water':
         p.subWeapon = type; this.subWeaponCarry = type; this.sfx('pickup'); break;
       case 'orb': this.stageClear(); break;
@@ -510,10 +595,17 @@ export class World {
       boss: true,
     };
     this.voiceCue = cue;
-    if (this.audio && this.audio.playVoice) {
-      this.audio.playVoice(key, (dur) => {
-        if (this.voiceCue === cue && dur > 1) cue.dur = Math.max(cue.t + 1.2, dur + 0.35);
-      });
+    // Start the boss theme immediately in the background (AudioSys ducks it
+    // beneath the Daikon speech and swells it smoothly when the boss finishes!).
+    if (this.audio) {
+      if (this.audio.playVoice) {
+        // Call playVoice first so synchronous voiceDucking engages before musicBus ramps,
+        // or playMusic('boss') right alongside — both share voiceDucking seamlessly.
+        this.audio.playVoice(key, (dur) => {
+          if (this.voiceCue === cue && dur > 1) cue.dur = Math.max(cue.t + 1.2, dur + 0.35);
+        });
+      }
+      this.audio.playMusic('boss');
     }
   }
 
@@ -578,10 +670,10 @@ export class World {
     const camDx = this.camera.x - (this._lastCamX == null ? this.camera.x : this._lastCamX);
     this._lastCamX = this.camera.x;
     for (const f of this.flakes) {
-      if (f.kind === 'fireflies') {
+      if (f.kind === 'fireflies' || f.kind === 'embers') {
         f.y += (f.vy + Math.cos(this.time * 1.9 + f.phase) * 14) * dt;
         f.x += (f.vx + Math.sin(this.time * 1.5 + f.phase) * 18) * dt - camDx * f.depth;
-        if (f.y < -8) f.y = H + 6;
+        if (f.y < -8) { f.y = H + 6; if (f.kind === 'embers') f.x = Math.random() * W; }
         else if (f.y > H + 8) f.y = -6;
       } else {
         f.y += f.vy * dt;
@@ -598,12 +690,12 @@ export class World {
     for (const f of this.flakes) {
       if (nearOnly !== f.near) continue;
       const rx = Math.round(f.x), ry = Math.round(f.y);
-      if (f.kind === 'fireflies') {
-        const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(this.time * 4.2 + f.phase));
+      if (f.kind === 'fireflies' || f.kind === 'embers') {
+        const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(this.time * (f.kind === 'embers' ? 7.5 : 4.2) + f.phase));
         ctx.globalAlpha = f.alpha * pulse;
         ctx.fillStyle = f.color;
         ctx.fillRect(rx - 1, ry - 1, f.size + 2, f.size + 2);
-        ctx.fillStyle = '#eafff5';
+        ctx.fillStyle = f.kind === 'embers' ? '#fff2b0' : '#eafff5';
         ctx.fillRect(rx, ry, Math.max(1, f.size), Math.max(1, f.size));
       } else if (f.kind === 'leaves') {
         ctx.globalAlpha = f.alpha;
@@ -620,18 +712,31 @@ export class World {
   }
 
   updateLightning(dt) {
-    if (!this.theme.outdoor) { this.flash = 0; return; }
-    this.flash = Math.max(0, this.flash - dt * 2.2);
+    if (!this.theme.outdoor) { this.flash = 0; this.boltX = -1; return; }
+    this.flash = Math.max(0, this.flash - dt * 2.1);
+    if (this.flash <= 0.01) this.boltX = -1;
+    if (this.restrikeT >= 0) {
+      this.restrikeT -= dt;
+      if (this.restrikeT < 0) {
+        this.flash = Math.max(this.flash, 0.85);
+        this.boltSeed += 0.37;
+      }
+    }
     this.nextLightning -= dt;
     if (this.nextLightning <= 0) {
-      this.flash = 1;
-      this.nextLightning = 9 + Math.random() * 14;
-      this.thunderDelay = 0.4 + Math.random() * 0.8;
-      setTimeout(() => { this.flash = Math.max(this.flash, 0.7); }, 120 + Math.random() * 120);
+      this.flash = 1.0;
+      this.boltX = 88 + Math.random() * (W - 176);
+      this.boltSeed = Math.random() * 100;
+      this.restrikeT = 0.11 + Math.random() * 0.08;
+      this.nextLightning = 7.5 + Math.random() * 11;
+      this.thunderDelay = 0.22 + Math.random() * 0.45;
     }
     if (this.thunderDelay >= 0) {
       this.thunderDelay -= dt;
-      if (this.thunderDelay < 0) { this.sfx('thunder'); this.camera.shake(1.5, 0.3); }
+      if (this.thunderDelay < 0) {
+        this.sfx('thunder');
+        this.camera.shake(2.4, 0.36);
+      }
     }
   }
 
@@ -649,7 +754,7 @@ export class World {
     // Skip outdoor sky/vista overdraw once camera has crossed inside an opaque castle hall!
     const showOutdoor = outdoor && (roomX === Infinity || project3D(roomX - 18, 144, 40, camX, camY).x > 0);
     if (showOutdoor) {
-      this.parallax.drawSky(ctx, cam, flash);
+      this.parallax.drawSky(ctx, cam, flash, this.boltX, this.boltSeed);
       this.parallax.drawBack(ctx, cam, flash);
       this.stage3d.drawOutdoor3D(ctx, cam, t, flash);
       this.parallax.drawAtmosphere(ctx, cam);
@@ -701,8 +806,10 @@ export class World {
     this.stage3d.drawForeground3D(ctx, cam, this.player, this.enemies);
     // Shader ground mist hugging the hunter's footing (thicker outdoors and in the crypts)
     if (fxl) {
-      const fogCol = outdoor ? (this.data.theme === 'darkwood' ? [0.4, 0.75, 0.68] : [0.62, 0.66, 0.82]) : [0.5, 0.48, 0.6];
-      const amt = outdoor ? 0.42 : (this.data.theme === 'catacombs' || this.data.theme === 'ossuary' ? 0.34 : 0.16);
+      const fogCol = outdoor
+        ? (this.data.theme === 'darkwood' ? [0.4, 0.75, 0.68] : [0.62, 0.66, 0.82])
+        : (this.data.theme === 'darkcave' ? [0.85, 0.34, 0.16] : [0.5, 0.48, 0.6]);
+      const amt = outdoor ? 0.42 : (this.data.theme === 'catacombs' || this.data.theme === 'ossuary' ? 0.34 : this.data.theme === 'darkcave' ? 0.24 : 0.16);
       fxl.fog(ctx, camX, Math.round(this.player.y - camY) + 6, fogCol, amt);
     }
     this.drawWeather(ctx, true);
@@ -743,22 +850,23 @@ function makeFlakes(n, kind = 'snow') {
   const out = [];
   const leafCols = ['#d96b27', '#b8431e', '#e89b3c', '#8c2f24'];
   const flyCols = ['#62f2c2', '#8affd8', '#ffd97d', '#4ae0b0'];
+  const emberCols = ['#ff6a1a', '#ff9a3c', '#ffd27a', '#e23c28'];
   for (let i = 0; i < n; i++) {
     const r = Math.random();
     const near = r > 0.82;
     const depth = near ? 1.28 : (0.22 + r * 0.72);
-    const isFly = kind === 'fireflies';
+    const isFly = kind === 'fireflies' || kind === 'embers';
     out.push({
       kind,
       near,
       x: Math.random() * W,
       y: Math.random() * H,
-      vx: isFly ? ((Math.random() - 0.5) * 14) : (kind === 'leaves' ? (-16 - depth * 18) : (-10 - depth * 22)),
-      vy: isFly ? (-6 - Math.random() * 10) : (kind === 'leaves' ? (22 + depth * 26) : (26 + depth * 52)),
+      vx: isFly ? ((Math.random() - 0.5) * 18) : (kind === 'leaves' ? (-16 - depth * 18) : (-10 - depth * 22)),
+      vy: kind === 'embers' ? (-24 - depth * 32) : isFly ? (-6 - Math.random() * 10) : (kind === 'leaves' ? (22 + depth * 26) : (26 + depth * 52)),
       size: near ? (isFly ? 2 : 3) : (r > 0.48 ? 2 : 1),
       depth,
       alpha: isFly ? 0.88 : (near ? 0.55 : (0.35 + r * 0.45)),
-      color: isFly ? flyCols[i % flyCols.length] : (kind === 'leaves' ? leafCols[i % leafCols.length] : '#eef6ff'),
+      color: kind === 'embers' ? emberCols[i % emberCols.length] : isFly ? flyCols[i % flyCols.length] : (kind === 'leaves' ? leafCols[i % leafCols.length] : '#eef6ff'),
       phase: Math.random() * 6.28,
     });
   }

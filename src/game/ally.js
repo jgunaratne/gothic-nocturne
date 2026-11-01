@@ -1,7 +1,7 @@
 // Guardian Forest Turtle ally for Stage 2: The Darkwood.
 // Scouts alongside the hunter, leaps across woodland terrain, launches spinning
-// emerald rune-shell dashes into forest enemies & bosses, clears spore/thorn
-// projectiles, and offers a friendly shell-spring boost from above.
+// emerald rune-shell dashes into forest enemies & bosses, and clears spore/thorn
+// projectiles.
 
 import { TILE } from '../engine/constants.js';
 import { Entity, rectsOverlap } from './entities.js';
@@ -246,16 +246,6 @@ export class TurtleAlly extends Entity {
         this.stateT = 0;
         if (this.spinCd <= 0) this.spinCd = 1.15;
       }
-    }
-
-    // Friendly shell-spring boost when the hunter lands onto the turtle's carapace from above
-    if (p.alive && p.vy > 60 && p.bottom <= this.top + 14 && rectsOverlap(p.box(), this.box(2))) {
-      p.y = this.top;
-      p.vy = -565;
-      p.onGround = false;
-      this.warpFlash = 0.22;
-      world.sfx('jump');
-      world.particles.sparks(this.x, this.top, 6, '#8affd8');
     }
   }
 

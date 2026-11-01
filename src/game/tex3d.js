@@ -5,7 +5,7 @@
 
 import {
   W, H, TILE,
-  T_GROUND, T_STONE, T_CATACOMB, T_CLOCK, T_FOREST, T_SNOW, T_DARKWOOD,
+  T_GROUND, T_STONE, T_CATACOMB, T_CLOCK, T_FOREST, T_SNOW, T_DARKWOOD, T_CAVERN,
 } from '../engine/constants.js';
 
 export const LIGHT = norm3(-0.52, -0.61, -0.60); // cold moonlight from upper-left-front
@@ -420,6 +420,7 @@ class TextureBank3D {
       case T_FOREST: return this.get('top_forest');
       case T_SNOW: return this.get('top_snow');
       case T_DARKWOOD: return this.get('top_darkwood');
+      case T_CAVERN: return this.get('top_cavern');
       default: return this.get('top_stone');
     }
   }
@@ -433,6 +434,7 @@ class TextureBank3D {
       case T_FOREST: return this.get('side_forest');
       case T_SNOW: return this.get('side_snow');
       case T_DARKWOOD: return this.get('side_darkwood');
+      case T_CAVERN: return this.get('side_cavern');
       default: return this.get('side_stone');
     }
   }
@@ -441,7 +443,7 @@ class TextureBank3D {
     const A = this.assets;
 
     // 1. Direct seamless wall textures from game assets
-    for (const k of ['wall', 'wall_b', 'catacombwall', 'clockwall', 'arcadewall', 'librarywall', 'cathedralwall']) {
+    for (const k of ['wall', 'wall_b', 'catacombwall', 'clockwall', 'arcadewall', 'librarywall', 'cathedralwall', 'cavernwall']) {
       const im = A.img(k);
       if (im) this.reg(k, im);
     }
@@ -703,6 +705,19 @@ class TextureBank3D {
     this.buildStripPair('forestfloor', 'top_forest', 'side_forest', 6, 18, 0.18);
     this.buildStripPair('snowfloor', 'top_snow', 'side_snow', 6, 30, 0.10);
     this.buildStripPair('darkwoodfloor', 'top_darkwood', 'side_darkwood', 6, 18, 0.22, '#091314');
+    this.buildStripPair('cavernfloor', 'top_cavern', 'side_cavern', 4, 18, 0.22, '#140808');
+    {
+      const { c, g } = makeCanvas(128, 32);
+      g.fillStyle = '#380906';
+      g.fillRect(0, 0, 128, 32);
+      for (let i = 0; i < 42; i++) {
+        const x = (i * 37) % 128, y = (i * 19) % 28, w = 10 + (i % 4) * 8;
+        g.fillStyle = ['#ff6a18', '#ffad28', '#8a1c08', '#ffe46c'][i & 3];
+        g.fillRect(x, y, w, 3);
+        if (x + w > 128) g.fillRect(x - 128, y, w, 3);
+      }
+      this.reg('top_lava', c);
+    }
 
     // Elder Darkwood Bark & Bioluminescent Mossy Stone
     {

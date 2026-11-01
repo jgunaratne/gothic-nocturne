@@ -58,6 +58,7 @@ uniform float uScan;      // scanline strength
 uniform float uGrain;
 uniform float uShimmer;   // heat shimmer amount (lightning, roars)
 uniform float uHurt;      // crimson damage pulse
+uniform float uLightning; // electric storm exposure & blue-violet shadow lift
 uniform vec3 uTint;       // colour grade tint (multiplied)
 uniform vec3 uLift;       // shadow lift (added)
 uniform float uGamma;
@@ -78,13 +79,15 @@ void main() {
   vec3 col = texture2D(uScene, suv).rgb;
   vec3 bloom = texture2D(uBloom, uv).rgb;
 
-  // Bloom (screen blend keeps whites from clipping)
-  col = 1.0 - (1.0 - col) * (1.0 - bloom * uBloomAmt);
+  // Bloom (screen blend keeps whites from clipping); storm lightning boosts halo bloom
+  float bloomAmt = uBloomAmt + uLightning * 0.65;
+  col = 1.0 - (1.0 - col) * (1.0 - bloom * bloomAmt);
 
   // Colour grade: lift shadows, tint, gamma, saturation
-  col = col + uLift * (1.0 - col);
-  col *= uTint;
-  col = pow(max(col, 0.0), vec3(uGamma));
+  vec3 lift = uLift + vec3(0.08, 0.11, 0.22) * uLightning;
+  col = col + lift * (1.0 - col);
+  col *= mix(uTint, vec3(1.12, 1.16, 1.28), uLightning * 0.55);
+  col = pow(max(col, 0.0), vec3(max(0.72, uGamma - uLightning * 0.18)));
   float l = dot(col, vec3(0.299, 0.587, 0.114));
   col = mix(vec3(l), col, uSat);
 
@@ -124,6 +127,7 @@ const GRADES = {
   yule: { tint: [0.94, 0.99, 1.10], lift: [0.012, 0.018, 0.036], gamma: 0.98, sat: 1.0, bloom: 0.58 },
   ramparts: { tint: [0.97, 0.99, 1.06], lift: [0.010, 0.010, 0.026], gamma: 1.0, sat: 1.0, bloom: 0.5 },
   catacombs: { tint: [1.04, 0.98, 0.92], lift: [0.016, 0.012, 0.008], gamma: 1.03, sat: 0.96, bloom: 0.5 },
+  darkcave: { tint: [1.10, 0.95, 0.88], lift: [0.028, 0.009, 0.006], gamma: 0.98, sat: 1.10, bloom: 0.78 },
   ossuary: { tint: [0.94, 1.02, 1.02], lift: [0.008, 0.020, 0.022], gamma: 1.02, sat: 1.0, bloom: 0.68 },
   arcade: { tint: [1.06, 0.98, 0.94], lift: [0.020, 0.010, 0.012], gamma: 0.98, sat: 1.08, bloom: 0.7 },
   clocktower: { tint: [1.06, 1.00, 0.92], lift: [0.018, 0.012, 0.006], gamma: 1.0, sat: 1.02, bloom: 0.6 },
@@ -139,6 +143,7 @@ export class PostFX {
     this.time = 0;
     this.shimmer = 0;
     this.hurt = 0;
+    this.lightning = 0;
     this.scan = 0.35;
     this.grain = 0.035;
     this.theme = 'menu';
@@ -240,6 +245,10 @@ export class PostFX {
   /** Per-frame event hooks from the game. */
   flash(amount) { this.shimmer = Math.max(this.shimmer, amount); }
   damage(amount = 1) { this.hurt = Math.max(this.hurt, amount); }
+  strike(amount) {
+    this.lightning = Math.max(this.lightning, amount);
+    if (amount > 0.35) this.shimmer = Math.max(this.shimmer, amount * 0.65);
+  }
 
   draw(dt, theme) {
     if (!this.enabled) return;
@@ -247,6 +256,7 @@ export class PostFX {
     this.time += dt;
     this.shimmer = Math.max(0, this.shimmer - dt * 2.2);
     this.hurt = Math.max(0, this.hurt - dt * 2.6);
+    this.lightning = Math.max(0, this.lightning - dt * 3.8);
     this.theme = theme || this.theme;
     const g = GRADES[this.theme] || GRADES.menu;
     this.fit();
@@ -303,6 +313,7 @@ export class PostFX {
     gl.uniform1f(u.uGrain, this.grain);
     gl.uniform1f(u.uShimmer, this.shimmer);
     gl.uniform1f(u.uHurt, this.hurt);
+    gl.uniform1f(u.uLightning, this.lightning);
     gl.uniform3f(u.uTint, g.tint[0], g.tint[1], g.tint[2]);
     gl.uniform3f(u.uLift, g.lift[0], g.lift[1], g.lift[2]);
     gl.uniform1f(u.uGamma, g.gamma);

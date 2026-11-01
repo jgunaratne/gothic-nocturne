@@ -173,12 +173,12 @@ export class Font {
   lineHeight(scale = 1, gothic = true) { const set = this._set(scale, gothic); return set ? Math.round(set.cap * this._mul(scale)) : GLYPH_H * scale; }
 
   /** Greedy word-wrap to a pixel width. */
-  wrap(text, maxW, scale = 1, spacing = 1) {
+  wrap(text, maxW, scale = 1, spacing = 1, gothic = true) {
     const words = String(text).split(' ');
     const lines = []; let cur = '';
     for (const wd of words) {
       const trial = cur ? cur + ' ' + wd : wd;
-      if (cur && this.width(trial, scale, spacing) > maxW) { lines.push(cur); cur = wd; } else cur = trial;
+      if (cur && this.width(trial, scale, spacing, gothic) > maxW) { lines.push(cur); cur = wd; } else cur = trial;
     }
     if (cur) lines.push(cur);
     return lines;

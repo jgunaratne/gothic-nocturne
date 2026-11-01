@@ -2,7 +2,7 @@
 // orbiting gear gondolas, crumbling masonry) and 3D-extruded tile rendering.
 
 import {
-  TILE, T_EMPTY, T_GROUND, T_STONE, T_CATACOMB, T_CLOCK, T_FOREST, T_SNOW, T_DARKWOOD,
+  TILE, T_EMPTY, T_GROUND, T_STONE, T_CATACOMB, T_CLOCK, T_FOREST, T_SNOW, T_DARKWOOD, T_CAVERN, T_LAVA,
   T_PLATFORM, T_CRUMBLE, T_SPIKES, T_BLOCK, T_GATE, T_BOUND,
   MATERIAL_STRIP, isMaterialTile, isSolidTile, W, H,
 } from '../engine/constants.js';
@@ -29,6 +29,7 @@ export class Level {
     this.platformImg = data.platform || 'platform';
     this.platformRuns = [];
     this.bridgeRuns = [];
+    this.lavaRuns = [];
     this.crumbles = [];
     this.crumbleMap = new Map();
     this.movers = (data.movers || []).map((m) => makeMover(m));
@@ -106,6 +107,20 @@ export class Level {
         } else x++;
       }
     }
+    // Contiguous molten lava pool runs for 3D + shader rendering.
+    this.lavaRuns = [];
+    for (let y = 1; y < this.rows; y++) {
+      let x = 0;
+      while (x < this.cols) {
+        if (this.tile(x, y) === T_LAVA && this.tile(x, y - 1) !== T_LAVA) {
+          const x0 = x;
+          while (x < this.cols && this.tile(x, y) === T_LAVA && this.tile(x, y - 1) !== T_LAVA) x++;
+          let hTiles = 1;
+          while (y + hTiles < this.rows && this.tile(x0, y + hTiles) === T_LAVA) hTiles++;
+          this.lavaRuns.push({ x0, x1: x - 1, y, hTiles });
+        } else x++;
+      }
+    }
   }
 
   // ------------------------------------------------------------- queries
@@ -118,6 +133,7 @@ export class Level {
   isSolid(tx, ty) { return isSolidTile(this.tile(tx, ty)); }
   isOneWay(tx, ty) { const t = this.tile(tx, ty); return t === T_PLATFORM || t === T_CRUMBLE; }
   isSpike(tx, ty) { return this.tile(tx, ty) === T_SPIKES; }
+  isLava(tx, ty) { return this.tile(tx, ty) === T_LAVA; }
   isStandable(tx, ty) { const t = this.tile(tx, ty); return isSolidTile(t) || t === T_PLATFORM || t === T_CRUMBLE; }
 
   /** First standable row at column tx (from the top), or -1. */
@@ -277,6 +293,8 @@ export class Level {
       else if (d.frame === 'moss_lantern') drawFlameGlow(ctx, x, y - 48, time + d.x, 28, 0.68, 'emerald');
       else if (d.frame === 'glow_shrooms') drawFlameGlow(ctx, x, y - 12, time + d.x, 22, 0.55, 'emerald');
       else if (d.frame === 'ancient_totem') drawFlameGlow(ctx, x, y - 44, time + d.x, 20, 0.50, 'emerald');
+      else if (d.frame === 'brazier') { drawFlameGlow(ctx, x, y - 82 * sc, time + d.x, 30 * sc, 0.72); const fx = getFxLayers(); if (fx) fx.addFlame(x, y - 78 * sc, 16 * sc, 20 * sc, [1.0, 0.55, 0.16], d.x * 0.011); }
+      else if (d.frame === 'magma_vent') drawFlameGlow(ctx, x, y - 56 * sc, time + d.x, 32 * sc, 0.68);
       else if (d.frame === 'tree') {
         const f = assets.frame('xmasprops', 'tree');
         if (f) {
@@ -480,7 +498,7 @@ export class Level {
     for (let ty = ty0; ty <= ty1; ty++) {
       for (let tx = tx0; tx <= tx1; tx++) {
         const t = this.tiles[ty * this.cols + tx];
-        if (t === T_EMPTY || t === T_PLATFORM || t === T_CRUMBLE || t === T_GATE || t === T_BOUND) continue;
+        if (t === T_EMPTY || t === T_PLATFORM || t === T_CRUMBLE || t === T_GATE || t === T_BOUND || t === T_LAVA) continue;
         const x = tx * TILE - camX, y = ty * TILE - camY;
         if (isMaterialTile(t)) {
           let name = MATERIAL_STRIP[t];
@@ -501,6 +519,44 @@ export class Level {
           assets.draw(ctx, 'props', 'block', x + 16, y + 32);
         } else if (t === T_SPIKES) {
           ctx.drawImage(propsImg, spikes.x + (tx % 2) * 32, spikes.y, 32, spikes.h, x, y + TILE - spikes.h, 32, spikes.h);
+        }
+      }
+    }
+
+    // 3b. Sunken molten lava pools (receding 3D magma surface + convective WebGL lava shader + warm glow).
+    if (this.lavaRuns.length) {
+      const fx = getFxLayers();
+      const lavaTopTex = bank ? bank.get('top_lava') : null;
+      const glow = getGlowCanvas('amber');
+      for (const lr of this.lavaRuns) {
+        if (lr.x1 < tx0 - 1 || lr.x0 > tx1 + 1) continue;
+        const wx = lr.x0 * TILE, wy = lr.y * TILE + 6;
+        const pw = (lr.x1 - lr.x0 + 1) * TILE, ph = lr.hTiles * TILE - 4;
+        const sx = wx - camX, sy = wy - camY;
+        if (wy > camY + EYE_Y + 2 && lavaTopTex) {
+          this.drawTopDeck3D(ctx, camX, camY, wx, wy, pw, DECK_Z, lavaTopTex, 0.92);
+        }
+        if (fx && fx.enabled) {
+          fx.lava(ctx, { x: sx, y: sy, w: pw, h: ph }, camX);
+        } else {
+          ctx.fillStyle = '#380806';
+          ctx.fillRect(sx, sy, pw, ph);
+          ctx.fillStyle = '#ff6a18';
+          ctx.fillRect(sx, sy, pw, 6);
+          for (let bx = 0; bx < pw; bx += 16) {
+            const wave = Math.round(Math.sin(time * 4 + (wx + bx) * 0.08) * 2);
+            ctx.fillStyle = '#ffe066';
+            ctx.fillRect(sx + bx + 2, sy + 1 + Math.max(0, wave), 10, 3);
+          }
+        }
+        if (glow) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.28 + 0.08 * Math.sin(time * 3.4 + lr.x0);
+          for (let gx = sx + 24; gx < sx + pw; gx += 64) {
+            ctx.drawImage(glow, gx - 42, sy - 34, 84, 58);
+          }
+          ctx.restore();
         }
       }
     }

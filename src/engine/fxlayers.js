@@ -147,6 +147,85 @@ void main() {
 }
 `;
 
+// Forked storm lightning bolt + electric cloud-bank sheet illumination for outdoor stages
+const LIGHTNING_FRAG = `
+precision mediump float;
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uBoltX;     // strike x in scene px
+uniform float uSeed;      // per-strike seed
+uniform float uFlash;     // 0..1 intensity
+uniform float uHorizon;   // max y of bolt reach
+${NOISE}
+float boltBranch(vec2 px, float x0, float y0, float y1, float slope, float seed, float amp, float coreW) {
+  if (px.y < y0 || px.y > y1) return 0.0;
+  float t = (px.y - y0) / max(1.0, y1 - y0);
+  float jag = (fbm(vec2(px.y * 0.042 + seed * 11.3, seed * 3.7)) - 0.5) * amp;
+  jag += (vnoise(vec2(px.y * 0.13 + seed * 29.1, seed * 7.1)) - 0.5) * (amp * 0.38);
+  float cx = x0 + slope * (px.y - y0) + jag;
+  float d = abs(px.x - cx);
+  float taper = 1.0 - smoothstep(0.72, 1.0, t);
+  float core = (1.0 - smoothstep(0.0, coreW, d)) * taper;
+  float glow = exp(-d / (11.0 + 18.0 * (1.0 - t))) * 0.62 * taper;
+  return core + glow;
+}
+void main() {
+  vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
+  if (px.y > uHorizon + 24.0) discard;
+  // Main jagged trunk + two forked offshoots
+  float m = boltBranch(px, uBoltX, 0.0, uHorizon, (hash(vec2(uSeed, 1.0)) - 0.5) * 0.28, uSeed, 54.0, 2.2);
+  float forkY1 = uHorizon * 0.24;
+  float forkX1 = uBoltX + (fbm(vec2(forkY1 * 0.042 + uSeed * 11.3, uSeed * 3.7)) - 0.5) * 54.0;
+  m += boltBranch(px, forkX1, forkY1, uHorizon * 0.76, 0.52, uSeed + 4.3, 32.0, 1.4) * 0.8;
+  float forkY2 = uHorizon * 0.42;
+  float forkX2 = uBoltX + (fbm(vec2(forkY2 * 0.042 + uSeed * 11.3, uSeed * 3.7)) - 0.5) * 54.0;
+  m += boltBranch(px, forkX2, forkY2, uHorizon * 0.90, -0.46, uSeed + 8.9, 28.0, 1.3) * 0.75;
+  // Sheet-lightning cloud glow around the upper storm bank
+  float cloudN = fbm(vec2((px.x - uBoltX) / 140.0 + uSeed, px.y / 68.0));
+  float sheet = exp(-abs(px.x - uBoltX) / 190.0) * (1.0 - smoothstep(10.0, uHorizon * 0.85, px.y)) * (0.45 + 0.55 * cloudN) * 0.55;
+  float v = clamp((m + sheet) * uFlash, 0.0, 1.35);
+  if (v <= 0.015) discard;
+  vec3 haloCol = vec3(0.56, 0.68, 1.0);
+  vec3 coreCol = vec3(0.98, 0.99, 1.0);
+  vec3 col = mix(haloCol, coreCol, clamp(m * 0.85, 0.0, 1.0));
+  float a = clamp(floor(v * 8.0) / 8.0, 0.0, 1.0);
+  gl_FragColor = vec4(col * a, a);
+}
+`;
+
+// Convective molten lava shader for sunken lava basins and subterranean magma seas
+const LAVA_FRAG = `
+precision mediump float;
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uScroll;
+uniform vec4 uPool;      // x, y, w, h in scene px
+${NOISE}
+void main() {
+  vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
+  if (px.x < uPool.x || px.x > uPool.x + uPool.z || px.y < uPool.y || px.y > uPool.y + uPool.w) discard;
+  float depth = clamp((px.y - uPool.y) / max(1.0, uPool.w), 0.0, 1.0);
+  float wx = px.x + uScroll;
+  vec2 p1 = vec2(wx / 26.0 + uTime * 0.32, (px.y - uPool.y) / 14.0 - uTime * 0.18);
+  vec2 p2 = vec2(wx / 13.0 - uTime * 0.48, (px.y - uPool.y) / 9.0 + uTime * 0.25);
+  float n = fbm(p1) * 0.62 + fbm(p2) * 0.38;
+  // Bright yellow-white surface meniscus + glowing convective magma fissures between dark basalt crust
+  float surface = 1.0 - smoothstep(0.0, 5.0, px.y - uPool.y);
+  float hot = smoothstep(0.42, 0.76, n);
+  vec3 crust = vec3(0.18, 0.04, 0.03);
+  vec3 magma = vec3(0.96, 0.30, 0.05);
+  vec3 whiteHot = vec3(1.0, 0.88, 0.36);
+  vec3 col = mix(crust, magma, smoothstep(0.28, 0.58, n));
+  col = mix(col, whiteHot, clamp(hot * 0.85 + surface * 0.72, 0.0, 1.0));
+  col *= (1.05 - depth * 0.28);
+  col = floor(col * 8.0) / 8.0;
+  float a = 0.92;
+  gl_FragColor = vec4(col * a, a);
+}
+`;
+
 const CLOUD_THEMES = {
   graveyard: { color: [0.62, 0.66, 0.82], shade: [0.16, 0.15, 0.28], density: 0.55, top: 0, bottom: 150 },
   ramparts: { color: [0.60, 0.65, 0.84], shade: [0.15, 0.15, 0.28], density: 0.6, top: 0, bottom: 150 },
@@ -180,6 +259,8 @@ export class FxLayers {
     this.pFog = this.program(VERT, FOG_FRAG);
     this.pWater = this.program(VERT, WATER_FRAG);
     this.pFire = this.program(VERT, FIRE_FRAG);
+    this.pLightning = this.program(VERT, LIGHTNING_FRAG);
+    this.pLava = this.program(VERT, LAVA_FRAG);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);
     this.ok = true; this.enabled = true;
@@ -236,15 +317,39 @@ export class FxLayers {
     ctx.restore();
   }
 
-  clouds(ctx, camX, theme) {
+  clouds(ctx, camX, theme, flash = 0) {
     const T = CLOUD_THEMES[theme] || CLOUD_THEMES.graveyard;
+    const f = Math.max(0, Math.min(1, flash));
+    const c0 = T.color[0] + (0.94 - T.color[0]) * f;
+    const c1 = T.color[1] + (0.96 - T.color[1]) * f;
+    const c2 = T.color[2] + (1.00 - T.color[2]) * f;
+    const s0 = T.shade[0] + (0.42 - T.shade[0]) * f;
+    const s1 = T.shade[1] + (0.48 - T.shade[1]) * f;
+    const s2 = T.shade[2] + (0.68 - T.shade[2]) * f;
     this.run(ctx, this.pCloud, { x: 0, y: 0, w: W, h: T.bottom }, (gl, u) => {
       gl.uniform1f(u.uScroll, camX * 0.06);
-      gl.uniform3f(u.uColor, T.color[0], T.color[1], T.color[2]);
-      gl.uniform3f(u.uShade, T.shade[0], T.shade[1], T.shade[2]);
-      gl.uniform1f(u.uDensity, T.density);
+      gl.uniform3f(u.uColor, c0, c1, c2);
+      gl.uniform3f(u.uShade, s0, s1, s2);
+      gl.uniform1f(u.uDensity, T.density + f * 0.18);
       gl.uniform1f(u.uTop, T.top);
       gl.uniform1f(u.uBottom, T.bottom);
+    });
+  }
+
+  lightning(ctx, boltX, seed, flash, horizonY = 230) {
+    if (flash <= 0.02) return;
+    this.run(ctx, this.pLightning, { x: 0, y: 0, w: W, h: Math.min(H, horizonY + 24) }, (gl, u) => {
+      gl.uniform1f(u.uBoltX, boltX);
+      gl.uniform1f(u.uSeed, seed);
+      gl.uniform1f(u.uFlash, flash);
+      gl.uniform1f(u.uHorizon, horizonY);
+    }, 'lighter');
+  }
+
+  lava(ctx, rect, camX) {
+    this.run(ctx, this.pLava, rect, (gl, u) => {
+      gl.uniform1f(u.uScroll, camX);
+      gl.uniform4f(u.uPool, rect.x, rect.y, rect.w, rect.h);
     });
   }
 

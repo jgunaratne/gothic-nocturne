@@ -9,6 +9,7 @@ const TRACKS = {
   yule: 'assets/music/yule.mp3',
   ramparts: 'assets/music/ramparts.mp3',
   catacombs: 'assets/music/catacombs.mp3',
+  darkcave: 'assets/music/darkcave.mp3',
   ossuary: 'assets/music/ossuary.mp3',
   tower: 'assets/music/tower.mp3',
   throne: 'assets/music/throne.mp3',
@@ -28,6 +29,7 @@ export const VOICES = {
   devilsanta: 'assets/voice/devilsanta.mp3',
   bonecaptain: 'assets/voice/bonecaptain.mp3',
   reaper: 'assets/voice/reaper.mp3',
+  cinderqueen: 'assets/voice/cinderqueen.mp3',
   gorgon: 'assets/voice/gorgon.mp3',
   reaperlord: 'assets/voice/reaperlord.mp3',
   count: 'assets/voice/count.mp3',
@@ -71,7 +73,7 @@ export class AudioSys {
     this.sfxBus.gain.value = this.sfxVolume;
     this.sfxBus.connect(this.master);
     this.musicBus = this.ctx.createGain();
-    this.musicBus.gain.value = this.musicVolume;
+    this.musicBus.gain.value = this.voiceDucking ? this.musicVolume * 0.24 : this.musicVolume;
     this.musicBus.connect(this.master);
     this.voiceBus = this.ctx.createGain();
     this.voiceBus.gain.value = 1.0;
@@ -163,26 +165,40 @@ export class AudioSys {
       this.activeVoice = null;
     }
     if (this.duckTimer) { clearTimeout(this.duckTimer); this.duckTimer = null; }
+    // Duck musicBus immediately so background boss music starting alongside the voice never blasts over speech.
+    this.voiceDucking = true;
+    if (this.musicBus) {
+      const now0 = this.ctx.currentTime;
+      this.musicBus.gain.cancelScheduledValues(now0);
+      this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.24, now0, 0.05);
+    }
 
     (async () => {
       const buf = await this.ensureVoiceBuffer(key);
-      if (!buf || !this.ctx) return;
+      if (!buf || !this.ctx) {
+        this.voiceDucking = false;
+        if (this.musicBus && this.ctx) {
+          this.musicBus.gain.setTargetAtTime(this.musicVolume, this.ctx.currentTime, 0.22);
+        }
+        return;
+      }
       if (onDuration) onDuration(buf.duration);
       const now = this.ctx.currentTime;
       if (this.musicBus) {
         this.musicBus.gain.cancelScheduledValues(now);
-        this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.20, now, 0.08);
+        this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.24, now, 0.06);
       }
       const src = this.ctx.createBufferSource();
       src.buffer = buf;
       const g = this.ctx.createGain();
-      g.gain.value = 1.28;
+      g.gain.value = 1.32;
       src.connect(g).connect(this.voiceBus || this.master);
       this.activeVoice = src;
       const restore = () => {
         if (this.activeVoice === src) this.activeVoice = null;
+        this.voiceDucking = false;
         if (this.musicBus && this.ctx) {
-          this.musicBus.gain.setTargetAtTime(this.musicVolume, this.ctx.currentTime, 0.22);
+          this.musicBus.gain.setTargetAtTime(this.musicVolume, this.ctx.currentTime, 0.28);
         }
       };
       src.onended = restore;
@@ -327,7 +343,13 @@ export class AudioSys {
     if (!this.ctx) return;
     // Sampled effects (generated with tools/generate_sfx.sh) take precedence over the synth.
     if (this.sfxBuffers && this.sfxBuffers.has(name)) {
-      this.playSample(this.sfxBuffers.get(name), name === 'whip' || name === 'hit' ? 0.9 : 0.8, 0.97 + Math.random() * 0.06);
+      const vol = name === 'thunder' ? 1.05 : (name === 'whip' || name === 'hit' ? 0.9 : 0.8);
+      const rate = name === 'thunder' ? 0.88 + Math.random() * 0.16 : 0.97 + Math.random() * 0.06;
+      this.playSample(this.sfxBuffers.get(name), vol, rate);
+      if (name === 'thunder') {
+        // Layer a deep sub-bass thunder roll underneath the sampled thunderclap
+        this._noise(1.35, 0.24, 140, 'lowpass', 0.04);
+      }
       return;
     }
     if (!this.sfxMissing || !this.sfxMissing.has(name)) { this.ensureSfx(name); }

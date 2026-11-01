@@ -2,17 +2,23 @@
 
 import { PLAYER, TILE } from '../engine/constants.js';
 import { Entity } from './entities.js';
+import { Projectile } from './objects.js';
 
 export class Player extends Entity {
   constructor(x, y) {
     super(x, y);
     this.w = PLAYER.width;
     this.h = PLAYER.height;
-    this.hp = PLAYER.maxHp;
+    this.maxHp = PLAYER.maxHp;
+    this.hp = this.maxHp;
     this.state = 'idle';           // idle | walk | jump | crouch | attack | hurt | dead
     this.attackT = -1;             // time into the current whip
     this.attackHit = false;        // whether this whip already connected
     this.attackCrouch = false;
+    this.whipReach = PLAYER.whipReach;
+    this.whipTime = PLAYER.whipTime;
+    this.whipActive = PLAYER.whipActive.slice();
+    this.airJumpsLeft = 0;         // NIGHT WINGS relic (double jump)
     this.coyote = 0;
     this.jumpBuffer = 0;
     this.invuln = 0;
@@ -33,6 +39,12 @@ export class Player extends Entity {
   /** Turns the hunter to stone; mashing buttons breaks free sooner. */
   petrify(world, dur = PLAYER.petrifyTime) {
     if (this.state === 'dead') return;
+    // AEGIS MIRROR relic (Ossuary): complete immunity to petrification!
+    if (world && world.hasRelic && world.hasRelic('ossuary')) {
+      world.sfx('pickup');
+      world.particles.sparks(this.x, this.y - 30, 8, '#e8d27a');
+      return;
+    }
     this.petrified = dur;
     this.attackT = -1; this.throwing = false;
     this.crouching = false; this.h = PLAYER.height;
@@ -44,8 +56,8 @@ export class Player extends Entity {
   /** Whip hit box in world coordinates, or null when inactive. */
   whipBox() {
     if (!this.attacking || this.throwing) return null;
-    if (this.attackT < PLAYER.whipActive[0] || this.attackT > PLAYER.whipActive[1]) return null;
-    const reach = PLAYER.whipReach;
+    if (this.attackT < this.whipActive[0] || this.attackT > this.whipActive[1]) return null;
+    const reach = this.whipReach || PLAYER.whipReach;
     const yTop = this.y - (this.attackCrouch ? 34 : 52);
     const x0 = this.facing > 0 ? this.x + 6 : this.x - 6 - reach;
     return { x: x0, y: yTop, w: reach, h: 18 };
@@ -73,6 +85,13 @@ export class Player extends Entity {
       }
       return;
     }
+    const hasRelic = (k) => !!(world && world.hasRelic && world.hasRelic(k));
+    this.whipReach = Math.round(PLAYER.whipReach * (hasRelic('library') ? 1.28 : 1));
+    const whipScale = hasRelic('clocktower') ? 0.75 : 1;
+    this.whipTime = PLAYER.whipTime * whipScale;
+    this.whipActive = [PLAYER.whipActive[0] * whipScale, PLAYER.whipActive[1] * whipScale];
+    if (this.onGround) this.airJumpsLeft = hasRelic('graveyard') ? 1 : 0;
+
     const ctl = this.hurtT <= 0;
     const axis = ctl ? input.axis : 0;
     this.invuln = Math.max(0, this.invuln - dt);
@@ -91,8 +110,9 @@ export class Player extends Entity {
 
     // Horizontal movement: full control on the ground, limited in the air;
     // whipping on the ground roots the hunter in place (classic commitment).
+    const moveSpeed = PLAYER.speed * (hasRelic('ramparts') ? 1.15 : 1);
     const rooted = this.attacking && this.onGround;
-    const target = rooted || this.crouching ? 0 : axis * PLAYER.speed;
+    const target = rooted || this.crouching ? 0 : axis * moveSpeed;
     const accel = this.onGround ? PLAYER.accel : PLAYER.airAccel;
     if (this.hurtT > 0) {
       // Knockback: keep the launch velocity, only friction on the ground.
@@ -105,8 +125,18 @@ export class Player extends Entity {
     if (ctl && this.jumpBuffer > 0 && this.coyote > 0 && !this.crouching) {
       this.vy = -PLAYER.jump; this.coyote = 0; this.jumpBuffer = 0;
       this.onGround = false; this.riding = null;
+      this.airJumpsLeft = hasRelic('graveyard') ? 1 : 0;
       world.sfx('jump');
       world.particles.dust(this.x, this.y, 4);
+    } else if (ctl && input.pressed.jump && !this.onGround && this.coyote <= 0 && this.airJumpsLeft > 0) {
+      // NIGHT WINGS relic (Graveyard): mid-air double jump on shadowy bat wings!
+      this.airJumpsLeft--;
+      this.vy = -PLAYER.jump * 0.94;
+      this.jumpBuffer = 0;
+      this.dropThrough = false;
+      world.sfx('jump');
+      world.particles.sparks(this.x, this.y - 14, 9, '#b48cff');
+      world.particles.smoke(this.x, this.y - 10, 3, 'rgba(130, 80, 220, 0.45)');
     }
     if (ctl && this.crouching && input.pressed.jump) {
       if (this.canDropThrough(level)) {
@@ -145,12 +175,22 @@ export class Player extends Entity {
         this.attackT = 0; this.attackHit = false; this.throwing = false;
         this.attackCrouch = this.crouching;
         world.sfx('whip');
+        // CRIMSON MANTLE relic (Throne): whip unleashes a piercing crimson flame wave!
+        if (hasRelic('throne')) {
+          const waveY = this.y - (this.attackCrouch ? 25 : 42);
+          world.spawnProjectile(new Projectile('crimson_wave', this.x + this.facing * 24, waveY, this.facing, 'player'));
+        }
       }
     }
     this.throwT = Math.max(0, this.throwT - dt);
     if (this.attacking) {
       this.attackT += dt;
-      if (this.attackT >= PLAYER.whipTime) { this.attackT = -1; this.throwing = false; }
+      if (!this.throwing && hasRelic('jack') && this.attackT >= this.whipActive[0] && this.attackT <= this.whipActive[1] && Math.random() < 0.65) {
+        const tipX = this.x + this.facing * (12 + Math.random() * this.whipReach);
+        const tipY = this.y - (this.attackCrouch ? 28 : 44);
+        world.particles.embers(tipX, tipY, 1);
+      }
+      if (this.attackT >= this.whipTime) { this.attackT = -1; this.throwing = false; }
     }
 
     const wasGround = this.onGround;
@@ -202,7 +242,9 @@ export class Player extends Entity {
   /** Applies damage (scaled by difficulty) with knockback; returns true if it connected. */
   hurt(amount, fromX, world) {
     if (this.invuln > 0 || this.state === 'dead') return false;
-    amount = Math.max(1, Math.round(amount * world.difficulty.damageTaken));
+    const hasRelic = (k) => !!(world && world.hasRelic && world.hasRelic(k));
+    const relicRed = hasRelic('ossuary') ? 0.85 : 1;
+    amount = Math.max(1, Math.round(amount * world.difficulty.damageTaken * relicRed));
     this.hp -= amount;
     this.petrified = 0;            // a blow shatters the stone shell
     world.sfx('hurt');
@@ -210,12 +252,12 @@ export class Player extends Entity {
     if (world.onPlayerHurt) world.onPlayerHurt(amount);
     if (this.hp <= 0) { this.hp = 0; this.die(world); return true; }
     const d = world.difficulty;
-    this.invuln = PLAYER.invuln * (d.invulnMul || 1);
+    this.invuln = PLAYER.invuln * (d.invulnMul || 1) * (hasRelic('yule') ? 1.45 : 1);
     this.hurtT = PLAYER.hurtTime;
     this.attackT = -1;
     this.crouching = false; this.h = PLAYER.height;
     const dir = fromX > this.x ? -1 : 1;
-    const kb = d.knockbackMul == null ? 1 : d.knockbackMul;
+    const kb = (d.knockbackMul == null ? 1 : d.knockbackMul) * (hasRelic('yule') ? 0.5 : 1);
     this.vx = dir * 150 * kb;
     this.vy = -230 * kb;
     this.onGround = false;
@@ -238,7 +280,7 @@ export class Player extends Entity {
       case 'walk': return 'walk' + this.walkFrame;
       case 'jump': return 'jump';
       case 'crouch': return 'crouch';
-      case 'attack': return this.throwing ? 'whip1' : (this.attackT < PLAYER.whipActive[0] ? 'whip0' : 'whip1');
+      case 'attack': return this.throwing ? 'whip1' : (this.attackT < this.whipActive[0] ? 'whip0' : 'whip1');
       case 'hurt': case 'dead': return 'hurt';
       default: return 'idle';
     }
@@ -263,10 +305,10 @@ export class Player extends Entity {
     if (this.state === 'attack' && this.attackCrouch && !this.throwing) {
       // Crouching whip: crouch pose plus a procedural low whip lash.
       assets.draw(ctx, 'hero', 'crouch', this.x - camX, this.y - camY, this.facing < 0, alpha);
-      if (this.attackT >= PLAYER.whipActive[0] - 0.03) {
+      if (this.attackT >= this.whipActive[0] - 0.03) {
         const sx = Math.round(this.x - camX + this.facing * 8), sy = Math.round(this.y - camY - 30);
-        const k = Math.min(1, (this.attackT - PLAYER.whipActive[0] + 0.03) / 0.08);
-        const len = PLAYER.whipReach * k;
+        const k = Math.min(1, (this.attackT - this.whipActive[0] + 0.03) / 0.08);
+        const len = (this.whipReach || PLAYER.whipReach) * k;
         ctx.save();
         ctx.strokeStyle = '#6b4a2b'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(sx, sy);
@@ -293,7 +335,7 @@ export class Player extends Entity {
   }
 
   /**
-   * The strike frame's painted whip is stretched to PLAYER.whipReach: the
+   * The strike frame's painted whip is stretched to this.whipReach: the
    * body and the knotted tip stay 1:1, the straight lash between them is
    * scaled horizontally (a 2px line stays crisp with smoothing off).
    */
@@ -302,7 +344,8 @@ export class Player extends Entity {
     if (!f) return;
     const img = assets.img('hero');
     const bodyW = 34, tipW = 6, midW = f.w - bodyW - tipW;
-    const total = Math.round(f.ax + PLAYER.whipReach + 10);   // anchor -> tip end
+    const reach = this.whipReach || PLAYER.whipReach;
+    const total = Math.round(f.ax + reach + 10);   // anchor -> tip end
     const midDest = Math.max(midW, total - bodyW - tipW);
     ctx.save();
     ctx.globalAlpha = alpha;

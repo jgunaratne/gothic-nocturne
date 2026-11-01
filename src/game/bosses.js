@@ -2,7 +2,7 @@
 // The Phantom Reaper lives in boss.js; the Reaper Lord extends it.
 
 import { SCORE } from '../engine/constants.js';
-import { Enemy, Bat, MedusaHead, Pumpkin, FrostWisp, NightOwl, Phantom, CursedTome, Gargoyle } from './enemies.js';
+import { Enemy, Bat, MedusaHead, Pumpkin, FrostWisp, NightOwl, Phantom, CursedTome, Gargoyle, MagmaSlime, CinderImp } from './enemies.js';
 import { Projectile } from './objects.js';
 import { Reaper } from './boss.js';
 import { getGlowCanvas } from './tex3d.js';
@@ -466,6 +466,7 @@ export function createBoss(type, x, y, arena, difficulty) {
     case 'count': return new Count(x, y, arena, difficulty);
     case 'greatjack': return new GreatJack(x, y, arena, difficulty);
     case 'devilsanta': return new DevilSanta(x, y, arena, difficulty);
+    case 'cinderqueen': return new CinderQueen(x, y, arena, difficulty);
     case 'reaper':
     default: return new Reaper(x, y, arena, difficulty);
   }
@@ -552,7 +553,7 @@ export class GreatJack extends Boss {
           if (this.y >= a.floorY - 40) {
             this.y = a.floorY - 40; this.fired = true;
             world.camera.shake(7, 0.4); world.sfx('block');
-            world.spawnFire(this.x - 50, a.floorY); world.spawnFire(this.x + 50, a.floorY);
+            world.spawnFire(this.x - 50, a.floorY, 'enemy'); world.spawnFire(this.x + 50, a.floorY, 'enemy');
             for (const d of [-1, 1]) { const fb = new Projectile('fireball', this.x + d * 40, a.floorY - 16, d, 'enemy'); fb.vx = d * 200; fb.vy = 0; fb.gravity = 0; world.spawnProjectile(fb); }
           }
         } else {
@@ -1128,5 +1129,169 @@ export class GargoyleArchon extends Boss {
     const k = this.stateT / ((this.phase2 ? 1.0 : 1.3) * this.tempo);
     if (k < 0.3 || k > 0.7) return null;
     return { x: this.x - 40, y: this.y - 70, w: 80, h: 60 };
+  }
+}
+
+// ------------------------------------------------------------ Cinder Queen
+
+/** The Cinder Queen: volcanic empress of the Dark Cave, clad in obsidian-and-gold
+ *  plate armor. Launches arcing magma barrages (`cast`), surges across the floor
+ *  leaving blazing fire trails (`surge`), erupts pillars of caldera flame (`erupt`),
+ *  and in phase 2 summons Cinder Imps and Magma Slimes from the vents! */
+export class CinderQueen extends Boss {
+  constructor(x, y, arena, difficulty) {
+    super(x, y, arena, difficulty);
+    this.sheet = 'cinderqueen';
+    this.w = 38; this.h = 104;
+    this.hp = 38; this.maxHp = 38;
+    this.facing = -1; this.actions = 0; this.frame = 'idle';
+    this.auraKind = 'amber';
+    this.lavaImmune = true;
+    this.eruptCols = [];
+  }
+
+  onPhase2(world) {
+    world.particles.embers(this.x, this.y - 60, 24);
+    if (world.onBossRoar) world.onBossRoar();
+  }
+
+  update(dt, level, world) {
+    this.t += dt; this.stateT += dt; this.flash = Math.max(0, this.flash - dt);
+    if (this.deathT >= 0) {
+      this.frame = 'erupt';
+      if (Math.random() < 0.65) world.particles.embers(this.x + (Math.random() - 0.5) * 60, this.y - Math.random() * 100, 3);
+      this.updateDeath(dt, world);
+      return;
+    }
+    this.checkPhase2(world);
+    const p = world.player, a = this.arena;
+    const dx = p.x - this.x;
+    if (Math.random() < 0.45) world.particles.embers(this.x + (Math.random() - 0.5) * 28, this.y - 24 - Math.random() * 70, 1);
+
+    switch (this.state) {
+      case 'enter':
+        this.alpha = Math.min(1, this.stateT / 1.3);
+        this.frame = 'idle';
+        this.physics(level, dt);
+        if (this.stateT > 1.6) this.setState('stalk');
+        break;
+      case 'stalk': {
+        this.alpha = 1; this.faceP(p);
+        const sp = this.phase2 ? 68 : 48;
+        this.vx = Math.abs(dx) > 95 ? this.facing * sp : 0;
+        this.frame = 'idle';
+        this.physics(level, dt); this.clampX(28);
+        if (this.stateT > (this.phase2 ? 0.85 : 1.35) * this.tempo) {
+          this.actions++;
+          if (this.phase2 && this.actions % 4 === 0) this.setState('summon');
+          else if (this.actions % 3 === 1) this.setState('meteor');
+          else if (this.actions % 3 === 2) {
+            this.setState('erupt');
+            const n = this.phase2 ? 4 : 3;
+            this.eruptCols = [];
+            for (let i = 0; i < n; i++) {
+              const frac = (i + 0.5) / n;
+              const base = a.x0 + 52 + frac * (a.x1 - a.x0 - 104);
+              const jitter = (i === Math.floor(n / 2)) ? clamp(p.x, a.x0 + 52, a.x1 - 52) : base;
+              this.eruptCols.push(jitter);
+            }
+          } else {
+            this.setState('surge');
+            this.faceP(p);
+            this.trailT = 0;
+          }
+        }
+        break;
+      }
+      case 'meteor':
+        // Raises blazing scepter to hurl fanned volcanic magma boulders
+        this.vx = 0; this.frame = 'cast';
+        this.physics(level, dt);
+        if (this.stateT >= 0.42 && !this.fired) {
+          this.fired = true; this.faceP(p);
+          const n = this.phase2 ? 4 : 3;
+          for (let i = 0; i < n; i++) {
+            const mb = new Projectile('magmaball', this.x + this.facing * 18, this.y - 98, this.facing, 'enemy');
+            mb.vx = this.facing * (115 + i * 68);
+            mb.vy = -340 - i * 48;
+            world.spawnProjectile(mb);
+          }
+          world.particles.embers(this.x + this.facing * 18, this.y - 102, 12);
+          world.sfx('fire');
+        }
+        if (this.stateT > 1.08) this.setState('stalk');
+        break;
+      case 'surge':
+        // Blazing dash across the caldera floor leaving a wake of enemy flames
+        if (this.stateT < 0.28) {
+          this.vx = 0; this.frame = 'cast'; this.faceP(p);
+        } else if (this.stateT < 0.88) {
+          this.frame = 'surge';
+          this.vx = this.facing * (this.phase2 ? 285 : 240);
+          if (!this.fired) { this.fired = true; world.sfx('whip'); }
+          this.trailT = (this.trailT || 0) - dt;
+          if (this.trailT <= 0) {
+            this.trailT = 0.16;
+            world.spawnFire(this.x - this.facing * 18, a.floorY, 'enemy');
+          }
+          if (this.x <= a.x0 + 30 || this.x >= a.x1 - 30) this.vx = 0;
+        } else {
+          this.vx = 0; this.frame = 'idle';
+        }
+        this.physics(level, dt); this.clampX(28);
+        if (this.stateT > 1.15) this.setState('stalk');
+        break;
+      case 'erupt':
+        // Telegraphed glowing fissures along the floor -> erupting magma geysers!
+        this.vx = 0;
+        this.frame = this.stateT < 0.52 ? 'cast' : 'erupt';
+        this.physics(level, dt);
+        if (this.stateT < 0.55) {
+          for (const gx of this.eruptCols) {
+            if (Math.random() < 0.65) world.particles.embers(gx + (Math.random() - 0.5) * 20, a.floorY - 4, 2);
+          }
+        } else if (!this.fired) {
+          this.fired = true;
+          world.camera.shake(6, 0.4);
+          world.sfx('boss_roar');
+          for (const gx of this.eruptCols) {
+            world.spawnFire(gx, a.floorY, 'enemy');
+            world.particles.embers(gx, a.floorY - 16, 14);
+            const fb = new Projectile('fireball', gx, a.floorY - 18, 1, 'enemy');
+            fb.vx = (Math.random() - 0.5) * 36;
+            fb.vy = -270;
+            fb.gravity = 0.55;
+            fb.life = 1.4;
+            world.spawnProjectile(fb);
+          }
+        }
+        if (this.stateT > 1.25) this.setState('stalk');
+        break;
+      case 'summon': {
+        this.vx = 0; this.frame = 'erupt';
+        this.physics(level, dt);
+        if (this.stateT >= 0.45 && !this.fired) {
+          this.fired = true;
+          const adds = world.enemies.filter((e) => e !== this && e.alive).length;
+          if (adds < 2) {
+            const fromLeft = p.x > (a.x0 + a.x1) * 0.5;
+            const imp = new CinderImp(fromLeft ? a.x0 + 28 : a.x1 - 28, a.floorY - 130, fromLeft ? 1 : -1);
+            world.spawnEnemy(imp);
+            const sx = clamp(this.x + this.facing * 54, a.x0 + 36, a.x1 - 36);
+            const slime = new MagmaSlime(sx, a.floorY, a.x0 + 24, a.x1 - 24);
+            world.spawnEnemy(slime);
+          }
+          world.sfx('fire');
+        }
+        if (this.stateT > 1.1) this.setState('stalk');
+        break;
+      }
+      default: this.setState('stalk');
+    }
+  }
+
+  swingBox() {
+    if (this.state !== 'surge' || this.stateT < 0.28 || this.stateT > 0.88) return null;
+    return { x: this.x - 28, y: this.y - 92, w: 56, h: 84 };
   }
 }

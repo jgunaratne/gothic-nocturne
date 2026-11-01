@@ -12,6 +12,7 @@ import { STAGES } from './game/stages.js';
 import { THEMES } from './game/builder.js';
 import { drawHud, drawBanner } from './game/hud.js';
 import { drawCastleMap, moveCursor, nextRoomAfter, stageIndexOf } from './game/castlemap.js';
+import { BOSS_RELICS, resolveActiveRelics } from './game/relics.js';
 
 class Game {
   constructor(canvas) {
@@ -38,7 +39,7 @@ class Game {
     this.difficulty = DIFFICULTIES[this.difficultyKey];
     this.menuIndex = DIFFICULTY_ORDER.indexOf(this.difficultyKey);
     // Stage progress: bitmask of cleared stages, last played stage.
-    this.cleared = parseInt(safeStorageGet('gothic.cleared.v2') || '0', 10) || 0;
+    this.cleared = parseInt(safeStorageGet('gothic.cleared.v3') || '0', 10) || 0;
     const urlStage = parseInt(this.params.get('stage') || '0', 10);
     this.stageIndex = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1
       : Math.min(STAGES.length - 1, parseInt(safeStorageGet('gothic.stage') || '0', 10) || 0);
@@ -69,9 +70,24 @@ class Game {
     this.titleWorld.camera.x = 2 * 32;
     this.setState('title');
     const screen = this.params.get('screen');   // testing aid
-    if (screen === 'difficulty' || screen === 'stageselect' || screen === 'ending') this.setState(screen);
-    else if (screen === 'play') this.startGame();
-    else if (screen === 'clear') { this.startGame(); this.world.timeBonus = 1234; this.world.heartBonus = 500; this.setState('clear'); }
+    if (this.params.has('ending') || screen === 'ending') {
+      if (!this.world) {
+        this.world = new World(this, STAGES[STAGES.length - 1]);
+        this.world.score = 148500;
+      }
+      this.beginEnding();
+      if (this.params.has('ending')) this.stateT = Math.max(0, parseFloat(this.params.get('ending')) || 0);
+    } else if (screen === 'difficulty' || screen === 'stageselect') {
+      this.setState(screen);
+    } else if (screen === 'play') {
+      this.startGame();
+    } else if (screen === 'clear') {
+      this.startGame();
+      this.world.timeBonus = 1234;
+      this.world.heartBonus = 500;
+      this.onStageClear();
+      this.stateT = 3.0;
+    }
     if (this.params.has('demo')) this.startDemo();
     // Testing aids: ?skip=N pre-simulates N fixed steps before the first draw.
     const skip = parseInt(this.params.get('skip') || '0', 10);
@@ -90,6 +106,11 @@ class Game {
     safeStorageSet('gothic.difficulty', this.difficultyKey);
   }
 
+  /** Resolves all currently unlocked Boss Relic power-ups. */
+  getActiveRelics() {
+    return resolveActiveRelics(this.cleared, STAGES, this.params);
+  }
+
   /** Starts a stage; `carry` continues score/lives/hearts from the previous one. */
   startGame(stageIndex = this.stageIndex, carry = this.carryState) {
     this.stageIndex = Math.max(0, Math.min(STAGES.length - 1, stageIndex));
@@ -97,6 +118,15 @@ class Game {
     safeStorageSet('gothic.stage', String(this.stageIndex));
     const stage = STAGES[this.stageIndex];
     this.world = new World(this, stage, carry);
+    // ?boss=1 teleports directly to the boss vestibule for testing.
+    if (this.params.has('boss') && stage.boss && !carry) {
+      this.world.phase = 'play';
+      this.world.phaseT = 0;
+      this.world.messages = [];
+      this.world.player.x = stage.boss.triggerX + 4;
+      this.world.player.y = stage.boss.arena.floorY;
+      this.world.camera.snapTo(this.world.player.x, this.world.player.y);
+    }
     // ?at=<tile column> teleports the hunter for testing.
     let at = parseInt(this.params.get('at') || '-1', 10);
     if (at >= 0 && !carry) {
@@ -123,7 +153,8 @@ class Game {
   onGameOver() { this.setState('gameover'); this.audio.playMusic('gameover', false); }
   onStageClear() {
     this.cleared |= 1 << this.stageIndex;
-    safeStorageSet('gothic.cleared.v2', String(this.cleared));
+    safeStorageSet('gothic.cleared.v3', String(this.cleared));
+    if (this.world) this.world.relics = this.getActiveRelics();
     this.setState('clear');
   }
 
@@ -170,9 +201,11 @@ class Game {
     this.draw();
     const fxWorld = (this.state === 'play' || this.state === 'pause' || this.state === 'clear' || this.state === 'gameover') ? this.world : null;
     if (fxWorld) {
-      if (fxWorld.flash > 0.6) this.postfx.flash(fxWorld.flash * 0.9);
+      if (fxWorld.flash > 0.02) this.postfx.strike(fxWorld.flash);
       if (fxWorld.fxHurt) { this.postfx.damage(fxWorld.fxHurt); fxWorld.fxHurt = 0; }
       if (fxWorld.fxRoar) { this.postfx.flash(fxWorld.fxRoar); fxWorld.fxRoar = 0; }
+    } else if ((this.state === 'title' || this.state === 'difficulty' || this.state === 'stageselect') && this.titleWorld && this.titleWorld.flash > 0.02) {
+      this.postfx.strike(this.titleWorld.flash);
     }
     this.postfx.draw(dt, fxWorld ? fxWorld.data.theme : 'menu');
     requestAnimationFrame((t) => this.frame(t));
@@ -392,26 +425,52 @@ class Game {
     const k = Math.min(1, this.stateT / 0.6);
     ctx.save();
     ctx.globalAlpha = k;
-    ctx.fillStyle = 'rgba(4, 3, 10, 0.55)'; ctx.fillRect(0, 0, W, H);
-    this.banner(['STAGE CLEAR'], 96, { scale: 4, gothic: false, color: '#ffd27a', sub: `${w.difficulty.name} · SCORE X${w.difficulty.scoreMult}` });
+    ctx.fillStyle = 'rgba(4, 3, 10, 0.58)'; ctx.fillRect(0, 0, W, H);
+    this.banner(['STAGE CLEAR'], 68, { scale: 3, gothic: false, color: '#ffd27a', sub: `${w.difficulty.name} · SCORE X${w.difficulty.scoreMult}` });
     const lines = [
       ['TIME BONUS', w.timeBonus],
       ['HEART BONUS', w.heartBonus],
       ['SCORE', w.score],
     ];
     // Dark plate behind the tally so the figures read over busy scenery
-    ctx.fillStyle = 'rgba(4, 3, 10, 0.78)';
-    ctx.fillRect(W / 2 - 130, 168, 260, 70);
+    ctx.fillStyle = 'rgba(4, 3, 10, 0.84)';
+    ctx.fillRect(W / 2 - 140, 130, 280, 68);
     ctx.fillStyle = '#5b6b86';
-    ctx.fillRect(W / 2 - 130, 168, 260, 1); ctx.fillRect(W / 2 - 130, 237, 260, 1);
+    ctx.fillRect(W / 2 - 140, 130, 280, 1); ctx.fillRect(W / 2 - 140, 197, 280, 1);
     lines.forEach(([label, val], i) => {
-      if (this.stateT < 0.8 + i * 0.5) return;
-      this.font.draw(ctx, label, W / 2 - 110, 180 + i * 18, { scale: 2, color: '#c9c3b0', shadow: '#120f1c' });
-      this.font.draw(ctx, String(val).padStart(7, '0'), W / 2 + 110, 180 + i * 18, { scale: 2, align: 'right', shadow: '#120f1c' });
+      if (this.stateT < 0.7 + i * 0.4) return;
+      this.font.draw(ctx, label, W / 2 - 122, 139 + i * 18, { scale: 2, gothic: false, color: '#c9c3b0', shadow: '#120f1c' });
+      this.font.draw(ctx, String(val).padStart(7, '0'), W / 2 + 122, 139 + i * 18, { scale: 2, gothic: false, align: 'right', shadow: '#120f1c' });
     });
-    if (this.stateT > 2.6 && Math.floor(this.stateT * 2) % 2 === 0) {
+
+    // Boss Relic Power-Up unlocked card
+    const relic = BOSS_RELICS[STAGES[this.stageIndex].key];
+    if (relic && this.stateT >= 1.9) {
+      const rk = Math.min(1, (this.stateT - 1.9) / 0.35);
+      ctx.save();
+      ctx.globalAlpha = k * rk;
+      const rx = W / 2 - 216, ry = 206, rw = 432, rh = 62;
+      ctx.fillStyle = 'rgba(8, 6, 18, 0.90)';
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeStyle = relic.color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
+      ctx.strokeStyle = '#3a2e4c';
+      ctx.strokeRect(rx + 2.5, ry + 2.5, rw - 5, rh - 5);
+      ctx.fillStyle = relic.color;
+      ctx.fillRect(rx + 2, ry + 2, 3, 3);
+      ctx.fillRect(rx + rw - 5, ry + 2, 3, 3);
+      ctx.fillRect(rx + 2, ry + rh - 5, 3, 3);
+      ctx.fillRect(rx + rw - 5, ry + rh - 5, 3, 3);
+      this.font.draw(ctx, '* BOSS POWER-UP UNLOCKED *', W / 2, ry + 8, { align: 'center', color: '#ffd27a', shadow: '#120f1c', gothic: false });
+      this.font.draw(ctx, `${relic.name} - ${relic.short}`, W / 2, ry + 22, { scale: 2, align: 'center', color: relic.color, shadow: '#120f1c', gothic: false });
+      this.font.draw(ctx, relic.desc, W / 2, ry + 44, { align: 'center', color: '#e8e2c8', shadow: '#120f1c', gothic: false });
+      ctx.restore();
+    }
+
+    if (this.stateT > 2.4 && Math.floor(this.stateT * 2.2) % 2 === 0) {
       const last = STAGES[this.stageIndex].key === 'throne';
-      this.font.draw(ctx, last ? 'PRESS ENTER' : 'PRESS ENTER FOR THE CASTLE MAP', W / 2, 262, { scale: 2, align: 'center', color: '#ffd27a', shadow: '#120f1c' });
+      this.font.draw(ctx, last ? 'PRESS ENTER' : 'PRESS ENTER FOR THE CASTLE MAP', W / 2, 286, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#120f1c' });
     }
     ctx.restore();
   }
@@ -467,7 +526,7 @@ class Game {
         ctx.fillStyle = e.p % 3 ? '#ff9a3c' : '#ffd27a';
         ctx.fillRect(Math.round(ex), Math.round(yy), e.s > 1.1 ? 2 : 1, e.s > 1.1 ? 2 : 1);
       }
-      if (t > 0.6) this.banner(['THE NIGHT IS OVER'], 26, { scale: 3, color: '#ffd27a', band: false });
+      if (t > 0.6) this.banner(['THE NIGHT IS OVER'], 38, { scale: 3, gothic: false, color: '#ffd27a', band: true });
     } else if (t < 21) {
       drawPanel(p2, 8, 21, 1.1, 1.0, 14);
     } else if (t < 34) {
@@ -478,39 +537,84 @@ class Game {
       g.addColorStop(0, `rgba(255, 190, 110, ${0.05 + 0.12 * kd})`); g.addColorStop(1, 'rgba(255, 190, 110, 0)');
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     } else {
-      // Final card: logo over the dawn panel, scores, credits
+      // Final card: logo over the dawn panel, framed score & credits plate
       drawPanel(p3, 34, 60, 1.1, 1.18, -6);
-      ctx.fillStyle = 'rgba(8, 5, 14, 0.62)'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(6, 4, 14, 0.74)'; ctx.fillRect(0, 0, W, H);
       const logo = A.img('title_logo');
-      if (logo) { const lw = 300, lh = Math.round(logo.height * (lw / logo.width)); ctx.drawImage(logo, Math.round((W - lw) / 2), 22, lw, lh); }
-      if (w) {
-        f.draw(ctx, `FINAL SCORE ${String(w.score).padStart(7, '0')}`, W / 2, 212, { scale: 2, align: 'center', color: '#ffd27a', shadow: '#120f1c' });
-        f.draw(ctx, `${w.difficulty.name} · ${w.lives} LIVES REMAINING · ${w.hearts} HEARTS`, W / 2, 236, { align: 'center', color: '#c9c3b0', shadow: '#120f1c' });
+      if (logo) {
+        const lw = 276, lh = Math.round(logo.height * (lw / logo.width));
+        const lx = Math.round((W - lw) / 2), ly = 10;
+        const lg = ctx.createRadialGradient(W / 2, ly + lh * 0.5, 24, W / 2, ly + lh * 0.5, 210);
+        lg.addColorStop(0, 'rgba(4, 3, 10, 0.72)');
+        lg.addColorStop(1, 'rgba(4, 3, 10, 0)');
+        ctx.fillStyle = lg;
+        ctx.fillRect(0, 0, W, ly + lh + 24);
+        ctx.drawImage(logo, lx, ly, lw, lh);
       }
-      f.draw(ctx, 'THANK YOU FOR PLAYING', W / 2, 266, { scale: 2, align: 'center', color: '#e8e2c8', shadow: '#120f1c' });
-      f.draw(ctx, 'ART · GEMINI     MUSIC · LYRIA 3     VOICE · DAIKON', W / 2, 296, { align: 'center', color: '#8a9ab5' });
-      if (Math.floor(t * 2) % 2 === 0) f.draw(ctx, 'PRESS ENTER', W / 2, 326, { scale: 2, align: 'center', color: '#ffd27a', shadow: '#120f1c' });
+      const cx = W / 2 - 228, cy = 186, cw = 456, ch = 156;
+      ctx.fillStyle = 'rgba(5, 4, 12, 0.90)';
+      ctx.fillRect(cx, cy, cw, ch);
+      ctx.strokeStyle = '#8a6a3a';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cx + 0.5, cy + 0.5, cw - 1, ch - 1);
+      ctx.strokeStyle = '#2e243d';
+      ctx.strokeRect(cx + 2.5, cy + 2.5, cw - 5, ch - 5);
+      if (w) {
+        f.draw(ctx, `FINAL SCORE ${String(w.score).padStart(7, '0')}`, W / 2, 198, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
+        f.draw(ctx, `${w.difficulty.name} · ${w.lives} LIVES REMAINING · ${w.hearts} HEARTS`, W / 2, 222, { gothic: false, align: 'center', color: '#e8e2c8', shadow: '#05040a' });
+      }
+      ctx.fillStyle = '#5a462c';
+      ctx.fillRect(W / 2 - 150, 240, 300, 1);
+      f.draw(ctx, 'THANK YOU FOR PLAYING', W / 2, 250, { scale: 2, gothic: false, align: 'center', color: '#f6f0de', shadow: '#05040a' });
+      f.draw(ctx, 'ART · GEMINI     MUSIC · LYRIA 3     VOICE · DAIKON', W / 2, 278, { gothic: false, align: 'center', color: '#b8c4dc', shadow: '#05040a' });
+      const pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      f.draw(ctx, 'PRESS ENTER', W / 2, 306, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
+      ctx.restore();
     }
     // Crossfades between panels
     for (const [a, b] of [[7.4, 8.6], [20.4, 21.6], [33.4, 34.6]]) {
       if (t > a && t < b) { const k = 1 - Math.abs((t - (a + b) / 2) / ((b - a) / 2)); ctx.fillStyle = `rgba(5, 4, 10, ${k})`; ctx.fillRect(0, 0, W, H); }
     }
-    // Letterbox + timed captions in step with the narration
-    ctx.fillStyle = '#05040a'; ctx.fillRect(0, 0, W, 22); ctx.fillRect(0, H - 42, W, 42);
-    const caps = [
-      [2.4, 8.0, 'AND SO THE COUNT WAS DUST, AND HIS KEEP FELL SILENT.'],
-      [8.6, 14.5, 'THE BELLS OF MIDNIGHT CRACKED AND TUMBLED FROM THE BELFRY,'],
-      [14.5, 20.3, 'AND THE DARKNESS THAT FED ON THE VALLEY DRAINED AWAY.'],
-      [21.6, 27.5, 'THE HUNTER DID NOT LOOK BACK. HE WALKED THE GRAVEYARD ROAD AS THE MIST LIFTED,'],
-      [27.5, 33.3, 'AND FOR THE FIRST TIME IN HIS LIFE... HE WALKED IT TOWARD THE SUNRISE.'],
-    ];
-    for (const [a, b, text] of caps) {
-      if (t < a || t > b) continue;
-      const k = Math.min(1, (t - a) / 0.4, (b - t) / 0.4);
-      ctx.save(); ctx.globalAlpha = Math.max(0, k);
-      const lines = f.wrap(text, W - 60, 1);
-      lines.forEach((ln, i) => f.draw(ctx, ln, W / 2, H - 14 - (lines.length - i) * 12, { align: 'center', color: '#e8e2c8', shadow: '#120f1c' }));
-      ctx.restore();
+    // Letterbox + high-legibility timed captions during the narrated panels (0..34s)
+    if (t < 34) {
+      ctx.fillStyle = '#05040a';
+      ctx.fillRect(0, 0, W, 22);
+      ctx.fillStyle = '#5a462c';
+      ctx.fillRect(0, 22, W, 1);
+      const barH = 58, barY = H - barH;
+      ctx.fillStyle = 'rgba(5, 4, 12, 0.94)';
+      ctx.fillRect(0, barY, W, barH);
+      ctx.fillStyle = '#7a603a';
+      ctx.fillRect(0, barY, W, 1);
+      const caps = [
+        [2.4, 8.0, 'AND SO THE COUNT WAS DUST, AND HIS KEEP FELL SILENT.'],
+        [8.6, 14.5, 'THE BELLS OF MIDNIGHT CRACKED AND TUMBLED FROM THE BELFRY,'],
+        [14.5, 20.3, 'AND THE DARKNESS THAT FED ON THE VALLEY DRAINED AWAY.'],
+        [21.6, 27.5, 'THE HUNTER DID NOT LOOK BACK. HE WALKED THE GRAVEYARD ROAD AS THE MIST LIFTED,'],
+        [27.5, 33.3, 'AND FOR THE FIRST TIME IN HIS LIFE... HE WALKED IT TOWARD THE SUNRISE.'],
+      ];
+      for (const [a, b, text] of caps) {
+        if (t < a || t > b) continue;
+        const k = Math.min(1, (t - a) / 0.35, (b - t) / 0.35);
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, k);
+        const lines = f.wrap(text, W - 32, 2, 1, false);
+        const step = 20;
+        const blockH = lines.length * step - 6;
+        const startY = barY + Math.round((barH - blockH) / 2);
+        lines.forEach((ln, i) => {
+          f.draw(ctx, ln, W / 2, startY + i * step, {
+            scale: 2,
+            gothic: false,
+            align: 'center',
+            color: '#f6f0de',
+            shadow: '#05040a',
+          });
+        });
+        ctx.restore();
+      }
     }
   }
 

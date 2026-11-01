@@ -181,6 +181,46 @@
   "type": "sheet",
   "w": 398
  },
+ "armor": {
+  "file": "armor.png",
+  "frames": {
+   "guard": {
+    "ax": 23.5,
+    "ay": 60,
+    "h": 60,
+    "w": 47,
+    "x": 115,
+    "y": 1
+   },
+   "slash": {
+    "ax": 28.0,
+    "ay": 57,
+    "h": 57,
+    "w": 80,
+    "x": 163,
+    "y": 1
+   },
+   "walk0": {
+    "ax": 28.0,
+    "ay": 74,
+    "h": 74,
+    "w": 56,
+    "x": 1,
+    "y": 1
+   },
+   "walk1": {
+    "ax": 28.0,
+    "ay": 74,
+    "h": 74,
+    "w": 56,
+    "x": 58,
+    "y": 1
+   }
+  },
+  "h": 76,
+  "type": "sheet",
+  "w": 244
+ },
  "automaton": {
   "file": "automaton.png",
   "frames": {
@@ -501,6 +541,60 @@
   "type": "sheet",
   "w": 344
  },
+ "cavern_props": {
+  "file": "cavern_props.png",
+  "frames": {
+   "brazier": {
+    "ax": 25.5,
+    "ay": 109,
+    "h": 109,
+    "w": 51,
+    "x": 221,
+    "y": 1
+   },
+   "magma_vent": {
+    "ax": 54.5,
+    "ay": 88,
+    "h": 88,
+    "w": 109,
+    "x": 111,
+    "y": 1
+   },
+   "obsidian_pillar": {
+    "ax": 17.5,
+    "ay": 108,
+    "h": 108,
+    "w": 35,
+    "x": 75,
+    "y": 1
+   },
+   "stalagmite": {
+    "ax": 36.5,
+    "ay": 96,
+    "h": 96,
+    "w": 73,
+    "x": 1,
+    "y": 1
+   }
+  },
+  "h": 111,
+  "type": "sheet",
+  "w": 273
+ },
+ "cavernfloor": {
+  "file": "cavernfloor.png",
+  "h": 132,
+  "overhang": 4,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "cavernwall": {
+  "file": "cavernwall.png",
+  "h": 384,
+  "type": "texture",
+  "w": 384
+ },
  "chandelier": {
   "file": "chandelier.png",
   "frames": {
@@ -524,6 +618,78 @@
   "h": 98,
   "type": "sheet",
   "w": 157
+ },
+ "cinderimp": {
+  "file": "cinderimp.png",
+  "frames": {
+   "fly0": {
+    "ax": 16.5,
+    "ay": 38,
+    "h": 38,
+    "w": 33,
+    "x": 1,
+    "y": 1
+   },
+   "fly1": {
+    "ax": 14.5,
+    "ay": 27,
+    "h": 27,
+    "w": 29,
+    "x": 35,
+    "y": 1
+   },
+   "spit": {
+    "ax": 19.5,
+    "ay": 27,
+    "h": 27,
+    "w": 39,
+    "x": 65,
+    "y": 1
+   }
+  },
+  "h": 40,
+  "type": "sheet",
+  "w": 105
+ },
+ "cinderqueen": {
+  "file": "cinderqueen.png",
+  "frames": {
+   "cast": {
+    "ax": 34.5,
+    "ay": 146,
+    "h": 146,
+    "w": 69,
+    "x": 72,
+    "y": 1
+   },
+   "erupt": {
+    "ax": 51.5,
+    "ay": 124,
+    "h": 124,
+    "w": 103,
+    "x": 231,
+    "y": 1
+   },
+   "idle": {
+    "ax": 35.0,
+    "ay": 116,
+    "h": 116,
+    "w": 70,
+    "x": 1,
+    "y": 1
+   },
+   "surge": {
+    "ax": 44.0,
+    "ay": 103,
+    "h": 103,
+    "w": 88,
+    "x": 142,
+    "y": 1
+   }
+  },
+  "h": 148,
+  "type": "sheet",
+  "w": 335
  },
  "clockfloor": {
   "file": "clockfloor.png",
@@ -1227,6 +1393,46 @@
   "type": "sheet",
   "w": 116
  },
+ "lavagolem": {
+  "file": "lavagolem.png",
+  "frames": {
+   "hurl": {
+    "ax": 34.5,
+    "ay": 92,
+    "h": 92,
+    "w": 69,
+    "x": 212,
+    "y": 1
+   },
+   "walk0": {
+    "ax": 38.0,
+    "ay": 78,
+    "h": 78,
+    "w": 76,
+    "x": 1,
+    "y": 1
+   },
+   "walk1": {
+    "ax": 31.5,
+    "ay": 78,
+    "h": 78,
+    "w": 63,
+    "x": 78,
+    "y": 1
+   },
+   "walk2": {
+    "ax": 34.5,
+    "ay": 78,
+    "h": 78,
+    "w": 69,
+    "x": 142,
+    "y": 1
+   }
+  },
+  "h": 94,
+  "type": "sheet",
+  "w": 282
+ },
  "library_props": {
   "file": "library_props.png",
   "frames": {
@@ -1281,6 +1487,46 @@
   "type": "texture",
   "w": 384
  },
+ "magmaslime": {
+  "file": "magmaslime.png",
+  "frames": {
+   "crawl0": {
+    "ax": 32.5,
+    "ay": 30,
+    "h": 30,
+    "w": 65,
+    "x": 1,
+    "y": 1
+   },
+   "crawl1": {
+    "ax": 32.0,
+    "ay": 44,
+    "h": 44,
+    "w": 64,
+    "x": 67,
+    "y": 1
+   },
+   "land": {
+    "ax": 37.0,
+    "ay": 47,
+    "h": 47,
+    "w": 74,
+    "x": 186,
+    "y": 1
+   },
+   "leap": {
+    "ax": 26.5,
+    "ay": 70,
+    "h": 70,
+    "w": 53,
+    "x": 132,
+    "y": 1
+   }
+  },
+  "h": 72,
+  "type": "sheet",
+  "w": 261
+ },
  "map_icons": {
   "file": "map_icons.png",
   "frames": {
@@ -1314,6 +1560,14 @@
     "h": 22,
     "w": 20,
     "x": 188,
+    "y": 1
+   },
+   "darkcave": {
+    "ax": 14.0,
+    "ay": 28,
+    "h": 28,
+    "w": 28,
+    "x": 247,
     "y": 1
    },
    "darkwood": {
@@ -1383,7 +1637,7 @@
   },
   "h": 33,
   "type": "sheet",
-  "w": 247
+  "w": 276
  },
  "map_parchment": {
   "file": "map_parchment.png",
@@ -2142,6 +2396,38 @@
   "h": 36,
   "type": "sheet",
   "w": 281
+ },
+ "wraith": {
+  "file": "wraith.png",
+  "frames": {
+   "float0": {
+    "ax": 22.5,
+    "ay": 54,
+    "h": 54,
+    "w": 45,
+    "x": 1,
+    "y": 1
+   },
+   "float1": {
+    "ax": 28.5,
+    "ay": 55,
+    "h": 55,
+    "w": 57,
+    "x": 47,
+    "y": 1
+   },
+   "shriek": {
+    "ax": 31.0,
+    "ay": 49,
+    "h": 49,
+    "w": 62,
+    "x": 105,
+    "y": 1
+   }
+  },
+  "h": 57,
+  "type": "sheet",
+  "w": 168
  },
  "xmasprops": {
   "file": "xmasprops.png",

@@ -5,7 +5,7 @@ bug `node --check` cannot (missing imports, bad frame names, draw-time throws)."
 import os, subprocess, sys, tempfile
 
 BASE = 'http://127.0.0.1:8711/'
-N_STAGES = int(sys.argv[1]) if len(sys.argv) > 1 else 12
+N_STAGES = int(sys.argv[1]) if len(sys.argv) > 1 else 13
 scenes = [('title', '?skip=40'), ('map', '?screen=stageselect&skip=20'), ('ending', '?screen=ending&skip=700')]
 for i in range(1, N_STAGES + 1):
     scenes.append((f'stage{i}-start', f'?demo=1&stage={i}&skip=240'))

@@ -1,6 +1,7 @@
 // Heads-up display in the classic top-bar layout.
 
 import { W, H, PLAYER } from '../engine/constants.js';
+import { BOSS_RELICS, RELIC_ORDER } from './relics.js';
 
 export function drawHud(ctx, font, assets, world) {
   const p = world.player;
@@ -19,10 +20,15 @@ export function drawHud(ctx, font, assets, world) {
   font.draw(ctx, `P-${String(world.lives).padStart(2, '0')}`, 392, 7, { color: ivory, shadow });
   const diff = world.difficulty;
   font.draw(ctx, diff.name, 450, 7, { color: diff.key === 'hard' ? '#e23c3c' : diff.key === 'easy' ? '#9ad17a' : dim, shadow });
+  const relicCount = world.relics ? world.relics.size : 0;
+  if (relicCount > 0) {
+    font.draw(ctx, `RELICS ${String(relicCount).padStart(2, '0')}`, W - 12, 7, { align: 'right', color: '#ffd27a', shadow });
+  }
 
   // Health bars
   font.draw(ctx, 'PLAYER', 12, 20, { color: dim, shadow });
-  drawBar(ctx, 60, 19, p.hp, PLAYER.maxHp, '#e23c3c', '#ffb0a0');
+  const pMaxHp = p.maxHp || PLAYER.maxHp;
+  drawBar(ctx, 60, 19, p.hp, pMaxHp, '#e23c3c', '#ffb0a0', pMaxHp > 16 ? 20 : 16);
   font.draw(ctx, 'ENEMY', 12, 32, { color: dim, shadow });
   const boss = world.boss;
   const bossHp = boss ? Math.max(0, boss.hp) : 16;
@@ -42,6 +48,32 @@ export function drawHud(ctx, font, assets, world) {
   ctx.fillStyle = '#8a9ab5';
   ctx.fillRect(bx + 1, by + 1, 28, 1);
   if (p.subWeapon) assets.draw(ctx, 'items', p.subWeapon, bx + 15, by + 23);
+
+  // Active Boss Relics jewel pips + Double Jump wing readiness
+  if (relicCount > 0) {
+    const activeKeys = RELIC_ORDER.filter((k) => world.hasRelic(k));
+    const totalW = activeKeys.length * 8 - 2;
+    let rx = W - 12 - totalW;
+    const ry = 20;
+    for (const k of activeKeys) {
+      const r = BOSS_RELICS[k];
+      ctx.fillStyle = '#141022';
+      ctx.fillRect(rx - 1, ry - 1, 8, 8);
+      ctx.fillStyle = r.color;
+      ctx.fillRect(rx, ry, 6, 6);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(rx + 1, ry + 1, 2, 2);
+      rx += 8;
+    }
+    if (world.hasRelic('graveyard')) {
+      const wingReady = p.onGround || p.airJumpsLeft > 0;
+      font.draw(ctx, wingReady ? '* 2X JUMP' : '· 2X JUMP', W - 12, 31, {
+        align: 'right',
+        color: wingReady ? '#c8a8ff' : '#5e5078',
+        shadow,
+      });
+    }
+  }
 
   // Companion status badge (Darkwood Guardian Turtle)
   if (world.ally && world.ally.alive) {
@@ -88,7 +120,7 @@ export function drawHud(ctx, font, assets, world) {
         ctx.fillRect(px + 10 + i * 4, py + 19 - (bh >> 1), 2, bh);
       }
       font.draw(ctx, cue.speaker, px + 32, py + 6, { color: '#ffd27a', shadow });
-      const lines = font.wrap(cue.text, pw - 44, 1);
+      const lines = font.wrap(cue.text, pw - 44, 1, 1, false);
       lines.slice(0, 2).forEach((ln, i) => font.draw(ctx, ln, px + 32, py + 18 + i * 11, { color: ivory, shadow }));
       ctx.restore();
     }
@@ -96,18 +128,19 @@ export function drawHud(ctx, font, assets, world) {
   ctx.restore();
 }
 
-function drawBar(ctx, x, y, value, max, color, hi) {
-  const segs = 16;
+function drawBar(ctx, x, y, value, max, color, hi, segs = 16) {
+  const step = segs > 16 ? 6 : 7;
+  const sw = segs > 16 ? 5 : 6;
   const filled = Math.round((value / max) * segs);
   for (let i = 0; i < segs; i++) {
-    const sx = x + i * 7;
+    const sx = x + i * step;
     ctx.fillStyle = '#1a1626';
-    ctx.fillRect(sx, y, 6, 9);
+    ctx.fillRect(sx, y, sw, 9);
     if (i < filled) {
       ctx.fillStyle = color;
-      ctx.fillRect(sx, y + 1, 6, 7);
+      ctx.fillRect(sx, y + 1, sw, 7);
       ctx.fillStyle = hi;
-      ctx.fillRect(sx, y + 1, 6, 2);
+      ctx.fillRect(sx, y + 1, sw, 2);
     }
   }
 }

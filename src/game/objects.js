@@ -60,11 +60,21 @@ export class Item extends Entity {
     this.arenaX0 = null;
     this.arenaX1 = null;
   }
-  update(dt, level) {
+  update(dt, level, world = null) {
     const isOrb = this.type === 'orb';
     if (!isOrb) {
       this.life -= dt;
       if (this.life <= 0) this.dead = true;
+      // CLOCKWORK HEART relic: magnetic pull toward nearby hunter
+      if (world && world.hasRelic && world.hasRelic('arcade') && world.player && world.player.alive) {
+        const dx = world.player.x - this.x;
+        const dy = (world.player.y - 24) - (this.y - 7);
+        const dist = Math.hypot(dx, dy);
+        if (dist > 4 && dist < 86) {
+          this.x += (dx / dist) * 165 * dt;
+          this.y += (dy / dist) * 135 * dt;
+        }
+      }
     }
     if (this.onGround) this.vx *= 0.8;
     this.physics(level, dt, { collide: true, oneWay: !isOrb });
@@ -126,15 +136,20 @@ export class Projectile {
       case 'page': this.vx = dir * 240; this.vy = 0; this.damage = 1; this.life = 2.0; this.w = 14; this.h = 10; break;
       case 'cog': this.vx = dir * 210; this.vy = -330; this.gravity = 0.85; this.damage = 2; this.w = 16; this.h = 16; this.bounces = 1; break;
       case 'thorn': this.vx = dir * 255; this.vy = 0; this.gravity = 0.12; this.damage = 2; this.life = 2.2; this.w = 16; this.h = 8; break;
+      case 'magmaball': this.vx = dir * 185; this.vy = -360; this.gravity = 0.88; this.damage = 3; this.life = 2.8; this.w = 16; this.h = 16; break;
+      case 'crimson_wave': this.vx = dir * 340; this.vy = 0; this.damage = 2; this.life = 0.44; this.w = 24; this.h = 26; this.pierce = 3; break;
       default: this.vx = dir * 200; this.vy = 0;
     }
   }
   get box() { return { x: this.x - this.w / 2, y: this.y - this.h / 2, w: this.w, h: this.h }; }
 
   update(dt, level, world) {
-    this.time += dt;
-    this.life -= dt;
+    // CHRONO PENDULUM relic slows enemy projectiles by 20%
+    const stepDt = (this.owner === 'enemy' && world && world.hasRelic && world.hasRelic('clocktower')) ? dt * 0.8 : dt;
+    this.time += stepDt;
+    this.life -= stepDt;
     if (this.life <= 0) { this.dead = true; return; }
+    dt = stepDt;
     this.vy += 1500 * this.gravity * dt;
     this.vx += this.ax * dt;
     if (this.homing && world.player.alive) {
@@ -152,7 +167,8 @@ export class Projectile {
       this.w = this.h = 26 + k * 30;
       if (Math.random() < 0.4) world.particles.emit({ x: this.x + (Math.random() - 0.5) * this.w, y: this.y + (Math.random() - 0.5) * this.h, vx: this.vx * 0.3, vy: -10, life: 0.6, color: 'rgba(150, 130, 180, 0.35)', size: 5, gravity: -0.02, shrink: true });
     }
-    if (this.type === 'fireball' && Math.random() < 0.6) world.particles.embers(this.x - this.dir * 6, this.y, 1);
+    if ((this.type === 'fireball' || this.type === 'magmaball') && Math.random() < 0.65) world.particles.embers(this.x - this.dir * 6, this.y, 1);
+    if (this.type === 'crimson_wave' && Math.random() < 0.7) world.particles.sparks(this.x - this.dir * 6, this.y + (Math.random() - 0.5) * 14, 1, '#ff4a66');
     if (this.type === 'spore') {
       this.vy = Math.cos(this.time * 4.8) * 34;
     }
@@ -166,6 +182,12 @@ export class Projectile {
         world.particles.sparks(this.x, this.y, 4, '#cfd8e8');
       } else if (this.type === 'fireball') {
         world.particles.embers(this.x, this.y, 8);
+      } else if (this.type === 'magmaball') {
+        world.particles.embers(this.x, this.y - 4, 12);
+        if (this.vy > 0) {
+          const floorY = ty * TILE;
+          world.spawnFire(this.x, floorY, 'enemy');
+        }
       } else if (this.type === 'present' && this.bursts) {
         // Cursed gift: bursts into a fan of ice shards.
         world.particles.sparks(this.x, this.y - 8, 10, '#e23c3c');
@@ -192,7 +214,7 @@ export class Projectile {
           return;
         }
       }
-      if (!['sickle', 'skull', 'hellfire', 'gaze', 'gas'].includes(this.type)) this.dead = true;
+      if (!['sickle', 'skull', 'hellfire', 'gaze', 'gas', 'crimson_wave'].includes(this.type)) this.dead = true;
     }
     if (this.y > level.height + 60 || this.x < -40 || this.x > level.width + 40) this.dead = true;
   }
@@ -379,6 +401,35 @@ export class Projectile {
         ctx.fillRect(-3, -1, 9, 2);
         break;
       }
+      case 'magmaball': {
+        ctx.rotate(this.spin * 0.6);
+        const glow = getGlowCanvas('amber');
+        if (glow) {
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.78;
+          ctx.drawImage(glow, -18, -18, 36, 36);
+          ctx.globalAlpha = 1;
+          ctx.globalCompositeOperation = 'source-over';
+        }
+        ctx.fillStyle = '#2d1414';
+        ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ff6a1a';
+        ctx.fillRect(-5, -2, 10, 4); ctx.fillRect(-2, -6, 4, 12);
+        ctx.fillStyle = '#ffe878';
+        ctx.fillRect(-2, -2, 4, 4);
+        break;
+      }
+      case 'crimson_wave': {
+        ctx.scale(this.dir, 1);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = 'rgba(255, 64, 96, 0.85)';
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(-4, 0, 13, -1.05, 1.05); ctx.stroke();
+        ctx.strokeStyle = '#ffd6df';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(-2, 0, 12, -0.85, 0.85); ctx.stroke();
+        break;
+      }
       default: break;
     }
     ctx.restore();
@@ -388,9 +439,11 @@ export class Projectile {
 // ------------------------------------------------------------------- fire
 
 export class Fire {
-  constructor(x, floorY) {
-    this.x = x; this.y = floorY; this.life = 1.7; this.tick = 0; this.dead = false;
-    this.w = 40; this.h = 26;
+  constructor(x, floorY, owner = 'player') {
+    this.x = x; this.y = floorY; this.owner = owner;
+    this.life = owner === 'enemy' ? 1.35 : 1.7;
+    this.tick = 0; this.dead = false;
+    this.w = owner === 'enemy' ? 32 : 40; this.h = 26;
   }
   get box() { return { x: this.x - this.w / 2, y: this.y - this.h, w: this.w, h: this.h }; }
   update(dt) {

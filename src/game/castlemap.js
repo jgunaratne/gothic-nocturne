@@ -5,6 +5,7 @@
 import { W, H } from '../engine/constants.js';
 import { STAGES } from './stages.js';
 import { THEMES } from './builder.js';
+import { BOSS_RELICS } from './relics.js';
 
 // Grid cells: [col, row, w, h] on a 24 x 13 grid (west = outdoors, east = keep).
 export const MAP_ROOMS = {
@@ -18,6 +19,7 @@ export const MAP_ROOMS = {
   ramparts: { cell: [6, 6, 8, 2], where: 'OUTER WALLS' },
   darkwood: { cell: [0, 8, 5, 2], where: 'WEST WOODS' },
   graveyard: { cell: [6, 9, 8, 2], where: 'THE GROUNDS' },
+  darkcave: { cell: [0, 11, 6, 2], where: 'MOLTEN DEPTHS' },
   catacombs: { cell: [7, 11, 6, 2], where: 'BENEATH THE KEEP' },
   ossuary: { cell: [14, 11, 6, 2], where: 'THE DEEP CRYPT' },
 };
@@ -26,11 +28,13 @@ export const MAP_ROOMS = {
 // corridor ever crosses a room. `pass` marks the exterior mountain path.
 export const MAP_LINKS = [
   { a: 'graveyard', b: 'darkwood', path: [[6, 9.5], [5, 9.5]] },
+  { a: 'darkwood', b: 'darkcave', path: [[2.5, 10], [2.5, 11]] },
   { a: 'darkwood', b: 'jack', path: [[2.5, 8], [2.5, 6]] },
   { a: 'jack', b: 'yule', path: [[2.5, 4], [2.5, 3]] },
   { a: 'yule', b: 'clocktower', path: [[5, 1.5], [5.5, 1.5], [5.5, 5.4], [14.5, 5.4], [14.5, 3.4], [20, 3.4]], pass: true },
   { a: 'graveyard', b: 'ramparts', path: [[10, 9], [10, 8]] },
   { a: 'graveyard', b: 'catacombs', path: [[10, 11], [10, 11]] },
+  { a: 'catacombs', b: 'darkcave', path: [[7, 12], [6, 12]] },
   { a: 'catacombs', b: 'ossuary', path: [[13, 12], [14, 12]] },
   { a: 'ossuary', b: 'arcade', path: [[17, 11], [17, 6]] },
   { a: 'ramparts', b: 'arcade', path: [[14, 6.5], [16, 6.5], [16, 6]] },
@@ -200,12 +204,18 @@ export function drawCastleMap(ctx, font, assets, { cursor, cleared, time, diffic
   font.draw(ctx, `STAGE ${st.id}  ·  ${MAP_ROOMS[cursor].where}`, tx, ly + 6, { color: theme.accent, shadow: '#120f1c' });
   font.draw(ctx, st.name, tx, ly + 16, { scale: 2, color: '#efe3bf', shadow: '#120f1c' });
   const rx = lx + lw - 12;
+  const relic = BOSS_RELICS[cursor];
   font.draw(ctx, `BOSS · ${st.boss ? st.boss.name : '???'}`, rx, ly + 6, { align: 'right', color: '#ffb0a0', shadow: '#120f1c' });
-  if (done) font.draw(ctx, 'CLEARED  ·  ENTER TO REPLAY', rx, ly + 20, { align: 'right', color: '#9ad17a', shadow: '#120f1c' });
-  else font.draw(ctx, 'ENTER / JUMP / WHIP TO BEGIN', rx, ly + 20, { align: 'right', color: pulse > 0.3 ? '#ffd27a' : '#8a6a40', shadow: '#120f1c' });
+  if (done) font.draw(ctx, 'CLEARED  ·  ENTER TO REPLAY', rx, ly + 19, { align: 'right', color: '#9ad17a', shadow: '#120f1c' });
+  else font.draw(ctx, 'ENTER / JUMP / WHIP TO BEGIN', rx, ly + 19, { align: 'right', color: pulse > 0.3 ? '#ffd27a' : '#8a6a40', shadow: '#120f1c' });
   if (!done && !open) {
     const via = MAP_ROOMS[cursor].exits.map((n) => STAGES[stageIndexOf(n)].name.replace(/^THE /, '')).join(' / ');
-    font.draw(ctx, `OFF THE PATH  ·  REACHED VIA ${via}`, tx, ly + 35, { color: '#a89a74', shadow: '#120f1c' });
+    font.draw(ctx, `VIA ${via}`, tx, ly + 35, { color: '#a89a74', shadow: '#120f1c' });
   } else font.draw(ctx, st.subtitle || '', tx, ly + 35, { color: '#a89a74', shadow: '#120f1c' });
-  font.draw(ctx, 'ARROWS FOLLOW THE PASSAGES', rx, ly + 35, { align: 'right', color: '#6e6552' });
+  if (relic) {
+    const tag = done ? `* ${relic.name} (${relic.short})` : `RELIC · ${relic.name} (${relic.short})`;
+    font.draw(ctx, tag, rx, ly + 35, { align: 'right', color: done ? relic.color : '#c9b88a', shadow: '#120f1c' });
+  } else {
+    font.draw(ctx, 'ARROWS FOLLOW THE PASSAGES', rx, ly + 35, { align: 'right', color: '#6e6552' });
+  }
 }

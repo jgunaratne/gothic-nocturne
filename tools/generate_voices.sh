@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Generates all nine gothic boss approach voice clips using the Daikon NLM TTS
-# engine (models/gemini-v4s-tts-nlm-daikon on Beyond prod), trims trailing
-# silence, and encodes compact stereo-ready MP3 assets in assets/voice/.
+# Generates all thirteen gothic boss approach voice clips (plus ending narrator)
+# using the Daikon NLM TTS engine (models/gemini-v4s-tts-nlm-daikon on Beyond prod),
+# matching male voices to male bosses and female voices to female bosses, with
+# expressive evil laughs, whispers, coughs, and dramatic shouting.
 set -euo pipefail
 
 G=/google/bin/releases/gemini-agents-generate/generate
@@ -15,8 +16,8 @@ gen_daikon() {
   local lang="$3"
   local style="$4"
   local text="$5"
-  local wav="/tmp/daikon_boss_${key}.wav"
-  local req="/tmp/daikon_boss_${key}.textproto"
+  local wav="/tmp/daikon_v2_${key}.wav"
+  local req="/tmp/daikon_v2_${key}.textproto"
   local mp3="${OUT_DIR}/${key}.mp3"
 
   if [ ! -s "${wav}" ]; then
@@ -61,64 +62,77 @@ PY
     -af "silenceremove=start_periods=1:start_silence=0.05:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_silence=0.18:start_threshold=-45dB,areverse,loudnorm=I=-16:TP=-1.5:LRA=11" \
     -codec:a libmp3lame -qscale:a 4 "${mp3}"
 
-  printf "%-14s -> %s (%ss)\n" "${key}" "${mp3}" "$(ffprobe -v error -show_entries format=duration -of csv=p=0 "${mp3}")"
+  printf "%-16s -> %s (%ss)\n" "${key}" "${mp3}" "$(ffprobe -v error -show_entries format=duration -of csv=p=0 "${mp3}")"
 }
 
-# Reuse verified Count clip if already staged in /tmp/probe_daikon.wav
-if [ -s /tmp/probe_daikon.wav ] && [ ! -s /tmp/daikon_boss_count.wav ]; then
-  cp /tmp/probe_daikon.wav /tmp/daikon_boss_count.wav
-fi
+# 1. Stage 1 — The Great Bat (Male: star07, gravelly dark nocturnal stalker)
+gen_daikon "giantbat" "star07" "en-US" \
+  $'Language: English\nRegion: United States\nVoice: adult male voice\nDirection: Begin with a wicked raspy chuckle and a dry throat-rattling cough, drop into a hungry nocturnal whisper, then snarl the final threat in an evil, fierce shout.\nEmotion: Evil, predatory, ravenous\nTexture: Raspy, gravelly, nocturnal\nPacing: Dynamic\nPitch: Low\nExpressivity: High\nRole: Winged Night Stalker\nCharacter: The Great Bat' \
+  "<|chuckle|> <cough> <|whisper|> Smell that warm pulse in the mist, little hunter... <|/whisper|> MY FANGS SHALL DRAIN YOUR VEINS DRY!"
 
-gen_daikon "giantbat" "msf00006" "en-AU" \
-  $'Language: English\nRegion: United Kingdom\nVoice: adult male voice\nDirection: Speak with a raspy, nocturnal, predatory hiss and eerie cavernous menace.\nEmotion: Predatory, sinister\nTexture: Raspy, breathy, resonant\nPacing: Moderate\nPitch: Low\nExpressivity: High\nRole: Winged Night Stalker\nCharacter: Ancient Giant Bat Guardian' \
-  "Cower beneath the moon, little hunter... my wings shall drink the warmth from your veins!"
-
+# 2. Stage 2 — The Briar King (Male: msm00001, deep ancient hollow-wood sovereign)
 gen_daikon "treant" "msm00001" "en-US" \
-  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Speak in a deep, ancient, creaking hollow-wood guardian roar: slow, primordial, woody and resonant like wind through a hollow trunk, with creaks between phrases.\nEmotion: Ancient wrath, ominous\nTexture: Deep, gravelly, resonant, hollow\nPacing: Slow\nPitch: Low\nExpressivity: High\nRole: Ancient Forest Sovereign\nCharacter: The Briar King' \
-  "The ancient roots awaken, trespasser... feed your bones to the darkwood!"
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Start with a deep dry bark-like cough and a low rumbling evil laugh, whisper eerily like wind through dead branches, then roar with ancient wrath.\nEmotion: Ancient evil wrath, menacing\nTexture: Deep, hollow, gravelly, resonant\nPacing: Slow then thunderous\nPitch: Low\nExpressivity: High\nRole: Ancient Forest Sovereign\nCharacter: The Briar King' \
+  "<cough> <|chuckle|> <|whisper|> Hear the hungry roots coiling beneath your boots... <|/whisper|> FEED YOUR BONES TO THE DARKWOOD!"
 
-gen_daikon "greatjack" "msm00013" "en-IE" \
-  $'Language: English\nRegion: Ireland\nAccent: Irish\nVoice: adult male voice\nDirection: Speak with theatrical, gleefully wicked harvest mischief and crackling firelight energy.\nEmotion: Gleefully menacing\nTexture: Gravelly, expressive\nPacing: Moderate\nPitch: Medium\nExpressivity: High\nRole: Harvest Trickster Spirit\nCharacter: The Great Jack-o-Lantern' \
-  "<|chuckle|> Step into the harvest fire, wanderer! My grinning flames will hollow your bones!"
+# 3. Stage 3 — The Great Jack (Male: star09, theatrical gleefully wicked trickster)
+gen_daikon "greatjack" "star09" "en-US" \
+  $'Language: English\nRegion: Ireland\nAccent: Irish\nVoice: adult male voice\nDirection: Open with unhinged theatrical evil laughter, lean in with a creepy conspiratorial whisper, and explode into a gleeful fiery shout.\nEmotion: Gleefully evil, manic, menacing\nTexture: Gravelly, theatrical, crackling\nPacing: Dynamic\nPitch: Medium-low\nExpressivity: High\nRole: Harvest Trickster Spirit\nCharacter: The Great Jack' \
+  "<|laughter|> <|whisper|> Come closer to the lantern light, wanderer... <|/whisper|> MY GRINNING FLAMES WILL ROAST YOUR SOUL!"
 
-gen_daikon "devilsanta" "msm00001" "en-AU" \
-  $'Language: English\nRegion: United Kingdom\nVoice: mature male voice\nDirection: Speak with booming, dark winter mirth that turns chillingly cruel.\nEmotion: Booming sinister joviality\nTexture: Deep, gravelly, thunderous\nPacing: Moderate\nPitch: Low\nExpressivity: High\nRole: Dark Winter Warlord\nCharacter: Devil Santa' \
-  "<|laughter|> A naughty soul trudging through the frost! Come unwrap the frozen grave I made for you!"
+# 4. Stage 4 — Devil Santa (Male: star13, booming cruel winter warlord)
+gen_daikon "devilsanta" "star13" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nVoice: mature male voice\nDirection: Belt out a dark booming evil belly laugh and a frosty wheezing cough, drop to a chilling whisper, then bellow with cruel holiday malice.\nEmotion: Booming evil mirth, cruel, wrathful\nTexture: Deep, heavy, thunderous\nPacing: Moderate\nPitch: Low\nExpressivity: High\nRole: Dark Winter Warlord\nCharacter: Devil Santa' \
+  "<|laughter|> <cough> <|whisper|> Another naughty mortal shivering in the snow... <|/whisper|> UNWRAP THE FROZEN GRAVE I CARVED FOR YOU!"
 
-gen_daikon "bonecaptain" "msm00013" "en-AU" \
-  $'Language: English\nRegion: Scotland\nAccent: Scottish\nVoice: mature male voice\nDirection: Bark like a drill-sergeant skeleton: clipped, loud, percussive consonants, fast military cadence, rattling dry voice.\nEmotion: Stern, commanding, wrathful\nTexture: Gravelly, weathered\nPacing: Moderate\nPitch: Low\nExpressivity: High\nRole: Undead Fortress Commander\nCharacter: The Bone Captain' \
-  "Halt upon the battlements, trespasser! None shall breach these walls while my legion stands!"
+# 5. Stage 5 — The Bone Captain (Male: star15, barking undead fortress commander)
+gen_daikon "bonecaptain" "star15" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nVoice: mature male voice\nDirection: Rattling dry bone cough followed by a cruel military laugh, then bark and shout like a ruthless undead commander ordering an execution.\nEmotion: Ruthless, wrathful, commanding\nTexture: Dry, weathered, percussive\nPacing: Brisk and forceful\nPitch: Low\nExpressivity: High\nRole: Undead Fortress Commander\nCharacter: The Bone Captain' \
+  "<cough> <|chuckle|> Halt upon the battlements, worm! ARCHERS! CLEAVE THIS TRESPASSER TO RIBBONS!"
 
-gen_daikon "reaper" "msm00001" "en-IN" \
-  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Speak in a cold, spectral, solemn graveyard whisper with haunting finality.\nEmotion: Cold, solemn, ominous\nTexture: Whispery, hollow, echoing\nPacing: Slow\nPitch: Low\nExpressivity: Moderate\nRole: Harbinger of Death\nCharacter: The Phantom Reaper' \
-  "<|sigh|> Every footstep echoes closer to the crypt, mortal... yield your soul to the harvest."
+# 6. Stage 6 — The Phantom Reaper (Male: msm00001, ghostly whispery harbinger of death)
+gen_daikon "reaper" "msm00001" "en-IE" \
+  $'Language: English\nRegion: Ireland\nVoice: mature male voice\nDirection: Exhale a cold spectral sigh, speak in an icy grave-chill whisper, let out a sinister low chuckle, and swell into a haunting proclamation of doom.\nEmotion: Cold, sinister, ominous\nTexture: Whispery, hollow, echoing\nPacing: Slow\nPitch: Low\nExpressivity: High\nRole: Harbinger of Death\nCharacter: The Phantom Reaper' \
+  "<|sigh|> <|whisper|> Every heartbeat echoes closer to the crypt, mortal... <|/whisper|> <|chuckle|> YIELD YOUR SOUL TO MY SCYTHE!"
 
+# 7. Stage 7 — The Cinder Queen (Female: star17, blazing volcanic empress of the Dark Cave)
+gen_daikon "cinderqueen" "star17" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature female voice\nDirection: Start with a smoky ash-choked cough and a wicked, imperious female laugh, drop to a sultry lethal whisper, then erupt into a blazing royal shout.\nEmotion: Fierce, evil, imperious, volcanic wrath\nTexture: Rich, smoky, commanding\nPacing: Dynamic\nPitch: Medium\nExpressivity: High\nRole: Volcanic Cavern Empress\nCharacter: The Cinder Queen' \
+  "<cough> <|laughter|> <|whisper|> Feel the magma rising beneath your heels, little moth... <|/whisper|> BURN TO ASH BEFORE THE CINDER THRONE!"
+
+# 8. Stage 8 — The Gorgon Queen (Female: msf00005, venomous aristocratic empress)
 gen_daikon "gorgon" "msf00005" "en-US" \
-  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature female voice\nDirection: Speak with regal, hypnotic, serpentine elegance and cold aristocratic cruelty.\nEmotion: Imperious, hypnotic, cold\nTexture: Silky, resonant, venomous\nPacing: Slow\nPitch: Medium\nExpressivity: High\nRole: Cursed Temple Sovereign\nCharacter: The Gorgon Queen' \
-  "Lift your eyes to perfection, intruder, and join my silent gallery of eternal stone!"
+  $'Language: English\nRegion: United States\nVoice: mature female voice\nDirection: Begin with a cruel, silky evil female laugh, coil into a hypnotic serpentine whisper, then command with furious regal venom.\nEmotion: Evil, imperious, cruel, venomous\nTexture: Silky, resonant, sharp\nPacing: Measured then fierce\nPitch: Medium\nExpressivity: High\nRole: Cursed Temple Sovereign\nCharacter: The Gorgon Queen' \
+  "<|laughter|> <|whisper|> Dare you lift your trembling eyes to mine, intruder? <|/whisper|> SHATTER INTO ETERNAL STONE!"
 
-gen_daikon "reaperlord" "msm00001" "en-IE" \
-  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Speak with apocalyptic authority and thunderous belfry dread: huge, slow, cavernous, every word tolling like a bell, long pauses.\nEmotion: Wrathful, ominous, commanding\nTexture: Deep, dark, resonant\nPacing: Slow\nPitch: Low\nExpressivity: High\nRole: Master of the Belfry\nCharacter: The Reaper Lord' \
-  "The gears of midnight strike your final hour! Kneel before the master of the belfry!"
+# 9. Stage 9 — The Brass Automaton (Male: star09, unhinged clockwork warden)
+gen_daikon "automaton" "star09" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: adult male voice\nDirection: Start with a stuttering mechanical cough and a cold, unhinged evil laugh, drop to an eerie music-box whisper, then boom with ruthless finality.\nEmotion: Cold, unhinged, sinister\nTexture: Crisp, metallic, resonant\nPacing: Measured staccato\nPitch: Medium-low\nExpressivity: High\nRole: Clockwork Gallery Warden\nCharacter: The Brass Automaton' \
+  "<cough> <|laughter|> <|whisper|> Insert your beating heart into the slot, player... <|/whisper|> THE HOUSE ALWAYS COLLECTS IN BLOOD!"
 
+# 10. Stage 10 — The Spectral Archivist (Male: star15, dusty whispering haunted scholar)
+gen_daikon "archivist" "star15" "en-US" \
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Give a dry, dusty papery cough, hiss an eerie shushing library whisper, chuckle darkly, then shout in sudden ghostly fury.\nEmotion: Sinister, hushed, then furious\nTexture: Papery, whispery, expressive\nPacing: Slow then sudden outburst\nPitch: Low\nExpressivity: High\nRole: Keeper of the Forbidden Library\nCharacter: The Spectral Archivist' \
+  "<cough> <|whisper|> Shhh... silence in the forbidden stacks, hunter... <|/whisper|> <|chuckle|> YOUR STORY ENDS IN BLOOD ON THIS PAGE!"
+
+# 11. Stage 11 — The Gargoyle Archon (Male: star07, ancient gravelly stone guardian)
+gen_daikon "archon" "star07" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nVoice: mature male voice\nDirection: Scrape out a stone-grinding cough and a dark guttural laugh, growl low, then roar like an awakened cathedral colossus.\nEmotion: Wrathful, merciless, ancient evil\nTexture: Gravelly, cavernous, rumbling\nPacing: Heavy and forceful\nPitch: Very low\nExpressivity: High\nRole: Guardian of the Desecrated Cathedral\nCharacter: The Gargoyle Archon' \
+  "<cough> <|chuckle|> A thousand nights I have hungered in the rafters, worm! KNEEL BENEATH THE GLASS OR BE CRUSHED TO DUST!"
+
+# 12. Stage 12 — The Reaper Lord (Male: star13, apocalyptic master of the belfry)
+gen_daikon "reaperlord" "star13" "en-US" \
+  $'Language: English\nRegion: United States\nVoice: mature male voice\nDirection: Unleash a deep, pitiless evil laugh, murmur a cold midnight whisper, then thunder every final word like the tolling of a doom bell.\nEmotion: Pitiless evil, apocalyptic authority\nTexture: Deep, dark, resonant\nPacing: Dramatic\nPitch: Low\nExpressivity: High\nRole: Master of the Belfry\nCharacter: The Reaper Lord' \
+  "<|laughter|> <|whisper|> Listen... the gears of midnight toll your final breath... <|/whisper|> BOW BEFORE THE LORD OF DEATH!"
+
+# 13. Stage 13 — The Count (Male: msm00001, aristocratic immortal vampire lord)
 gen_daikon "count" "msm00001" "en-GB" \
-  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Speak with aristocratic gothic menace, slow dramatic cadence, and cold theatrical authority.\nEmotion: Menacing\nTexture: Deep, resonant, velvety\nPacing: Slow\nPitch: Low\nExpressivity: High\nRole: Gothic Castle Lord\nCharacter: Ancient Immortal Count' \
-  "<|chuckle|> Welcome to my throne hall, hunter. Tonight, the darkness drinks its fill!"
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Open with a rich, velvety evil aristocratic laugh, lean close in a chilling predatory whisper, and rise into a grand, wrathful shout.\nEmotion: Aristocratic evil, theatrical, wrathful\nTexture: Deep, velvety, commanding\nPacing: Slow then explosive\nPitch: Low\nExpressivity: High\nRole: Immortal Castle Lord\nCharacter: The Count' \
+  "<|laughter|> <|whisper|> So... the little hunter crawls bleeding into my throne hall... <|/whisper|> TONIGHT THE DARKNESS DRINKS ITS FILL!"
 
-gen_daikon "automaton" "msf00006" "en-US" \
-  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: adult voice\nDirection: Speak as a clanking brass clockwork machine with a bright, eerily cheerful mechanical doll voice: stiff staccato rhythm, flat affect, sing-song intonation that turns cruel, like a wound-up music box.\nEmotion: Cold, mechanical, menacing\nTexture: Metallic, clipped, resonant\nPacing: Measured\nPitch: Low\nExpressivity: Moderate\nRole: Clockwork Gallery Warden\nCharacter: The Brass Automaton' \
-  "Insert your soul, player. The gallery of automata demands one more game... and the house always wins."
-
-gen_daikon "archivist" "msf00005" "en-GB" \
-  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Speak as a dry, hollow, whispering spectral librarian: hushed, papery, echoing, with sudden cold menace, as if shushing a reader in a haunted library.\nEmotion: Cold, hushed, menacing\nTexture: Whispery, papery, echoing\nPacing: Slow\nPitch: Low\nExpressivity: Moderate\nRole: Keeper of the Forbidden Library\nCharacter: The Spectral Archivist' \
-  "<|sigh|> Silence in the stacks, hunter... every tome here hungers, and your story ends on this page."
-
-
-gen_daikon "archon" "msm00013" "en-IN" \
-  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Speak as an ancient stone guardian awakening: grinding gravel texture, clipped and furious, faster than a tree would speak, like rock scraping rock, with righteous fury and a growl under every line.\nEmotion: Wrathful, ancient, imperious\nTexture: Gravelly, cavernous, resonant\nPacing: Slow\nPitch: Very low\nExpressivity: High\nRole: Guardian of the Cathedral\nCharacter: The Gargoyle Archon' \
-  "A thousand years I have watched from the rafters, mortal. Kneel beneath the glass... or be ground to dust beneath the stone."
-
-# Ending narrator (epilogue), played over the dawn sequence.
-gen_daikon "narrator_ending" "msm00013" "en-GB" \
-  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Speak as a warm, grave storyteller closing an old legend: slow, resonant, intimate, rising to quiet triumph at the end.\nEmotion: Solemn, then hopeful\nTexture: Deep, warm, resonant\nPacing: Slow\nPitch: Low\nExpressivity: High\nRole: Chronicler\nCharacter: The Narrator' \
-  "And so the Count was dust, and his keep fell silent. The bells of midnight cracked and tumbled from the belfry, and the darkness that had fed on the valley for a hundred years drained away like water from a broken cup. The hunter did not look back. He walked the graveyard road as the mist lifted, and for the first time in his life... he walked it toward the sunrise."
+# Ending narrator (epilogue, male chronicler — keep warm & solemn)
+if [ ! -s "${OUT_DIR}/narrator_ending.mp3" ]; then
+  gen_daikon "narrator_ending" "msm00001" "en-GB" \
+    $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Speak as a warm, grave storyteller closing an old legend: slow, resonant, intimate, rising to quiet triumph at the end.\nEmotion: Solemn, then hopeful\nTexture: Deep, warm, resonant\nPacing: Slow\nPitch: Low\nExpressivity: High\nRole: Chronicler\nCharacter: The Narrator' \
+    "And so the Count was dust, and his keep fell silent. The bells of midnight cracked and tumbled from the belfry, and the darkness that had fed on the valley for a hundred years drained away like water from a broken cup. The hunter did not look back. He walked the graveyard road as the mist lifted, and for the first time in his life... he walked it toward the sunrise."
+fi

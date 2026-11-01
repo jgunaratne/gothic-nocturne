@@ -78,15 +78,18 @@ export class Parallax {
 
   update(dt) { this.time += dt; }
 
-  drawSky(ctx, cam, flash) {
+  drawSky(ctx, cam, flash, boltX = 320, boltSeed = 1.0) {
     const sky = this.assets.img('sky');
     const off = mod(-(cam.rx * 0.04) - this.time * 1.5, sky.width);
     for (let x = off - sky.width; x < W; x += sky.width) ctx.drawImage(sky, Math.round(x), 0);
-    // Shader cloud banks drifting behind the mountains
+    // Shader cloud banks drifting behind the mountains (illuminated from within during lightning)
     const fx = getFxLayers();
-    if (fx) fx.clouds(ctx, cam.rx, this.setName);
+    if (fx) {
+      fx.clouds(ctx, cam.rx, this.setName, flash);
+      if (flash > 0.03) fx.lightning(ctx, boltX, boltSeed, flash, 232);
+    }
     if (flash > 0) {
-      ctx.fillStyle = `rgba(220, 225, 255, ${0.55 * flash})`;
+      ctx.fillStyle = `rgba(210, 224, 255, ${0.42 * flash})`;
       ctx.fillRect(0, 0, W, H);
     }
   }

@@ -37,6 +37,10 @@ const THEME_PALETTES = {
     fog: [8, 6, 14], stone: [88, 78, 70], trim: [138, 124, 106],
     carpet: false, glass: [201, 181, 138], arch: true, crypt: true,
   },
+  darkcave: {
+    fog: [18, 6, 6], stone: [72, 48, 48], trim: [156, 82, 54],
+    carpet: false, glass: [255, 108, 38], arch: true, crypt: true,
+  },
   ossuary: {
     fog: [7, 6, 15], stone: [82, 76, 96], trim: [136, 126, 156],
     carpet: false, glass: [130, 215, 190], arch: true, crypt: true,
@@ -630,7 +634,17 @@ export class Stage3D {
   }
 
   drawAbyss3D(ctx, cam, time) {
-    // Only `ossuary` has an open chasm beneath the hall brink; `catacombs` has an opaque 3D floor.
+    // Only `ossuary` and `darkcave` have an open chasm beneath the hall brink; `catacombs` has an opaque 3D floor.
+    if (this.themeKey === 'darkcave') {
+      this.drawScanlinePlane(ctx, cam, time, {
+        kind: 'magma',
+        water: { tint: [0.85, 0.22, 0.04], spec: [1.0, 0.82, 0.28], frozen: 0, alpha: 0.85 },
+        horizon: 214, fx: 0.36, focal: 92, drift: true,
+        shimmer: true, shimmerRgb: [255, 120, 40],
+        fog: [24, 7, 6],
+      });
+      return;
+    }
     if (this.themeKey !== 'ossuary') return;
     this.drawScanlinePlane(ctx, cam, time, {
       kind: 'abyss',
@@ -671,7 +685,7 @@ export class Stage3D {
     const floorRow = r.floorRow || 11;
     const floorY = floorRow * TILE;
     const ceilY = Math.max(r.y0 * TILE + 56, floorY - 268);
-    const abyssHall = this.themeKey === 'ossuary';
+    const abyssHall = this.themeKey === 'ossuary' || this.themeKey === 'darkcave';
     const farFloor = project3D(0, floorY, Z_WALL, camX, camY);
 
     // When entering Stage 1's indoor castle behind the 3D gatehouse (r.x0 > 0),
@@ -1342,6 +1356,8 @@ export class Stage3D {
       this.drawRampartBastion3D(ctx, camX, camY, cx, floorY);
     } else if (type === 'gorgon') {
       this.drawPetrifiedTemple3D(ctx, camX, camY, cx, floorY);
+    } else if (type === 'cinderqueen') {
+      this.drawVolcanicCaldera3D(ctx, camX, camY, cx, floorY, time);
     } else {
       const archTex = this.pal.crypt ? 'crypt_stone' : 'stone_trim';
       this.drawArchSpan3D(ctx, camX, camY, cx - 120, cx + 120, floorY - 150, floorY - 224, 96, 54, archTex);
@@ -1654,6 +1670,35 @@ export class Stage3D {
     this.drawBox3D(ctx, camX, camY, cx + 64, floorY - 184, 108, 102, 18, 32, 'marble');
   }
 
+  /** Dark Cave Boss Centerpiece: Obsidian Caldera Arch & Glowing Magma Cascades! */
+  drawVolcanicCaldera3D(ctx, camX, camY, cx, floorY, time) {
+    this.drawArchSpan3D(ctx, camX, camY, cx - 146, cx + 146, floorY - 148, floorY - 216, 114, 46, 'cavernwall');
+    const glow = getGlowCanvas('amber');
+    for (const side of [-1, 1]) {
+      const px = cx + side * 146;
+      this.drawBox3D(ctx, camX, camY, px - 22, floorY - 178, 108, 44, 178, 42, 'cavernwall');
+      // Glowing vertical magma cascade channel behind the arena
+      const mTop = project3D(cx + side * 88, floorY - 170, 146, camX, camY);
+      const mBot = project3D(cx + side * 88, floorY + 24, 146, camX, camY);
+      const mw = Math.max(4, Math.round(14 * mTop.s));
+      ctx.fillStyle = '#a82608';
+      ctx.fillRect(Math.round(mTop.x - mw / 2), Math.round(mTop.y), mw, Math.round(mBot.y - mTop.y));
+      const pulse = Math.round(((time * 42) % 16) * mTop.s);
+      ctx.fillStyle = '#ffb438';
+      for (let y = Math.round(mTop.y) + pulse; y < mBot.y - 6; y += Math.max(6, Math.round(16 * mTop.s))) {
+        ctx.fillRect(Math.round(mTop.x - mw * 0.28), y, Math.max(2, Math.round(mw * 0.56)), Math.max(3, Math.round(8 * mTop.s)));
+      }
+      if (glow) {
+        const gr = 38 * mBot.s;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.52 + 0.14 * Math.sin(time * 4 + side);
+        ctx.drawImage(glow, mBot.x - gr, mBot.y - gr, gr * 2, gr * 2);
+        ctx.restore();
+      }
+    }
+  }
+
   // ============================================ FOREGROUND 2.5D FRAMING
   /**
    * Draws dark texture-mapped foreground framing pillars & arch corbels (`z = -72`,
@@ -1891,6 +1936,18 @@ export class Stage3D {
         const x = (i * 97) % 512, y = (i * 41) % 128;
         g.fillStyle = '#6e94c8';
         g.fillRect(x, y, 14, 1);
+      }
+    } else if (kind === 'magma') {
+      g.fillStyle = '#1c0505'; g.fillRect(0, 0, 512, 128);
+      for (let i = 0; i < 96; i++) {
+        const x = (i * 67) % 512, y = (i * 29) % 128, w = 18 + (i % 5) * 16;
+        g.fillStyle = ['#4a0d08', '#8c2208', '#d94e14', '#2b0808'][i & 3];
+        g.fillRect(x, y, w, 4);
+        if (x + w > 512) g.fillRect(x - 512, y, w, 4);
+      }
+      for (let i = 0; i < 36; i++) {
+        g.fillStyle = i % 2 === 0 ? '#ffd858' : '#ff8c24';
+        g.fillRect((i * 107) % 512, (i * 43) % 128, 12, 2);
       }
     } else if (kind === 'abyss' || kind === 'crypt_pit') {
       const oss = kind === 'abyss';
