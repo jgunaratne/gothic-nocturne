@@ -86,8 +86,8 @@ export class GiantBat extends Boss {
   constructor(x, y, arena, difficulty) {
     super(x, y, arena, difficulty);
     this.sheet = 'giantbat'; this.scale = 1; this.w = 84; this.h = 52;
-    this.hp = 24; this.maxHp = 24; this.flies = true; this.gravityScale = 0;
-    this.hangY = arena.ceilY + 50; this.cycle = 0; this.facing = -1;
+    this.hp = 20; this.maxHp = 20; this.flies = true; this.gravityScale = 0;
+    this.hangY = Math.max(arena.ceilY + 86, arena.floorY - 138); this.cycle = 0; this.facing = -1;
     this.aura = 'rgba(90, 40, 140, 0.25)';
   }
 
@@ -108,15 +108,15 @@ export class GiantBat extends Boss {
       case 'hang': {
         this.alpha = 1; this.faceP(p);
         const tx = clamp(p.x, a.x0 + 70, a.x1 - 70);
-        this.x += (tx - this.x) * Math.min(1, dt * 1.4);
+        this.x += (tx - this.x) * Math.min(1, dt * 1.1);
         this.y = this.hangY + bob;
-        if (this.stateT > (this.phase2 ? 0.9 : 1.5) * this.tempo) {
+        if (this.stateT > (this.phase2 ? 1.2 : 1.85) * this.tempo) {
           this.cycle++;
           if (this.cycle % 3 === 0) this.setState('summon');
           else {
             this.setState('dive');
             this.from = { x: this.x, y: this.y };
-            this.via = { x: p.x, y: p.y - 20 };
+            this.via = { x: p.x, y: p.y - 24 };
             const dir = p.x > this.x ? 1 : -1;
             this.to = { x: clamp(p.x + dir * 240, a.x0 + 60, a.x1 - 60), y: this.hangY };
           }
@@ -125,7 +125,7 @@ export class GiantBat extends Boss {
       }
       case 'dive': {
         // Quadratic curve: ceiling -> through the hunter -> back up beyond.
-        const dur = (this.phase2 ? 1.0 : 1.35) * this.tempo;
+        const dur = (this.phase2 ? 1.15 : 1.5) * this.tempo;
         const k = Math.min(1, this.stateT / dur);
         const q = (p0, p1, p2) => (1 - k) * (1 - k) * p0 + 2 * (1 - k) * k * p1 + k * k * p2;
         const nx = q(this.from.x, this.via.x, this.to.x);
@@ -136,18 +136,18 @@ export class GiantBat extends Boss {
         break;
       }
       case 'cross':
-        this.x += this.facing * (this.phase2 ? 200 : 155) * dt;
-        this.y = this.crossY + Math.sin(this.stateT * 5) * 30;
+        this.x += this.facing * (this.phase2 ? 160 : 125) * dt;
+        this.y = this.crossY + Math.sin(this.stateT * 4) * 20;
         if (this.x < a.x0 + 40 || this.x > a.x1 - 40) { this.clampX(40); this.setState('hang'); }
         break;
       case 'summon':
         this.y = this.hangY + bob;
         if (this.stateT > 0.5 && !this.fired) {
           this.fired = true;
-          const n = this.phase2 ? 3 : 2;
+          const n = this.phase2 ? 2 : 1;
           for (let i = 0; i < n; i++) {
-            const b = new Bat(this.x + (i - 1) * 30, this.y + 14);
-            b.wake(i % 2 ? 1 : -1, p.y - 40); b.homeX = this.x;
+            const b = new Bat(this.x + (i - 0.5) * 28, this.y + 14);
+            b.wake(i % 2 ? 1 : -1, p.y - 40); b.homeX = this.x; b.active = true;
             world.spawnEnemy(b);
           }
           world.sfx('throw');
@@ -240,8 +240,8 @@ export class Gorgon extends Boss {
   constructor(x, y, arena, difficulty) {
     super(x, y, arena, difficulty);
     this.sheet = 'gorgon'; this.scale = 1; this.w = 56; this.h = 64;
-    this.hp = 36; this.maxHp = 36; this.flies = true; this.gravityScale = 0;
-    this.centerY = arena.floorY - 110; this.facing = -1;
+    this.hp = 32; this.maxHp = 32; this.flies = true; this.gravityScale = 0;
+    this.centerY = arena.floorY - 98; this.facing = -1;
     this.aura = 'rgba(90, 200, 120, 0.2)';
   }
 
@@ -260,10 +260,10 @@ export class Gorgon extends Boss {
         break;
       case 'drift': {
         this.alpha = 1; this.faceP(p);
-        const tx = clamp(p.x + (dx > 0 ? -150 : 150), a.x0 + 50, a.x1 - 50);
-        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), (this.phase2 ? 110 : 80) * dt);
-        this.y = this.centerY + Math.sin(this.t * 1.6) * 45;
-        if (this.stateT > 2.0 * this.tempo) {
+        const tx = clamp(p.x + (dx > 0 ? -130 : 130), a.x0 + 50, a.x1 - 50);
+        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), (this.phase2 ? 90 : 68) * dt);
+        this.y = this.centerY + Math.sin(this.t * 1.5) * 30;
+        if (this.stateT > 2.3 * this.tempo) {
           const r = Math.random();
           if (this.phase2 && (Math.abs(dx) < 120 || r > 0.8)) this.setState('dash');
           else if (r < 0.55) this.setState('gaze');
@@ -291,10 +291,11 @@ export class Gorgon extends Boss {
       case 'spawn':
         if (this.stateT > 0.5 && !this.fired) {
           this.fired = true;
-          const n = this.phase2 ? 3 : 2;
+          const n = this.phase2 ? 2 : 1;
           for (let i = 0; i < n; i++) {
-            const m = new MedusaHead(this.x + this.facing * 20, this.y - 30 + (i - 1) * 24, this.facing);
-            m.baseY = p.y - 30 + (i - 1) * 30;
+            const m = new MedusaHead(this.x + this.facing * 20, this.y - 30 + (i - 0.5) * 24, this.facing);
+            m.baseY = p.y - 36 + (i - 0.5) * 26;
+            m.active = true;
             world.spawnEnemy(m);
           }
           world.sfx('fire');
@@ -303,8 +304,8 @@ export class Gorgon extends Boss {
         break;
       case 'dash': {
         if (this.stateT < 0.05) { this.faceP(p); this.dashY = p.y - 40; }
-        this.x += this.facing * 320 * dt;
-        this.y += (this.dashY - this.y) * Math.min(1, dt * 4);
+        this.x += this.facing * 245 * dt;
+        this.y += (this.dashY - this.y) * Math.min(1, dt * 3.5);
         if (this.x < a.x0 + 40 || this.x > a.x1 - 40) { this.clampX(40); this.setState('drift'); }
         break;
       }
@@ -483,8 +484,8 @@ export class GreatJack extends Boss {
   constructor(x, y, arena, difficulty) {
     super(x, y, arena, difficulty);
     this.sheet = 'greatjack'; this.scale = 1; this.w = 82; this.h = 86;
-    this.hp = 34; this.maxHp = 34; this.flies = true; this.gravityScale = 0;
-    this.centerY = arena.floorY - 120; this.facing = -1; this.cycle = 0;
+    this.hp = 30; this.maxHp = 30; this.flies = true; this.gravityScale = 0;
+    this.centerY = arena.floorY - 108; this.facing = -1; this.cycle = 0;
     this.aura = 'rgba(255, 140, 40, 0.22)';
   }
 
@@ -504,10 +505,10 @@ export class GreatJack extends Boss {
         break;
       case 'drift': {
         this.alpha = 1; this.faceP(p);
-        const tx = clamp(p.x + (dx > 0 ? -150 : 150), a.x0 + 50, a.x1 - 50);
-        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), (this.phase2 ? 120 : 85) * dt);
-        this.y = this.centerY + Math.sin(this.t * 1.8) * 30;
-        if (this.stateT > (this.phase2 ? 1.3 : 2.0) * this.tempo) {
+        const tx = clamp(p.x + (dx > 0 ? -135 : 135), a.x0 + 50, a.x1 - 50);
+        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), (this.phase2 ? 98 : 72) * dt);
+        this.y = this.centerY + Math.sin(this.t * 1.6) * 24;
+        if (this.stateT > (this.phase2 ? 1.5 : 2.25) * this.tempo) {
           this.cycle++;
           const r = Math.random();
           if (this.cycle % 4 === 0) this.setState('summon');
@@ -913,9 +914,9 @@ export class SpectralArchivist extends Boss {
     super(x, y, arena, difficulty);
     this.sheet = 'archivist';
     this.w = 50; this.h = 100;
-    this.hp = 38; this.maxHp = 38;
+    this.hp = 34; this.maxHp = 34;
     this.flies = true; this.gravityScale = 0;
-    this.centerY = arena.floorY - 96; this.y = this.centerY;
+    this.centerY = arena.floorY - 88; this.y = this.centerY;
     this.facing = -1; this.cycle = 0; this.frame = 'idle';
     this.auraKind = 'violet';
   }
@@ -941,11 +942,11 @@ export class SpectralArchivist extends Boss {
         break;
       case 'drift': {
         this.alpha = 1; this.faceP(p);
-        const tx = clamp(p.x + (dx > 0 ? -140 : 140), a.x0 + 60, a.x1 - 60);
-        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), (this.phase2 ? 110 : 80) * dt);
+        const tx = clamp(p.x + (dx > 0 ? -125 : 125), a.x0 + 60, a.x1 - 60);
+        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), (this.phase2 ? 92 : 68) * dt);
         this.y = this.centerY + bob;
         this.frame = 'idle';
-        if (this.stateT > (this.phase2 ? 1.1 : 1.7) * this.tempo) {
+        if (this.stateT > (this.phase2 ? 1.35 : 1.95) * this.tempo) {
           this.cycle++;
           if (this.cycle % 4 === 0) this.setState('summon');
           else if (this.phase2 && this.cycle % 4 === 2) this.setState('storm');
@@ -1033,9 +1034,9 @@ export class GargoyleArchon extends Boss {
     super(x, y, arena, difficulty);
     this.sheet = 'archon';
     this.w = 70; this.h = 104;
-    this.hp = 46; this.maxHp = 46;
+    this.hp = 40; this.maxHp = 40;
     this.flies = true; this.gravityScale = 0;
-    this.perchY = arena.ceilY + 70; this.y = this.perchY;
+    this.perchY = Math.max(arena.ceilY + 88, arena.floorY - 136); this.y = this.perchY;
     this.facing = -1; this.cycle = 0; this.frame = 'roar';
     this.auraKind = 'crimson';
   }
@@ -1063,9 +1064,9 @@ export class GargoyleArchon extends Boss {
       case 'perch': {
         this.alpha = 1; this.faceP(p);
         const tx = clamp(p.x, a.x0 + 80, a.x1 - 80);
-        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), (this.phase2 ? 120 : 85) * dt);
+        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), (this.phase2 ? 96 : 70) * dt);
         this.y = this.perchY + bob; this.frame = flap;
-        if (this.stateT > (this.phase2 ? 1.0 : 1.6) * this.tempo) {
+        if (this.stateT > (this.phase2 ? 1.25 : 1.85) * this.tempo) {
           this.cycle++;
           if (this.cycle % 4 === 0) this.setState('roar');
           else if (this.phase2 && this.cycle % 4 === 2) this.setState('shell');
@@ -1081,7 +1082,7 @@ export class GargoyleArchon extends Boss {
         break;
       }
       case 'pounce': {
-        const dur = (this.phase2 ? 1.0 : 1.3) * this.tempo;
+        const dur = (this.phase2 ? 1.15 : 1.45) * this.tempo;
         const k = Math.min(1, this.stateT / dur);
         const q = (p0, p1, p2) => (1 - k) * (1 - k) * p0 + 2 * (1 - k) * k * p1 + k * k * p2;
         const nx = q(this.from.x, this.via.x, this.to.x);
@@ -1132,7 +1133,7 @@ export class GargoyleArchon extends Boss {
 
   swingBox() {
     if (this.state !== 'pounce') return null;
-    const k = this.stateT / ((this.phase2 ? 1.0 : 1.3) * this.tempo);
+    const k = this.stateT / ((this.phase2 ? 1.15 : 1.45) * this.tempo);
     if (k < 0.3 || k > 0.7) return null;
     return { x: this.x - 40, y: this.y - 70, w: 80, h: 60 };
   }

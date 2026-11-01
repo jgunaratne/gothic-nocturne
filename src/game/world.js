@@ -484,7 +484,7 @@ export class World {
     for (const s of this.spawners) s.update(dt, this);
     const camL = this.camera.x - 160, camR = this.camera.x + W + 160;
     for (const e of this.enemies) {
-      if (e === this.boss || e.flies || e.active || (e.x > camL && e.x < camR)) {
+      if (e === this.boss || e.active || (e.x > camL && e.x < camR)) {
         e.active = true;
         e.update(dt, lvl, this);
       }
@@ -554,7 +554,7 @@ export class World {
       const whipDmg = Math.round(baseWhip * (this.difficulty.playerDamage || 1));
       for (const e of this.enemies) {
         if (!e.alive) continue;
-        const hitBox = e === this.boss ? e.box(10) : e.box();
+        const hitBox = e === this.boss ? e.box(12) : (e.flies ? e.box(8) : e.box());
         if (rectsOverlap(whip, hitBox)) {
           e.takeHit(whipDmg, p.x, this);
           // Erupt a directional whip-slash spark flare right at the lash contact point
@@ -591,7 +591,8 @@ export class World {
       if (pr.dead || pr.owner !== 'player') continue;
       for (const e of this.enemies) {
         if (!e.alive || pr.hitSet.has(e)) continue;
-        if (rectsOverlap(pr.box, e.box())) {
+        const projBox = (e === this.boss || e.flies) ? e.box(6) : e.box();
+        if (rectsOverlap(pr.box, projBox)) {
           pr.hitSet.add(e);
           e.takeHit(Math.round(pr.damage * (this.difficulty.playerDamage || 1)), pr.x, this);
           if (pr.pierce > 0) pr.pierce--; else pr.dead = true;
@@ -635,9 +636,10 @@ export class World {
         if (e.alpha > 0.7 && rectsOverlap(e.box(-6), pb)) p.hurt(e.touchDamage, e.x, this);
         continue;
       }
+      if (e.fade != null && e.fade < 0.55) continue;
       const mb = e.meleeBox && e.meleeBox();
       if (mb && rectsOverlap(mb, pb)) { p.hurt(e.touchDamage + 1, e.x, this); continue; }
-      if (rectsOverlap(e.box(-2), pb)) p.hurt(e.touchDamage, e.x, this);
+      if (rectsOverlap(e.box(e.flies ? -4 : -2), pb)) p.hurt(e.touchDamage, e.x, this);
     }
     for (const pr of this.projectiles) {
       if (pr.owner === 'enemy' && !pr.dead && rectsOverlap(pr.box, pb)) {

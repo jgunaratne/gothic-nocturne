@@ -256,15 +256,16 @@ export class Bat extends Enemy {
     this.w = 26; this.h = 18; this.hp = 1; this.score = SCORE.bat;
     this.sheet = 'bat'; this.flies = true; this.gravityScale = 0;
     this.state = 'sleep'; this.baseY = y; this.t = 0; this.homeX = x;
-    this.touchDamage = 2;
-    this.speed = 118;
+    this.wakeT = 0;
+    this.touchDamage = variant === 'fire' ? 2 : 1;
+    this.speed = 84;
     this.variant = variant;
-    if (variant === 'fire') { this.speed = 168; this.tint = 'rgba(255, 110, 30, 0.5)'; this.score = SCORE.bat + 50; }
+    if (variant === 'fire') { this.speed = 112; this.tint = 'rgba(255, 110, 30, 0.5)'; this.score = SCORE.bat + 50; }
   }
 
-  /** Starts the swoop immediately (used by spawners and bosses). */
-  wake(dir, targetY) {
-    this.state = 'swoop'; this.facing = dir; this.t = 0; this.targetY = targetY;
+  /** Starts the swoop immediately (used by spawners and bosses) or after a short wake flutter. */
+  wake(dir, targetY, delay = 0) {
+    this.state = 'swoop'; this.facing = dir; this.t = 0; this.targetY = targetY; this.wakeT = delay;
   }
 
   update(dt, level, world) {
@@ -274,17 +275,23 @@ export class Bat extends Enemy {
     this.t += dt;
     if (this.state === 'sleep') {
       this.frame = 'fly0';
-      if (p.alive && Math.abs(p.x - this.x) < 230 && p.y > this.y) this.wake(p.x > this.x ? 1 : -1, p.y - 36);
+      if (p.alive && Math.abs(p.x - this.x) < 200 && p.y > this.y) this.wake(p.x > this.x ? 1 : -1, p.y - 40, 0.22);
       return;
     }
-    // Swoop: glide toward the player's height in a sine, then keep crossing.
+    if (this.wakeT > 0) {
+      this.wakeT -= dt;
+      this.t = 0;
+      this.frame = Math.floor(this.wakeT * 18) % 2 ? 'fly1' : 'fly0';
+      return;
+    }
+    // Swoop: glide toward the player's whip height in a gentle sine, then keep crossing.
     this.vx = this.facing * this.speed;
-    this.baseY += (this.targetY - this.baseY) * Math.min(1, dt * 1.2);
-    this.y = this.baseY + Math.sin(this.t * 4.2) * 34;
+    this.baseY += (this.targetY - this.baseY) * Math.min(1, dt * 1.35);
+    this.y = this.baseY + Math.sin(this.t * 3.0) * 20;
     this.x += this.vx * dt;
     if (this.variant === 'fire' && Math.random() < 0.3) world.particles.embers(this.x, this.y - 6, 1);
     if (Math.abs(this.x - this.homeX) > 900 || this.x < -40 || this.x > level.width + 40) this.dead = true;
-    this.frame = ['fly0', 'fly1', 'fly2', 'fly1'][Math.floor(this.t * 12) % 4];
+    this.frame = ['fly0', 'fly1', 'fly2', 'fly1'][Math.floor(this.t * 10) % 4];
   }
 
   kill(world) {
@@ -301,14 +308,14 @@ export class MedusaHead extends Enemy {
     this.w = 22; this.h = 22; this.hp = 1; this.score = SCORE.medusa;
     this.sheet = 'medusa'; this.flies = true; this.gravityScale = 0;
     this.facing = dir; this.baseY = y; this.t = Math.random() * 6;
-    this.touchDamage = 2;
+    this.touchDamage = 1;
   }
   update(dt, level) {
     if (this.deathT >= 0) { this.updateDeath(dt); return; }
     this.flash = Math.max(0, this.flash - dt);
     this.t += dt;
-    this.x += this.facing * 92 * dt;
-    this.y = this.baseY + Math.sin(this.t * 3.1) * 40;
+    this.x += this.facing * 68 * dt;
+    this.y = this.baseY + Math.sin(this.t * 2.3) * 26;
     this.frame = Math.floor(this.t * 6) % 2 ? 'a' : 'b';
     if (this.x < -60 || this.x > level.width + 60) this.dead = true;
   }
@@ -402,7 +409,7 @@ export class Pumpkin extends Enemy {
   constructor(x, y, dir = -1, variant = 'hopper') {
     super(x, y);
     this.variant = variant; this.sheet = 'pumpkin'; this.facing = dir;
-    this.score = 150; this.touchDamage = 2;
+    this.score = 150; this.touchDamage = variant === 'lantern' ? 1 : 2;
     if (variant === 'lantern') {
       this.w = 22; this.h = 22; this.hp = 1; this.flies = true; this.gravityScale = 0;
       this.baseY = y; this.t = Math.random() * 6; this.frame = 'flame0'; this.score = 200;
@@ -416,9 +423,9 @@ export class Pumpkin extends Enemy {
     const p = world.player;
     if (this.variant === 'lantern') {
       this.t += dt;
-      this.x += this.facing * 95 * dt;
-      this.baseY += ((p.y - 36) - this.baseY) * Math.min(1, dt * 0.6);
-      this.y = this.baseY + Math.sin(this.t * 3.4) * 36;
+      this.x += this.facing * 70 * dt;
+      this.baseY += ((p.y - 40) - this.baseY) * Math.min(1, dt * 0.35);
+      this.y = this.baseY + Math.sin(this.t * 2.5) * 24;
       this.frame = Math.floor(this.t * 9) % 2 ? 'flame0' : 'flame1';
       if (Math.random() < 0.5) world.particles.embers(this.x - this.facing * 8, this.y - 10, 1);
       if (this.x < -60 || this.x > level.width + 60) this.dead = true;
@@ -452,44 +459,44 @@ export class Pumpkin extends Enemy {
 export class Dragon extends Enemy {
   constructor(x, y, min, max) {
     super(x, y);
-    this.w = 60; this.h = 36; this.hp = 10; this.score = 600; this.touchDamage = 3;
+    this.w = 60; this.h = 36; this.hp = 6; this.score = 600; this.touchDamage = 2;
     this.sheet = 'dragon'; this.flies = true; this.gravityScale = 0;
     this.baseY = y; this.minX = min; this.maxX = max; this.facing = -1;
-    this.t = Math.random() * 5; this.fireCd = 2 + Math.random(); this.state = 'fly'; this.stateT = 0;
+    this.t = Math.random() * 5; this.fireCd = 2.4 + Math.random(); this.state = 'fly'; this.stateT = 0;
   }
   update(dt, level, world) {
     if (this.deathT >= 0) { this.updateDeath(dt); this.y += 90 * dt; return; }
     this.flash = Math.max(0, this.flash - dt);
     const p = world.player;
     this.t += dt; this.stateT += dt; this.fireCd -= dt;
-    const dx = p.x - this.x, near = p.alive && Math.abs(dx) < 380;
+    const dx = p.x - this.x, near = p.alive && Math.abs(dx) < 340;
     if (this.state === 'fly') {
       if (near) {
         this.facing = dx > 0 ? 1 : -1;
-        // Hold position above and ahead of the hunter.
-        const tx = p.x - this.facing * 150;
-        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), 75 * dt);
-        this.baseY += ((p.y - 110) - this.baseY) * Math.min(1, dt * 0.8);
+        // Hold position within jumping whip range ahead of the hunter.
+        const tx = p.x - this.facing * 82;
+        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), 52 * dt);
+        this.baseY += ((p.y - 72) - this.baseY) * Math.min(1, dt * 0.7);
       } else {
-        this.x += this.facing * 55 * dt;
+        this.x += this.facing * 44 * dt;
         if (this.x < this.minX || this.x > this.maxX) this.facing = -this.facing;
       }
-      this.y = this.baseY + Math.sin(this.t * 2.6) * 14;
+      this.y = this.baseY + Math.sin(this.t * 2.2) * 10;
       this.frame = Math.floor(this.t * 6) % 2 ? 'fly0' : 'fly1';
-      if (near && this.fireCd <= 0 && Math.abs(dx) < 320) { this.state = 'breath'; this.stateT = 0; this.shots = 0; }
+      if (near && this.fireCd <= 0 && Math.abs(dx) < 280) { this.state = 'breath'; this.stateT = 0; this.shots = 0; }
     } else {
       this.frame = 'breath';
-      this.y = this.baseY + Math.sin(this.t * 2.6) * 6;
-      const due = 0.35 + this.shots * 0.22;
-      if (this.shots < 3 && this.stateT >= due) {
+      this.y = this.baseY + Math.sin(this.t * 2.2) * 5;
+      const due = 0.50 + this.shots * 0.28;
+      if (this.shots < 2 && this.stateT >= due) {
         this.shots++;
         const fb = new Projectile('fireball', this.x + this.facing * 34, this.y - 14, this.facing, 'enemy');
         const ang = Math.atan2((p.y - 30) - (this.y - 14), p.x - (this.x + this.facing * 34));
-        fb.vx = Math.cos(ang) * 230; fb.vy = Math.sin(ang) * 230; fb.dir = fb.vx >= 0 ? 1 : -1;
+        fb.vx = Math.cos(ang) * 175; fb.vy = Math.sin(ang) * 175; fb.damage = 2; fb.dir = fb.vx >= 0 ? 1 : -1;
         world.spawnProjectile(fb);
         world.sfx('fire');
       }
-      if (this.stateT > 1.2) { this.state = 'fly'; this.fireCd = 2.8 * world.difficulty.throwCooldown; }
+      if (this.stateT > 1.25) { this.state = 'fly'; this.fireCd = 3.6 * world.difficulty.throwCooldown; }
     }
   }
   kill(world) {
@@ -546,7 +553,7 @@ export class Snowman extends Brute {
 export class FrostWisp extends Enemy {
   constructor(x, y, dir) {
     super(x, y);
-    this.w = 22; this.h = 22; this.hp = 1; this.score = 300; this.touchDamage = 2;
+    this.w = 22; this.h = 22; this.hp = 1; this.score = 300; this.touchDamage = 1;
     this.sheet = 'wisp'; this.flies = true; this.gravityScale = 0;
     this.facing = dir; this.baseY = y; this.t = Math.random() * 6;
   }
@@ -554,8 +561,8 @@ export class FrostWisp extends Enemy {
     if (this.deathT >= 0) { this.updateDeath(dt); return; }
     this.flash = Math.max(0, this.flash - dt);
     this.t += dt;
-    this.x += this.facing * 80 * dt;
-    this.y = this.baseY + Math.sin(this.t * 2.6) * 46;
+    this.x += this.facing * 62 * dt;
+    this.y = this.baseY + Math.sin(this.t * 2.0) * 28;
     this.frame = 'wisp' + (Math.floor(this.t * 8) % 4);
     if (Math.random() < 0.35) world.particles.emit({ x: this.x - this.facing * 8, y: this.y - 8, vx: 0, vy: 10, life: 0.5, color: '#cfeaff', size: 2, gravity: 0, glow: true });
     if (this.x < -60 || this.x > level.width + 60) this.dead = true;
@@ -665,20 +672,22 @@ export class Sporecap extends Brute {
 }
 
 /** Swooping Darkwood Night-Owl: perches high under elder boughs until the
- *  hunter approaches, then glides down in a fast woodland arc. */
+ *  hunter approaches, then glides down in a woodland arc. */
 export class NightOwl extends Enemy {
   constructor(x, y) {
     super(x, y);
-    this.w = 28; this.h = 20; this.hp = 2; this.score = SCORE.owl || 200; this.touchDamage = 2;
+    this.w = 28; this.h = 20; this.hp = 1; this.score = SCORE.owl || 200; this.touchDamage = 1;
     this.sheet = 'owl'; this.frame = 'fly1';
     this.flies = true; this.gravityScale = 0;
     this.homeY = y; this.state = 'perch'; this.t = Math.random() * 5;
+    this.wakeT = 0;
   }
-  wake(dir, targetY) {
+  wake(dir, targetY, delay = 0) {
     this.state = 'swoop';
     this.facing = dir;
     this.targetY = targetY;
     this.t = 0;
+    this.wakeT = delay;
   }
   update(dt, level, world) {
     if (this.deathT >= 0) { this.updateDeath(dt); return; }
@@ -688,15 +697,21 @@ export class NightOwl extends Enemy {
     if (this.state === 'perch') {
       this.frame = 'fly1';
       this.y = this.homeY + Math.sin(this.t * 3) * 2;
-      if (p.alive && Math.abs(p.x - this.x) < 235) {
-        this.wake(p.x < this.x ? -1 : 1, p.y - 34);
+      if (p.alive && Math.abs(p.x - this.x) < 210) {
+        this.wake(p.x < this.x ? -1 : 1, p.y - 40, 0.22);
       }
       return;
     }
-    this.x += this.facing * 148 * dt;
-    const dive = Math.sin(Math.min(Math.PI, this.t * 2.2));
-    this.y = this.homeY + (this.targetY - this.homeY) * dive + Math.sin(this.t * 7) * 5;
-    this.frame = 'fly' + (Math.floor(this.t * 10) % 3);
+    if (this.wakeT > 0) {
+      this.wakeT -= dt;
+      this.t = 0;
+      this.frame = Math.floor(this.wakeT * 16) % 2 ? 'fly2' : 'fly0';
+      return;
+    }
+    this.x += this.facing * 102 * dt;
+    const dive = Math.sin(Math.min(Math.PI, this.t * 1.65));
+    this.y = this.homeY + (this.targetY - this.homeY) * dive;
+    this.frame = 'fly' + (Math.floor(this.t * 9) % 3);
     if (this.x < world.camera.x - 90 || this.x > world.camera.x + 730) this.dead = true;
   }
   kill(world) {
@@ -710,18 +725,18 @@ export class NightOwl extends Enemy {
 // ------------------------------------------------------------ library haunts
 
 /** Phantom: a hooded library ghost that drifts toward the hunter, phases in
- *  and out (untouchable while faded), then lunges with a skull-faced shriek. */
+ *  and out (untouchable while faded), then telegraphs and lunges. */
 export class Phantom extends Enemy {
   constructor(x, y, dir = -1) {
     super(x, y);
-    this.w = 24; this.h = 40; this.hp = 2; this.score = SCORE.ghost || 300; this.touchDamage = 2;
+    this.w = 24; this.h = 40; this.hp = 1; this.score = SCORE.ghost || 300; this.touchDamage = 1;
     this.sheet = 'ghost'; this.frame = 'float0';
     this.flies = true; this.gravityScale = 0;
     this.facing = dir; this.baseY = y; this.t = Math.random() * 6;
-    this.state = 'drift'; this.stateT = 0; this.fade = 1; this.lungeCd = 1.4 + Math.random();
+    this.state = 'drift'; this.stateT = 0; this.fade = 1; this.lungeCd = 2.0 + Math.random();
   }
   takeHit(dmg, fromX, world) {
-    if (this.fade < 0.5) return false;          // phased out: the whip passes through
+    if (this.fade < 0.45) return false;          // phased out: the whip passes through
     return super.takeHit(dmg, fromX, world);
   }
   update(dt, level, world) {
@@ -729,28 +744,37 @@ export class Phantom extends Enemy {
     this.flash = Math.max(0, this.flash - dt);
     const p = world.player;
     this.t += dt; this.stateT += dt; this.lungeCd -= dt;
-    const dx = p.x - this.x, dy = (p.y - 30) - this.y;
+    const dx = p.x - this.x, dy = (p.y - 36) - this.y;
     if (this.state === 'drift') {
-      // Phase in/out on a slow cycle; home in gently on the hunter
-      this.fade = 0.55 + 0.45 * Math.sin(this.t * 1.7);
-      if (p.alive) {
+      // Phase in/out on a slow cycle; home in gently when near the hunter
+      this.fade = 0.65 + 0.35 * Math.sin(this.t * 1.5);
+      if (p.alive && Math.abs(dx) < 340) {
         this.facing = dx >= 0 ? 1 : -1;
-        this.x += Math.sign(dx) * Math.min(Math.abs(dx), 48 * dt);
-        this.baseY += Math.sign(dy) * Math.min(Math.abs(dy), 36 * dt);
+        this.x += Math.sign(dx) * Math.min(Math.abs(dx), 36 * dt);
+        this.baseY += Math.sign(dy) * Math.min(Math.abs(dy), 26 * dt);
+      } else {
+        this.x += this.facing * 28 * dt;
       }
-      this.y = this.baseY + Math.sin(this.t * 2.4) * 10;
+      this.y = this.baseY + Math.sin(this.t * 2.1) * 8;
       this.frame = Math.floor(this.t * 3) % 2 ? 'float1' : 'float0';
       if (Math.random() < 0.3) world.particles.emit({ x: this.x - this.facing * 10, y: this.y - 6 + Math.random() * 10, vx: -this.facing * 12, vy: -8, life: 0.6, color: 'rgba(170, 220, 255, 0.5)', size: 2, gravity: 0, glow: true });
-      if (p.alive && this.lungeCd <= 0 && this.fade > 0.8 && Math.abs(dx) < 200 && Math.abs(dy) < 90) {
-        this.state = 'lunge'; this.stateT = 0; this.fade = 1;
-        const d = Math.hypot(dx, dy) || 1;
-        this.vx = (dx / d) * 250; this.vy = (dy / d) * 250;
+      if (p.alive && this.lungeCd <= 0 && this.fade > 0.8 && Math.abs(dx) < 175 && Math.abs(dy) < 80) {
+        this.state = 'windup'; this.stateT = 0; this.fade = 1;
+        this.facing = dx >= 0 ? 1 : -1;
         world.sfx('fire');
+      }
+    } else if (this.state === 'windup') {
+      this.frame = 'lunge'; this.fade = 1;
+      this.y = this.baseY + Math.sin(this.stateT * 28) * 2;
+      if (this.stateT >= 0.38) {
+        this.state = 'lunge'; this.stateT = 0;
+        const d = Math.hypot(dx, dy) || 1;
+        this.vx = (dx / d) * 165; this.vy = (dy / d) * 165;
       }
     } else {
       this.frame = 'lunge'; this.fade = 1;
       this.x += this.vx * dt; this.baseY += this.vy * dt; this.y = this.baseY;
-      if (this.stateT > 0.55) { this.state = 'drift'; this.stateT = 0; this.lungeCd = 2.2 * world.difficulty.throwCooldown; }
+      if (this.stateT > 0.52) { this.state = 'drift'; this.stateT = 0; this.lungeCd = 2.8 * world.difficulty.throwCooldown; }
     }
     if (this.x < -80 || this.x > level.width + 80) this.dead = true;
   }
@@ -774,15 +798,15 @@ export class CursedTome extends Enemy {
     this.sheet = 'tome'; this.frame = 'shut';
     this.flies = true; this.gravityScale = 0;
     this.state = 'shelf'; this.t = Math.random() * 4; this.homeX = x; this.homeY = y;
-    this.chompT = 1.4 + Math.random() * 0.8;
+    this.chompT = 1.8 + Math.random() * 0.8;
   }
-  wake(dir) { this.state = 'fly'; this.facing = dir; this.vx = dir * 60; this.vy = -90; this.t = 0; }
+  wake(dir) { this.state = 'fly'; this.facing = dir; this.vx = dir * 48; this.vy = -70; this.t = 0; }
   update(dt, level, world) {
     if (this.deathT >= 0) { this.updateDeath(dt); this.y += 60 * dt; return; }
     this.flash = Math.max(0, this.flash - dt);
     const p = world.player;
     this.t += dt;
-    const dx = p.x - this.x, dy = (p.y - 28) - this.y;
+    const dx = p.x - this.x, dy = (p.y - 36) - this.y;
     if (this.state === 'shelf') {
       this.frame = 'shut';
       if (p.alive && Math.abs(dx) < 150 && Math.abs(dy) < 110) {
@@ -795,25 +819,31 @@ export class CursedTome extends Enemy {
     if (this.state === 'fly') {
       // Flap toward the hunter with a bobbing path
       this.facing = dx >= 0 ? 1 : -1;
-      this.vx += Math.sign(dx) * 180 * dt; this.vy += Math.sign(dy) * 150 * dt;
-      const sp = Math.hypot(this.vx, this.vy), max = 98;
+      this.vx += Math.sign(dx) * 120 * dt; this.vy += Math.sign(dy) * 100 * dt;
+      const sp = Math.hypot(this.vx, this.vy), max = 72;
       if (sp > max) { this.vx *= max / sp; this.vy *= max / sp; }
-      this.x += this.vx * dt; this.y += this.vy * dt + Math.sin(this.t * 9) * 0.6;
-      this.frame = Math.floor(this.t * 9) % 2 ? 'flap1' : 'flap0';
+      this.x += this.vx * dt; this.y += this.vy * dt + Math.sin(this.t * 7) * 0.45;
+      this.frame = Math.floor(this.t * 8) % 2 ? 'flap1' : 'flap0';
       this.chompT -= dt;
-      if (this.chompT <= 0 && Math.abs(dx) < 80 && Math.abs(dy) < 50) {
-        // Telegraph: snap shut and hang for a beat before the bite
-        this.state = 'chomp'; this.t = 0;
-        const d = Math.hypot(dx, dy) || 1;
-        this.vx = (dx / d) * 210; this.vy = (dy / d) * 210;
+      if (this.chompT <= 0 && Math.abs(dx) < 76 && Math.abs(dy) < 46) {
+        // Telegraph: snap shut and hang in mid-air for a beat before the bite
+        this.state = 'windup'; this.t = 0;
+        this.vx = 0; this.vy = 0;
         this.frame = 'shut';
         world.sfx('bone');
       }
+    } else if (this.state === 'windup') {
+      this.frame = 'shut';
+      if (this.t >= 0.32) {
+        this.state = 'chomp'; this.t = 0;
+        const d = Math.hypot(dx, dy) || 1;
+        this.vx = (dx / d) * 155; this.vy = (dy / d) * 155;
+      }
     } else {
-      this.frame = this.t < 0.18 ? 'chomp' : 'shut';
+      this.frame = this.t < 0.20 ? 'chomp' : 'shut';
       this.x += this.vx * dt; this.y += this.vy * dt;
-      this.vx *= 0.94; this.vy *= 0.94;
-      if (this.t > 0.42) { this.state = 'fly'; this.chompT = 1.6 + Math.random() * 0.8; }
+      this.vx *= 0.93; this.vy *= 0.93;
+      if (this.t > 0.44) { this.state = 'fly'; this.chompT = 2.2 + Math.random() * 0.8; }
     }
     if (this.x < -60 || this.x > level.width + 60 || this.y > level.height + 40) this.dead = true;
   }
@@ -833,7 +863,7 @@ export class CursedTome extends Enemy {
 export class Gargoyle extends Enemy {
   constructor(x, y) {
     super(x, y);
-    this.w = 28; this.h = 26; this.hp = 3; this.score = SCORE.gargoyle || 350; this.touchDamage = 3;
+    this.w = 28; this.h = 26; this.hp = 2; this.score = SCORE.gargoyle || 350; this.touchDamage = 2;
     this.sheet = 'gargoyle'; this.frame = 'perch';
     this.flies = true; this.gravityScale = 0;
     this.state = 'perch'; this.t = 0; this.homeX = x; this.homeY = y; this.facing = -1;
@@ -848,31 +878,31 @@ export class Gargoyle extends Enemy {
     this.flash = Math.max(0, this.flash - dt);
     const p = world.player;
     this.t += dt;
-    const dx = p.x - this.x, dy = (p.y - 34) - this.y;
+    const dx = p.x - this.x, dy = (p.y - 38) - this.y;
     if (this.state === 'perch') {
       this.frame = 'perch';
-      if (p.alive && Math.abs(dx) < 200 && dy > -60) this.wake(dx >= 0 ? 1 : -1, p.y - 34);
+      if (p.alive && Math.abs(dx) < 190 && dy > -60) this.wake(dx >= 0 ? 1 : -1, p.y - 38);
       return;
     }
     if (this.state === 'wake') {
       this.frame = 'wake';
       if (this.t === dt) world.sfx('block');
-      if (this.t > 0.5) { this.state = 'swoop'; this.t = 0; this.fromY = this.y; world.particles.dust(this.x, this.y, 6, '#9a9aa8'); }
+      if (this.t > 0.68) { this.state = 'swoop'; this.t = 0; this.fromY = this.y; world.particles.dust(this.x, this.y, 6, '#9a9aa8'); }
       return;
     }
     if (this.state === 'swoop') {
-      // Arc down through the hunter's height and climb back up on the far side
-      this.x += this.facing * 150 * dt;
-      const k = Math.min(1, this.t / 1.3);
+      // Arc down through the hunter's whip height and climb back up on the far side
+      this.x += this.facing * 112 * dt;
+      const k = Math.min(1, this.t / 1.45);
       this.y = this.fromY + (this.targetY - this.fromY) * Math.sin(k * Math.PI);
-      this.frame = Math.floor(this.t * 9) % 2 ? 'fly1' : 'fly0';
-      if (k >= 1) { this.state = 'hover'; this.t = 0; this.hoverY = this.y; }
+      this.frame = Math.floor(this.t * 8) % 2 ? 'fly1' : 'fly0';
+      if (k >= 1) { this.state = 'hover'; this.t = 0; this.hoverY = Math.max(this.y, p.y - 68); }
     } else {
-      // Hover briefly, turn to face the hunter, then dive again
+      // Hover within reach, turn to face the hunter, then dive again
       this.frame = Math.floor(this.t * 6) % 2 ? 'fly1' : 'fly0';
-      this.y = this.hoverY + Math.sin(this.t * 4) * 6;
-      this.x += Math.sign(dx) * 30 * dt;
-      if (this.t > 0.9) { this.facing = dx >= 0 ? 1 : -1; this.state = 'swoop'; this.t = 0; this.fromY = this.y; this.targetY = p.y - 30; }
+      this.y = this.hoverY + Math.sin(this.t * 3.5) * 5;
+      this.x += Math.sign(dx) * 22 * dt;
+      if (this.t > 1.45) { this.facing = dx >= 0 ? 1 : -1; this.state = 'swoop'; this.t = 0; this.fromY = this.y; this.targetY = p.y - 38; }
     }
     if (this.x < -80 || this.x > level.width + 80) this.dead = true;
   }
@@ -1004,17 +1034,17 @@ export class LavaGolem extends Brute {
 }
 
 /** Cinder Imp: agile winged volcanic fiend (`cinderimp`) that darts above lava
- *  pools, hovers out of easy reach, and spits aimed fireballs at the hunter. */
+ *  pools and spits aimed fireballs at the hunter. */
 export class CinderImp extends Enemy {
   constructor(x, y, dir = -1) {
     super(x, y);
-    this.w = 24; this.h = 30; this.hp = 2;
+    this.w = 24; this.h = 30; this.hp = 1;
     this.score = SCORE.cinderimp || 300;
-    this.touchDamage = 3;
+    this.touchDamage = 2;
     this.sheet = 'cinderimp'; this.frame = 'fly0';
     this.flies = true; this.gravityScale = 0; this.lavaImmune = true;
     this.facing = dir; this.baseY = y; this.t = Math.random() * 6;
-    this.state = 'hover'; this.stateT = 0; this.spitCd = 1.3 + Math.random() * 0.9;
+    this.state = 'hover'; this.stateT = 0; this.spitCd = 1.8 + Math.random() * 0.9;
   }
 
   update(dt, level, world) {
@@ -1023,40 +1053,40 @@ export class CinderImp extends Enemy {
     const p = world.player;
     this.t += dt; this.stateT += dt; this.spitCd -= dt;
     const dx = p.x - this.x;
-    const near = p.alive && Math.abs(dx) < 340;
+    const near = p.alive && Math.abs(dx) < 320;
     if (Math.random() < 0.3) world.particles.embers(this.x, this.y - 10, 1);
 
     if (this.state === 'hover') {
       if (near) {
         this.facing = dx >= 0 ? 1 : -1;
-        const wantX = p.x - this.facing * 125;
-        this.x += Math.sign(wantX - this.x) * Math.min(Math.abs(wantX - this.x), 108 * dt);
-        const wantY = p.y - 86;
-        this.baseY += Math.sign(wantY - this.baseY) * Math.min(Math.abs(wantY - this.baseY), 72 * dt);
+        const wantX = p.x - this.facing * 78;
+        this.x += Math.sign(wantX - this.x) * Math.min(Math.abs(wantX - this.x), 66 * dt);
+        const wantY = p.y - 54;
+        this.baseY += Math.sign(wantY - this.baseY) * Math.min(Math.abs(wantY - this.baseY), 46 * dt);
       } else {
-        this.x += this.facing * 65 * dt;
+        this.x += this.facing * 46 * dt;
       }
-      this.y = this.baseY + Math.sin(this.t * 5.2) * 14;
-      this.frame = Math.floor(this.t * 9) % 2 ? 'fly1' : 'fly0';
-      if (near && this.spitCd <= 0 && Math.abs(dx) < 290) {
+      this.y = this.baseY + Math.sin(this.t * 3.5) * 9;
+      this.frame = Math.floor(this.t * 8) % 2 ? 'fly1' : 'fly0';
+      if (near && this.spitCd <= 0 && Math.abs(dx) < 260) {
         this.state = 'spit'; this.stateT = 0; this.fired = false;
       }
     } else {
       this.frame = 'spit';
-      this.y = this.baseY + Math.sin(this.t * 5.2) * 5;
-      if (!this.fired && this.stateT >= 0.28) {
+      this.y = this.baseY + Math.sin(this.t * 3.5) * 4;
+      if (!this.fired && this.stateT >= 0.48) {
         this.fired = true;
         this.facing = dx >= 0 ? 1 : -1;
         const fb = new Projectile('fireball', this.x + this.facing * 16, this.y - 14, this.facing, 'enemy');
         const ang = Math.atan2((p.y - 28) - (this.y - 14), p.x - (this.x + this.facing * 16));
-        fb.vx = Math.cos(ang) * 235; fb.vy = Math.sin(ang) * 235;
+        fb.vx = Math.cos(ang) * 170; fb.vy = Math.sin(ang) * 170; fb.damage = 2;
         fb.gravity = 0; fb.dir = fb.vx >= 0 ? 1 : -1;
         world.spawnProjectile(fb);
         world.sfx('fire');
       }
-      if (this.stateT > 0.72) {
+      if (this.stateT > 0.92) {
         this.state = 'hover';
-        this.spitCd = (2.1 + Math.random() * 0.7) * world.difficulty.throwCooldown;
+        this.spitCd = (3.1 + Math.random() * 0.8) * world.difficulty.throwCooldown;
       }
     }
     if (this.x < -80 || this.x > level.width + 80) this.dead = true;
@@ -1173,13 +1203,13 @@ export class PlateKnight extends Enemy {
 export class ShadowWraith extends Enemy {
   constructor(x, y, dir = -1) {
     super(x, y);
-    this.w = 24; this.h = 46; this.hp = 3;
+    this.w = 24; this.h = 46; this.hp = 2;
     this.score = SCORE.wraith || 350;
-    this.touchDamage = 3;
+    this.touchDamage = 2;
     this.sheet = 'wraith'; this.frame = 'float0';
     this.flies = true; this.gravityScale = 0;
     this.facing = dir; this.baseY = y; this.t = Math.random() * 6;
-    this.state = 'glide'; this.stateT = 0; this.shriekCd = 1.6 + Math.random();
+    this.state = 'glide'; this.stateT = 0; this.shriekCd = 2.1 + Math.random();
   }
 
   update(dt, level, world) {
@@ -1188,7 +1218,7 @@ export class ShadowWraith extends Enemy {
     const p = world.player;
     this.t += dt; this.stateT += dt; this.shriekCd -= dt;
     const dx = p.x - this.x;
-    const near = p.alive && Math.abs(dx) < 340;
+    const near = p.alive && Math.abs(dx) < 320;
     if (Math.random() < 0.32) {
       world.particles.emit({
         x: this.x - this.facing * 8, y: this.y - 18 + (Math.random() - 0.5) * 16,
@@ -1200,22 +1230,22 @@ export class ShadowWraith extends Enemy {
     if (this.state === 'glide') {
       if (near) {
         this.facing = dx >= 0 ? 1 : -1;
-        const tx = p.x - this.facing * 115;
-        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), 68 * dt);
-        const ty = p.y - 26;
-        this.baseY += Math.sign(ty - this.baseY) * Math.min(Math.abs(ty - this.baseY), 44 * dt);
+        const tx = p.x - this.facing * 82;
+        this.x += Math.sign(tx - this.x) * Math.min(Math.abs(tx - this.x), 48 * dt);
+        const ty = p.y - 34;
+        this.baseY += Math.sign(ty - this.baseY) * Math.min(Math.abs(ty - this.baseY), 34 * dt);
       } else {
-        this.x += this.facing * 52 * dt;
+        this.x += this.facing * 38 * dt;
       }
-      this.y = this.baseY + Math.sin(this.t * 3.1) * 16;
+      this.y = this.baseY + Math.sin(this.t * 2.4) * 11;
       this.frame = Math.floor(this.t * 4.5) % 2 ? 'float1' : 'float0';
-      if (near && this.shriekCd <= 0 && Math.abs(dx) < 270) {
+      if (near && this.shriekCd <= 0 && Math.abs(dx) < 245) {
         this.state = 'shriek'; this.stateT = 0; this.fired = false;
       }
     } else {
       this.frame = 'shriek';
-      this.y = this.baseY + Math.sin(this.t * 8) * 4;
-      if (!this.fired && this.stateT >= 0.34) {
+      this.y = this.baseY + Math.sin(this.t * 8) * 3;
+      if (!this.fired && this.stateT >= 0.55) {
         this.fired = true;
         this.facing = dx >= 0 ? 1 : -1;
         const sk = new Projectile('skull', this.x + this.facing * 16, this.y - 28, this.facing, 'enemy');
@@ -1223,9 +1253,9 @@ export class ShadowWraith extends Enemy {
         world.particles.sparks(this.x + this.facing * 14, this.y - 28, 7, '#ff4a66');
         world.sfx('fire');
       }
-      if (this.stateT > 0.85) {
+      if (this.stateT > 1.05) {
         this.state = 'glide';
-        this.shriekCd = (2.6 + Math.random() * 0.8) * world.difficulty.throwCooldown;
+        this.shriekCd = (3.6 + Math.random() * 0.9) * world.difficulty.throwCooldown;
       }
     }
     if (this.x < -80 || this.x > level.width + 80) this.dead = true;
@@ -1281,7 +1311,8 @@ export class Spawner {
     this.type = def.type;
     this.variant = def.variant || 'normal';
     this.x0 = def.x0 * TILE; this.x1 = (def.x1 + 1) * TILE;
-    this.timer = 1.2;
+    const isFlying = this.type !== 'zombie' && this.type !== 'pumpkin';
+    this.timer = isFlying ? 1.8 : 1.2;
     this.alive = [];
   }
 
@@ -1290,9 +1321,10 @@ export class Spawner {
     const diff = world.difficulty;
     this.alive = this.alive.filter((e) => !e.dead);
     if (!p.alive || world.bossActive) return;
-    if (p.x < this.x0 - 100 || p.x > this.x1 + 100) { this.timer = Math.min(this.timer, 1.0); return; }
+    if (p.x < this.x0 - 100 || p.x > this.x1 + 100) { this.timer = Math.min(this.timer, 1.4); return; }
     this.timer -= dt;
     if (this.timer > 0) return;
+    const maxFly = diff.maxAlive >= 4 ? 2 : 1;
     if (this.type === 'zombie' || this.type === 'pumpkin') {
       if (this.alive.length >= diff.maxAlive) { this.timer = 0.6; return; }
       // Rise just off-screen-ish ahead or behind the hunter on real ground.
@@ -1312,48 +1344,52 @@ export class Spawner {
       }
       this.timer = (2.4 + Math.random() * 0.8) * diff.spawnInterval;
     } else if (this.type === 'medusa' || this.type === 'lantern' || this.type === 'wisp' || this.type === 'ghost' || this.type === 'wraith' || this.type === 'cinderimp') {
-      if (this.alive.length >= diff.maxAlive) { this.timer = 0.6; return; }
+      if (this.alive.length >= maxFly) { this.timer = 0.9; return; }
       const dir = -p.facing;
       const x = p.facing > 0 ? world.camera.x + 640 + 30 : world.camera.x - 30;
-      const y = p.y - (this.type === 'cinderimp' ? 76 : 30) - Math.random() * 30;
+      const y = p.y - (this.type === 'cinderimp' ? 54 : 36) - Math.random() * 16;
       const m = makeFloater(this.type, x, y, dir, this.variant);
+      m.active = true;
       world.spawnEnemy(m);
       this.alive.push(m);
-      this.timer = (this.type === 'wraith' || this.type === 'cinderimp' ? 3.2 : 2.0 + Math.random() * 0.8) * diff.spawnInterval;
+      this.timer = (this.type === 'wraith' || this.type === 'cinderimp' ? 4.6 + Math.random() * 1.0 : 3.4 + Math.random() * 1.1) * diff.spawnInterval;
     } else if (this.type === 'tome') {
       // Books tear themselves off the shelves ahead of the hunter, one at a time.
-      if (this.alive.length >= Math.max(1, diff.maxAlive - 1)) { this.timer = 0.9; return; }
+      if (this.alive.length >= maxFly) { this.timer = 1.0; return; }
       for (let i = 0; i < 1; i++) {
         const side = Math.random() < 0.7 ? p.facing : -p.facing;
-        const x = p.x + side * (120 + Math.random() * 120);
+        const x = p.x + side * (135 + Math.random() * 110);
         if (x < this.x0 || x > this.x1) continue;
-        const t = new CursedTome(x, p.y - 70 - Math.random() * 60);
+        const t = new CursedTome(x, p.y - 64 - Math.random() * 44);
         t.wake(-side);
+        t.active = true;
         world.spawnEnemy(t);
         this.alive.push(t);
         world.particles.dust(t.x, t.y, 5, '#c9b58a');
       }
       world.sfx('candle');
-      this.timer = (4.0 + Math.random() * 1.2) * diff.spawnInterval;
+      this.timer = (4.8 + Math.random() * 1.2) * diff.spawnInterval;
     } else if (this.type === 'gargoyle') {
-      if (this.alive.length >= Math.max(1, diff.maxAlive - 1)) { this.timer = 0.9; return; }
+      if (this.alive.length >= maxFly) { this.timer = 1.0; return; }
       const side = Math.random() < 0.75 ? p.facing : -p.facing;
-      const g = new Gargoyle(p.x + side * (250 + Math.random() * 90), Math.max(16, world.camera.y + 24));
-      g.wake(-side, p.y - 34);
+      const g = new Gargoyle(p.x + side * (250 + Math.random() * 80), Math.max(16, world.camera.y + 24));
+      g.wake(-side, p.y - 38);
+      g.active = true;
       world.spawnEnemy(g);
       this.alive.push(g);
-      this.timer = (3.6 + Math.random() * 1.2) * diff.spawnInterval;
+      this.timer = (4.8 + Math.random() * 1.2) * diff.spawnInterval;
     } else if (this.type === 'bat' || this.type === 'owl') {
       // Bats and owls swoop down from the rafters/canopy ahead of the hunter.
-      if (this.alive.length >= Math.max(1, diff.maxAlive - 1)) { this.timer = 0.8; return; }
+      if (this.alive.length >= maxFly) { this.timer = 1.0; return; }
       const side = Math.random() < 0.75 ? p.facing : -p.facing;
-      const x = p.x + side * (260 + Math.random() * 80);
-      const yTop = Math.max(16, world.camera.y + 14);
+      const x = p.x + side * (260 + Math.random() * 75);
+      const yTop = Math.max(16, world.camera.y + 18);
       const b = this.type === 'owl' ? new NightOwl(x, yTop) : new Bat(x, yTop, this.variant);
-      b.wake(-side, p.y - 36);
+      b.wake(-side, p.y - 40);
+      b.active = true;
       world.spawnEnemy(b);
       this.alive.push(b);
-      this.timer = (3.0 + Math.random() * 1.1) * diff.spawnInterval;
+      this.timer = (4.2 + Math.random() * 1.2) * diff.spawnInterval;
     }
   }
 }

@@ -123,7 +123,7 @@ export class Projectile {
       case 'holy_water': this.vx = dir * 150; this.vy = -240; this.gravity = 1; this.damage = 1; this.w = 10; this.h = 14; break;
       case 'bone': this.vx = dir * 200; this.vy = -370; this.gravity = 0.9; this.damage = 2; this.w = 12; this.h = 12; break;
       case 'sickle': this.vx = dir * 300; this.vy = 0; this.ax = -dir * 330; this.damage = 3; this.life = 2.6; this.w = 22; this.h = 22; this.pierce = 99; break;
-      case 'skull': this.vx = dir * 120; this.vy = -40; this.damage = 2; this.life = 4; this.w = 14; this.h = 14; this.pierce = 99; this.homing = true; break;
+      case 'skull': this.vx = dir * 100; this.vy = -30; this.damage = 2; this.life = 2.6; this.w = 14; this.h = 14; this.pierce = 99; this.homing = true; break;
       case 'hellfire': this.vx = dir * 180; this.vy = 0; this.damage = 3; this.life = 2.6; this.w = 16; this.h = 16; this.pierce = 99; break;
       case 'gaze': this.vx = dir * 380; this.vy = 0; this.damage = 3; this.life = 1.6; this.w = 34; this.h = 10; this.pierce = 99; break;
       case 'gas': this.vx = dir * 70; this.vy = 4; this.ax = -dir * 22; this.damage = 1; this.life = 2.6; this.w = 26; this.h = 26; this.pierce = 99; this.petrify = true; break;
@@ -155,8 +155,8 @@ export class Projectile {
     if (this.homing && world.player.alive) {
       const dx = world.player.x - this.x, dy = (world.player.y - 30) - this.y;
       const d = Math.hypot(dx, dy) || 1;
-      this.vx += (dx / d) * 260 * dt; this.vy += (dy / d) * 260 * dt;
-      const s = Math.hypot(this.vx, this.vy); if (s > 170) { this.vx *= 170 / s; this.vy *= 170 / s; }
+      this.vx += (dx / d) * 145 * dt; this.vy += (dy / d) * 145 * dt;
+      const s = Math.hypot(this.vx, this.vy); if (s > 125) { this.vx *= 125 / s; this.vy *= 125 / s; }
     }
     this.x += this.vx * dt;
     this.y += this.vy * dt;
