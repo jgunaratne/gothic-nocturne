@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "shield0": {
+   "ax": 44.5,
+   "ay": 121.0,
+   "clipFrame": 50,
+   "h": 121,
+   "w": 105,
+   "x": 1,
+   "y": 1
+  },
+  "shield1": {
+   "ax": 157.5,
+   "ay": 143.0,
+   "clipFrame": 84,
+   "h": 145,
+   "w": 258,
+   "x": 107,
+   "y": 1
+  },
+  "shield2": {
+   "ax": 121.0,
+   "ay": 143.0,
+   "clipFrame": 143,
+   "h": 145,
+   "w": 211,
+   "x": 366,
+   "y": 1
+  },
+  "shield3": {
+   "ax": 55.0,
+   "ay": 119.0,
+   "clipFrame": 196,
+   "h": 118,
+   "w": 104,
+   "x": 578,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "archivist_shield_sheet.png",
+ "source": {
+  "action": "shield",
+  "anchor": "hips",
+  "clip": "archivist_shield.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   50,
+   84,
+   143,
+   196
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Spectral Archivist, a ghostly robed librarian raises a ward facing right in ONE motion: it crosses its arms in front of its body and braces, holds the guarded pose, then relaxes. books swirl up into a barrier.",
+  "scale": 0.2632,
+  "select": "motion",
+  "sheet": "archivist",
+  "window": [
+   50,
+   196
+  ]
+ }
+}

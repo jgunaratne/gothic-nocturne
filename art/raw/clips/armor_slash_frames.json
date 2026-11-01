@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "slash0": {
+   "ax": 37.0,
+   "ay": 72.0,
+   "clipFrame": 46,
+   "h": 72,
+   "w": 72,
+   "x": 1,
+   "y": 1
+  },
+  "slash1": {
+   "ax": 35.5,
+   "ay": 71.0,
+   "clipFrame": 69,
+   "h": 71,
+   "w": 69,
+   "x": 74,
+   "y": 1
+  },
+  "slash2": {
+   "ax": 39.0,
+   "ay": 56.0,
+   "clipFrame": 100,
+   "h": 56,
+   "w": 111,
+   "x": 144,
+   "y": 1
+  },
+  "slash3": {
+   "ax": 38.5,
+   "ay": 61.0,
+   "clipFrame": 131,
+   "h": 61,
+   "w": 96,
+   "x": 256,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "armor_slash_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "armor_slash.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   46,
+   69,
+   100,
+   131
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1637,
+  "select": "pick",
+  "sheet": "armor"
+ }
+}

@@ -1,0 +1,55 @@
+{
+ "fps": null,
+ "frames": {
+  "lunge0": {
+   "ax": 23.0,
+   "ay": 48.0,
+   "clipFrame": 22,
+   "h": 48,
+   "w": 42,
+   "x": 1,
+   "y": 1
+  },
+  "lunge1": {
+   "ax": 24.5,
+   "ay": 46.0,
+   "clipFrame": 95,
+   "h": 42,
+   "w": 46,
+   "x": 44,
+   "y": 1
+  },
+  "lunge2": {
+   "ax": 25.0,
+   "ay": 46.0,
+   "clipFrame": 238,
+   "h": 46,
+   "w": 42,
+   "x": 91,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "ghost_lunge_sheet.png",
+ "source": {
+  "action": "lunge",
+  "anchor": "hips",
+  "clip": "ghost_lunge.mp4",
+  "frame": "float0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   22,
+   95,
+   238
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The phantom ghost performs ONE lunge attack facing right: it coils back in anticipation, springs forward with its limbs and claws extended, then recovers to the starting pose. it stays airborne.",
+  "scale": 0.1027,
+  "select": "motion",
+  "sheet": "ghost",
+  "window": [
+   22,
+   238
+  ]
+ }
+}

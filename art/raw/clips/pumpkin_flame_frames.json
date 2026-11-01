@@ -1,0 +1,63 @@
+{
+ "fps": null,
+ "frames": {
+  "flame0": {
+   "ax": 15.1,
+   "ay": 40.0,
+   "clipFrame": 30,
+   "h": 40,
+   "w": 29,
+   "x": 1,
+   "y": 1
+  },
+  "flame1": {
+   "ax": 15.0,
+   "ay": 39.0,
+   "clipFrame": 33,
+   "h": 39,
+   "w": 29,
+   "x": 31,
+   "y": 1
+  },
+  "flame2": {
+   "ax": 15.0,
+   "ay": 42.0,
+   "clipFrame": 36,
+   "h": 42,
+   "w": 29,
+   "x": 61,
+   "y": 1
+  },
+  "flame3": {
+   "ax": 15.0,
+   "ay": 40.0,
+   "clipFrame": 40,
+   "h": 40,
+   "w": 29,
+   "x": 91,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "pumpkin_flame_sheet.png",
+ "source": {
+  "action": "flame",
+  "anchor": "mean",
+  "clip": "pumpkin_flame.mp4",
+  "corr": 0.3157805800437927,
+  "frame": "flame0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 13,
+  "picks": [
+   30,
+   33,
+   36,
+   40
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The floating flaming jack-o'-lantern head stays in place facing right while the flames around it flicker and lick upward in a looping cycle, tongues of fire rising, bending and splitting. It stays centred.",
+  "scale": 0.0778,
+  "select": "period",
+  "sheet": "pumpkin"
+ }
+}

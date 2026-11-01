@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "fly0": {
+   "ax": 15.4,
+   "ay": 40.0,
+   "clipFrame": 30,
+   "h": 41,
+   "w": 27,
+   "x": 1,
+   "y": 1
+  },
+  "fly1": {
+   "ax": 17.2,
+   "ay": 39.0,
+   "clipFrame": 36,
+   "h": 40,
+   "w": 30,
+   "x": 29,
+   "y": 1
+  },
+  "fly2": {
+   "ax": 23.5,
+   "ay": 27.0,
+   "clipFrame": 42,
+   "h": 27,
+   "w": 45,
+   "x": 60,
+   "y": 1
+  },
+  "fly3": {
+   "ax": 13.7,
+   "ay": 28.0,
+   "clipFrame": 48,
+   "h": 30,
+   "w": 27,
+   "x": 106,
+   "y": 1
+  },
+  "fly4": {
+   "ax": 14.1,
+   "ay": 28.0,
+   "clipFrame": 53,
+   "h": 27,
+   "w": 29,
+   "x": 134,
+   "y": 1
+  },
+  "fly5": {
+   "ax": 21.1,
+   "ay": 33.0,
+   "clipFrame": 59,
+   "h": 33,
+   "w": 38,
+   "x": 164,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "cinderimp_fly_sheet.png",
+ "source": {
+  "action": "fly",
+  "anchor": "mean",
+  "clip": "cinderimp_fly.mp4",
+  "corr": 0.6430367231369019,
+  "frame": "fly0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 35,
+  "picks": [
+   30,
+   36,
+   42,
+   48,
+   53,
+   59
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The cinder imp hovers in place facing right, flapping its wings in a smooth looping cycle: wings sweeping high above the body, then down below it, with a gentle bob of the body. It stays centred and does not travel across the screen.",
+  "scale": 0.0837,
+  "select": "period",
+  "sheet": "cinderimp"
+ }
+}

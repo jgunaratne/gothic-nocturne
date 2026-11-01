@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "flame0": {
+   "ax": 34.3,
+   "ay": 95.0,
+   "clipFrame": 30,
+   "h": 95,
+   "w": 68,
+   "x": 1,
+   "y": 1
+  },
+  "flame1": {
+   "ax": 34.3,
+   "ay": 96.0,
+   "clipFrame": 39,
+   "h": 96,
+   "w": 68,
+   "x": 70,
+   "y": 1
+  },
+  "flame2": {
+   "ax": 34.3,
+   "ay": 95.0,
+   "clipFrame": 48,
+   "h": 95,
+   "w": 68,
+   "x": 139,
+   "y": 1
+  },
+  "flame3": {
+   "ax": 34.3,
+   "ay": 99.0,
+   "clipFrame": 56,
+   "h": 99,
+   "w": 68,
+   "x": 208,
+   "y": 1
+  },
+  "flame4": {
+   "ax": 34.3,
+   "ay": 98.0,
+   "clipFrame": 65,
+   "h": 98,
+   "w": 68,
+   "x": 277,
+   "y": 1
+  },
+  "flame5": {
+   "ax": 34.3,
+   "ay": 95.0,
+   "clipFrame": 74,
+   "h": 95,
+   "w": 68,
+   "x": 346,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "greatjack_flame_sheet.png",
+ "source": {
+  "action": "flame",
+  "anchor": "mean",
+  "clip": "greatjack_flame.mp4",
+  "corr": 0.2592529058456421,
+  "frame": "flame0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 53,
+  "picks": [
+   30,
+   39,
+   48,
+   56,
+   65,
+   74
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The giant flaming jack-o'-lantern stays in place facing right while the flames around it flicker and lick upward in a looping cycle, tongues of fire rising, bending and splitting. It stays centred.",
+  "scale": 0.2096,
+  "select": "period",
+  "sheet": "greatjack"
+ }
+}

@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "cast0": {
+   "ax": 23.0,
+   "ay": 84.0,
+   "clipFrame": 49,
+   "h": 84,
+   "w": 50,
+   "x": 1,
+   "y": 1
+  },
+  "cast1": {
+   "ax": 58.5,
+   "ay": 89.0,
+   "clipFrame": 73,
+   "h": 89,
+   "w": 115,
+   "x": 52,
+   "y": 1
+  },
+  "cast2": {
+   "ax": 58.5,
+   "ay": 82.0,
+   "clipFrame": 109,
+   "h": 82,
+   "w": 113,
+   "x": 168,
+   "y": 1
+  },
+  "cast3": {
+   "ax": 32.0,
+   "ay": 84.0,
+   "clipFrame": 181,
+   "h": 84,
+   "w": 57,
+   "x": 282,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "vampire_cast_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "vampire_cast.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   49,
+   73,
+   109,
+   181
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The vampire Count in a high-collared cape performs ONE spell-casting gesture facing right: he raises both hands, sweeps them in a theatrical flourish, thrusts one open hand forward toward the right and holds it, then lowers his arms. No magic effects, no energy, no beams, no glow, no light rays, no sparks: nothing leaves the hands or eyes, only the body gesture is animated.",
+  "scale": 0.1883,
+  "select": "motion",
+  "sheet": "vampire",
+  "window": [
+   49,
+   181
+  ]
+ }
+}

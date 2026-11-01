@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "punch0": {
+   "ax": 59.5,
+   "ay": 111.0,
+   "clipFrame": 25,
+   "h": 111,
+   "w": 124,
+   "x": 1,
+   "y": 1
+  },
+  "punch1": {
+   "ax": 62.0,
+   "ay": 114.0,
+   "clipFrame": 56,
+   "h": 114,
+   "w": 122,
+   "x": 126,
+   "y": 1
+  },
+  "punch2": {
+   "ax": 55.5,
+   "ay": 116.0,
+   "clipFrame": 101,
+   "h": 116,
+   "w": 166,
+   "x": 249,
+   "y": 1
+  },
+  "punch3": {
+   "ax": 59.5,
+   "ay": 109.0,
+   "clipFrame": 144,
+   "h": 109,
+   "w": 121,
+   "x": 416,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "automaton_punch_sheet.png",
+ "source": {
+  "action": "punch",
+  "anchor": "hips",
+  "clip": "automaton_punch.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   25,
+   56,
+   101,
+   144
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Brass Automaton, a clockwork knight performs ONE heavy punch facing right: it pulls its fist back in a wind-up, drives it forward to the right with a step, then withdraws.",
+  "scale": 0.2477,
+  "select": "motion",
+  "sheet": "automaton",
+  "window": [
+   25,
+   144
+  ]
+ }
+}

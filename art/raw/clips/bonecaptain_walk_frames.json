@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 23.7,
+   "ay": 101.0,
+   "clipFrame": 30,
+   "h": 101,
+   "w": 49,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 26.3,
+   "ay": 99.0,
+   "clipFrame": 39,
+   "h": 100,
+   "w": 54,
+   "x": 51,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 26.3,
+   "ay": 101.0,
+   "clipFrame": 48,
+   "h": 102,
+   "w": 51,
+   "x": 106,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 29.8,
+   "ay": 99.0,
+   "clipFrame": 56,
+   "h": 99,
+   "w": 58,
+   "x": 158,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 24.1,
+   "ay": 102.0,
+   "clipFrame": 65,
+   "h": 102,
+   "w": 50,
+   "x": 217,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 26.8,
+   "ay": 99.0,
+   "clipFrame": 74,
+   "h": 100,
+   "w": 55,
+   "x": 268,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 24.6,
+   "ay": 101.0,
+   "clipFrame": 82,
+   "h": 102,
+   "w": 50,
+   "x": 324,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 29.8,
+   "ay": 99.0,
+   "clipFrame": 91,
+   "h": 100,
+   "w": 58,
+   "x": 375,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "bonecaptain_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "bonecaptain_walk.mp4",
+  "corr": 0.4396125078201294,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 70,
+  "picks": [
+   30,
+   39,
+   48,
+   56,
+   65,
+   74,
+   82,
+   91
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The skeletal Bone Captain in a tattered officer's coat performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen.",
+  "scale": 0.2193,
+  "select": "period",
+  "sheet": "bonecaptain"
+ }
+}

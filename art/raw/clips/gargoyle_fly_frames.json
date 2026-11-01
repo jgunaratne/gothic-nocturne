@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "fly0": {
+   "ax": 26.2,
+   "ay": 65.0,
+   "clipFrame": 30,
+   "h": 66,
+   "w": 52,
+   "x": 1,
+   "y": 1
+  },
+  "fly1": {
+   "ax": 28.6,
+   "ay": 56.0,
+   "clipFrame": 35,
+   "h": 56,
+   "w": 54,
+   "x": 54,
+   "y": 1
+  },
+  "fly2": {
+   "ax": 35.2,
+   "ay": 38.0,
+   "clipFrame": 41,
+   "h": 36,
+   "w": 68,
+   "x": 109,
+   "y": 1
+  },
+  "fly3": {
+   "ax": 22.9,
+   "ay": 38.0,
+   "clipFrame": 46,
+   "h": 37,
+   "w": 44,
+   "x": 178,
+   "y": 1
+  },
+  "fly4": {
+   "ax": 30.2,
+   "ay": 46.0,
+   "clipFrame": 51,
+   "h": 46,
+   "w": 61,
+   "x": 223,
+   "y": 1
+  },
+  "fly5": {
+   "ax": 27.4,
+   "ay": 63.0,
+   "clipFrame": 57,
+   "h": 64,
+   "w": 53,
+   "x": 285,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "gargoyle_fly_sheet.png",
+ "source": {
+  "action": "fly",
+  "anchor": "mean",
+  "clip": "gargoyle_fly.mp4",
+  "corr": 0.6409671306610107,
+  "frame": "fly0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 32,
+  "picks": [
+   30,
+   35,
+   41,
+   46,
+   51,
+   57
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The stone gargoyle hovers in place facing right, flapping its wings in a smooth looping cycle: wings sweeping high above the body, then down below it, with a gentle bob of the body. It stays centred and does not travel across the screen.",
+  "scale": 0.1183,
+  "select": "period",
+  "sheet": "gargoyle"
+ }
+}

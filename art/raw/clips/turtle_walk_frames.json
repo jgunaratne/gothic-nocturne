@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 23.7,
+   "ay": 30.0,
+   "clipFrame": 30,
+   "h": 30,
+   "w": 48,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 23.5,
+   "ay": 30.0,
+   "clipFrame": 35,
+   "h": 30,
+   "w": 48,
+   "x": 50,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 24.4,
+   "ay": 31.0,
+   "clipFrame": 39,
+   "h": 31,
+   "w": 49,
+   "x": 99,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 24.8,
+   "ay": 30.0,
+   "clipFrame": 44,
+   "h": 30,
+   "w": 49,
+   "x": 149,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 23.7,
+   "ay": 30.0,
+   "clipFrame": 48,
+   "h": 30,
+   "w": 48,
+   "x": 199,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 23.5,
+   "ay": 30.0,
+   "clipFrame": 53,
+   "h": 30,
+   "w": 48,
+   "x": 248,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 23.4,
+   "ay": 31.0,
+   "clipFrame": 58,
+   "h": 31,
+   "w": 48,
+   "x": 297,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 23.5,
+   "ay": 30.0,
+   "clipFrame": 62,
+   "h": 30,
+   "w": 48,
+   "x": 346,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "turtle_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "turtle_walk.mp4",
+  "corr": 0.39972490072250366,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 37,
+  "picks": [
+   30,
+   35,
+   39,
+   44,
+   48,
+   53,
+   58,
+   62
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The giant armoured turtle performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. a slow four-legged plod.",
+  "scale": 0.0725,
+  "select": "period",
+  "sheet": "turtle"
+ }
+}

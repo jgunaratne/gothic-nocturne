@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "shriek0": {
+   "ax": 25.5,
+   "ay": 55.0,
+   "clipFrame": 24,
+   "h": 56,
+   "w": 44,
+   "x": 1,
+   "y": 1
+  },
+  "shriek1": {
+   "ax": 39.0,
+   "ay": 54.0,
+   "clipFrame": 62,
+   "h": 52,
+   "w": 78,
+   "x": 46,
+   "y": 1
+  },
+  "shriek2": {
+   "ax": 40.5,
+   "ay": 53.0,
+   "clipFrame": 106,
+   "h": 54,
+   "w": 79,
+   "x": 125,
+   "y": 1
+  },
+  "shriek3": {
+   "ax": 38.0,
+   "ay": 53.0,
+   "clipFrame": 147,
+   "h": 52,
+   "w": 63,
+   "x": 205,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "wraith_shriek_sheet.png",
+ "source": {
+  "action": "shriek",
+  "anchor": "hips",
+  "clip": "wraith_shriek.mp4",
+  "frame": "float0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   24,
+   62,
+   106,
+   147
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The shadow wraith performs ONE shriek facing right: it rears back drawing in, then throws its head forward with jaws wide open in a scream, its body shaking, then settles back.",
+  "scale": 0.12,
+  "select": "motion",
+  "sheet": "wraith",
+  "window": [
+   24,
+   147
+  ]
+ }
+}

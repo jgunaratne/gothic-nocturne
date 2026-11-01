@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "throw0": {
+   "ax": 15.0,
+   "ay": 62.0,
+   "clipFrame": 12,
+   "h": 62,
+   "w": 26,
+   "x": 1,
+   "y": 1
+  },
+  "throw1": {
+   "ax": 29.0,
+   "ay": 62.0,
+   "clipFrame": 59,
+   "h": 63,
+   "w": 58,
+   "x": 28,
+   "y": 1
+  },
+  "throw2": {
+   "ax": 23.5,
+   "ay": 56.0,
+   "clipFrame": 88,
+   "h": 56,
+   "w": 74,
+   "x": 87,
+   "y": 1
+  },
+  "throw3": {
+   "ax": 14.0,
+   "ay": 60.0,
+   "clipFrame": 146,
+   "h": 60,
+   "w": 31,
+   "x": 162,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "skeleton_throw_sheet.png",
+ "source": {
+  "action": "throw",
+  "anchor": "hips",
+  "clip": "skeleton_throw.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   59,
+   88,
+   146
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1339,
+  "select": "motion",
+  "sheet": "skeleton",
+  "window": [
+   12,
+   146
+  ]
+ }
+}

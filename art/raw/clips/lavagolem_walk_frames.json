@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 31.3,
+   "ay": 76.0,
+   "clipFrame": 30,
+   "h": 77,
+   "w": 73,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 24.6,
+   "ay": 79.0,
+   "clipFrame": 35,
+   "h": 79,
+   "w": 59,
+   "x": 75,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 22.2,
+   "ay": 81.0,
+   "clipFrame": 41,
+   "h": 81,
+   "w": 46,
+   "x": 135,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 31.3,
+   "ay": 78.0,
+   "clipFrame": 46,
+   "h": 79,
+   "w": 60,
+   "x": 182,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 32.0,
+   "ay": 77.0,
+   "clipFrame": 52,
+   "h": 77,
+   "w": 57,
+   "x": 243,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 21.5,
+   "ay": 79.0,
+   "clipFrame": 57,
+   "h": 79,
+   "w": 48,
+   "x": 301,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 28.1,
+   "ay": 80.0,
+   "clipFrame": 62,
+   "h": 80,
+   "w": 67,
+   "x": 350,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 34.0,
+   "ay": 78.0,
+   "clipFrame": 68,
+   "h": 78,
+   "w": 76,
+   "x": 418,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "lavagolem_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "lavagolem_walk.mp4",
+  "corr": 0.6571016311645508,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 43,
+  "picks": [
+   30,
+   35,
+   41,
+   46,
+   52,
+   57,
+   62,
+   68
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The lava golem performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. heavy lumbering strides.",
+  "scale": 0.1741,
+  "select": "period",
+  "sheet": "lavagolem"
+ }
+}

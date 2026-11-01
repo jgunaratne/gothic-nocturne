@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "throw0": {
+   "ax": 31.0,
+   "ay": 100.0,
+   "clipFrame": 24,
+   "h": 100,
+   "w": 58,
+   "x": 1,
+   "y": 1
+  },
+  "throw1": {
+   "ax": 26.0,
+   "ay": 103.0,
+   "clipFrame": 79,
+   "h": 103,
+   "w": 59,
+   "x": 60,
+   "y": 1
+  },
+  "throw2": {
+   "ax": 30.5,
+   "ay": 93.0,
+   "clipFrame": 93,
+   "h": 93,
+   "w": 60,
+   "x": 120,
+   "y": 1
+  },
+  "throw3": {
+   "ax": 25.5,
+   "ay": 100.0,
+   "clipFrame": 165,
+   "h": 100,
+   "w": 54,
+   "x": 181,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "bonecaptain_throw_sheet.png",
+ "source": {
+  "action": "throw",
+  "anchor": "hips",
+  "clip": "bonecaptain_throw.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   24,
+   79,
+   93,
+   165
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The skeletal Bone Captain in a tattered officer's coat performs ONE throwing attack facing right: it draws its arm back in a wind-up, hurls its projectile forward to the right with a sharp follow-through, then returns to its ready stance. it hurls a bone.",
+  "scale": 0.2193,
+  "select": "motion",
+  "sheet": "bonecaptain",
+  "window": [
+   24,
+   165
+  ]
+ }
+}

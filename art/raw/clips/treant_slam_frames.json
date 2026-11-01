@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "slam0": {
+   "ax": 53.0,
+   "ay": 136.0,
+   "clipFrame": 29,
+   "h": 136,
+   "w": 115,
+   "x": 1,
+   "y": 1
+  },
+  "slam1": {
+   "ax": 79.0,
+   "ay": 121.0,
+   "clipFrame": 98,
+   "h": 121,
+   "w": 161,
+   "x": 117,
+   "y": 1
+  },
+  "slam2": {
+   "ax": 75.5,
+   "ay": 116.0,
+   "clipFrame": 143,
+   "h": 122,
+   "w": 142,
+   "x": 279,
+   "y": 1
+  },
+  "slam3": {
+   "ax": 55.0,
+   "ay": 138.0,
+   "clipFrame": 177,
+   "h": 138,
+   "w": 126,
+   "x": 422,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "treant_slam_sheet.png",
+ "source": {
+  "action": "slam",
+  "anchor": "hips",
+  "clip": "treant_slam.mp4",
+  "frame": "roar",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   29,
+   98,
+   143,
+   177
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Briar King, an ancient thorned treant performs ONE ground slam facing right: it raises its arms high overhead, then smashes them down onto the ground in front of it with its whole body dropping, then rises back up. its root-arms crash down.",
+  "scale": 0.2934,
+  "select": "motion",
+  "sheet": "treant",
+  "window": [
+   29,
+   177
+  ]
+ }
+}

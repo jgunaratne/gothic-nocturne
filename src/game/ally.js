@@ -4,6 +4,7 @@
 // projectiles.
 
 import { TILE } from '../engine/constants.js';
+import { clipFrame } from './anim_clips.js';
 import { Entity, rectsOverlap } from './entities.js';
 import { getGlowCanvas } from './tex3d.js';
 
@@ -266,6 +267,7 @@ export class TurtleAlly extends Entity {
       }
     }
 
-    assets.draw(ctx, 'turtle', this.frame, sx, sy, this.facing < 0);
+    const f = clipFrame(assets, this, 'turtle', this.frame);
+    assets.draw(ctx, f.sheet, f.name, sx, sy, this.facing < 0);
   }
 }

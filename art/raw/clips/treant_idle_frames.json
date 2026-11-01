@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "idle0": {
+   "ax": 40.3,
+   "ay": 139.0,
+   "clipFrame": 30,
+   "h": 139,
+   "w": 96,
+   "x": 1,
+   "y": 1
+  },
+  "idle1": {
+   "ax": 40.3,
+   "ay": 139.0,
+   "clipFrame": 31,
+   "h": 139,
+   "w": 96,
+   "x": 98,
+   "y": 1
+  },
+  "idle2": {
+   "ax": 40.8,
+   "ay": 140.0,
+   "clipFrame": 33,
+   "h": 140,
+   "w": 98,
+   "x": 195,
+   "y": 1
+  },
+  "idle3": {
+   "ax": 41.4,
+   "ay": 140.0,
+   "clipFrame": 34,
+   "h": 140,
+   "w": 99,
+   "x": 294,
+   "y": 1
+  },
+  "idle4": {
+   "ax": 42.0,
+   "ay": 140.0,
+   "clipFrame": 35,
+   "h": 140,
+   "w": 100,
+   "x": 394,
+   "y": 1
+  },
+  "idle5": {
+   "ax": 43.2,
+   "ay": 140.0,
+   "clipFrame": 37,
+   "h": 140,
+   "w": 103,
+   "x": 495,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "treant_idle_sheet.png",
+ "source": {
+  "action": "idle_creature",
+  "anchor": "mean",
+  "clip": "treant_idle.mp4",
+  "corr": 0.5817254185676575,
+  "frame": "idle0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 8,
+  "picks": [
+   30,
+   31,
+   33,
+   34,
+   35,
+   37
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Briar King, an ancient thorned treant stays in place facing right in its ready stance with a slow looping idle motion: breathing, a slight sway, small shifts of its limbs and weapon. It never steps away, turns or attacks. branches creaking and swaying.",
+  "scale": 0.2931,
+  "select": "period",
+  "sheet": "treant"
+ }
+}

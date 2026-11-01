@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 15.0,
+   "ay": 57.0,
+   "clipFrame": 30,
+   "h": 57,
+   "w": 39,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 7.9,
+   "ay": 59.0,
+   "clipFrame": 38,
+   "h": 59,
+   "w": 30,
+   "x": 41,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 13.5,
+   "ay": 57.0,
+   "clipFrame": 45,
+   "h": 57,
+   "w": 37,
+   "x": 72,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 9.9,
+   "ay": 58.0,
+   "clipFrame": 52,
+   "h": 58,
+   "w": 33,
+   "x": 110,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 13.7,
+   "ay": 58.0,
+   "clipFrame": 60,
+   "h": 58,
+   "w": 37,
+   "x": 144,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 7.6,
+   "ay": 59.0,
+   "clipFrame": 68,
+   "h": 59,
+   "w": 30,
+   "x": 182,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 13.7,
+   "ay": 58.0,
+   "clipFrame": 75,
+   "h": 58,
+   "w": 37,
+   "x": 213,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 9.7,
+   "ay": 58.0,
+   "clipFrame": 82,
+   "h": 58,
+   "w": 33,
+   "x": 251,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "zombie_walk_sheet.png",
+ "source": {
+  "action": "shamble",
+  "anchor": "mean",
+  "clip": "zombie_walk.mp4",
+  "corr": 0.23748375475406647,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 60,
+  "picks": [
+   30,
+   38,
+   45,
+   52,
+   60,
+   68,
+   75,
+   82
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The rotting zombie performs a looping treadmill shamble in place facing right: stiff lurching steps, arms held out forward, head lolling, dragging one foot. It stays centred and does not travel across the screen.",
+  "scale": 0.1272,
+  "select": "period",
+  "sheet": "zombie"
+ }
+}

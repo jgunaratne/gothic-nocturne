@@ -1,0 +1,55 @@
+{
+ "fps": null,
+ "frames": {
+  "spit0": {
+   "ax": 18.5,
+   "ay": 37.0,
+   "clipFrame": 12,
+   "h": 36,
+   "w": 37,
+   "x": 1,
+   "y": 1
+  },
+  "spit1": {
+   "ax": 20.5,
+   "ay": 30.0,
+   "clipFrame": 120,
+   "h": 29,
+   "w": 36,
+   "x": 39,
+   "y": 1
+  },
+  "spit2": {
+   "ax": 17.0,
+   "ay": 38.0,
+   "clipFrame": 238,
+   "h": 37,
+   "w": 33,
+   "x": 76,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "cinderimp_spit_sheet.png",
+ "source": {
+  "action": "spit",
+  "anchor": "hips",
+  "clip": "cinderimp_spit.mp4",
+  "frame": "fly0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   120,
+   238
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The cinder imp performs ONE spitting attack facing right: it draws its head back, then snaps forward and spits toward the right, then returns to the starting pose. it stays airborne.",
+  "scale": 0.0833,
+  "select": "motion",
+  "sheet": "cinderimp",
+  "window": [
+   12,
+   238
+  ]
+ }
+}

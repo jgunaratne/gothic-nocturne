@@ -7,3 +7,6 @@ art/work/
 .venv
 assets/forge/jobs/
 assets/forge/*/raw/
+
+# Omni animation clips are provenance only (~3 MB each); the cut sheets + frames.json are tracked
+art/raw/clips/*.mp4

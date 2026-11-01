@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "breath0": {
+   "ax": 39.0,
+   "ay": 52.0,
+   "clipFrame": 12,
+   "h": 52,
+   "w": 83,
+   "x": 1,
+   "y": 1
+  },
+  "breath1": {
+   "ax": 57.0,
+   "ay": 50.0,
+   "clipFrame": 61,
+   "h": 50,
+   "w": 110,
+   "x": 85,
+   "y": 1
+  },
+  "breath2": {
+   "ax": 60.5,
+   "ay": 52.0,
+   "clipFrame": 102,
+   "h": 58,
+   "w": 117,
+   "x": 196,
+   "y": 1
+  },
+  "breath3": {
+   "ax": 40.0,
+   "ay": 52.0,
+   "clipFrame": 163,
+   "h": 52,
+   "w": 83,
+   "x": 314,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "catoblepas_breath_sheet.png",
+ "source": {
+  "action": "breath",
+  "anchor": "hips",
+  "clip": "catoblepas_breath.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   61,
+   102,
+   163
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The catoblepas, a heavy stooped buffalo-like beast with a huge low-hanging head performs ONE breath attack facing right: it rears its head back, opens its jaws wide and exhales a short burst toward the right, then closes its jaws and returns to the starting pose. it exhales a cloud of petrifying breath.",
+  "scale": 0.1171,
+  "select": "motion",
+  "sheet": "catoblepas",
+  "window": [
+   12,
+   163
+  ]
+ }
+}

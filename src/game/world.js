@@ -4,6 +4,7 @@
 import {
   W, H, TILE, T_GATE, T_BLOCK, SCORE, PLAYER,
 } from '../engine/constants.js';
+import { setClipClock } from './anim_clips.js';
 import { Camera } from '../engine/camera.js';
 import { getFxLayers } from '../engine/fxlayers.js';
 import { Particles, parseParticleColor } from '../engine/particles.js';
@@ -444,6 +445,7 @@ export class World {
   updateEntities(dt, input, live) {
     const p = this.player;
     const lvl = this.level;
+    setClipClock(this.time);   // enemy / boss clip animations run on this clock (frozen by hit-stop)
 
     // Advance 2.5D moving platforms, orbiting gears & crumbling slabs first,
     // carrying any grounded entities smoothly along their tracks.

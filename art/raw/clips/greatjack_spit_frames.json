@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "spit0": {
+   "ax": 35.0,
+   "ay": 96.0,
+   "clipFrame": 29,
+   "h": 96,
+   "w": 69,
+   "x": 1,
+   "y": 1
+  },
+  "spit1": {
+   "ax": 131.0,
+   "ay": 100.0,
+   "clipFrame": 76,
+   "h": 108,
+   "w": 239,
+   "x": 71,
+   "y": 1
+  },
+  "spit2": {
+   "ax": 135.0,
+   "ay": 100.0,
+   "clipFrame": 99,
+   "h": 116,
+   "w": 233,
+   "x": 311,
+   "y": 1
+  },
+  "spit3": {
+   "ax": 34.5,
+   "ay": 94.0,
+   "clipFrame": 128,
+   "h": 94,
+   "w": 68,
+   "x": 545,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "greatjack_spit_sheet.png",
+ "source": {
+  "action": "spit",
+  "anchor": "hips",
+  "clip": "greatjack_spit.mp4",
+  "frame": "flame0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   29,
+   76,
+   99,
+   128
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The giant flaming jack-o'-lantern performs ONE spitting attack facing right: it draws its head back, then snaps forward and spits toward the right, then returns to the starting pose. it spits a gout of fire.",
+  "scale": 0.2096,
+  "select": "motion",
+  "sheet": "greatjack",
+  "window": [
+   29,
+   128
+  ]
+ }
+}

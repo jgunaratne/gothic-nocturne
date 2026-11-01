@@ -1,0 +1,55 @@
+{
+ "fps": null,
+ "frames": {
+  "lunge0": {
+   "ax": 32.5,
+   "ay": 33.0,
+   "clipFrame": 30,
+   "h": 33,
+   "w": 66,
+   "x": 1,
+   "y": 1
+  },
+  "lunge1": {
+   "ax": 36.0,
+   "ay": 34.0,
+   "clipFrame": 95,
+   "h": 34,
+   "w": 68,
+   "x": 68,
+   "y": 1
+  },
+  "lunge2": {
+   "ax": 32.0,
+   "ay": 35.0,
+   "clipFrame": 153,
+   "h": 35,
+   "w": 67,
+   "x": 137,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "wolf_lunge_sheet.png",
+ "source": {
+  "action": "lunge",
+  "anchor": "hips",
+  "clip": "wolf_lunge.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   30,
+   95,
+   153
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The briar wolf performs ONE lunge attack facing right: it coils back in anticipation, springs forward with its limbs and claws extended, then recovers to the starting pose. a leaping bite.",
+  "scale": 0.0769,
+  "select": "motion",
+  "sheet": "wolf",
+  "window": [
+   30,
+   153
+  ]
+ }
+}

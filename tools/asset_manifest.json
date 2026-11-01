@@ -151,6 +151,21 @@
     "throw1": "left"
    }
   },
+  "skeleton_walk": {
+   "type": "clip",
+   "src": "clips/skeleton_walk_sheet.png",
+   "frames": "clips/skeleton_walk_frames.json"
+  },
+  "skeleton_walkb": {
+   "type": "clip",
+   "src": "clips/skeleton_walkb_sheet.png",
+   "frames": "clips/skeleton_walkb_frames.json"
+  },
+  "skeleton_throw": {
+   "type": "clip",
+   "src": "clips/skeleton_throw_sheet.png",
+   "frames": "clips/skeleton_throw_frames.json"
+  },
   "bat": {
    "type": "sheet",
    "src": "bat_sheet.png",
@@ -170,6 +185,11 @@
     ]
    ]
   },
+  "bat_fly": {
+   "type": "clip",
+   "src": "clips/bat_fly_sheet.png",
+   "frames": "clips/bat_fly_frames.json"
+  },
   "zombie": {
    "type": "sheet",
    "src": "zombie_sheet.png",
@@ -185,6 +205,11 @@
     ]
    ]
   },
+  "zombie_walk": {
+   "type": "clip",
+   "src": "clips/zombie_walk_sheet.png",
+   "frames": "clips/zombie_walk_frames.json"
+  },
   "medusa": {
    "type": "sheet",
    "src": "medusa_sheet.png",
@@ -197,6 +222,11 @@
      "b"
     ]
    ]
+  },
+  "medusa_wave": {
+   "type": "clip",
+   "src": "clips/medusa_wave_sheet.png",
+   "frames": "clips/medusa_wave_frames.json"
   },
   "boss": {
    "type": "sheet",
@@ -212,6 +242,21 @@
      "swing"
     ]
    ]
+  },
+  "boss_idle": {
+   "type": "clip",
+   "src": "clips/boss_idle_sheet.png",
+   "frames": "clips/boss_idle_frames.json"
+  },
+  "boss_windup": {
+   "type": "clip",
+   "src": "clips/boss_windup_sheet.png",
+   "frames": "clips/boss_windup_frames.json"
+  },
+  "boss_swing": {
+   "type": "clip",
+   "src": "clips/boss_swing_sheet.png",
+   "frames": "clips/boss_swing_frames.json"
   },
   "items": {
    "type": "sheet",
@@ -350,6 +395,26 @@
     ]
    ]
   },
+  "vampire_idle": {
+   "type": "clip",
+   "src": "clips/vampire_idle_sheet.png",
+   "frames": "clips/vampire_idle_frames.json"
+  },
+  "vampire_cape": {
+   "type": "clip",
+   "src": "clips/vampire_cape_sheet.png",
+   "frames": "clips/vampire_cape_frames.json"
+  },
+  "vampire_cast": {
+   "type": "clip",
+   "src": "clips/vampire_cast_sheet.png",
+   "frames": "clips/vampire_cast_frames.json"
+  },
+  "vampire_lunge": {
+   "type": "clip",
+   "src": "clips/vampire_lunge_sheet.png",
+   "frames": "clips/vampire_lunge_frames.json"
+  },
   "catoblepas": {
    "type": "sheet",
    "src": "catoblepas_sheet.png",
@@ -370,6 +435,16 @@
     "breath": "left"
    }
   },
+  "catoblepas_walk": {
+   "type": "clip",
+   "src": "clips/catoblepas_walk_sheet.png",
+   "frames": "clips/catoblepas_walk_frames.json"
+  },
+  "catoblepas_breath": {
+   "type": "clip",
+   "src": "clips/catoblepas_breath_sheet.png",
+   "frames": "clips/catoblepas_breath_frames.json"
+  },
   "pumpkin": {
    "type": "sheet",
    "src": "pumpkin_sheet.png",
@@ -386,6 +461,11 @@
     ]
    ],
    "colors": 24
+  },
+  "pumpkin_flame": {
+   "type": "clip",
+   "src": "clips/pumpkin_flame_sheet.png",
+   "frames": "clips/pumpkin_flame_frames.json"
   },
   "dragon": {
    "type": "sheet",
@@ -406,6 +486,16 @@
    "anchors": {
     "breath": "left"
    }
+  },
+  "dragon_fly": {
+   "type": "clip",
+   "src": "clips/dragon_fly_sheet.png",
+   "frames": "clips/dragon_fly_frames.json"
+  },
+  "dragon_breath": {
+   "type": "clip",
+   "src": "clips/dragon_breath_sheet.png",
+   "frames": "clips/dragon_breath_frames.json"
   },
   "pumpkinprops": {
    "type": "sheet",
@@ -439,6 +529,11 @@
    ],
    "colors": 24
   },
+  "ice_golem": {
+   "type": "clip",
+   "src": "clips/ice_golem_sheet.png",
+   "frames": "clips/ice_golem_frames.json"
+  },
   "wisp": {
    "type": "sheet",
    "src": "wisp_sheet.png",
@@ -456,6 +551,11 @@
    ],
    "colors": 16
   },
+  "wisp_wisp": {
+   "type": "clip",
+   "src": "clips/wisp_wisp_sheet.png",
+   "frames": "clips/wisp_wisp_frames.json"
+  },
   "santa": {
    "type": "sheet",
    "src": "santa_sheet.png",
@@ -472,6 +572,21 @@
     ]
    ],
    "colors": 32
+  },
+  "santa_idle": {
+   "type": "clip",
+   "src": "clips/santa_idle_sheet.png",
+   "frames": "clips/santa_idle_frames.json"
+  },
+  "santa_throw": {
+   "type": "clip",
+   "src": "clips/santa_throw_sheet.png",
+   "frames": "clips/santa_throw_frames.json"
+  },
+  "santa_lunge": {
+   "type": "clip",
+   "src": "clips/santa_lunge_sheet.png",
+   "frames": "clips/santa_lunge_frames.json"
   },
   "xmasprops": {
    "type": "sheet",
@@ -702,6 +817,11 @@
     ]
    ]
   },
+  "turtle_walk": {
+   "type": "clip",
+   "src": "clips/turtle_walk_sheet.png",
+   "frames": "clips/turtle_walk_frames.json"
+  },
   "wolf": {
    "type": "sheet",
    "src": "wolf_sheet.png",
@@ -719,6 +839,16 @@
     ]
    ]
   },
+  "wolf_walk": {
+   "type": "clip",
+   "src": "clips/wolf_walk_sheet.png",
+   "frames": "clips/wolf_walk_frames.json"
+  },
+  "wolf_lunge": {
+   "type": "clip",
+   "src": "clips/wolf_lunge_sheet.png",
+   "frames": "clips/wolf_lunge_frames.json"
+  },
   "sporecap": {
    "type": "sheet",
    "src": "sporecap_sheet.png",
@@ -732,6 +862,16 @@
      "puff"
     ]
    ]
+  },
+  "sporecap_walk": {
+   "type": "clip",
+   "src": "clips/sporecap_walk_sheet.png",
+   "frames": "clips/sporecap_walk_frames.json"
+  },
+  "sporecap_puff": {
+   "type": "clip",
+   "src": "clips/sporecap_puff_sheet.png",
+   "frames": "clips/sporecap_puff_frames.json"
   },
   "owl": {
    "type": "sheet",
@@ -747,6 +887,11 @@
     ]
    ]
   },
+  "owl_fly": {
+   "type": "clip",
+   "src": "clips/owl_fly_sheet.png",
+   "frames": "clips/owl_fly_frames.json"
+  },
   "treant": {
    "type": "sheet",
    "src": "treant_sheet.png",
@@ -761,6 +906,21 @@
      "roar"
     ]
    ]
+  },
+  "treant_idle": {
+   "type": "clip",
+   "src": "clips/treant_idle_sheet.png",
+   "frames": "clips/treant_idle_frames.json"
+  },
+  "treant_roar": {
+   "type": "clip",
+   "src": "clips/treant_roar_sheet.png",
+   "frames": "clips/treant_roar_frames.json"
+  },
+  "treant_slam": {
+   "type": "clip",
+   "src": "clips/treant_slam_sheet.png",
+   "frames": "clips/treant_slam_frames.json"
   },
   "darkwood_props": {
    "type": "sheet",
@@ -841,6 +1001,11 @@
     ]
    ]
   },
+  "giantbat_fly": {
+   "type": "clip",
+   "src": "clips/giantbat_fly_sheet.png",
+   "frames": "clips/giantbat_fly_frames.json"
+  },
   "bonecaptain": {
    "type": "sheet",
    "src": "bonecaptain_sheet.png",
@@ -863,6 +1028,16 @@
     "throw1": "left"
    }
   },
+  "bonecaptain_walk": {
+   "type": "clip",
+   "src": "clips/bonecaptain_walk_sheet.png",
+   "frames": "clips/bonecaptain_walk_frames.json"
+  },
+  "bonecaptain_throw": {
+   "type": "clip",
+   "src": "clips/bonecaptain_throw_sheet.png",
+   "frames": "clips/bonecaptain_throw_frames.json"
+  },
   "gorgon": {
    "type": "sheet",
    "src": "gorgon_sheet.png",
@@ -876,6 +1051,16 @@
      "stare"
     ]
    ]
+  },
+  "gorgon_idle": {
+   "type": "clip",
+   "src": "clips/gorgon_idle_sheet.png",
+   "frames": "clips/gorgon_idle_frames.json"
+  },
+  "gorgon_stare": {
+   "type": "clip",
+   "src": "clips/gorgon_stare_sheet.png",
+   "frames": "clips/gorgon_stare_frames.json"
   },
   "greatjack": {
    "type": "sheet",
@@ -894,6 +1079,16 @@
     "spit": "left"
    }
   },
+  "greatjack_flame": {
+   "type": "clip",
+   "src": "clips/greatjack_flame_sheet.png",
+   "frames": "clips/greatjack_flame_frames.json"
+  },
+  "greatjack_spit": {
+   "type": "clip",
+   "src": "clips/greatjack_spit_sheet.png",
+   "frames": "clips/greatjack_spit_frames.json"
+  },
   "automaton": {
    "type": "sheet",
    "src": "automaton_sheet.png",
@@ -911,6 +1106,26 @@
    "anchors": {
     "punch": "left"
    }
+  },
+  "automaton_idle": {
+   "type": "clip",
+   "src": "clips/automaton_idle_sheet.png",
+   "frames": "clips/automaton_idle_frames.json"
+  },
+  "automaton_walk": {
+   "type": "clip",
+   "src": "clips/automaton_walk_sheet.png",
+   "frames": "clips/automaton_walk_frames.json"
+  },
+  "automaton_punch": {
+   "type": "clip",
+   "src": "clips/automaton_punch_sheet.png",
+   "frames": "clips/automaton_punch_frames.json"
+  },
+  "automaton_overload": {
+   "type": "clip",
+   "src": "clips/automaton_overload_sheet.png",
+   "frames": "clips/automaton_overload_frames.json"
   },
   "arcade_props": {
    "type": "sheet",
@@ -1025,6 +1240,16 @@
     "lunge": "left"
    }
   },
+  "ghost_float": {
+   "type": "clip",
+   "src": "clips/ghost_float_sheet.png",
+   "frames": "clips/ghost_float_frames.json"
+  },
+  "ghost_lunge": {
+   "type": "clip",
+   "src": "clips/ghost_lunge_sheet.png",
+   "frames": "clips/ghost_lunge_frames.json"
+  },
   "tome": {
    "type": "sheet",
    "src": "tome_sheet.png",
@@ -1040,6 +1265,11 @@
     ]
    ]
   },
+  "tome_flap": {
+   "type": "clip",
+   "src": "clips/tome_flap_sheet.png",
+   "frames": "clips/tome_flap_frames.json"
+  },
   "archivist": {
    "type": "sheet",
    "src": "archivist_sheet.png",
@@ -1054,6 +1284,26 @@
      "shield"
     ]
    ]
+  },
+  "archivist_idle": {
+   "type": "clip",
+   "src": "clips/archivist_idle_sheet.png",
+   "frames": "clips/archivist_idle_frames.json"
+  },
+  "archivist_cast": {
+   "type": "clip",
+   "src": "clips/archivist_cast_sheet.png",
+   "frames": "clips/archivist_cast_frames.json"
+  },
+  "archivist_summon": {
+   "type": "clip",
+   "src": "clips/archivist_summon_sheet.png",
+   "frames": "clips/archivist_summon_frames.json"
+  },
+  "archivist_shield": {
+   "type": "clip",
+   "src": "clips/archivist_shield_sheet.png",
+   "frames": "clips/archivist_shield_frames.json"
   },
   "chandelier": {
    "type": "sheet",
@@ -1165,6 +1415,16 @@
     ]
    ]
   },
+  "gargoyle_fly": {
+   "type": "clip",
+   "src": "clips/gargoyle_fly_sheet.png",
+   "frames": "clips/gargoyle_fly_frames.json"
+  },
+  "gargoyle_wake": {
+   "type": "clip",
+   "src": "clips/gargoyle_wake_sheet.png",
+   "frames": "clips/gargoyle_wake_frames.json"
+  },
   "archon": {
    "type": "sheet",
    "src": "archon_sheet.png",
@@ -1245,6 +1505,11 @@
     ]
    ]
   },
+  "magmaslime_crawl": {
+   "type": "clip",
+   "src": "clips/magmaslime_crawl_sheet.png",
+   "frames": "clips/magmaslime_crawl_frames.json"
+  },
   "lavagolem": {
    "type": "sheet",
    "src": "lavagolem_sheet.png",
@@ -1260,6 +1525,16 @@
     ]
    ]
   },
+  "lavagolem_walk": {
+   "type": "clip",
+   "src": "clips/lavagolem_walk_sheet.png",
+   "frames": "clips/lavagolem_walk_frames.json"
+  },
+  "lavagolem_hurl": {
+   "type": "clip",
+   "src": "clips/lavagolem_hurl_sheet.png",
+   "frames": "clips/lavagolem_hurl_frames.json"
+  },
   "cinderimp": {
    "type": "sheet",
    "src": "cinderimp_sheet.png",
@@ -1273,6 +1548,16 @@
      "spit"
     ]
    ]
+  },
+  "cinderimp_fly": {
+   "type": "clip",
+   "src": "clips/cinderimp_fly_sheet.png",
+   "frames": "clips/cinderimp_fly_frames.json"
+  },
+  "cinderimp_spit": {
+   "type": "clip",
+   "src": "clips/cinderimp_spit_sheet.png",
+   "frames": "clips/cinderimp_spit_frames.json"
   },
   "armor": {
    "type": "sheet",
@@ -1292,6 +1577,16 @@
     "slash": "left"
    }
   },
+  "armor_walk": {
+   "type": "clip",
+   "src": "clips/armor_walk_sheet.png",
+   "frames": "clips/armor_walk_frames.json"
+  },
+  "armor_slash": {
+   "type": "clip",
+   "src": "clips/armor_slash_sheet.png",
+   "frames": "clips/armor_slash_frames.json"
+  },
   "wraith": {
    "type": "sheet",
    "src": "wraith_sheet.png",
@@ -1305,6 +1600,16 @@
      "shriek"
     ]
    ]
+  },
+  "wraith_float": {
+   "type": "clip",
+   "src": "clips/wraith_float_sheet.png",
+   "frames": "clips/wraith_float_frames.json"
+  },
+  "wraith_shriek": {
+   "type": "clip",
+   "src": "clips/wraith_shriek_sheet.png",
+   "frames": "clips/wraith_shriek_frames.json"
   },
   "cinderqueen": {
    "type": "sheet",

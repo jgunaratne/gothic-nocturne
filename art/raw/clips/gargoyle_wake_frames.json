@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "wake0": {
+   "ax": 22.5,
+   "ay": 36.0,
+   "clipFrame": 40,
+   "h": 36,
+   "w": 41,
+   "x": 1,
+   "y": 1
+  },
+  "wake1": {
+   "ax": 35.5,
+   "ay": 42.0,
+   "clipFrame": 80,
+   "h": 42,
+   "w": 65,
+   "x": 43,
+   "y": 1
+  },
+  "wake2": {
+   "ax": 28.0,
+   "ay": 40.0,
+   "clipFrame": 167,
+   "h": 40,
+   "w": 54,
+   "x": 109,
+   "y": 1
+  },
+  "wake3": {
+   "ax": 29.5,
+   "ay": 40.0,
+   "clipFrame": 237,
+   "h": 40,
+   "w": 55,
+   "x": 164,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "gargoyle_wake_sheet.png",
+ "source": {
+  "action": "wake",
+  "anchor": "hips",
+  "clip": "gargoyle_wake.mp4",
+  "frame": "perch",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   40,
+   80,
+   167,
+   237
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The stone gargoyle wakes from stone facing right: it cracks and shudders, unfolds its wings and limbs, lifts its head and opens its eyes, then holds the awake pose.",
+  "scale": 0.0826,
+  "select": "motion",
+  "sheet": "gargoyle",
+  "window": [
+   40,
+   237
+  ]
+ }
+}

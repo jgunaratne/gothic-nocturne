@@ -89,6 +89,88 @@ ACTIONS = {
              "flinch with the head snapping back and the arms flung up, two staggering "
              "steps backwards to the left, then a collapse to the knees and a fall onto "
              "the back, lying still for the rest of the clip."),
+    # ---- generic creature loops (enemies, bosses) ----
+    "fly": ("The {subject} hovers in place facing right, flapping its wings in a smooth "
+            "looping cycle: wings sweeping high above the body, then down below it, with "
+            "a gentle bob of the body. It stays centred and does not travel across the screen."),
+    "float": ("The {subject} hovers in place facing right with a slow looping drifting "
+              "motion: it bobs gently up and down, its trailing wisps, robes or tail swaying. "
+              "No flapping. It stays centred and does not travel across the screen."),
+    "idle_creature": ("The {subject} stays in place facing right in its ready stance with a "
+                      "slow looping idle motion: breathing, a slight sway, small shifts of its "
+                      "limbs and weapon. It never steps away, turns or attacks."),
+    "crawl": ("The {subject} crawls in place facing right in a looping cycle: its body "
+              "compresses, then stretches forward, bulging and settling, its surface "
+              "rippling. It stays centred and does not travel across the screen."),
+    "flame": ("The {subject} stays in place facing right while the flames around it flicker "
+              "and lick upward in a looping cycle, tongues of fire rising, bending and "
+              "splitting. It stays centred."),
+    "wisp": ("The {subject} drifts in place facing right, its wispy trails and inner glow "
+             "pulsing and swirling in a looping cycle. It stays centred."),
+    "shamble": ("The {subject} performs a looping treadmill shamble in place facing right: "
+                "stiff lurching steps, arms held out forward, head lolling, dragging one foot. "
+                "It stays centred and does not travel across the screen."),
+    "prowl": ("The {subject} performs a smooth looping treadmill run cycle in place facing "
+              "right on all fours: legs reaching and gathering, back flexing, head low. It "
+              "stays centred and does not travel across the screen."),
+    # ---- generic creature one-shots ----
+    "throw": ("The {subject} performs ONE throwing attack facing right: it draws its arm back "
+              "in a wind-up, hurls its projectile forward to the right with a sharp "
+              "follow-through, then returns to its ready stance."),
+    "breath": ("The {subject} performs ONE breath attack facing right: it rears its head back, "
+               "opens its jaws wide and exhales a short burst toward the right, then closes "
+               "its jaws and returns to the starting pose."),
+    "spit": ("The {subject} performs ONE spitting attack facing right: it draws its head back, "
+             "then snaps forward and spits toward the right, then returns to the starting pose."),
+    "puff": ("The {subject} performs ONE spore puff facing right: it squeezes down and swells, "
+             "then releases a short burst of spores from its cap, then settles back."),
+    "lunge": ("The {subject} performs ONE lunge attack facing right: it coils back in "
+              "anticipation, springs forward with its limbs and claws extended, then recovers "
+              "to the starting pose."),
+    "wake": ("The {subject} wakes from stone facing right: it cracks and shudders, unfolds its "
+             "wings and limbs, lifts its head and opens its eyes, then holds the awake pose."),
+    "slash": ("The {subject} performs ONE sword slash facing right: it raises its weapon high in "
+              "a wind-up, slashes it down and across in a wide arc with a lunging step, then "
+              "recovers to its guard stance."),
+    "shriek": ("The {subject} performs ONE shriek facing right: it rears back drawing in, then "
+               "throws its head forward with jaws wide open in a scream, its body shaking, "
+               "then settles back."),
+    "windup": ("The {subject} performs the WIND-UP of a heavy attack facing right: it draws its "
+               "weapon and limbs back and up high, its body coiling with tension, and holds "
+               "the raised pose."),
+    "swing": ("The {subject} performs ONE heavy swing facing right starting from a raised "
+              "wind-up: it brings its weapon down and across in a wide sweeping arc, following "
+              "through past its body, then recovers."),
+    "stare": ("The {subject} performs ONE petrifying stare facing right: it leans forward, its "
+              "eyes flaring wide and bright, hair and serpents rising, holds the glare, then "
+              "relaxes back."),
+    "cape": ("The {subject} sweeps its cape across its body facing right in ONE flourish: it "
+             "raises an arm, the cape billows up and wraps around it, then unfurls back to the "
+             "standing pose."),
+    "cast": ("The {subject} performs ONE spell cast facing right: it raises both hands, gathers "
+             "energy with a flourish, thrusts a hand forward to release it toward the right, "
+             "then lowers its arms."),
+    "roar": ("The {subject} performs ONE roar facing right: it draws itself up, throws its head "
+             "back with its mouth wide open, limbs spread, body trembling, then settles."),
+    "slam": ("The {subject} performs ONE ground slam facing right: it raises its arms high "
+             "overhead, then smashes them down onto the ground in front of it with its whole "
+             "body dropping, then rises back up."),
+    "punch": ("The {subject} performs ONE heavy punch facing right: it pulls its fist back in a "
+              "wind-up, drives it forward to the right with a step, then withdraws."),
+    "overload": ("The {subject} overloads facing right: it shudders violently, steam and sparks "
+                 "venting from its joints, arms flung outward, head thrown back, then slumps "
+                 "and recovers."),
+    "summon": ("The {subject} performs ONE summoning gesture facing right: it raises its arms "
+               "slowly skyward, hands spread, head tilting back, then lowers them."),
+    "shield": ("The {subject} raises a ward facing right in ONE motion: it crosses its arms in "
+               "front of its body and braces, holds the guarded pose, then relaxes."),
+    "erupt": ("The {subject} erupts facing right: it crouches down, then flings its arms up as "
+              "flames burst upward from its body, then settles back."),
+    "surge": ("The {subject} performs ONE surging charge facing right: it leans forward and "
+              "pushes off, its body streaming forward with trailing fire, then straightens."),
+    "hurl": ("The {subject} performs ONE boulder throw facing right: it heaves a heavy rock up "
+             "over its head with both arms, hurls it forward to the right, then drops its "
+             "arms and returns to its stance."),
 }
 
 
@@ -333,7 +415,7 @@ def lock_palette(px, pal):
     return out
 
 
-def crop_frame(frame, scale, ground, min_col_frac=0.35):
+def crop_frame(frame, scale, ground, min_col_frac=0.35, anchor_y="ground"):
     """Keys, crops and downscales one frame. Returns the pixels plus the feet row
     (`ay`, the ground line when a lash hangs lower) and the body centre (`ax`)
     inside the crop, and the crop's left edge in scaled clip coordinates.
@@ -348,7 +430,11 @@ def crop_frame(frame, scale, ground, min_col_frac=0.35):
     h = max(1, int(round((y1 - y0) * scale)))
     small = pa.harden_alpha(pa.resize_premultiplied(crop, (w, h)))
     small = remove_specks(small)
-    feet_row = min(h, int(round((min(y1, ground) - y0) * scale)))
+    # Vertical anchor: "ground" keeps the first frame's ground line (a hovering body
+    # or a walker's lifted boot stays put, a lash lying lower hangs below it);
+    # "feet" follows the silhouette bottom when it leaves the ground (jumps).
+    anchor_src = min(y1, ground) if anchor_y == "feet" else ground
+    feet_row = int(round((anchor_src - y0) * scale))
     # Trim to what is left after the speck removal (a dropped prop shrinks the frame).
     a = small[..., 3] > 0
     ys, xs = np.flatnonzero(a.any(1)), np.flatnonzero(a.any(0))
@@ -357,9 +443,9 @@ def crop_frame(frame, scale, ground, min_col_frac=0.35):
     tx0, tx1, ty0, ty1 = int(xs[0]), int(xs[-1]) + 1, int(ys[0]), int(ys[-1]) + 1
     small = small[ty0:ty1, tx0:tx1]
     a = a[ty0:ty1, tx0:tx1]
-    feet_row = min(small.shape[0], feet_row - ty0)
-    body_h = max(1, feet_row)
-    cols = a[:feet_row].sum(0)
+    feet_row = feet_row - ty0                      # may exceed the height (body above the anchor)
+    body_h = max(1, min(small.shape[0], feet_row))
+    cols = a[:max(1, min(small.shape[0], feet_row))].sum(0)
     dense = np.flatnonzero(cols >= max(2, min_col_frac * body_h))
     if len(dense) == 0:
         dense = np.flatnonzero(cols > 0)
@@ -367,12 +453,12 @@ def crop_frame(frame, scale, ground, min_col_frac=0.35):
     return {"index": None, "px": small, "ax": body_x, "ay": float(feet_row), "left": (x0 + tx0 / scale) * scale}
 
 
-def pixelize(frames, picks, scale, ground, anchor_mode, ref_px, pal):
+def pixelize(frames, picks, scale, ground, anchor_mode, ref_px, pal, anchor_y="ground"):
     """Downscales the picked frames with one shared scale, anchors them at the
     feet / hips, colour-matches them to the reference frame and locks the palette."""
     out = []
     for i in picks:
-        it = crop_frame(frames[i], scale, ground)
+        it = crop_frame(frames[i], scale, ground, anchor_y=anchor_y)
         it["index"] = i
         out.append(it)
     if anchor_mode in ("mean", "first"):
@@ -381,7 +467,7 @@ def pixelize(frames, picks, scale, ground, anchor_mode, ref_px, pal):
         if anchor_mode == "mean":
             target = float(np.mean([o["left"] + o["ax"] for o in out]))
         else:
-            f0 = crop_frame(frames[0], scale, ground)
+            f0 = crop_frame(frames[0], scale, ground, anchor_y=anchor_y)
             target = f0["left"] + f0["ax"]
         for o in out:
             o["ax"] = target - o["left"]
@@ -468,7 +554,12 @@ def main():
     ap.add_argument("--max-lag", type=int, default=72)
     ap.add_argument("--names", default=None, help="'walk' -> walk0..N, or an explicit comma list")
     ap.add_argument("--anchor", choices=["hips", "mean", "first"], default=None,
-                    help="x anchor: per-frame hips (one-shots), their mean (loops) or the first frame")
+                    help="x anchor: per-frame body centre (one-shots), their mean (loops) or the first frame")
+    ap.add_argument("--anchor-y", choices=["ground", "feet"], default="ground",
+                    help="y anchor: the first frame's ground line (default) or the silhouette bottom (jumps)")
+    ap.add_argument("--clip-fps", type=float, default=None,
+                    help="playback hint stored in the frames.json (loops: cycle rate, one-shots: frame rate)")
+    ap.add_argument("--loop", action="store_true", help="mark the clip as a loop in the frames.json")
     ap.add_argument("--no-lock", action="store_true", help="skip the palette lock (median-cut to --colors instead)")
     ap.add_argument("--colors", type=int, default=32)
     ap.add_argument("--fps", type=float, default=8, help="preview GIF rate")
@@ -553,7 +644,7 @@ def main():
     ref_img = np.asarray(Image.open(os.path.join(pa.OUT, atlas[args.sheet]["file"])).convert("RGBA")).astype(np.float32)
     ref_px = ref_img[ref_rec["y"]:ref_rec["y"] + ref_rec["h"], ref_rec["x"]:ref_rec["x"] + ref_rec["w"]]
     pal = None if args.no_lock else sheet_palette(os.path.join(pa.OUT, atlas[args.sheet]["file"]))
-    items = pixelize(frames, picks, scale, ground, anchor, ref_px, pal)
+    items = pixelize(frames, picks, scale, ground, anchor, ref_px, pal, args.anchor_y)
     if pal is None:
         strip = np.zeros((max(i["px"].shape[0] for i in items), sum(i["px"].shape[1] for i in items), 4), np.float32)
         x = 0
@@ -564,7 +655,8 @@ def main():
         for it in items:
             it["px"] = strip[:it["px"].shape[0], x:x + it["px"].shape[1]].copy(); x += it["px"].shape[1]
 
-    meta = {"source": {"sheet": args.sheet, "frame": ref_name, "clip": os.path.basename(mp4),
+    meta = {"loop": bool(args.loop or select == "period"), "fps": args.clip_fps,
+            "source": {"sheet": args.sheet, "frame": ref_name, "clip": os.path.basename(mp4),
                        "model": args.model, "action": args.action, "prompt": prompt or "(cached clip)",
                        "select": select, "picks": picks, "scale": round(scale, 4), "anchor": anchor,
                        "paletteLocked": pal is not None, **info}}

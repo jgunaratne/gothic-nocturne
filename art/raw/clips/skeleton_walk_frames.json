@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 13.7,
+   "ay": 61.0,
+   "clipFrame": 30,
+   "h": 61,
+   "w": 29,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 13.7,
+   "ay": 60.0,
+   "clipFrame": 37,
+   "h": 60,
+   "w": 29,
+   "x": 31,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 13.7,
+   "ay": 61.0,
+   "clipFrame": 44,
+   "h": 62,
+   "w": 25,
+   "x": 61,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 18.5,
+   "ay": 59.0,
+   "clipFrame": 52,
+   "h": 60,
+   "w": 38,
+   "x": 87,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 14.5,
+   "ay": 60.0,
+   "clipFrame": 59,
+   "h": 60,
+   "w": 27,
+   "x": 126,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 13.7,
+   "ay": 61.0,
+   "clipFrame": 66,
+   "h": 61,
+   "w": 26,
+   "x": 154,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 15.6,
+   "ay": 59.0,
+   "clipFrame": 74,
+   "h": 60,
+   "w": 35,
+   "x": 181,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 13.7,
+   "ay": 61.0,
+   "clipFrame": 81,
+   "h": 61,
+   "w": 25,
+   "x": 217,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "skeleton_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "skeleton_walk.mp4",
+  "corr": 0.5771394968032837,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 58,
+  "picks": [
+   30,
+   37,
+   44,
+   52,
+   59,
+   66,
+   74,
+   81
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1339,
+  "select": "period",
+  "sheet": "skeleton"
+ }
+}

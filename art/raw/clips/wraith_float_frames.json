@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "float0": {
+   "ax": 25.9,
+   "ay": 57.0,
+   "clipFrame": 30,
+   "h": 55,
+   "w": 42,
+   "x": 1,
+   "y": 1
+  },
+  "float1": {
+   "ax": 27.6,
+   "ay": 57.0,
+   "clipFrame": 39,
+   "h": 53,
+   "w": 45,
+   "x": 44,
+   "y": 1
+  },
+  "float2": {
+   "ax": 25.8,
+   "ay": 56.0,
+   "clipFrame": 49,
+   "h": 54,
+   "w": 45,
+   "x": 90,
+   "y": 1
+  },
+  "float3": {
+   "ax": 25.9,
+   "ay": 54.0,
+   "clipFrame": 58,
+   "h": 55,
+   "w": 45,
+   "x": 136,
+   "y": 1
+  },
+  "float4": {
+   "ax": 27.4,
+   "ay": 53.0,
+   "clipFrame": 67,
+   "h": 54,
+   "w": 45,
+   "x": 182,
+   "y": 1
+  },
+  "float5": {
+   "ax": 25.9,
+   "ay": 54.0,
+   "clipFrame": 77,
+   "h": 53,
+   "w": 42,
+   "x": 228,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "wraith_float_sheet.png",
+ "source": {
+  "action": "float",
+  "anchor": "mean",
+  "clip": "wraith_float.mp4",
+  "corr": 0.4943886697292328,
+  "frame": "float0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 56,
+  "picks": [
+   30,
+   39,
+   49,
+   58,
+   67,
+   77
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The shadow wraith hovers in place facing right with a slow looping drifting motion: it bobs gently up and down, its trailing wisps, robes or tail swaying. No flapping. It stays centred and does not travel across the screen. its shadowy robes trailing.",
+  "scale": 0.12,
+  "select": "period",
+  "sheet": "wraith"
+ }
+}

@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "summon0": {
+   "ax": 45.0,
+   "ay": 118.0,
+   "clipFrame": 12,
+   "h": 115,
+   "w": 105,
+   "x": 1,
+   "y": 1
+  },
+  "summon1": {
+   "ax": 58.5,
+   "ay": 120.0,
+   "clipFrame": 72,
+   "h": 120,
+   "w": 109,
+   "x": 107,
+   "y": 1
+  },
+  "summon2": {
+   "ax": 48.0,
+   "ay": 105.0,
+   "clipFrame": 133,
+   "h": 107,
+   "w": 94,
+   "x": 217,
+   "y": 1
+  },
+  "summon3": {
+   "ax": 52.5,
+   "ay": 106.0,
+   "clipFrame": 238,
+   "h": 105,
+   "w": 102,
+   "x": 312,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "archivist_summon_sheet.png",
+ "source": {
+  "action": "summon",
+  "anchor": "hips",
+  "clip": "archivist_summon.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   72,
+   133,
+   238
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Spectral Archivist, a ghostly robed librarian performs ONE summoning gesture facing right: it raises its arms slowly skyward, hands spread, head tilting back, then lowers them.",
+  "scale": 0.2632,
+  "select": "motion",
+  "sheet": "archivist",
+  "window": [
+   12,
+   238
+  ]
+ }
+}

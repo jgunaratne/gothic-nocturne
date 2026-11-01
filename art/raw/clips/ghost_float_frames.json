@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "float0": {
+   "ax": 25.3,
+   "ay": 47.0,
+   "clipFrame": 30,
+   "h": 46,
+   "w": 45,
+   "x": 1,
+   "y": 1
+  },
+  "float1": {
+   "ax": 24.5,
+   "ay": 48.0,
+   "clipFrame": 37,
+   "h": 45,
+   "w": 45,
+   "x": 47,
+   "y": 1
+  },
+  "float2": {
+   "ax": 24.9,
+   "ay": 47.0,
+   "clipFrame": 45,
+   "h": 45,
+   "w": 44,
+   "x": 93,
+   "y": 1
+  },
+  "float3": {
+   "ax": 22.8,
+   "ay": 47.0,
+   "clipFrame": 52,
+   "h": 46,
+   "w": 42,
+   "x": 138,
+   "y": 1
+  },
+  "float4": {
+   "ax": 24.9,
+   "ay": 46.0,
+   "clipFrame": 59,
+   "h": 45,
+   "w": 43,
+   "x": 181,
+   "y": 1
+  },
+  "float5": {
+   "ax": 23.7,
+   "ay": 45.0,
+   "clipFrame": 67,
+   "h": 45,
+   "w": 42,
+   "x": 225,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "ghost_float_sheet.png",
+ "source": {
+  "action": "float",
+  "anchor": "mean",
+  "clip": "ghost_float.mp4",
+  "corr": 0.4025023579597473,
+  "frame": "float0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 44,
+  "picks": [
+   30,
+   37,
+   45,
+   52,
+   59,
+   67
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The phantom ghost hovers in place facing right with a slow looping drifting motion: it bobs gently up and down, its trailing wisps, robes or tail swaying. No flapping. It stays centred and does not travel across the screen. its tattered shroud trailing.",
+  "scale": 0.1027,
+  "select": "period",
+  "sheet": "ghost"
+ }
+}

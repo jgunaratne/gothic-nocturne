@@ -26,8 +26,9 @@ arena with spoken Daikon boss voice lines at the end of every stage.
   model and normalized into crisp pixel art, paired with procedural 32-bit
   pixel-art sheets and 3D surface textures. The hunter's animation clips
   (breathing idle, 8-frame walk, 8-phase whip crack, jump arc with landing
-  squash, flinch and death) are cut from **Gemini Omni** video of the sprite
-  itself (`tools/animate_sprites.py`).
+  squash, flinch and death) and the walk / flight / idle cycles, wind-ups and
+  attacks of every enemy and boss are cut from **Gemini Omni** video of the
+  sprites themselves (`tools/animate_sprites.py`, `tools/animate_cast.py`).
 - **Music**: seventeen full-length tracks (2–3 minutes each) generated with
   **Lyria 3**: a distinct theme for every stage plus title, symphonic orchestral
   boss battle, stage-clear, game-over and ending, streamed on demand and looped
@@ -243,7 +244,8 @@ src/game/             level grid + 2.5D mechanics/tiles, stage3d (perspective
                       tex3d (pixel-art 3D polygon texture rasterizer & bank),
                       builder (prefabs + themes), stages, level_data (stage 1),
                       parallax, entities, player, hero_anim (hunter clips,
-                      squash/stretch, whip timeline), ally (guardian turtle),
+                      squash/stretch, whip timeline), anim_clips (generated
+                      clip frames for enemies/bosses), ally (guardian turtle),
                       relics (boss power-ups), enemies, boss (Reaper), bosses
                       forest_assets (Darkwood pixel art), objects
                       (candles/items/projectiles/fire), exploration (Sanctuary
@@ -255,10 +257,11 @@ src/game/             level grid + 2.5D mechanics/tiles, stage3d (perspective
 assets/               engine-ready PNGs + atlas.json, music/*.mp3, voice/*.mp3, sfx/*.mp3,
                       forge/<key>/ (raised wings) + forge/stages.json (registry)
 art/raw/              untouched generations (provenance)   art/PROMPTS.md
-art/raw/clips/        Omni animation clips (.mp4) + the frame sheets cut from them
+art/raw/clips/        frame sheets + frames.json cut from the Omni clips (.mp4, local only)
 tools/                forge_server.py (game + Castle Forge API), process_assets.py
                       (pipeline), asset_manifest.json, import_raw.py,
-                      animate_sprites.py (video -> sprite clips),
+                      animate_sprites.py (video -> sprite clips), animate_cast.py
+                      (batch: every enemy / boss clip),
                       generate_voices.sh, screenshot.sh, smoke_test.py
 ```
 
@@ -302,10 +305,11 @@ at the feet / body centre:
 Frame selection: `--select period` autocorrelates the silhouette to find a loop
 (walk, idle breathing), `--select motion` spaces one-shot frames by equal
 cumulative motion, `--select jump` reads the feet trajectory (crouch, rise,
-apex, fall, land, recover), and `--pick` takes explicit frame indices. Clips are
-kept in `art/raw/clips/` as provenance next to the generated
-`<name>_sheet.png` + `<name>_frames.json` the manifest's `clip` entries copy
-into `assets/`.
+apex, fall, land, recover), and `--pick` takes explicit frame indices. The
+generated `<name>_sheet.png` + `<name>_frames.json` (frame rects, anchors, the
+prompt and the exact picks) live in `art/raw/clips/` and are what the
+manifest's `clip` entries copy into `assets/`; the `.mp4` clips themselves stay
+next to them locally but are git-ignored (~3 MB each).
 
 The hunter's clips (`hero_idle`, `hero_walk8`, `hero_whip`, `hero_cwhip`,
 `hero_jump`, `hero_hurt`) are all optional: `src/game/hero_anim.js` picks the
@@ -317,6 +321,22 @@ lash. On top of the frames the engine adds the timing the sheets cannot:
 landing squash and take-off stretch, a lean into acceleration and stops,
 footstep sound + dust on the boot-contact frames, and a few ticks of hit-stop
 when the whip connects (`world.hitStop`).
+
+Enemies, bosses and the turtle get the same treatment without touching their
+state machines. `tools/animate_cast.py` holds one job per `<sheet>_<family>`
+clip (the family is the frame family the game already names: `walk`, `fly`,
+`float`, `idle`, `throw`, `windup`, `swing`, `cast`, …) and
+`src/game/anim_clips.js` swaps the clip frame in at draw time inside
+`Enemy.drawSprite()`: loops run on the world clock or on distance travelled
+(walkers never slide, a standing walker snaps back to its contact pose),
+one-shots play from the moment their family first appears and hold the last
+frame, and the clock freezes with hit-stop. A sheet without a clip draws exactly
+as before, so the cast can be regenerated or extended one clip at a time:
+
+```bash
+.venv/bin/python tools/animate_cast.py --list
+.venv/bin/python tools/animate_cast.py --only skeleton --only boss   # cached clips are reused
+```
 
 ## Testing aids
 

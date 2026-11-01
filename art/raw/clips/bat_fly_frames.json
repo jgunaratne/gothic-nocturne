@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "fly0": {
+   "ax": 26.3,
+   "ay": 36.0,
+   "clipFrame": 30,
+   "h": 36,
+   "w": 47,
+   "x": 1,
+   "y": 1
+  },
+  "fly1": {
+   "ax": 29.8,
+   "ay": 34.0,
+   "clipFrame": 38,
+   "h": 32,
+   "w": 55,
+   "x": 49,
+   "y": 1
+  },
+  "fly2": {
+   "ax": 33.3,
+   "ay": 27.0,
+   "clipFrame": 46,
+   "h": 25,
+   "w": 69,
+   "x": 105,
+   "y": 1
+  },
+  "fly3": {
+   "ax": 17.9,
+   "ay": 28.0,
+   "clipFrame": 54,
+   "h": 32,
+   "w": 40,
+   "x": 175,
+   "y": 1
+  },
+  "fly4": {
+   "ax": 25.1,
+   "ay": 29.0,
+   "clipFrame": 63,
+   "h": 28,
+   "w": 53,
+   "x": 216,
+   "y": 1
+  },
+  "fly5": {
+   "ax": 26.1,
+   "ay": 37.0,
+   "clipFrame": 71,
+   "h": 36,
+   "w": 45,
+   "x": 270,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "bat_fly_sheet.png",
+ "source": {
+  "action": "fly",
+  "anchor": "mean",
+  "clip": "bat_fly.mp4",
+  "corr": 0.5790025591850281,
+  "frame": "fly1",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 49,
+  "picks": [
+   30,
+   38,
+   46,
+   54,
+   63,
+   71
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.0658,
+  "select": "period",
+  "sheet": "bat"
+ }
+}

@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "fly0": {
+   "ax": 30.0,
+   "ay": 44.0,
+   "clipFrame": 30,
+   "h": 44,
+   "w": 55,
+   "x": 1,
+   "y": 1
+  },
+  "fly1": {
+   "ax": 28.5,
+   "ay": 44.0,
+   "clipFrame": 36,
+   "h": 45,
+   "w": 54,
+   "x": 57,
+   "y": 1
+  },
+  "fly2": {
+   "ax": 27.5,
+   "ay": 43.0,
+   "clipFrame": 41,
+   "h": 43,
+   "w": 53,
+   "x": 112,
+   "y": 1
+  },
+  "fly3": {
+   "ax": 28.7,
+   "ay": 32.0,
+   "clipFrame": 46,
+   "h": 31,
+   "w": 54,
+   "x": 166,
+   "y": 1
+  },
+  "fly4": {
+   "ax": 30.0,
+   "ay": 22.0,
+   "clipFrame": 52,
+   "h": 21,
+   "w": 55,
+   "x": 221,
+   "y": 1
+  },
+  "fly5": {
+   "ax": 28.9,
+   "ay": 23.0,
+   "clipFrame": 58,
+   "h": 24,
+   "w": 54,
+   "x": 277,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "dragon_fly_sheet.png",
+ "source": {
+  "action": "fly",
+  "anchor": "mean",
+  "clip": "dragon_fly.mp4",
+  "corr": 0.5078058838844299,
+  "frame": "fly0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 33,
+  "picks": [
+   30,
+   36,
+   41,
+   46,
+   52,
+   58
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The lean wyvern dragon hovers in place facing right, flapping its wings in a smooth looping cycle: wings sweeping high above the body, then down below it, with a gentle bob of the body. It stays centred and does not travel across the screen.",
+  "scale": 0.0982,
+  "select": "period",
+  "sheet": "dragon"
+ }
+}

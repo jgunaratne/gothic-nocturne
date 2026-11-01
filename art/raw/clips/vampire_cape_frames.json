@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "cape0": {
+   "ax": 27.5,
+   "ay": 84.0,
+   "clipFrame": 49,
+   "h": 84,
+   "w": 53,
+   "x": 1,
+   "y": 1
+  },
+  "cape1": {
+   "ax": 43.0,
+   "ay": 83.0,
+   "clipFrame": 82,
+   "h": 83,
+   "w": 89,
+   "x": 55,
+   "y": 1
+  },
+  "cape2": {
+   "ax": 27.5,
+   "ay": 84.0,
+   "clipFrame": 133,
+   "h": 84,
+   "w": 66,
+   "x": 145,
+   "y": 1
+  },
+  "cape3": {
+   "ax": 31.5,
+   "ay": 84.0,
+   "clipFrame": 172,
+   "h": 84,
+   "w": 61,
+   "x": 212,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "vampire_cape_sheet.png",
+ "source": {
+  "action": "cape",
+  "anchor": "hips",
+  "clip": "vampire_cape.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   49,
+   82,
+   133,
+   172
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The vampire Count in a high-collared cape sweeps its cape across its body facing right in ONE flourish: it raises an arm, the cape billows up and wraps around it, then unfurls back to the standing pose.",
+  "scale": 0.1883,
+  "select": "motion",
+  "sheet": "vampire",
+  "window": [
+   49,
+   172
+  ]
+ }
+}

@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 34.9,
+   "ay": 53.0,
+   "clipFrame": 30,
+   "h": 53,
+   "w": 77,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 35.2,
+   "ay": 53.0,
+   "clipFrame": 32,
+   "h": 53,
+   "w": 78,
+   "x": 79,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 36.8,
+   "ay": 53.0,
+   "clipFrame": 34,
+   "h": 53,
+   "w": 80,
+   "x": 158,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 39.4,
+   "ay": 52.0,
+   "clipFrame": 37,
+   "h": 52,
+   "w": 82,
+   "x": 239,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 41.0,
+   "ay": 51.0,
+   "clipFrame": 39,
+   "h": 52,
+   "w": 84,
+   "x": 322,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 43.3,
+   "ay": 51.0,
+   "clipFrame": 41,
+   "h": 51,
+   "w": 86,
+   "x": 407,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 42.0,
+   "ay": 52.0,
+   "clipFrame": 44,
+   "h": 52,
+   "w": 84,
+   "x": 494,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 39.9,
+   "ay": 52.0,
+   "clipFrame": 46,
+   "h": 52,
+   "w": 82,
+   "x": 579,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "catoblepas_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "catoblepas_walk.mp4",
+  "corr": 0.3926578462123871,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 18,
+  "picks": [
+   30,
+   32,
+   34,
+   37,
+   39,
+   41,
+   44,
+   46
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The catoblepas, a heavy stooped buffalo-like beast with a huge low-hanging head performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. a heavy four-legged plod, head hanging low.",
+  "scale": 0.1171,
+  "select": "period",
+  "sheet": "catoblepas"
+ }
+}

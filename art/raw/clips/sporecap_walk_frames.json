@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 14.4,
+   "ay": 38.0,
+   "clipFrame": 30,
+   "h": 38,
+   "w": 29,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 14.3,
+   "ay": 38.0,
+   "clipFrame": 35,
+   "h": 38,
+   "w": 29,
+   "x": 31,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 14.3,
+   "ay": 39.0,
+   "clipFrame": 39,
+   "h": 39,
+   "w": 29,
+   "x": 61,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 14.4,
+   "ay": 38.0,
+   "clipFrame": 44,
+   "h": 38,
+   "w": 29,
+   "x": 91,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 14.3,
+   "ay": 38.0,
+   "clipFrame": 49,
+   "h": 38,
+   "w": 29,
+   "x": 121,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 14.3,
+   "ay": 39.0,
+   "clipFrame": 53,
+   "h": 39,
+   "w": 29,
+   "x": 151,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "sporecap_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "sporecap_walk.mp4",
+  "corr": 0.45893073081970215,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 28,
+  "picks": [
+   30,
+   35,
+   39,
+   44,
+   49,
+   53
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The myconid mushroom creature performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. waddling on stubby legs.",
+  "scale": 0.0841,
+  "select": "period",
+  "sheet": "sporecap"
+ }
+}

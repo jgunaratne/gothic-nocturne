@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "swing0": {
+   "ax": 51.0,
+   "ay": 197.0,
+   "clipFrame": 28,
+   "h": 193,
+   "w": 91,
+   "x": 1,
+   "y": 1
+  },
+  "swing1": {
+   "ax": 155.0,
+   "ay": 158.0,
+   "clipFrame": 53,
+   "h": 171,
+   "w": 268,
+   "x": 93,
+   "y": 1
+  },
+  "swing2": {
+   "ax": 61.5,
+   "ay": 178.0,
+   "clipFrame": 142,
+   "h": 178,
+   "w": 163,
+   "x": 362,
+   "y": 1
+  },
+  "swing3": {
+   "ax": 74.5,
+   "ay": 174.0,
+   "clipFrame": 231,
+   "h": 176,
+   "w": 176,
+   "x": 526,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "boss_swing_sheet.png",
+ "source": {
+  "action": "swing",
+  "anchor": "hips",
+  "clip": "boss_swing.mp4",
+  "frame": "windup",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   28,
+   53,
+   142,
+   231
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Phantom Reaper, a hooded spectre holding a great scythe performs ONE heavy swing facing right starting from a raised wind-up: it brings its weapon down and across in a wide sweeping arc, following through past its body, then recovers. the scythe sweeps down and across.",
+  "scale": 0.3565,
+  "select": "motion",
+  "sheet": "boss",
+  "window": [
+   28,
+   231
+  ]
+ }
+}

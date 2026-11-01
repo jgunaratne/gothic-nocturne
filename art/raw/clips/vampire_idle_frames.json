@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "idle0": {
+   "ax": 38.6,
+   "ay": 85.0,
+   "clipFrame": 30,
+   "h": 85,
+   "w": 59,
+   "x": 1,
+   "y": 1
+  },
+  "idle1": {
+   "ax": 42.0,
+   "ay": 85.0,
+   "clipFrame": 35,
+   "h": 85,
+   "w": 62,
+   "x": 61,
+   "y": 1
+  },
+  "idle2": {
+   "ax": 39.9,
+   "ay": 84.0,
+   "clipFrame": 40,
+   "h": 84,
+   "w": 60,
+   "x": 124,
+   "y": 1
+  },
+  "idle3": {
+   "ax": 34.4,
+   "ay": 84.0,
+   "clipFrame": 44,
+   "h": 84,
+   "w": 57,
+   "x": 185,
+   "y": 1
+  },
+  "idle4": {
+   "ax": 29.5,
+   "ay": 84.0,
+   "clipFrame": 49,
+   "h": 84,
+   "w": 55,
+   "x": 243,
+   "y": 1
+  },
+  "idle5": {
+   "ax": 26.1,
+   "ay": 84.0,
+   "clipFrame": 54,
+   "h": 84,
+   "w": 55,
+   "x": 299,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "vampire_idle_sheet.png",
+ "source": {
+  "action": "idle_creature",
+  "anchor": "mean",
+  "clip": "vampire_idle.mp4",
+  "corr": 0.6463989019393921,
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 29,
+  "picks": [
+   30,
+   35,
+   40,
+   44,
+   49,
+   54
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The vampire Count in a high-collared cape stays in place facing right in its ready stance with a slow looping idle motion: breathing, a slight sway, small shifts of its limbs and weapon. It never steps away, turns or attacks. cape stirring.",
+  "scale": 0.1883,
+  "select": "period",
+  "sheet": "vampire"
+ }
+}

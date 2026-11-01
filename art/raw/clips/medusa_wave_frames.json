@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "wave0": {
+   "ax": 13.8,
+   "ay": 33.0,
+   "clipFrame": 30,
+   "h": 31,
+   "w": 31,
+   "x": 1,
+   "y": 1
+  },
+  "wave1": {
+   "ax": 13.8,
+   "ay": 33.0,
+   "clipFrame": 31,
+   "h": 31,
+   "w": 31,
+   "x": 33,
+   "y": 1
+  },
+  "wave2": {
+   "ax": 13.7,
+   "ay": 33.0,
+   "clipFrame": 33,
+   "h": 31,
+   "w": 31,
+   "x": 65,
+   "y": 1
+  },
+  "wave3": {
+   "ax": 13.7,
+   "ay": 33.0,
+   "clipFrame": 34,
+   "h": 31,
+   "w": 31,
+   "x": 97,
+   "y": 1
+  },
+  "wave4": {
+   "ax": 13.7,
+   "ay": 33.0,
+   "clipFrame": 35,
+   "h": 30,
+   "w": 30,
+   "x": 129,
+   "y": 1
+  },
+  "wave5": {
+   "ax": 13.7,
+   "ay": 33.0,
+   "clipFrame": 37,
+   "h": 31,
+   "w": 30,
+   "x": 160,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "medusa_wave_sheet.png",
+ "source": {
+  "action": "float",
+  "anchor": "mean",
+  "clip": "medusa_wave.mp4",
+  "corr": 0.5239391326904297,
+  "frame": "a",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 8,
+  "picks": [
+   30,
+   31,
+   33,
+   34,
+   35,
+   37
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The floating severed medusa head with writhing snake hair hovers in place facing right with a slow looping drifting motion: it bobs gently up and down, its trailing wisps, robes or tail swaying. No flapping. It stays centred and does not travel across the screen. the snakes writhe and hiss.",
+  "scale": 0.0661,
+  "select": "period",
+  "sheet": "medusa"
+ }
+}

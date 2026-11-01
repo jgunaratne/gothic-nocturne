@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "breath0": {
+   "ax": 29.5,
+   "ay": 36.0,
+   "clipFrame": 12,
+   "h": 35,
+   "w": 55,
+   "x": 1,
+   "y": 1
+  },
+  "breath1": {
+   "ax": 55.0,
+   "ay": 45.0,
+   "clipFrame": 102,
+   "h": 43,
+   "w": 104,
+   "x": 57,
+   "y": 1
+  },
+  "breath2": {
+   "ax": 36.5,
+   "ay": 26.0,
+   "clipFrame": 145,
+   "h": 22,
+   "w": 57,
+   "x": 162,
+   "y": 1
+  },
+  "breath3": {
+   "ax": 33.0,
+   "ay": 25.0,
+   "clipFrame": 239,
+   "h": 26,
+   "w": 55,
+   "x": 220,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "dragon_breath_sheet.png",
+ "source": {
+  "action": "breath",
+  "anchor": "hips",
+  "clip": "dragon_breath.mp4",
+  "frame": "fly0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   102,
+   145,
+   239
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The lean wyvern dragon performs ONE breath attack facing right: it rears its head back, opens its jaws wide and exhales a short burst toward the right, then closes its jaws and returns to the starting pose. it stays airborne and breathes a jet of fire.",
+  "scale": 0.0982,
+  "select": "motion",
+  "sheet": "dragon",
+  "window": [
+   12,
+   239
+  ]
+ }
+}

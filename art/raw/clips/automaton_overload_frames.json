@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "overload0": {
+   "ax": 59.0,
+   "ay": 114.0,
+   "clipFrame": 52,
+   "h": 114,
+   "w": 122,
+   "x": 1,
+   "y": 1
+  },
+  "overload1": {
+   "ax": 86.5,
+   "ay": 127.0,
+   "clipFrame": 67,
+   "h": 127,
+   "w": 183,
+   "x": 124,
+   "y": 1
+  },
+  "overload2": {
+   "ax": 84.0,
+   "ay": 102.0,
+   "clipFrame": 89,
+   "h": 102,
+   "w": 170,
+   "x": 308,
+   "y": 1
+  },
+  "overload3": {
+   "ax": 58.0,
+   "ay": 109.0,
+   "clipFrame": 176,
+   "h": 109,
+   "w": 118,
+   "x": 479,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "automaton_overload_sheet.png",
+ "source": {
+  "action": "overload",
+  "anchor": "hips",
+  "clip": "automaton_overload.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   52,
+   67,
+   89,
+   176
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Brass Automaton, a clockwork knight overloads facing right: it shudders violently, steam and sparks venting from its joints, arms flung outward, head thrown back, then slumps and recovers.",
+  "scale": 0.2477,
+  "select": "motion",
+  "sheet": "automaton",
+  "window": [
+   52,
+   176
+  ]
+ }
+}

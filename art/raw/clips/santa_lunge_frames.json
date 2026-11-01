@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "lunge0": {
+   "ax": 39.0,
+   "ay": 88.0,
+   "clipFrame": 49,
+   "h": 88,
+   "w": 77,
+   "x": 1,
+   "y": 1
+  },
+  "lunge1": {
+   "ax": 44.5,
+   "ay": 86.0,
+   "clipFrame": 80,
+   "h": 86,
+   "w": 118,
+   "x": 79,
+   "y": 1
+  },
+  "lunge2": {
+   "ax": 34.5,
+   "ay": 89.0,
+   "clipFrame": 119,
+   "h": 89,
+   "w": 68,
+   "x": 198,
+   "y": 1
+  },
+  "lunge3": {
+   "ax": 43.0,
+   "ay": 86.0,
+   "clipFrame": 239,
+   "h": 86,
+   "w": 117,
+   "x": 267,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "santa_lunge_sheet.png",
+ "source": {
+  "action": "lunge",
+  "anchor": "hips",
+  "clip": "santa_lunge.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   49,
+   80,
+   119,
+   239
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Devil Santa, a demonic horned Santa Claus performs ONE lunge attack facing right: it coils back in anticipation, springs forward with its limbs and claws extended, then recovers to the starting pose. swinging a chain of iron bells.",
+  "scale": 0.2018,
+  "select": "motion",
+  "sheet": "santa",
+  "window": [
+   49,
+   239
+  ]
+ }
+}

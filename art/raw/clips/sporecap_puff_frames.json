@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "puff0": {
+   "ax": 13.5,
+   "ay": 38.0,
+   "clipFrame": 12,
+   "h": 38,
+   "w": 29,
+   "x": 1,
+   "y": 1
+  },
+  "puff1": {
+   "ax": 24.0,
+   "ay": 36.0,
+   "clipFrame": 61,
+   "h": 36,
+   "w": 48,
+   "x": 31,
+   "y": 1
+  },
+  "puff2": {
+   "ax": 13.5,
+   "ay": 37.0,
+   "clipFrame": 79,
+   "h": 37,
+   "w": 30,
+   "x": 80,
+   "y": 1
+  },
+  "puff3": {
+   "ax": 13.5,
+   "ay": 38.0,
+   "clipFrame": 111,
+   "h": 38,
+   "w": 29,
+   "x": 111,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "sporecap_puff_sheet.png",
+ "source": {
+  "action": "puff",
+  "anchor": "hips",
+  "clip": "sporecap_puff.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   61,
+   79,
+   111
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The myconid mushroom creature performs ONE spore puff facing right: it squeezes down and swells, then releases a short burst of spores from its cap, then settles back.",
+  "scale": 0.0839,
+  "select": "motion",
+  "sheet": "sporecap",
+  "window": [
+   12,
+   111
+  ]
+ }
+}

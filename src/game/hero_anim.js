@@ -19,16 +19,21 @@ export const LAND_TIME = 0.16;          // hard landing: land0 then land1
 export const LAND_SOFT_TIME = 0.08;     // soft landing: land1 only
 export const LAUNCH_TIME = 0.07;        // take-off stretch
 
-// Whip timeline in normalized time u = attackT / whipTime. The frame boundaries
-// are tied to PLAYER.whipActive so the fully extended frames (3-5) are exactly
-// the ticks the hit box is live, however the Chrono Pendulum relic rescales the
-// whip: 0-2 wind-up, 3-5 crack / extended, 6-7 slack + recoil.
-const A0 = PLAYER.whipActive[0] / PLAYER.whipTime;   // 0.325
-const A1 = PLAYER.whipActive[1] / PLAYER.whipTime;   // 0.775
-const WHIP_U = [0, A0 / 3, A0 * 2 / 3, A0, A0 + (A1 - A0) / 3, A0 + (A1 - A0) * 2 / 3, A1, A1 + (1 - A1) / 2];
+// Whip timeline. The frame boundaries are derived from the hunter's own
+// whipActive / whipTime in seconds, so the fully extended frames (3-5) are
+// exactly the ticks the hit box is live (`attackT >= whipActive[0]` is the
+// same comparison in both places), however the Chrono Pendulum relic rescales
+// the whip: 0-2 wind-up, 3-5 crack / extended, 6-7 slack + recoil.
 const WHIP_STRETCH = new Set([3, 4, 5]);            // painted lash stretched to whipReach
-const CWHIP_U = [0, A0, A0 + (A1 - A0) / 2, A1];
 const CWHIP_STRETCH = new Set([1, 2]);
+
+function whipBounds(a0, a1, total) {
+  return [0, a0 / 3, a0 * 2 / 3, a0, a0 + (a1 - a0) / 3, a0 + (a1 - a0) * 2 / 3, a1, a1 + (total - a1) / 2];
+}
+
+function cwhipBounds(a0, a1) {
+  return [0, a0, a0 + (a1 - a0) / 2, a1];
+}
 
 export function walkAdvance(vx, dt) {
   return Math.max(WALK_MIN_FPS, Math.abs(vx) / WALK_PX_PER_FRAME) * dt;
@@ -80,16 +85,17 @@ export function heroFrame(assets, s) {
   switch (s.state) {
     case 'attack': {
       if (s.throwing) return pick('hero', 'whip1');
-      const u = Math.max(0, Math.min(0.999, (s.attackT || 0) / whipTime));
+      const active1 = s.whipActive ? s.whipActive[1] : PLAYER.whipActive[1];
+      const t = Math.max(0, Math.min(whipTime - 0.0001, s.attackT || 0));
       if (s.attackCrouch) {
         if (has('hero_cwhip')) {
-          const i = phaseIndex(CWHIP_U, u);
+          const i = phaseIndex(cwhipBounds(active0, active1), t);
           return pick('hero_cwhip', 'cwhip' + i, { stretch: CWHIP_STRETCH.has(i) });
         }
         return pick('hero', 'crouch', { proceduralLash: true });
       }
       if (has('hero_whip')) {
-        const i = phaseIndex(WHIP_U, u);
+        const i = phaseIndex(whipBounds(active0, active1, whipTime), t);
         return pick('hero_whip', 'whip' + i, { stretch: WHIP_STRETCH.has(i) });
       }
       const name = (s.attackT || 0) < active0 ? 'whip0' : 'whip1';

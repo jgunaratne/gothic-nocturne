@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "cast0": {
+   "ax": 48.5,
+   "ay": 116.0,
+   "clipFrame": 17,
+   "h": 113,
+   "w": 107,
+   "x": 1,
+   "y": 1
+  },
+  "cast1": {
+   "ax": 65.0,
+   "ay": 101.0,
+   "clipFrame": 75,
+   "h": 97,
+   "w": 114,
+   "x": 109,
+   "y": 1
+  },
+  "cast2": {
+   "ax": 42.0,
+   "ay": 102.0,
+   "clipFrame": 145,
+   "h": 104,
+   "w": 126,
+   "x": 224,
+   "y": 1
+  },
+  "cast3": {
+   "ax": 50.5,
+   "ay": 106.0,
+   "clipFrame": 237,
+   "h": 106,
+   "w": 103,
+   "x": 351,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "archivist_cast_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "archivist_cast.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   17,
+   75,
+   145,
+   237
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Spectral Archivist, a ghostly robed librarian, performs ONE spell-casting gesture facing right: it raises both arms, sweeps them in a flourish, thrusts one open hand forward toward the right and holds it, then lowers its arms, hovering in place. No magic effects, no energy, no beams, no glow, no light rays, no sparks: nothing leaves the hands or eyes, only the body gesture is animated.",
+  "scale": 0.2632,
+  "select": "motion",
+  "sheet": "archivist",
+  "window": [
+   17,
+   237
+  ]
+ }
+}

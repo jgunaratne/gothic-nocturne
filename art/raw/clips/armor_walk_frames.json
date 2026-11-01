@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 26.7,
+   "ay": 72.0,
+   "clipFrame": 30,
+   "h": 72,
+   "w": 55,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 32.3,
+   "ay": 70.0,
+   "clipFrame": 34,
+   "h": 70,
+   "w": 61,
+   "x": 57,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 32.0,
+   "ay": 72.0,
+   "clipFrame": 37,
+   "h": 72,
+   "w": 60,
+   "x": 119,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 27.7,
+   "ay": 75.0,
+   "clipFrame": 41,
+   "h": 75,
+   "w": 54,
+   "x": 180,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 25.1,
+   "ay": 75.0,
+   "clipFrame": 44,
+   "h": 75,
+   "w": 49,
+   "x": 235,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 31.0,
+   "ay": 75.0,
+   "clipFrame": 48,
+   "h": 75,
+   "w": 54,
+   "x": 285,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 32.0,
+   "ay": 75.0,
+   "clipFrame": 52,
+   "h": 75,
+   "w": 56,
+   "x": 340,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 30.3,
+   "ay": 75.0,
+   "clipFrame": 55,
+   "h": 75,
+   "w": 55,
+   "x": 397,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "armor_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "armor_walk.mp4",
+  "corr": 0.6651561856269836,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 29,
+  "picks": [
+   30,
+   34,
+   37,
+   41,
+   44,
+   48,
+   52,
+   55
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The armoured plate knight with a sword and shield performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. a heavy armoured march, shield held forward.",
+  "scale": 0.1637,
+  "select": "period",
+  "sheet": "armor"
+ }
+}

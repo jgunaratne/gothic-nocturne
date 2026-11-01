@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "idle0": {
+   "ax": 50.5,
+   "ay": 106.0,
+   "clipFrame": 30,
+   "h": 110,
+   "w": 100,
+   "x": 1,
+   "y": 1
+  },
+  "idle1": {
+   "ax": 53.1,
+   "ay": 104.0,
+   "clipFrame": 37,
+   "h": 103,
+   "w": 103,
+   "x": 102,
+   "y": 1
+  },
+  "idle2": {
+   "ax": 56.8,
+   "ay": 104.0,
+   "clipFrame": 44,
+   "h": 99,
+   "w": 106,
+   "x": 206,
+   "y": 1
+  },
+  "idle3": {
+   "ax": 55.2,
+   "ay": 104.0,
+   "clipFrame": 51,
+   "h": 106,
+   "w": 105,
+   "x": 313,
+   "y": 1
+  },
+  "idle4": {
+   "ax": 50.5,
+   "ay": 119.0,
+   "clipFrame": 58,
+   "h": 122,
+   "w": 100,
+   "x": 419,
+   "y": 1
+  },
+  "idle5": {
+   "ax": 52.0,
+   "ay": 122.0,
+   "clipFrame": 65,
+   "h": 121,
+   "w": 102,
+   "x": 520,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "archivist_idle_sheet.png",
+ "source": {
+  "action": "float",
+  "anchor": "mean",
+  "clip": "archivist_idle.mp4",
+  "corr": 0.21544460952281952,
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 42,
+  "picks": [
+   30,
+   37,
+   44,
+   51,
+   58,
+   65
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Spectral Archivist, a ghostly robed librarian hovers in place facing right with a slow looping drifting motion: it bobs gently up and down, its trailing wisps, robes or tail swaying. No flapping. It stays centred and does not travel across the screen. pages fluttering around it.",
+  "scale": 0.2632,
+  "select": "period",
+  "sheet": "archivist"
+ }
+}

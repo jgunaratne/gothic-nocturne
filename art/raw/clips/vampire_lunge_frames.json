@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "lunge0": {
+   "ax": 40.0,
+   "ay": 74.0,
+   "clipFrame": 46,
+   "h": 74,
+   "w": 89,
+   "x": 1,
+   "y": 1
+  },
+  "lunge1": {
+   "ax": 48.5,
+   "ay": 78.0,
+   "clipFrame": 54,
+   "h": 78,
+   "w": 102,
+   "x": 91,
+   "y": 1
+  },
+  "lunge2": {
+   "ax": 53.5,
+   "ay": 79.0,
+   "clipFrame": 69,
+   "h": 79,
+   "w": 128,
+   "x": 194,
+   "y": 1
+  },
+  "lunge3": {
+   "ax": 58.5,
+   "ay": 74.0,
+   "clipFrame": 85,
+   "h": 74,
+   "w": 102,
+   "x": 323,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "vampire_lunge_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "vampire_lunge.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   46,
+   54,
+   69,
+   85
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1883,
+  "select": "pick",
+  "sheet": "vampire"
+ }
+}

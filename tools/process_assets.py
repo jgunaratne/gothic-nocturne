@@ -400,6 +400,11 @@ def process_clip(name, spec, report):
         "type": "sheet", "file": out, "w": img.width, "h": img.height,
         "frames": {fname: {k: rec[k] for k in keys} for fname, rec in meta["frames"].items()},
     }
+    # Playback hints for the generic clip layer (src/game/anim_clips.js).
+    if meta.get("loop"):
+        report[name]["loop"] = True
+    if meta.get("fps"):
+        report[name]["fps"] = meta["fps"]
     src = meta.get("source", {})
     print(f"  {name}: {len(meta['frames'])} clip frames from {src.get('clip', '?')} "
           f"({src.get('model', '?')}) -> assets/{out}")

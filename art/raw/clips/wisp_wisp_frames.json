@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "wisp0": {
+   "ax": 25.6,
+   "ay": 30.0,
+   "clipFrame": 30,
+   "h": 29,
+   "w": 39,
+   "x": 1,
+   "y": 1
+  },
+  "wisp1": {
+   "ax": 24.8,
+   "ay": 28.0,
+   "clipFrame": 38,
+   "h": 28,
+   "w": 38,
+   "x": 41,
+   "y": 1
+  },
+  "wisp2": {
+   "ax": 26.2,
+   "ay": 28.0,
+   "clipFrame": 46,
+   "h": 28,
+   "w": 40,
+   "x": 80,
+   "y": 1
+  },
+  "wisp3": {
+   "ax": 25.3,
+   "ay": 30.0,
+   "clipFrame": 54,
+   "h": 29,
+   "w": 39,
+   "x": 121,
+   "y": 1
+  },
+  "wisp4": {
+   "ax": 25.6,
+   "ay": 31.0,
+   "clipFrame": 62,
+   "h": 29,
+   "w": 39,
+   "x": 161,
+   "y": 1
+  },
+  "wisp5": {
+   "ax": 24.5,
+   "ay": 31.0,
+   "clipFrame": 70,
+   "h": 29,
+   "w": 38,
+   "x": 201,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "wisp_wisp_sheet.png",
+ "source": {
+  "action": "wisp",
+  "anchor": "mean",
+  "clip": "wisp_wisp.mp4",
+  "corr": 0.39905545115470886,
+  "frame": "wisp0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 48,
+  "picks": [
+   30,
+   38,
+   46,
+   54,
+   62,
+   70
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The frost wisp spirit drifts in place facing right, its wispy trails and inner glow pulsing and swirling in a looping cycle. It stays centred.",
+  "scale": 0.0633,
+  "select": "period",
+  "sheet": "wisp"
+ }
+}

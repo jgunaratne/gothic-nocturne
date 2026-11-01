@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "roar0": {
+   "ax": 41.5,
+   "ay": 136.0,
+   "clipFrame": 15,
+   "h": 136,
+   "w": 87,
+   "x": 1,
+   "y": 1
+  },
+  "roar1": {
+   "ax": 48.5,
+   "ay": 140.0,
+   "clipFrame": 57,
+   "h": 140,
+   "w": 125,
+   "x": 89,
+   "y": 1
+  },
+  "roar2": {
+   "ax": 76.0,
+   "ay": 138.0,
+   "clipFrame": 111,
+   "h": 138,
+   "w": 156,
+   "x": 215,
+   "y": 1
+  },
+  "roar3": {
+   "ax": 43.5,
+   "ay": 136.0,
+   "clipFrame": 190,
+   "h": 136,
+   "w": 92,
+   "x": 372,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "treant_roar_sheet.png",
+ "source": {
+  "action": "roar",
+  "anchor": "hips",
+  "clip": "treant_roar.mp4",
+  "frame": "idle0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   15,
+   57,
+   111,
+   190
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Briar King, an ancient thorned treant performs ONE roar facing right: it draws itself up, throws its head back with its mouth wide open, limbs spread, body trembling, then settles.",
+  "scale": 0.2931,
+  "select": "motion",
+  "sheet": "treant",
+  "window": [
+   15,
+   190
+  ]
+ }
+}
