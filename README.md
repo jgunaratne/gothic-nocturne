@@ -10,6 +10,8 @@ biting grimoires, a soaring cathedral of stained glass and waking gargoyles, a
 cylindrical clock tower of grinding 3D gears, and the vaulted
 throne hall of the Count. Combines crisp nearest-neighbour 2D sprite combat
 with perspective-projected 3D architecture, scanline-projected vista planes,
+deep one-point-perspective passages and moonlit lancets cut through the halls'
+far walls, grand 3D staircases, mid-depth furnishings,
 extruded viaduct bridges, orbiting gear gondolas, chain-drawn ferries,
 crumbling masonry, candelabra to whip for hearts and sub-weapons,
 skeletons (and red reviving / axe-throwing variants), rising zombies and
@@ -128,6 +130,32 @@ subdivision, directional Lambert shading, and atmospheric depth fog) built from
 each stage's PNG tilesets alongside bespoke pixel-art procedural materials
 (lathe-turned riveted brass/iron gears, ashlar masonry, slate conical roofs,
 carved organ cases, and tufted velvet).
+
+Inside the halls the far wall is never flat: each group of six wall bays plans
+its own depth set-pieces around the doorways, shrines and terrain in front of it
+(`Stage3D.bayKind` / `bayFooting`), so every indoor stage gets
+
+- **deep perspective passages** — one-point-perspective arcaded corridors cut
+  through the far wall (z 200 → 600) with receding transverse ribs, fog-to-black
+  falloff and torches at the far end (crypt passages sink toward deeper vaults,
+  cave tunnels glow amber), clipped to their arch so they only show through the
+  opening;
+- **open lancets onto the night** — unglazed windows (castle halls only) that
+  look out on the screen-locked moonlit sky, drifting shader clouds and far
+  ridges behind iron Y-tracery, parallaxing against the bricks as you walk, with
+  cool moonlight pools on the hall floor;
+- **a grand 3D staircase** — a texture-mapped flight (carpet runner in carpeted
+  halls) rising to a balustraded landing and its own doorway in the far wall;
+- **a turning brass orrery** in the Library and Arcade;
+- **mid-depth furnishings** (z ≈ 90–104) — pews, bookcases, automata cabinets,
+  angel statues, candle pillars, stalagmites and 3D sarcophagi standing on the
+  receding floor between the play plane and the wall, fogged, darkened and
+  grounded by contact shadows so the crisp play layer stays dominant.
+
+Outdoors, small 3D mausoleums with gabled slate roofs and lit lancets stand on
+the moor behind the Graveyard Road's cemetery fence. Background scenery (tree
+colonnades, fences, tombs) is planted on the true ground (`Level.groundRow`),
+never on an upper gallery ledge, viaduct span or ferry gap.
 
 Stage 1 is hand-built (`src/game/level_data.js`); stages 2–13 are composed
 from prefab segments by `src/game/builder.js` (`flat`, `vistaBridge`, `lavaRun`,
