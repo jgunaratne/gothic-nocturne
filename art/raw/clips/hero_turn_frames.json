@@ -1,0 +1,41 @@
+{
+ "fps": null,
+ "frames": {
+  "turn0": {
+   "ax": 20.0,
+   "ay": 62.0,
+   "clipFrame": 36,
+   "h": 62,
+   "w": 49,
+   "x": 1,
+   "y": 1
+  },
+  "turn1": {
+   "ax": 28.5,
+   "ay": 59.0,
+   "clipFrame": 42,
+   "h": 59,
+   "w": 60,
+   "x": 51,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "hero_turn_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "hero_turn.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   36,
+   42
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1221,
+  "select": "pick",
+  "sheet": "hero"
+ }
+}

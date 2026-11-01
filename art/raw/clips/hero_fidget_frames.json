@@ -1,0 +1,101 @@
+{
+ "fps": null,
+ "frames": {
+  "fidget0": {
+   "ax": 12.0,
+   "ay": 64.0,
+   "clipFrame": 30,
+   "h": 64,
+   "w": 29,
+   "x": 1,
+   "y": 1
+  },
+  "fidget1": {
+   "ax": 13.0,
+   "ay": 63.0,
+   "clipFrame": 42,
+   "h": 63,
+   "w": 29,
+   "x": 31,
+   "y": 1
+  },
+  "fidget2": {
+   "ax": 12.0,
+   "ay": 64.0,
+   "clipFrame": 54,
+   "h": 64,
+   "w": 27,
+   "x": 61,
+   "y": 1
+  },
+  "fidget3": {
+   "ax": 13.5,
+   "ay": 64.0,
+   "clipFrame": 62,
+   "h": 64,
+   "w": 39,
+   "x": 89,
+   "y": 1
+  },
+  "fidget4": {
+   "ax": 12.5,
+   "ay": 64.0,
+   "clipFrame": 68,
+   "h": 64,
+   "w": 51,
+   "x": 129,
+   "y": 1
+  },
+  "fidget5": {
+   "ax": 11.5,
+   "ay": 64.0,
+   "clipFrame": 76,
+   "h": 64,
+   "w": 43,
+   "x": 181,
+   "y": 1
+  },
+  "fidget6": {
+   "ax": 13.0,
+   "ay": 64.0,
+   "clipFrame": 86,
+   "h": 64,
+   "w": 27,
+   "x": 225,
+   "y": 1
+  },
+  "fidget7": {
+   "ax": 13.0,
+   "ay": 64.0,
+   "clipFrame": 98,
+   "h": 64,
+   "w": 28,
+   "x": 253,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "hero_fidget_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "hero_fidget.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   30,
+   42,
+   54,
+   62,
+   68,
+   76,
+   86,
+   98
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1221,
+  "select": "pick",
+  "sheet": "hero"
+ }
+}

@@ -311,16 +311,23 @@ prompt and the exact picks) live in `art/raw/clips/` and are what the
 manifest's `clip` entries copy into `assets/`; the `.mp4` clips themselves stay
 next to them locally but are git-ignored (~3 MB each).
 
-The hunter's clips (`hero_idle`, `hero_walk8`, `hero_whip`, `hero_cwhip`,
-`hero_jump`, `hero_hurt`) are all optional: `src/game/hero_anim.js` picks the
-frame for the local hunter and the network hunters alike and falls back to the
-classic `hero.png` poses for any clip that is missing. The whip's eight phases
-are tied to `PLAYER.whipActive` in normalized time, so the extended frames are
-exactly the ticks the hit box is live however the Chrono Pendulum rescales the
-lash. On top of the frames the engine adds the timing the sheets cannot:
-landing squash and take-off stretch, a lean into acceleration and stops,
-footstep sound + dust on the boot-contact frames, and a few ticks of hit-stop
-when the whip connects (`world.hitStop`).
+The hunter's clips (`hero_idle`, `hero_fidget`, `hero_walk8`, `hero_whip`,
+`hero_cwhip`, `hero_jump`, `hero_turn`, `hero_hurt`) are all optional:
+`src/game/hero_anim.js` picks the frame for the local hunter and the network
+hunters alike and falls back to the classic `hero.png` poses for any clip that
+is missing. The whip is the one place frames are not enough — a crack is a
+travelling wave, not a pose — so its timeline is wind-up frames → the
+extended-arm body with a **procedural lash flying out** (S-wave, 4 ticks) →
+the crack on the exact tick the hit box goes live (`whipActive[0]`: white tip
+flash, sparks, `crack` sfx, 1 px punch) → overshoot and a decaying tip wave →
+the tip dropping → the painted slack frames. On top of the frames the engine
+adds the timing the sheets cannot: landing squash (20 %) and take-off stretch,
+a lean into acceleration and stops, a skid frame on direction changes, a
+half-crouch in-between, footstep sound + dust on the boot-contact frames, an
+idle fidget after five still seconds, and hit-stop when the whip connects
+(`world.hitStop`: 5 ticks on an enemy, 7 on a boss).
+`tools/anim_strip.html` renders every hunter animation tick by tick on one
+canvas for checking (`http://localhost:8711/tools/anim_strip.html`).
 
 Enemies, bosses and the turtle get the same treatment without touching their
 state machines. `tools/animate_cast.py` holds one job per `<sheet>_<family>`

@@ -4,8 +4,9 @@ import { PLAYER, TILE } from '../engine/constants.js';
 import { Entity } from './entities.js';
 import { Projectile } from './objects.js';
 import {
-  heroFrame, heroScale, drawStretchedWhip, drawProceduralLash,
-  walkAdvance, walkFrameCount, isStepFrame, LAND_TIME, LAND_SOFT_TIME, LAUNCH_TIME,
+  heroFrame, heroScale, drawWhipFrame, lashTip, fidgetLength,
+  walkAdvance, walkFrameCount, isStepFrame,
+  LAND_TIME, LAND_SOFT_TIME, LAUNCH_TIME, TURN_TIME, CROUCH_BLEND, FIDGET_AFTER,
 } from './hero_anim.js';
 
 export class Player extends Entity {
@@ -31,11 +32,15 @@ export class Player extends Entity {
     this.animT = 0;
     this.walkFrame = 0;
     this.walkFrames = 8;           // frames in the walk cycle sheet (set from the atlas on draw)
+    this.fidgetLen = 0;            // seconds of the idle fidget clip (set from the atlas on draw)
     this.idleT = 0;                // time standing still (idle breathing loop)
     this.landT = 0;                // landing squash / recovery frames
     this.landHard = false;
     this.launchT = 0;              // take-off stretch
     this.lean = 0;                 // weight shift (shear) into acceleration / stops
+    this.turnT = 0;                // skid frame after a direction change
+    this.crouchBlendT = 0;         // half-crouch in-between on the way down / up
+    this.fidgetT = -1;             // time into the idle fidget clip (< 0: not fidgeting)
     this.subWeapon = null;         // 'dagger' | 'axe' | 'holy_water'
     this.throwT = 0;
     this.throwing = false;
@@ -116,11 +121,14 @@ export class Player extends Entity {
 
     // Crouch (ground only), with head-room check when standing up.
     const wantCrouch = ctl && input.down.down && this.onGround && !this.attacking;
-    if (wantCrouch && !this.crouching) { this.crouching = true; this.h = PLAYER.crouchHeight; }
+    if (wantCrouch && !this.crouching) { this.crouching = true; this.h = PLAYER.crouchHeight; this.crouchBlendT = CROUCH_BLEND; }
     else if (!wantCrouch && this.crouching) {
       this.h = PLAYER.height;
-      if (this.headBlocked(level)) this.h = PLAYER.crouchHeight; else this.crouching = false;
+      if (this.headBlocked(level)) this.h = PLAYER.crouchHeight;
+      else { this.crouching = false; this.crouchBlendT = CROUCH_BLEND; }
     }
+    this.crouchBlendT = Math.max(0, this.crouchBlendT - dt);
+    this.turnT = Math.max(0, this.turnT - dt);
 
     // Horizontal movement: full control on the ground, limited in the air;
     // whipping on the ground roots the hunter in place (classic commitment).
@@ -133,11 +141,15 @@ export class Player extends Entity {
       if (this.onGround) this.vx *= 0.9;
     } else if (this.vx < target) this.vx = Math.min(target, this.vx + accel * dt);
     else if (this.vx > target) this.vx = Math.max(target, this.vx - accel * dt);
-    if (axis !== 0 && !rooted && !this.attacking) this.facing = axis;
+    if (axis !== 0 && !rooted && !this.attacking) {
+      // Direction change at speed on the ground: a few ticks of skid frame.
+      if (axis !== this.facing && this.onGround && Math.abs(this.vx) > 40) this.turnT = TURN_TIME;
+      this.facing = axis;
+    }
     // Weight shift: lean into acceleration, back into a stop (skid); snaps in, eases out.
     const wantLean = this.onGround && this.hurtT <= 0 && !this.attacking
-      ? Math.max(-1, Math.min(1, (target - this.vx) / moveSpeed)) * 0.06 : 0;
-    this.lean += (wantLean - this.lean) * Math.min(1, (Math.abs(wantLean) > Math.abs(this.lean) ? 30 : 9) * dt);
+      ? Math.max(-1, Math.min(1, (target - this.vx) / moveSpeed)) * 0.10 : 0;
+    this.lean += (wantLean - this.lean) * Math.min(1, (Math.abs(wantLean) > Math.abs(this.lean) ? 40 : 8) * dt);
 
     // Jump (coyote + buffer), variable height; down+jump drops through safe one-way ledges.
     if (ctl && this.jumpBuffer > 0 && this.coyote > 0 && !this.crouching) {
@@ -207,7 +219,15 @@ export class Player extends Entity {
     }
     this.throwT = Math.max(0, this.throwT - dt);
     if (this.attacking) {
+      const prevAttackT = this.attackT;
       this.attackT += dt;
+      if (!this.throwing && prevAttackT < this.whipActive[0] && this.attackT >= this.whipActive[0]) {
+        // The crack: the tick the lash reaches full length and the hit box goes live.
+        const tip = lashTip(this.x, this.y, this.facing, this.whipReach, this.attackCrouch);
+        world.particles.sparks(tip.x, tip.y, 5, '#fff2c8');
+        world.sfx('crack');
+        world.camera.shake(1, 0.05);
+      }
       if (!this.throwing && hasRelic('jack') && this.attackT >= this.whipActive[0] && this.attackT <= this.whipActive[1] && Math.random() < 0.65) {
         const tipX = this.x + this.facing * (12 + Math.random() * this.whipReach);
         const tipY = this.y - (this.attackCrouch ? 28 : 44);
@@ -224,7 +244,7 @@ export class Player extends Entity {
       this.landHard = prevVy > 250;
       this.landT = this.landHard ? LAND_TIME : LAND_SOFT_TIME;
       this.launchT = 0;
-      if (this.landHard) { world.sfx('land'); world.particles.dust(this.x, this.y, 5); }
+      if (this.landHard) { world.sfx('land'); world.particles.dust(this.x, this.y, 8); }
     }
 
     // Animation state
@@ -247,6 +267,12 @@ export class Player extends Entity {
       this.walkFrame = frame;
     } else { this.animT = 0; this.walkFrame = 0; }
     this.idleT = this.state === 'idle' ? this.idleT + dt : 0;
+    // Standing still for a while: play the fidget clip once, then start over.
+    if (this.state !== 'idle') this.fidgetT = -1;
+    else if (this.fidgetT >= 0) {
+      this.fidgetT += dt;
+      if (this.fidgetT >= this.fidgetLen) { this.fidgetT = -1; this.idleT = 0; }
+    } else if (this.idleT > FIDGET_AFTER && this.fidgetLen > 0) this.fidgetT = 0;
   }
 
   headBlocked(level) {
@@ -320,6 +346,7 @@ export class Player extends Entity {
 
   draw(ctx, assets, camX, camY) {
     this.walkFrames = walkFrameCount(assets);
+    this.fidgetLen = fidgetLength(assets);
     const blink = this.invuln > 0 && this.state !== 'dead' && Math.floor(this.invuln * 18) % 2 === 0;
     const fr = heroFrame(assets, this);
     const flip = this.facing < 0;
@@ -344,14 +371,9 @@ export class Player extends Entity {
       assets.draw(ctx, still.sheet, still.name, x + jx, y, flip, 1, 1, 'rgba(150, 150, 165, 0.82)');
       return;
     }
-    if (fr.proceduralLash) {
-      // Crouching whip without a clip: crouch pose plus the drawn low lash.
-      assets.draw(ctx, fr.sheet, fr.name, x, y, flip, alpha);
-      drawProceduralLash(ctx, x, y, this.facing, this.attackT, this.whipActive[0], this.whipReach);
-      return;
-    }
-    if (fr.stretch) {
-      drawStretchedWhip(ctx, assets, fr.sheet, fr.name, x, y, flip, alpha, this.whipReach);
+    if (fr.lash) {
+      // Whip body frame + the procedural lash flying out / cracking / dropping.
+      drawWhipFrame(ctx, assets, fr.sheet, fr.name, x, y, flip, alpha, this.whipReach, fr.lash);
       return;
     }
     assets.draw(ctx, fr.sheet, fr.name, x, y, flip, alpha, 1, null, this.spriteXf());

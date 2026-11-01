@@ -4,7 +4,7 @@
 // remote hunter motion & animations smoothly at 60 fps.
 
 import { PLAYER } from './constants.js';
-import { walkAdvance } from '../game/hero_anim.js';
+import { walkAdvance, FIDGET_AFTER } from '../game/hero_anim.js';
 
 function randomPeerId() {
   const bytes = new Uint8Array(5);
@@ -484,6 +484,9 @@ export class NetClient {
       // Local clocks for the breathing idle and the death sequence (not sent over the wire)
       p.idleT = p.anim === 'idle' ? (p.idleT || 0) + dt : 0;
       p.deadT = p.anim === 'dead' ? (p.deadT || 0) + dt : 0;
+      if (p.anim !== 'idle') p.fidgetT = -1;
+      else if (p.fidgetT >= 0) { p.fidgetT += dt; if (p.fidgetT > 1.2) { p.fidgetT = -1; p.idleT = 0; } }
+      else if (p.idleT > FIDGET_AFTER) p.fidgetT = 0;
     }
 
     // Outbound state throttle (20 Hz active, ~3 Hz when completely stationary)

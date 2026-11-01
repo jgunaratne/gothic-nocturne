@@ -5,7 +5,7 @@
 // - Off-screen directional edge beacons for peers in the same castle region
 
 import { W, H, TILE, PLAYER } from '../engine/constants.js';
-import { heroFrame, drawStretchedWhip, drawProceduralLash } from './hero_anim.js';
+import { heroFrame, drawWhipFrame } from './hero_anim.js';
 
 export const HUNTER_PALETTES = [
   {
@@ -158,10 +158,11 @@ function drawCloakFrame(ctx, assets, sheet, frameName, slot, x, y, flip = false,
   ctx.restore();
 }
 
-function drawRemoteWhipStrike(ctx, assets, slot, reach, x, y, flip, alpha, sheet = 'hero', name = 'whip1') {
+function drawRemoteWhipStrike(ctx, assets, slot, reach, x, y, flip, alpha, sheet, name, lash) {
   const tinted = getCloakSprite(assets, sheet, name, slot);
-  drawStretchedWhip(ctx, assets, sheet, name, x, y, flip, alpha, reach,
-    tinted || null, tinted ? 0 : null, tinted ? 0 : null);
+  const pal = HUNTER_PALETTES[slot % HUNTER_PALETTES.length];
+  drawWhipFrame(ctx, assets, sheet, name, x, y, flip, alpha, reach, lash,
+    tinted || null, tinted ? 0 : null, tinted ? 0 : null, pal.whip, '#ffffff');
 }
 
 function remoteFrame(assets, p) {
@@ -176,6 +177,7 @@ function remoteFrame(assets, p) {
     attackCrouch: p.attackCrouch,
     vy: p.vy,
     idleT: p.idleT || 0,
+    fidgetT: p.fidgetT == null ? -1 : p.fidgetT,
     deadT: p.deadT || 0,
     hurtT: p.hurtT || 0,
     landT: 0,
@@ -257,17 +259,12 @@ export function drawRemotePlayers(ctx, world, peersInStage, time = 0) {
     const alpha = blink ? baseAlpha * 0.35 : baseAlpha;
     const flip = p.facing < 0;
     const fr = remoteFrame(assets, p);
-    const whipScale = ((p.relicsMask >> 11) & 1) ? 0.75 : 1;
-    const activeStart = PLAYER.whipActive[0] * whipScale;
 
     if (p.petrified > 0) {
       const still = p.anim === 'attack' || p.anim === 'walk' ? { sheet: 'hero', name: 'idle' } : fr;
       assets.draw(ctx, still.sheet, still.name, sx, sy, flip, 0.9, 1, 'rgba(150, 150, 165, 0.82)');
-    } else if (fr.proceduralLash) {
-      drawCloakFrame(ctx, assets, fr.sheet, fr.name, p.slot, sx, sy, flip, alpha);
-      drawProceduralLash(ctx, sx, sy, p.facing, p.attackT, activeStart, p.whipReach, pal.whip, '#ffffff');
-    } else if (fr.stretch) {
-      drawRemoteWhipStrike(ctx, assets, p.slot, p.whipReach, sx, sy, flip, alpha, fr.sheet, fr.name);
+    } else if (fr.lash) {
+      drawRemoteWhipStrike(ctx, assets, p.slot, p.whipReach, sx, sy, flip, alpha, fr.sheet, fr.name, fr.lash);
       // Fiery whip embers if remote hunter holds Jack-o'-Lantern relic (index 2)
       if (((p.relicsMask >> 2) & 1) && world.particles && Math.random() < 0.45) {
         world.particles.embers(p.x + p.facing * (14 + Math.random() * p.whipReach), p.y - 42, 1);

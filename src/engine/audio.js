@@ -66,12 +66,28 @@ export class AudioSys {
     this.sfxVolume = 0.6;
   }
 
-  /** Creates the context on first user gesture (autoplay policy). */
+  /** Creates or resumes the context on user gesture (desktop & iOS/Android autoplay/interruption policy). */
   unlock() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    if (this.ctx) {
+      if (this.ctx.state !== 'running') {
+        this.ctx.resume().catch(() => {});
+        this._kickSilent();
+      }
+      return;
+    }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     this.ctx = new AC();
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+    this._kickSilent();
+    if (typeof document !== 'undefined' && !this._visBound) {
+      this._visBound = true;
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && this.ctx && this.ctx.state !== 'running') {
+          this.ctx.resume().catch(() => {});
+        }
+      });
+    }
     this.master = this.ctx.createGain();
     this.master.gain.value = this.muted ? 0 : 1;
     this.master.connect(this.ctx.destination);
@@ -88,6 +104,18 @@ export class AudioSys {
     if (this.pendingVoice) { const v = this.pendingVoice; this.pendingVoice = null; this.playVoice(v.key, v.onDuration); }
     if (this.pendingAmbient) { const a = this.pendingAmbient; this.pendingAmbient = null; this.ambient = null; this.playAmbient(a.url, a.volume); }
     for (const n of ['whip', 'jump', 'land', 'hit', 'hurt', 'candle', 'heart', 'pickup', 'throw', 'enemy_die', 'bone', 'block', 'boss_hit', 'boss_roar', 'gate', 'select', 'fire', 'orb', 'thunder', 'die', 'boss_die', 'pause']) this.ensureSfx(n);
+  }
+
+  /** Plays a 1-frame silent buffer inside a gesture so iOS WebKit unlocks audio output immediately. */
+  _kickSilent() {
+    if (!this.ctx) return;
+    try {
+      const buf = this.ctx.createBuffer(1, 1, 22050);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.ctx.destination);
+      src.start(0);
+    } catch (e) { /* ignore */ }
   }
 
   /** Fetches + decodes a track on demand; keeps only a few decoded. */
@@ -415,6 +443,10 @@ export class AudioSys {
       case 'jump': this._osc('square', 220, 520, 0.14, 0.12); break;
       case 'land': this._noise(0.06, 0.18, 300, 'lowpass'); break;
       case 'step': this._noise(0.03, 0.06, 420, 'lowpass'); break;   // boot contact on walk frames
+      case 'crack':                                                    // the lash tip breaking the air
+        this._noise(0.025, 0.32, 5200, 'highpass');
+        this._osc('square', 1600, 420, 0.04, 0.07);
+        break;
       case 'hit':
         this._noise(0.08, 0.3, 1800);
         this._osc('square', 300, 90, 0.12, 0.18);

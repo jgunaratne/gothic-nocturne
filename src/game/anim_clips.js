@@ -27,11 +27,11 @@ const FAMILY_ALIASES = {
 /** Loop playback: px per frame for distance-driven walkers, fps for the rest. */
 const LOOP_DEFAULTS = {
   walk: { px: 8 }, walkb: { px: 8 }, prowl: { px: 7 }, crawl: { px: 6 },
-  fly: { fps: 12 }, flap: { fps: 10 }, float: { fps: 6 }, wave: { fps: 6 }, idle: { fps: 5 },
-  flame: { fps: 9 }, wisp: { fps: 8 }, golem: { fps: 5 }, snowman: { fps: 6 }, shell: { fps: 12 },
+  fly: { fps: 12 }, flap: { fps: 10 }, float: { fps: 7 }, wave: { fps: 7 }, idle: { fps: 6 },
+  flame: { fps: 10 }, wisp: { fps: 9 }, golem: { fps: 6 }, snowman: { fps: 6 }, shell: { fps: 12 },
 };
-const LOOP_MIN_FPS = 4;
-const ONESHOT_FPS = 10;
+const LOOP_MIN_FPS = 6;
+const ONESHOT_FPS = 12;
 
 let clock = 0;                   // world time, advanced only while entities update
 const familyCache = new Map();   // "sheet|frame" -> family

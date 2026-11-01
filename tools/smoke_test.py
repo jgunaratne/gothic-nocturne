@@ -12,7 +12,8 @@ for i in range(1, N_STAGES + 1):
     scenes.append((f'stage{i}-start', f'?demo=1&stage={i}&skip=240'))
     scenes.append((f'stage{i}-boss', f'?screen=play&stage={i}&at=999&skip=900'))
 fails = 0
-for name, q in scenes:
+def shoot(q):
+    """Loads one scene in headless Chrome; returns (screenshot bytes, JS error lines)."""
     with tempfile.TemporaryDirectory() as udir:
         out = os.path.join(udir, 'shot.png')
         cmd = ['google-chrome', '--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run',
@@ -25,8 +26,16 @@ for name, q in scenes:
             err = 'TIMEOUT'
         errs = [l for l in err.splitlines() if ('Uncaught' in l or 'TIMEOUT' in l) and 'chrome-extension' not in l]
         size = os.path.getsize(out) if os.path.exists(out) else 0
-        ok = not errs and size > 20000
-        if not ok: fails += 1
-        print(('OK  ' if ok else 'FAIL'), name.ljust(16), f'{size}B', (errs[0][:160] if errs else ''))
+        return size, errs
+
+for name, q in scenes:
+    size, errs = shoot(q)
+    if not errs and size == 0:
+        # Chrome exited without writing a screenshot and without a JS error: a busy box
+        # (another headless Chrome running), not the game. One retry before failing.
+        size, errs = shoot(q)
+    ok = not errs and size > 20000
+    if not ok: fails += 1
+    print(('OK  ' if ok else 'FAIL'), name.ljust(16), f'{size}B', (errs[0][:160] if errs else ''))
 print('SMOKE_OK' if fails == 0 else f'SMOKE_FAILED ({fails})')
 sys.exit(1 if fails else 0)

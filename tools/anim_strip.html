@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- Whip / jump / idle strip renderer: draws the hunter's animation frames tick by tick
+     onto one canvas (no game loop) so a headless screenshot shows the whole motion. -->
+<html><head><base href="/"></head><body style="margin:0;background:#1a1a26">
+<canvas id="c" width="1280" height="900"></canvas>
+<script type="module">
+import { Assets } from '/src/engine/assets.js';
+import { PLAYER } from '/src/engine/constants.js';
+import { heroFrame, heroScale, drawWhipFrame } from '/src/game/hero_anim.js';
+const assets = new Assets();
+await assets.load();
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+ctx.scale(2, 2);
+const base = { whipTime: PLAYER.whipTime, whipActive: PLAYER.whipActive.slice(), walkFrame: 0 };
+function drawState(s, x, y) {
+  const fr = heroFrame(assets, s);
+  if (fr.lash) drawWhipFrame(ctx, assets, fr.sheet, fr.name, x, y, false, 1, PLAYER.whipReach, fr.lash);
+  else {
+    const sc = heroScale(s);
+    assets.draw(ctx, fr.sheet, fr.name, x, y, false, 1, 1, null, sc ? { sx: sc.sx, sy: sc.sy, skew: 0 } : null);
+  }
+  ctx.fillStyle = '#5a5a7a'; ctx.fillRect(x - 20, y, 150, 1);
+}
+let y = 70;
+ctx.fillStyle = '#e6e1c8'; ctx.font = '8px sans-serif';
+// 1. standing whip, every tick (24 ticks)
+ctx.fillText('whip, every tick (0.40 s)', 4, 8);
+for (let i = 0; i < 24; i++) drawState({ ...base, state: 'attack', attackT: i / 60 + 0.0001 }, 30 + (i % 12) * 52, y + Math.floor(i / 12) * 80);
+y += 170;
+// 2. crouch whip, every 2nd tick
+ctx.fillText('crouch whip, every 2nd tick', 4, y - 60);
+for (let i = 0; i < 12; i++) drawState({ ...base, state: 'attack', attackCrouch: true, attackT: (i * 2) / 60 + 0.0001 }, 30 + i * 52, y);
+y += 80;
+// 3. jump arc + landing squash
+ctx.fillText('jump: crouch? rise0 rise1 apex fall0 fall1 | land squash 0..0.2s', 4, y - 60);
+const jumps = [-545, -400, -200, 0, 200, 400].map((vy) => ({ ...base, state: 'jump', vy, launchT: vy === -545 ? 0.08 : 0 }));
+jumps.forEach((s, i) => drawState(s, 30 + i * 40, y));
+for (let i = 0; i < 6; i++) drawState({ ...base, state: 'idle', landT: 0.2 - i * 0.04, landHard: true }, 300 + i * 40, y);
+y += 80;
+// 4. idle loop + fidget + turn
+ctx.fillText('idle 8 frames | fidget 8 frames | turn0 turn1', 4, y - 60);
+for (let i = 0; i < 8; i++) drawState({ ...base, state: 'idle', idleT: i / 6 + 0.01, fidgetT: -1 }, 30 + i * 36, y);
+for (let i = 0; i < 8; i++) drawState({ ...base, state: 'idle', idleT: 6, fidgetT: i / 8 + 0.01 }, 340 + i * 40, y);
+drawState({ ...base, state: 'walk', turnT: 0.08 }, 680, y);
+drawState({ ...base, state: 'walk', turnT: 0.03 }, 720, y);
+document.title = 'done';
+</script></body></html>

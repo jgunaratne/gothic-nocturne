@@ -984,6 +984,16 @@
    "src": "clips/hero_hurt_sheet.png",
    "frames": "clips/hero_hurt_frames.json"
   },
+  "hero_fidget": {
+   "type": "clip",
+   "src": "clips/hero_fidget_sheet.png",
+   "frames": "clips/hero_fidget_frames.json"
+  },
+  "hero_turn": {
+   "type": "clip",
+   "src": "clips/hero_turn_sheet.png",
+   "frames": "clips/hero_turn_frames.json"
+  },
   "giantbat": {
    "type": "sheet",
    "src": "giantbat_sheet.png",

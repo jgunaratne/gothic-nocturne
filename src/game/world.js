@@ -546,7 +546,7 @@ export class World {
         hitSomething = true;
         this.sfx('block');
         this.camera.shake(2, 0.12);
-        this.hitStop = Math.max(this.hitStop, 0.03);
+        this.hitStop = Math.max(this.hitStop, 0.04);
         this.particles.shards(tx * TILE + 16, ty * TILE + 30, 12, '#8a9ab5', ty * TILE + 32);
         if (drop) this.spawnItem(drop, tx * TILE + 16, ty * TILE + 20);
       }
@@ -572,8 +572,8 @@ export class World {
             });
           }
           hitSomething = true;
-          this.camera.shake(1.5, 0.08);
-          this.hitStop = Math.max(this.hitStop, e === this.boss ? 0.07 : 0.05);
+          this.camera.shake(2.5, 0.1);
+          this.hitStop = Math.max(this.hitStop, e === this.boss ? 0.11 : 0.08);
         }
       }
       for (const pr of this.projectiles) {
