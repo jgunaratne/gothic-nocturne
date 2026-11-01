@@ -63,6 +63,8 @@ const GLYPHS = {
   '→': ['.....', '..#..', '...#.', '#####', '...#.', '..#..', '.....'],
   '↑': ['..#..', '.###.', '#.#.#', '..#..', '..#..', '..#..', '..#..'],
   '↓': ['..#..', '..#..', '..#..', '..#..', '#.#.#', '.###.', '..#..'],
+  '<': ['...#.', '..#..', '.#...', '#....', '.#...', '..#..', '...#.'],
+  '>': ['.#...', '..#..', '...#.', '....#', '...#.', '..#..', '.#...'],
   '·': ['.....', '.....', '.....', '..#..', '.....', '.....', '.....'],
   '~': ['.....', '.....', '.#...', '#.#.#', '...#.', '.....', '.....'],
 };
@@ -203,7 +205,11 @@ export class Font {
           const m = this._mul(scale);
           const img = this._tinted(set, col);
           // Baseline sits one cap height below y; glyph tops are stored relative to the baseline.
-          const gy = y + Math.round(set.cap * m) + Math.round(gl.dy * m);
+          // Vertically position mid-line hyphens/interpuncts and cap-top apostrophes cleanly.
+          let dy = gl.dy;
+          if (ch === '-' || ch === '·') dy = -Math.round((set.cap + gl.h) * 0.5);
+          else if (ch === "'") dy = -set.cap;
+          const gy = y + Math.round(set.cap * m) + Math.round(dy * m);
           ctx.drawImage(img, gl.x, gl.y, gl.w, gl.h, px + dxy, gy + dxy, Math.round(gl.w * m), Math.round(gl.h * m));
         } else if (ch !== ' ') {
           // Fallback pixel glyph (arrows, heart, symbols), vertically centred on the cap height

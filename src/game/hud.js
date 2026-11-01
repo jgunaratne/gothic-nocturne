@@ -16,8 +16,9 @@ export function drawHud(ctx, font, assets, world) {
 
   const dim = '#8a9ab5', ivory = '#e8e2c8', shadow = '#120f1c';
   font.draw(ctx, `SCORE-${String(world.score).padStart(7, '0')}`, 12, 7, { color: ivory, shadow });
-  font.draw(ctx, `TIME ${String(Math.max(0, Math.ceil(world.timeLeft))).padStart(4, '0')}`, 190, 7, { color: ivory, shadow });
-  font.draw(ctx, `STAGE ${String(world.stage.id || 1).padStart(2, '0')}`, 300, 7, { color: ivory, shadow });
+  font.draw(ctx, `TIME ${String(Math.max(0, Math.ceil(world.timeLeft))).padStart(4, '0')}`, 174, 7, { color: ivory, shadow });
+  const stageLabel = (world.stage.name || '').replace(/^THE\s+/, '') || 'KEEP';
+  font.draw(ctx, stageLabel, 310, 7, { align: 'center', color: ivory, shadow });
   font.draw(ctx, `P-${String(world.lives).padStart(2, '0')}`, 392, 7, { color: ivory, shadow });
   const diff = world.difficulty;
   font.draw(ctx, diff.name, 442, 7, { color: diff.key === 'hard' ? '#e23c3c' : diff.key === 'easy' ? '#9ad17a' : dim, shadow });
@@ -79,6 +80,39 @@ export function drawHud(ctx, font, assets, world) {
 
   // Live Castle Grid Mini-Map radar (top-right, M to expand)
   drawMiniMap(ctx, font, world, 577, 6);
+
+  // Multiplayer online presence badge & fading castle activity feed
+  const net = world.game && world.game.net;
+  if (net && net.connected) {
+    const othersTotal = net.peers.size;
+    const hereCount = net.peersInStage(world.stage.key).length;
+    let fy = 44;
+    if (othersTotal > 0) {
+      const tag = hereCount > 0
+        ? `${othersTotal + 1} IN KEEP · ${hereCount} HERE`
+        : `${othersTotal + 1} IN KEEP`;
+      ctx.fillStyle = 'rgba(8, 18, 22, 0.78)';
+      const bw = font.width(tag, 1, 1, false) + 14;
+      ctx.fillRect(12, fy, bw, 11);
+      ctx.fillStyle = hereCount > 0 ? '#62f2c2' : '#7cc8ff';
+      ctx.fillRect(15, fy + 4, 3, 3);
+      font.draw(ctx, tag, 21, fy + 2, {
+        color: hereCount > 0 ? '#9ef5dc' : '#b8d8ff',
+        shadow,
+        gothic: false,
+      });
+      fy += 13;
+    }
+    for (const item of net.feed) {
+      const alpha = Math.max(0, Math.min(1, (item.dur - item.t) / 0.5));
+      if (alpha <= 0.02) continue;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      font.draw(ctx, item.text, 12, fy, { color: item.color || '#9ef5dc', shadow, gothic: false });
+      ctx.restore();
+      fy += 10;
+    }
+  }
 
   // Companion status badge (Darkwood Guardian Turtle)
   if (world.ally && world.ally.alive) {

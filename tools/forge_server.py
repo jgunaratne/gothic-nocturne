@@ -758,6 +758,35 @@ def run_job(job):
         save_job(job)
 
 
+def remove_wing(key):
+    """Deletes a raised wing: registry entry, assets/forge/<key>/ and its job records."""
+    key = slug(key)
+    removed = False
+    with LOCK:
+        stages = load_registry()
+        kept = [e for e in stages if e.get('key') != key]
+        if len(kept) != len(stages):
+            save_registry(kept)
+            removed = True
+    wing_dir = os.path.join(FORGE_DIR, key)
+    if os.path.isdir(wing_dir):
+        shutil.rmtree(wing_dir)
+        removed = True
+    if os.path.isdir(JOBS_DIR):
+        for fn in os.listdir(JOBS_DIR):
+            job = load_job(fn[:-5]) if fn.endswith('.json') else None
+            if not job:
+                continue
+            jkey = (job.get('entry') or {}).get('key') or (job.get('blueprint') or {}).get('key')
+            if jkey == key:
+                os.remove(os.path.join(JOBS_DIR, fn))
+    if removed:
+        log(f'removed wing {key!r}; {len(load_registry())} wing(s) remain')
+        return 0
+    log(f'no wing {key!r} found in {REGISTRY}')
+    return 1
+
+
 def new_job(payload):
     proposal = {
         'name': str(payload.get('name', ''))[:40].strip(),
@@ -878,7 +907,16 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--port', type=int, default=int(os.environ.get('PORT', '8712')))
     ap.add_argument('--host', default=os.environ.get('HOST', '0.0.0.0'))
+    ap.add_argument('--remove', metavar='KEY', help='remove a raised wing (registry entry, assets and job files), then exit')
+    ap.add_argument('--list', action='store_true', help='list raised wings, then exit')
     args = ap.parse_args()
+    if args.list:
+        for i, e in enumerate(load_registry()):
+            bp = e.get('blueprint') or {}
+            print(f"{i + 14:>3}  {e['key']:<28} {bp.get('name', '?'):<32} base={bp.get('base', '?'):<10} boss={(bp.get('boss') or {}).get('name', '?')}")
+        return
+    if args.remove:
+        sys.exit(remove_wing(args.remove))
     os.makedirs(JOBS_DIR, exist_ok=True)
     # Jobs interrupted by a restart are reported as failed rather than hanging forever.
     for fn in os.listdir(JOBS_DIR):

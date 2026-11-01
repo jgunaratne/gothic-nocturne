@@ -8,6 +8,7 @@ import { W, H, TILE } from '../engine/constants.js';
 import { STAGES } from './stages.js';
 import { THEMES } from './builder.js';
 import { BOSS_RELICS } from './relics.js';
+import { paletteForSlot } from './net_player.js';
 
 export const GRID_COLS = 34;
 export const GRID_ROWS = 14;
@@ -582,6 +583,10 @@ export function drawCastleMap(ctx, font, assets, {
   currentStageKey = null,
   playerNormX = 0,
   inSecret = false,
+  remotePlayers = null,
+  onlineCount = 1,
+  roomName = 'castle',
+  netConnected = false,
 }) {
   const pulse = 0.5 + 0.5 * Math.sin(time * 5.2);
   const expSet = explored || new Set();
@@ -602,11 +607,14 @@ export function drawCastleMap(ctx, font, assets, {
   const pct = exploredPercent(expSet);
   const vesselCount = countBits(vessels, STAGES.length);
   const relicCount = relicSet.size;
+  const peers = Array.isArray(remotePlayers) ? remotePlayers : [];
   if (currentStageKey && STAGES[stageIndexOf(currentStageKey)]) {
     const curName = STAGES[stageIndexOf(currentStageKey)].name.replace(/^THE /, '');
-    font.draw(ctx, `* HERE · ${curName}`, 16, 4, { color: '#9ef5dc', shadow: '#05040a', gothic: false });
+    const onlineTag = netConnected ? ` · ${onlineCount} ONLINE` : '';
+    font.draw(ctx, `* HERE · ${curName}${onlineTag}`, 16, 4, { color: '#9ef5dc', shadow: '#05040a', gothic: false });
   } else {
-    font.draw(ctx, `${difficultyName} HUNT`, 16, 4, { color: '#a89a74', shadow: '#05040a', gothic: false });
+    const onlineTag = netConnected ? ` · ${onlineCount} ONLINE (${roomName.toUpperCase()})` : '';
+    font.draw(ctx, `${difficultyName} HUNT${onlineTag}`, 16, 4, { color: netConnected && onlineCount > 1 ? '#62f2c2' : '#a89a74', shadow: '#05040a', gothic: false });
   }
   font.draw(ctx, 'CASTLE EXPLORATION MAP', W / 2, 16, { scale: 2, gothic: false, align: 'center', color: '#efe3bf', shadow: '#05040a' });
   font.draw(
@@ -781,6 +789,78 @@ export function drawCastleMap(ctx, font, assets, {
     }
   }
 
+  // Pass 3.5: REMOTE NETWORK HUNTER BEACONS across all 13 castle stages!
+  const localLoc = currentStageKey ? playerGridLocation(currentStageKey, playerNormX, inSecret) : null;
+  const placedTags = [];
+  if (localLoc) {
+    const lbx = Math.round(localLoc.px);
+    const lby = Math.round(localLoc.py);
+    const lTagY = lby < MAP_Y + 22 ? lby + 9 : lby - 16;
+    placedTags.push({ x: lbx - 13, y: lTagY - 1, w: 27, h: 10 });
+  }
+  if (peers.length > 0) {
+    ctx.save();
+    peers.forEach((rp, idx) => {
+      if (!rp.stageKey || !MAP_ROOMS[rp.stageKey]) return;
+      const rLoc = playerGridLocation(rp.stageKey, rp.normX || 0, !!rp.inSecret);
+      const rbx = Math.round(rLoc.px);
+      const rby = Math.round(rLoc.py);
+      const pal = paletteForSlot(rp.slot);
+      const rRing = 4 + Math.round(((pulse + idx * 0.33) % 1) * 4);
+
+      ctx.strokeStyle = pal.hex;
+      ctx.globalAlpha = 0.65;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(rbx + 0.5, rby + 0.5, rRing, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = '#05040a';
+      ctx.fillRect(rbx - 3, rby - 3, 7, 7);
+      ctx.fillStyle = pal.hex;
+      ctx.fillRect(rbx - 2, rby - 2, 5, 5);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(rbx - 1, rby - 1, 2, 2);
+
+      const label = (rp.name || 'HUNTER').slice(0, 10);
+      const tw = font.width(label, 1, 1, false) + 6;
+      const baseTagX = Math.max(MAP_X + 2, Math.min(MAP_X + GRID_COLS * CELL_SIZE - tw - 2, Math.round(rbx - tw * 0.5)));
+      const candidates = [
+        [baseTagX, rby - 15],
+        [baseTagX, rby + 8],
+        [baseTagX, rby + 19],
+        [baseTagX, rby - 26],
+        [Math.min(MAP_X + GRID_COLS * CELL_SIZE - tw - 2, rbx + 6), rby - 4],
+        [Math.max(MAP_X + 2, rbx - tw - 6), rby - 4],
+      ];
+      let tagX = baseTagX;
+      let tagY = rby + 8;
+      for (const [cx, cy] of candidates) {
+        if (cy < MAP_Y + 2 || cy > MAP_Y + GRID_ROWS * CELL_SIZE - 11) continue;
+        const overlaps = placedTags.some((b) => cx < b.x + b.w + 2 && cx + tw + 2 > b.x && cy < b.y + b.h + 1 && cy + 9 + 1 > b.y);
+        if (!overlaps) {
+          tagX = cx;
+          tagY = cy;
+          break;
+        }
+      }
+      placedTags.push({ x: tagX, y: tagY - 1, w: tw, h: 10 });
+
+      ctx.fillStyle = 'rgba(5, 4, 12, 0.92)';
+      ctx.fillRect(tagX, tagY - 1, tw, 9);
+      ctx.fillStyle = pal.hex;
+      ctx.fillRect(tagX, tagY - 1, tw, 1);
+      font.draw(ctx, label, tagX + Math.round(tw * 0.5), tagY, {
+        align: 'center',
+        color: pal.hex,
+        shadow: '#05040a',
+        gothic: false,
+      });
+    });
+    ctx.restore();
+  }
+
   // Pass 4: LIVE HUNTER LOCATION BEACON (exact cell & fractional coordinate!)
   if (currentStageKey) {
     const loc = playerGridLocation(currentStageKey, playerNormX, inSecret);
@@ -889,7 +969,8 @@ export function drawCastleMap(ctx, font, assets, {
     font.draw(ctx, rTag, rx, ly + 40, { align: 'right', color: done ? relic.color : '#c9b88a', shadow: '#05040a', gothic: false });
   }
 
-  // Row 4: Connected passages & any ability gates on this area
+  // Row 4: Connected passages, hunters in region, & any ability gates on this area
+  const huntersInCursor = peers.filter((rp) => rp.stageKey === cursor).map((rp) => rp.name);
   const doorsHere = stageDoorsFor(cursor);
   const gateNotes = doorsHere
     .filter((d) => d.gateRelic)
@@ -899,11 +980,13 @@ export function drawCastleMap(ctx, font, assets, {
       const unlocked = relicSet.has(d.gateRelic);
       return `${destName}: ${unlocked ? 'OPEN' : `NEEDS ${rName}`}`;
     });
-  const bottomLeft = gateNotes.length > 0
-    ? `GATES · ${gateNotes.join('  |  ')}`
-    : `PASSAGES · ${MAP_ROOMS[cursor].exits.map((n) => STAGES[stageIndexOf(n)].name.replace(/^THE /, '')).join(' · ')}`;
-  font.draw(ctx, bottomLeft, tx, ly + 56, { color: '#8a9ab5', shadow: '#05040a', gothic: false });
-  font.draw(ctx, mode === 'select' ? 'P EXPAND THE CASTLE · N MUTE' : 'N MUTE', rx, ly + 56, { align: 'right', color: '#5b6b86', shadow: '#05040a', gothic: false });
+  const bottomLeft = huntersInCursor.length > 0
+    ? `HUNTERS HERE · ${huntersInCursor.join(', ')}`
+    : gateNotes.length > 0
+      ? `GATES · ${gateNotes.join('  |  ')}`
+      : `PASSAGES · ${MAP_ROOMS[cursor].exits.map((n) => STAGES[stageIndexOf(n)].name.replace(/^THE /, '')).join(' · ')}`;
+  font.draw(ctx, bottomLeft, tx, ly + 56, { color: huntersInCursor.length > 0 ? '#62f2c2' : '#8a9ab5', shadow: '#05040a', gothic: false });
+  font.draw(ctx, mode === 'select' ? 'P EXPAND · C CALLSIGN · N MUTE' : 'C CALLSIGN · N MUTE', rx, ly + 56, { align: 'right', color: '#5b6b86', shadow: '#05040a', gothic: false });
 }
 
 /**
@@ -960,6 +1043,25 @@ export function drawMiniMap(ctx, font, world, x, y) {
       if (!rm.cellSet.has(`${gc},${gr + 1}`)) ctx.fillRect(sx, sy + cs - 1, cs, 1);
       if (!rm.cellSet.has(`${gc - 1},${gr}`)) ctx.fillRect(sx, sy, 1, cs);
       if (!rm.cellSet.has(`${gc + 1},${gr}`)) ctx.fillRect(sx + cs - 1, sy, 1, cs);
+    }
+  }
+
+  // Remote hunter dots within the 7x4 radar window (including adjacent rooms!)
+  const netPeers = game && game.net ? game.net.activePeers() : null;
+  if (netPeers && netPeers.length > 0) {
+    for (const rp of netPeers) {
+      if (!rp.stageKey || !MAP_ROOMS[rp.stageKey]) continue;
+      const rLoc = playerGridLocation(rp.stageKey, rp.normX || 0, !!rp.inSecret);
+      const dc = rLoc.col - cStart;
+      const dr = rLoc.row - rStart;
+      if (dc < 0 || dc >= colsW || dr < 0 || dr >= rowsH) continue;
+      const rxDot = x + 2 + dc * cs + 2;
+      const ryDot = y + 2 + dr * cs + 2;
+      const pal = paletteForSlot(rp.slot);
+      ctx.fillStyle = '#05040a';
+      ctx.fillRect(rxDot - 1, ryDot - 1, 4, 4);
+      ctx.fillStyle = pal.hex;
+      ctx.fillRect(rxDot, ryDot, 2, 2);
     }
   }
 

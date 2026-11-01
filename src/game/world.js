@@ -6,7 +6,7 @@ import {
 } from '../engine/constants.js';
 import { Camera } from '../engine/camera.js';
 import { getFxLayers } from '../engine/fxlayers.js';
-import { Particles } from '../engine/particles.js';
+import { Particles, parseParticleColor } from '../engine/particles.js';
 import { Level } from './level.js';
 import { Parallax } from './parallax.js';
 import { Stage3D, project3D } from './stage3d.js';
@@ -19,6 +19,7 @@ import { Candle, Item, Projectile, Fire, rollDrop, rectsOverlap } from './object
 import { populateExploration } from './exploration.js';
 import { cellsToRevealAt, stageIndexOf } from './castlemap.js';
 import { BOSS_RELICS, FORGED_RELIC_EFFECTS } from './relics.js';
+import { drawRemotePlayers, drawRemoteEdgeIndicators } from './net_player.js';
 
 /** Frame sequences while a posed boss idles / speaks (idle pose vs. gesture). */
 const BOSS_TALK_FRAMES = {
@@ -169,6 +170,8 @@ export class World {
     this.sanctuary = exp.sanctuary;
     this.passages = exp.passages;
     this.vessel = exp.vessel;
+    this.landmarks = [this.sanctuary, ...(this.passages || []), this.vessel].filter(Boolean);
+    this.stage3d.excludeLandmarks(this.landmarks);
     this.inSecretArea = false;
 
     const cx = d.checkpoints[this.checkpoint];
@@ -212,7 +215,7 @@ export class World {
     } else {
       this.phase = 'intro';
       this.phaseT = 0;
-      this.showMessage(`STAGE ${d.id || 1}`, d.name, 2.6);
+      this.showMessage(d.name, d.subtitle || '', 2.6);
     }
     this.recordExploration();
   }
@@ -233,6 +236,12 @@ export class World {
   spawnFire(x, y, owner = 'player') { this.fires.push(new Fire(x, y, owner)); this.sfx('fire'); }
   spawnItem(type, x, y) { if (type) this.items.push(new Item(type, x, y)); }
 
+  onPlayerProjectile(type, x, y, dir) {
+    if (this.game && this.game.net && this.game.net.connected) {
+      this.game.net.sendEvent('projectile', { type, x: Math.round(x), y: Math.round(y), dir });
+    }
+  }
+
   throwSubWeapon(player) {
     if (this.hasRelic('arcade')) {
       if (!this.freeThrow) this.hearts = Math.max(0, this.hearts - 1);
@@ -240,10 +249,13 @@ export class World {
     } else {
       this.hearts = Math.max(0, this.hearts - 1);
     }
-    const p = new Projectile(player.subWeapon, player.x + player.facing * 10, player.y - 44, player.facing, 'player');
+    const px = player.x + player.facing * 10;
+    const py = player.y - 44;
+    const p = new Projectile(player.subWeapon, px, py, player.facing, 'player');
     if (this.hasRelic('darkcave')) p.damage += 1;
     this.projectiles.push(p);
     this.sfx('throw');
+    this.onPlayerProjectile(player.subWeapon, px, py, player.facing);
   }
 
   onEnemyKilled(enemy) {
@@ -309,6 +321,52 @@ export class World {
     this.enemies = this.enemies.filter((e) => e === boss);
     this.projectiles = this.projectiles.filter((p) => p.owner !== 'enemy');
     this.fires = [];
+    if (this.game && this.game.net && this.game.net.connected && !this._remoteBossClear) {
+      this.game.net.sendEvent('boss_clear', {
+        stageKey: this.stage.key,
+        bossName: (this.data.boss && this.data.boss.name) || 'BOSS',
+      });
+    }
+    this._remoteBossClear = false;
+  }
+
+  /** Applies cooperative remote actions from another hunter in this exact stage. */
+  handleRemoteEvent(ev, peer) {
+    if (!ev || !peer || peer.stageKey !== this.stage.key) return;
+    const d = ev.data || {};
+    if (ev.kind === 'projectile' && d.type) {
+      const pr = new Projectile(d.type, d.x ?? peer.x, d.y ?? (peer.y - 42), d.dir === -1 ? -1 : 1, 'player');
+      pr.isRemote = true;
+      this.projectiles.push(pr);
+      if (Math.abs((d.x ?? peer.x) - this.player.x) < W * 0.85) this.sfx('throw');
+    } else if (ev.kind === 'hit') {
+      const hx = d.x ?? peer.x;
+      const hy = d.y ?? (peer.y - 36);
+      const dmg = Math.max(1, Math.min(8, d.dmg || 2));
+      if (Math.abs(hx - this.camera.rx - W * 0.5) < W) {
+        this.particles.sparks(hx, hy, 5, '#9ef5dc');
+      }
+      if (d.isBoss) {
+        if (this.boss && this.boss.alive && !this.boss.introPose) {
+          if (this.boss.hp <= dmg) this._remoteBossClear = true;
+          this.boss.takeHit(dmg, peer.x, this);
+        }
+      } else {
+        let best = null, bestDist = 72;
+        for (const e of this.enemies) {
+          if (!e.alive || e === this.boss) continue;
+          const dist = Math.hypot(e.x - hx, (e.y - e.h * 0.5) - hy);
+          if (dist < bestDist) { bestDist = dist; best = e; }
+        }
+        if (best) best.takeHit(dmg, peer.x, this);
+      }
+    } else if (ev.kind === 'salute') {
+      peer.saluteT = 1.8;
+      if (Math.abs(peer.x - this.camera.rx - W * 0.5) < W) {
+        this.particles.sparks(peer.x, peer.y - 44, 8, '#ffd27a');
+        this.sfx('pickup');
+      }
+    }
   }
 
   // ------------------------------------------------------------ update
@@ -361,6 +419,15 @@ export class World {
         }
       } else {
         this.regenT = 0;
+      }
+    }
+    // Salute / lantern flare (`G`) to greet fellow hunters
+    if (this.phase === 'play' && input && input.pressed && input.pressed.salute && this.player.alive) {
+      this.player.saluteT = 1.8;
+      this.particles.sparks(this.player.x, this.player.y - 44, 8, '#ffd27a');
+      this.sfx('pickup');
+      if (this.game && this.game.net && this.game.net.connected) {
+        this.game.net.sendEvent('salute', { x: Math.round(this.player.x), y: Math.round(this.player.y) });
       }
     }
     this.updateEntities(dt, input, true);
@@ -476,8 +543,26 @@ export class World {
       const whipDmg = Math.round(baseWhip * (this.difficulty.playerDamage || 1));
       for (const e of this.enemies) {
         if (!e.alive) continue;
-        const died = rectsOverlap(whip, e.box()) || (e === this.boss && rectsOverlap(whip, e.box(10)));
-        if (died) { e.takeHit(whipDmg, p.x, this); hitSomething = true; this.camera.shake(1.5, 0.08); }
+        const hitBox = e === this.boss ? e.box(10) : e.box();
+        if (rectsOverlap(whip, hitBox)) {
+          e.takeHit(whipDmg, p.x, this);
+          // Erupt a directional whip-slash spark flare right at the lash contact point
+          const cx = Math.max(hitBox.x, Math.min(hitBox.x + hitBox.w, p.facing > 0 ? whip.x + whip.w * 0.85 : whip.x + whip.w * 0.15));
+          const cy = Math.max(hitBox.y, Math.min(hitBox.y + hitBox.h, whip.y + whip.h * 0.5));
+          if (Math.abs(cx - e.x) > 12 && this.particles.hitBurst) {
+            this.particles.sparks(cx, cy, 4, this.hasRelic('jack') ? '#ff9a3c' : '#ffe9a0');
+          }
+          if (this.game && this.game.net && this.game.net.connected) {
+            this.game.net.sendEvent('hit', {
+              isBoss: e === this.boss,
+              x: Math.round(cx),
+              y: Math.round(cy),
+              dmg: whipDmg,
+            });
+          }
+          hitSomething = true;
+          this.camera.shake(1.5, 0.08);
+        }
       }
       for (const pr of this.projectiles) {
         if (pr.owner === 'enemy' && pr.type !== 'sickle' && rectsOverlap(whip, pr.box)) {
@@ -865,29 +950,48 @@ export class World {
 
   drawWeather(ctx, nearOnly = false) {
     if (!this.flakes) return;
+    const fxl = getFxLayers();
+    const useShaderGlow = !!(fxl && fxl.enabled && fxl.drawSparkBatch);
+    const glowBatch = useShaderGlow ? (this._weatherGlow || (this._weatherGlow = [])) : null;
+    if (glowBatch) glowBatch.length = 0;
+
     ctx.save();
     for (const f of this.flakes) {
       if (nearOnly !== f.near) continue;
-      const rx = Math.round(f.x), ry = Math.round(f.y);
       if (f.kind === 'fireflies' || f.kind === 'embers') {
         const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(this.time * (f.kind === 'embers' ? 7.5 : 4.2) + f.phase));
-        ctx.globalAlpha = f.alpha * pulse;
-        ctx.fillStyle = f.color;
-        ctx.fillRect(rx - 1, ry - 1, f.size + 2, f.size + 2);
-        ctx.fillStyle = f.kind === 'embers' ? '#fff2b0' : '#eafff5';
-        ctx.fillRect(rx, ry, Math.max(1, f.size), Math.max(1, f.size));
+        const a = f.alpha * pulse;
+        if (glowBatch) {
+          const rgba = parseParticleColor(f.color);
+          const rad = Math.max(3.2, f.size * 1.9);
+          glowBatch.push({
+            x: f.x, y: f.y, halfL: rad * (f.kind === 'embers' ? 1.25 : 1.0), halfW: rad,
+            dirX: 0, dirY: -1,
+            r: rgba[0], g: rgba[1], b: rgba[2], a,
+            kind: 2, life: 0.85, seed: (f.phase % 6.28) / 6.28,
+          });
+        } else {
+          ctx.globalAlpha = a;
+          ctx.fillStyle = f.color;
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, Math.max(1.2, f.size * 0.9), 0, Math.PI * 2);
+          ctx.fill();
+        }
       } else if (f.kind === 'leaves') {
+        const rx = Math.round(f.x), ry = Math.round(f.y);
         ctx.globalAlpha = f.alpha;
         ctx.fillStyle = f.color;
         const w = Math.max(1, Math.round(f.size * (0.5 + 0.5 * Math.abs(Math.cos(this.time * 3 + f.phase)))));
         ctx.fillRect(rx, ry, w + 1, f.size);
       } else {
+        const rx = Math.round(f.x), ry = Math.round(f.y);
         ctx.globalAlpha = f.alpha;
         ctx.fillStyle = f.color;
         ctx.fillRect(rx, ry, f.size, f.size);
       }
     }
     ctx.restore();
+    if (glowBatch && glowBatch.length) fxl.drawSparkBatch(ctx, glowBatch, 'lighter');
   }
 
   updateLightning(dt) {
@@ -929,14 +1033,41 @@ export class World {
     const indoors = !outdoor || this.player.x > roomX + TILE;
     const flash = indoors ? this.flash * 0.35 : this.flash;
 
-    // 1. Far sky, 2D parallax layers & 3D vistas / subterranean abysses
+    // 1. Far sky, interleaved 2D scrolling parallax & 3D vistas / subterranean abysses.
     // Skip outdoor sky/vista overdraw once camera has crossed inside an opaque castle hall!
-    const showOutdoor = outdoor && (roomX === Infinity || project3D(roomX - 18, 144, 40, camX, camY).x > 0);
+    const portalX = roomX < Infinity ? Math.round(project3D(roomX - 18, 144, 40, camX, camY).x) : W;
+    const showOutdoor = outdoor && portalX > -8;
     if (showOutdoor) {
-      this.parallax.drawSky(ctx, cam, flash, this.boltX, this.boltSeed);
-      this.parallax.drawBack(ctx, cam, flash);
-      this.stage3d.drawOutdoor3D(ctx, cam, t, flash);
-      this.parallax.drawAtmosphere(ctx, cam);
+      const outClipW = roomX < Infinity ? Math.min(W, Math.max(0, portalX + 12)) : W;
+      ctx.save();
+      if (outClipW < W) {
+        ctx.beginPath();
+        ctx.rect(0, 0, outClipW, H);
+        ctx.clip();
+      }
+      // 1a. Sky dome + celestial 3D aurora (behind mountains & trees) + clouds + lightning
+      this.parallax.drawSky(ctx, cam, flash, this.boltX, this.boltSeed, (c) => this.stage3d.drawSky3D(c, cam, t));
+      // 1b. Far horizon ridges & distant castle crags (`fx < 0.32`)
+      this.parallax.drawBackRange(ctx, cam, flash, 0, 0.32, false);
+      // 1c. Mid-far 3D Gothic Keep (`fx ≈ 0.26`), behind near cemetery trees & bat flocks
+      this.stage3d.drawMidHorizon3D(ctx, cam, t, flash);
+      // 1d. Near scrolling forests / snowbound village (`fx >= 0.32`) + wheeling bat flock
+      this.parallax.drawBackRange(ctx, cam, flash, 0.32, 2.0, true);
+      ctx.restore();
+
+      // 1e. 3D receding ground/water plane, colonnades & barbican gatehouse set-piece
+      this.stage3d.drawOutdoorGround3D(ctx, cam, t);
+
+      if (outClipW > 0) {
+        ctx.save();
+        if (outClipW < W) {
+          ctx.beginPath();
+          ctx.rect(0, 0, outClipW, H);
+          ctx.clip();
+        }
+        this.parallax.drawAtmosphere(ctx, cam);
+        ctx.restore();
+      }
     } else if (!outdoor) {
       ctx.fillStyle = this.theme.bg || '#05040a';
       ctx.fillRect(0, 0, W, H);
@@ -958,27 +1089,52 @@ export class World {
       fxl.godRays(ctx, camX, this.fxTheme, 1.0);
     }
 
-    // 4. Boss gate + 2.5D extruded terrain, viaduct arches, crumble slabs & moving lifts
+    // 4a. Boss gate + static architectural terrain (viaducts, 3D decks, z = 0 tiles & static balconies)
     if (this.gateClosed) {
       const b = this.data.boss;
       this.assets.draw(ctx, 'arch', 'gate', b.gateCol * TILE + 16 - camX, (b.gateRows[1] + 1) * TILE - camY);
     }
-    this.level.drawTiles(ctx, cam, this.assets, t, this.stage3d);
+    this.level.drawStaticTiles(ctx, cam, this.assets, t);
 
-    // 5. 3D Contact shadows grounding 2D sprites onto walkable decks
-    this.level.drawContactShadows(ctx, cam, this.player, this.enemies, this.candles, this.ally);
-
-    // 6. Crisp z = 0 sprite gameplay layer
+    // 4b. Wall-recessed monumental doorways, sanctuary waystone & vessel altar + wall sconce flames.
+    // Drawn BEFORE dynamic platforms (`drawDynamicTiles`) so moving lifts, ferries, gear gondolas,
+    // and falling corbel tiles always pass cleanly IN FRONT OF doors and wall torches!
     if (this.passages) for (const g of this.passages) g.draw(ctx, cam, this.font, this, t);
     if (this.sanctuary) this.sanctuary.draw(ctx, cam, this.font, t, this);
     if (this.vessel) this.vessel.draw(ctx, cam, this.font, this, t);
+    if (fxl) {
+      fxl.flushFlames(ctx);
+      fxl.flushAttacks(ctx);
+    }
+
+    // 4c. Dynamic foreground platforms: crumbling/falling stone slabs & moving lifts/ferries/gondolas
+    this.level.drawDynamicTiles(ctx, cam, this.assets, t, this.stage3d);
+
+    // 5. 3D Contact shadows grounding 2D sprites onto static floors & moving lifts
+    this.level.drawContactShadows(ctx, cam, this.player, this.enemies, this.candles, this.ally);
+
+    // 6. Crisp z = 0 sprite gameplay layer
     for (const c of this.candles) if (Math.abs(c.x - camX - W / 2) < W) c.draw(ctx, this.assets, camX, camY, t);
     for (const f of this.fires) f.draw(ctx, camX, camY, t);
     for (const it of this.items) it.draw(ctx, this.assets, camX, camY, t);
     for (const e of this.enemies) if (e !== this.boss && e.x > camX - 120 && e.x < camX + W + 120) e.draw(ctx, this.assets, camX, camY);
     if (this.boss) this.boss.draw(ctx, this.assets, camX, camY);
     if (this.ally) this.ally.draw(ctx, this.assets, camX, camY, t);
+    const peersHere = this.game && this.game.net ? this.game.net.peersInStage(this.stage.key) : null;
+    if (peersHere && peersHere.length) drawRemotePlayers(ctx, this, peersHere, t);
     this.player.draw(ctx, this.assets, camX, camY);
+    if (this.player.saluteT > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, this.player.saluteT * 1.5);
+      this.font.draw(
+        ctx,
+        '* HAIL! *',
+        Math.round(this.player.x - camX),
+        Math.round(this.player.y - camY - 72 - (1 - this.player.saluteT / 1.8) * 8),
+        { align: 'center', color: '#ffd27a', shadow: '#05040a', gothic: false },
+      );
+      ctx.restore();
+    }
     for (const pr of this.projectiles) pr.draw(ctx, this.assets, camX, camY);
     if (this.shockRings.length) {
       for (const r of this.shockRings) {
@@ -1003,12 +1159,16 @@ export class World {
     }
     this.particles.draw(ctx, camX, camY);
 
-    // 7. Foreground z < 0 framing silhouettes (auto-fading near player/threats) & near weather
+    // 7. Foreground z < 0 framing silhouettes (auto-fading near player/threats/doors) & near weather
     if (showOutdoor) {
-      const fgAlpha = Math.max(0, Math.min(1, (roomX - (camX + W * 0.5)) / 240)) * 0.85;
-      this.parallax.drawFront(ctx, cam, fgAlpha);
+      const fgAlpha = Math.max(0, Math.min(1, (roomX - (camX + W * 0.5)) / 240)) * 0.82;
+      const fgClipRight = roomX < Infinity ? Math.max(0, portalX - 36) : W;
+      this.parallax.drawFront(ctx, cam, fgAlpha, {
+        clipRight: fgClipRight,
+        playerScreenY: Math.round(this.player.y - camY),
+      });
     }
-    this.stage3d.drawForeground3D(ctx, cam, this.player, this.enemies);
+    this.stage3d.drawForeground3D(ctx, cam, this.player, this.enemies, this.landmarks);
     // Shader ground mist hugging the hunter's footing (thicker outdoors and in the crypts)
     if (fxl) {
       const fogCol = outdoor
@@ -1040,6 +1200,8 @@ export class World {
   }
 
   drawOverlays(ctx) {
+    const peersHere = this.game && this.game.net ? this.game.net.peersInStage(this.stage.key) : null;
+    if (peersHere && peersHere.length) drawRemoteEdgeIndicators(ctx, this.font, this, peersHere);
     if (this.sanctuary) this.sanctuary.drawPrompt(ctx, this.camera, this.font);
     if (this.passages) for (const g of this.passages) g.drawPrompt(ctx, this.camera, this.font, this);
     for (const m of this.messages) {

@@ -13,9 +13,11 @@ const KEYMAP = {
   KeyN: 'mute', KeyU: 'mute',
   KeyF: 'fx',
   KeyP: 'forge',
+  KeyG: 'salute',
+  KeyC: 'callsign',
 };
 
-const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'start', 'map', 'mute', 'fx', 'forge'];
+const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'start', 'map', 'mute', 'fx', 'forge', 'salute', 'callsign'];
 
 export class Input {
   constructor(target) {
@@ -27,8 +29,8 @@ export class Input {
     this.script = null;
     this.onFirstInteraction = null;
     this._interacted = false;
-    // Text-entry capture (Castle Forge proposal screen): while `typing`, raw
-    // keydown events go to `onTypeKey(e)` instead of the action map.
+    // Text-entry capture (Castle Forge proposal, multiplayer callsign): while
+    // `typing`, raw keydown events go to `onTypeKey(e)` instead of the action map.
     this.typing = false;
     this.onTypeKey = null;
 

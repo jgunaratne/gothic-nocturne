@@ -419,6 +419,17 @@ export class Level {
   }
 
   drawTiles(ctx, cam, assets, time = 0, stage3d = null) {
+    this.drawStaticTiles(ctx, cam, assets, time);
+    this.drawDynamicTiles(ctx, cam, assets, time, stage3d);
+  }
+
+  /**
+   * Static architectural terrain pass (viaducts, 3D walkable decks, crisp z = 0
+   * stone/earth faces, lava pools, and static one-way balconies). Drawn BEFORE
+   * wall-recessed PassageGate portals & Sanctuary shrines so dynamic moving
+   * lifts and crumbling slabs can pass cleanly in front of doorways.
+   */
+  drawStaticTiles(ctx, cam, assets, time = 0) {
     const camX = cam.rx, camY = cam.ry;
     const tx0 = Math.max(0, Math.floor(camX / TILE) - 1);
     const tx1 = Math.min(this.cols - 1, Math.ceil((camX + W) / TILE) + 1);
@@ -628,8 +639,26 @@ export class Level {
         ctx.drawImage(pImg, sx, 0, TILE, plat.h, x, y, TILE, plat.h);
       }
     }
+  }
 
-    // 5. Nano Banana Gothic crumbling & falling stone corbel slabs (intact, fissured, shattering & reforming).
+  /**
+   * Dynamic foreground platform pass: crumbling stone corbel slabs (plus falling
+   * masonry chunks) and moving ferries / lifts / clockwork gear gondolas. Drawn
+   * AFTER wall-recessed doorways, shrines, and wall sconce flames so moving
+   * platforms always pass cleanly in front of doors and background architecture.
+   */
+  drawDynamicTiles(ctx, cam, assets, time = 0, stage3d = null) {
+    if (!this.crumbles.length && !this.movers.length) return;
+    const camX = cam.rx, camY = cam.ry;
+    const tx0 = Math.max(0, Math.floor(camX / TILE) - 1);
+    const tx1 = Math.min(this.cols - 1, Math.ceil((camX + W) / TILE) + 1);
+    const bank = getTexBank(assets);
+    const platName = assets.info(this.platformImg) ? this.platformImg : 'platform';
+    const plat = assets.info(platName), pImg = assets.img(platName);
+    const wood = platName === 'platform_wood';
+    const platTex = bank ? bank.get(wood ? 'plat_wood' : 'plat_stone') : null;
+
+    // 5. Gothic crumbling & falling stone corbel slabs (intact, fissured, shattering & reforming).
     if (this.crumbles.length) this.drawCrumbles3D(ctx, camX, camY, tx0, tx1, time, bank, assets);
 
     // 6. Moving platforms & orbiting clockwork gear gondolas.

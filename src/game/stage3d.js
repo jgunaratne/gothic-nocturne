@@ -109,6 +109,7 @@ export class Stage3D {
     const out = [];
     const lv = this.level;
     const bossCol = this.data.boss ? Math.max(0, Math.floor(this.data.boss.camX / TILE) - 6) : lv.cols;
+    const portalX = lv.rooms && lv.rooms.length && lv.rooms[0].x0 > 0 ? lv.rooms[0].x0 * TILE : -9999;
     let last = 12;
     for (let tx = 18; tx < bossCol - 8; tx++) {
       if (tx - last < 28) continue;
@@ -121,6 +122,7 @@ export class Stage3D {
       }
       if (!safe || surf < 5) continue;
       const wx = tx * TILE + 16;
+      if (Math.abs(wx - portalX) < 200) continue;
       if ((lv.movers || []).some((m) => Math.abs(m.cx - wx) < 180)) continue;
       out.push({ wx, wy: surf * TILE });
       last = tx;
@@ -128,39 +130,87 @@ export class Stage3D {
     return out;
   }
 
+  /**
+   * Prunes foreground framing columns that would cross in front of monumental
+   * passage doorways, sanctuary waystones, or ancient life vessels.
+   */
+  excludeLandmarks(landmarks) {
+    if (!landmarks || !landmarks.length || !this.fgFrames) return;
+    const pts = landmarks.filter((l) => l && Number.isFinite(l.x));
+    if (!pts.length) return;
+    this.fgFrames = this.fgFrames.filter((f) => pts.every((p) => Math.abs(p.x - f.wx) >= 132));
+  }
+
   // ========================================================= OUTDOOR 3D
   drawOutdoor3D(ctx, cam, time, flash) {
+    this.drawSky3D(ctx, cam, time);
+    this.drawMidHorizon3D(ctx, cam, time, flash);
+    this.drawOutdoorGround3D(ctx, cam, time);
+  }
+
+  /** Celestial 3D sky ribbons (drawn inside the sky dome BEHIND mountains & trees). */
+  drawSky3D(ctx, cam, time) {
+    if (this.themeKey === 'yule') {
+      this.drawAurora3D(ctx, cam.rx, time);
+    }
+  }
+
+  /**
+   * Mid-far 3D horizon landmarks (`fx ≈ 0.25`, drawn AFTER far mountains/ridges
+   * and BEFORE near scrolling cemetery trees & wheeling bat flocks).
+   */
+  drawMidHorizon3D(ctx, cam, time, flash) {
+    const camX = cam.rx, camY = cam.ry;
+    const k = this.themeKey;
+    if (k !== 'graveyard' && k !== 'ramparts') return;
+    let alpha = 1;
+    if (k === 'graveyard' && this.level.rooms.length > 0) {
+      const roomX = this.level.rooms[0].x0 * TILE;
+      alpha = clamp01((roomX - (camX + W + 96)) / 360);
+      if (alpha <= 0.01) return;
+    }
+    if (alpha < 0.999) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      this.drawDistantKeep3D(ctx, camX, camY, time, flash, k === 'ramparts' ? 0.88 : 0.65);
+      ctx.restore();
+    } else {
+      this.drawDistantKeep3D(ctx, camX, camY, time, flash, k === 'ramparts' ? 0.88 : 0.65);
+    }
+  }
+
+  /**
+   * Outdoor 3D ground/water planes & colonnades, aligned right at the ground
+   * baseline of the scrolling backdrop layers so trees, pumpkins, tombstones,
+   * and snowbound cottages are never sliced in half by the horizon line.
+   */
+  drawOutdoorGround3D(ctx, cam, time) {
     const camX = cam.rx, camY = cam.ry;
     const k = this.themeKey;
 
-    if (k === 'yule') this.drawAurora3D(ctx, camX, time);
-    if (k === 'graveyard' || k === 'ramparts') {
-      this.drawDistantKeep3D(ctx, camX, camY, time, flash, k === 'ramparts' ? 0.88 : 0.65);
-    }
-
     if (k === 'ramparts') {
       this.drawScanlinePlane(ctx, cam, time, {
-        kind: 'courtyard', horizon: 174, fx: 0.42, focal: 120,
+        kind: 'courtyard', horizon: 186, fx: 0.42, focal: 120,
         fog: [16, 15, 32], torches: true,
       });
-      this.drawHorizonWall(ctx, cam, 174);
+      this.drawHorizonWall(ctx, cam, 186);
       this.drawRampartParapets3D(ctx, camX, camY);
     } else if (k === 'yule') {
       this.drawScanlinePlane(ctx, cam, time, {
-        kind: 'ice', horizon: 196, fx: 0.36, focal: 105,
+        kind: 'ice', horizon: 242, fx: 0.36, focal: 105,
         fog: [14, 22, 42], shimmer: true,
         water: { tint: [0.45, 0.62, 0.9], spec: [0.85, 0.95, 1.0], frozen: 1, alpha: 0.7 },
       });
     } else if (k === 'darkwood') {
       this.drawScanlinePlane(ctx, cam, time, {
-        kind: 'darkwood', horizon: 206, fx: 0.44, focal: 96,
+        kind: 'darkwood', horizon: 266, fx: 0.44, focal: 96,
         fog: [8, 18, 22], shimmer: true, shimmerRgb: [95, 235, 185],
         water: { tint: [0.1, 0.45, 0.42], spec: [0.45, 1.0, 0.8], frozen: 0, alpha: 0.9 },
       });
       this.drawDarkwoodColonnade3D(ctx, camX, camY, time);
     } else if (k === 'forest') {
       this.drawScanlinePlane(ctx, cam, time, {
-        kind: 'forest', horizon: 214, fx: 0.48, focal: 95,
+        kind: 'forest', horizon: 248, fx: 0.48, focal: 95,
         fog: [16, 11, 22],
       });
       this.drawForestColonnade3D(ctx, camX, camY, time);
@@ -169,12 +219,12 @@ export class Stage3D {
       const roomX = hasRoom ? this.level.rooms[0].x0 * TILE : Infinity;
       if (!hasRoom) {
         // Forged moorland wings: open moor and fence all the way, no barbican set-piece.
-        this.drawScanlinePlane(ctx, cam, time, { kind: 'moor', horizon: 208, fx: 0.44, focal: 96, fog: [13, 12, 26] });
+        this.drawScanlinePlane(ctx, cam, time, { kind: 'moor', horizon: 238, fx: 0.44, focal: 96, fog: [13, 12, 26] });
         this.drawCemeteryFence3D(ctx, camX, camY, this.level.cols - 1);
       } else if (camX < roomX + 96) {
         const portalX = Math.round(project3D(roomX - 18, EYE_Y, 40, camX, camY).x);
         this.drawScanlinePlane(ctx, cam, time, {
-          kind: 'moor', horizon: 208, fx: 0.44, focal: 96,
+          kind: 'moor', horizon: 238, fx: 0.44, focal: 96,
           fog: [13, 12, 26], clipRight: portalX + 8,
         });
         this.drawCemeteryFence3D(ctx, camX, camY, Math.min(this.level.cols - 1, Math.floor(roomX / TILE) - 8));
@@ -681,16 +731,34 @@ export class Stage3D {
    * - Non-swimming z-strip flagstone hall floor from z = 38 to z = 200 with carpet
    * - Fluted 3D stone colonnade & ashlar-textured pointed rib-vault ceiling overhead
    */
+  _roomBounds(r, abyssHall) {
+    if (r._hallBounds) return r._hallBounds;
+    const lv = this.level;
+    const rows = [];
+    const c0 = Math.max(2, r.x0 + 1);
+    const c1 = Math.min(lv.cols - 3, r.x1 - 1);
+    for (let c = c0; c <= c1; c++) {
+      const sr = lv.surfaceRow(c);
+      if (sr > 0 && sr < lv.rows - 1) rows.push(sr);
+    }
+    rows.sort((a, b) => a - b);
+    const minSurf = rows.length ? rows[0] : (r.floorRow || 11);
+    const lowSurf = rows.length ? rows[Math.min(rows.length - 1, Math.floor(rows.length * 0.92))] : (r.floorRow || 11);
+    const floorRow = abyssHall ? (r.floorRow || 11) : Math.max(r.floorRow || 11, lowSurf);
+    const floorY = floorRow * TILE;
+    const ceilY = Math.min(Math.max(r.y0 * TILE + 36, (minSurf - 6) * TILE), floorY - 268);
+    r._hallBounds = { floorRow, floorY, ceilY };
+    return r._hallBounds;
+  }
+
   drawVaultedHall3D(ctx, r, camX, camY, rx, ry, rw, rh, time) {
     const key = r.wall || 'wall';
     const wallTex = this.tex(key);
     if (!wallTex) return;
     const Z_NEAR = 38, Z_WALL = 200, Z_NICHE = 248;
     const pal = this.pal;
-    const floorRow = r.floorRow || 11;
-    const floorY = floorRow * TILE;
-    const ceilY = Math.max(r.y0 * TILE + 56, floorY - 268);
     const abyssHall = this.themeKey === 'ossuary' || this.themeKey === 'darkcave';
+    const { floorY, ceilY } = this._roomBounds(r, abyssHall);
     const farFloor = project3D(0, floorY, Z_WALL, camX, camY);
 
     // When entering Stage 1's indoor castle behind the 3D gatehouse (r.x0 > 0),
@@ -699,10 +767,11 @@ export class Stage3D {
     const portalLeft = r.x0 > 0
       ? Math.round(project3D(r.x0 * TILE - 18, EYE_Y, 40, camX, camY).x)
       : Math.round(rx);
+    const fullVert = r.y0 <= 0 && r.y1 >= this.level.rows - 1;
     const clipLeft = Math.max(0, portalLeft);
-    const clipRight = Math.min(W, Math.round(rx + rw));
-    const clipTop = Math.max(0, Math.round(ry));
-    const clipBot = Math.min(H, Math.round(ry + rh));
+    const clipRight = r.x1 >= this.level.cols - 1 ? W : Math.min(W, Math.round(rx + rw));
+    const clipTop = fullVert ? 0 : Math.max(0, Math.round(ry));
+    const clipBot = fullVert ? H : Math.min(H, Math.round(ry + rh));
     if (clipRight <= clipLeft || clipBot <= clipTop) return;
 
     ctx.save();
@@ -724,8 +793,8 @@ export class Stage3D {
     // parallelogram path and locks every brick course to world (wx, wy, Z_WALL)!
     const wxWall0 = bStart * bayW;
     const wxWall1 = (bEnd + 1) * bayW;
-    const yWallTop = r.y0 * TILE - 96;
-    const yWallBot = abyssHall ? floorY : (r.y1 + 1) * TILE + 96;
+    const yWallTop = r.y0 * TILE - 128;
+    const yWallBot = abyssHall ? floorY : (r.y1 + 1) * TILE + 128;
     const dark = r.dark == null ? 0.42 : r.dark;
     const wallShade = shadeOverlay32([0, 0, -1], pal.fog, dark, 0.96);
     if (wxWall1 > wxWall0 && yWallBot > yWallTop) {
@@ -757,6 +826,9 @@ export class Stage3D {
 
     const wallTexB = this.assets.img(key + '_b') ? this.tex(key + '_b') : null;
     const windowSpots = [];
+    const hallH = floorY - ceilY;
+    const tierStep = 224;
+    const tierCount = Math.min(3, Math.max(1, Math.floor((hallH - 36) / tierStep)));
     for (let bi = bStart; bi <= bEnd; bi++) {
       const bx0 = bi * bayW, bx1 = bx0 + bayW;
       const midX = (bx0 + bx1) * 0.5;
@@ -773,10 +845,15 @@ export class Stage3D {
       }
 
       const nw0 = midX - 46, nw1 = midX + 46;
-      const nyTop = floorY - 168, nyBot = pal.crypt ? floorY - 12 : floorY - 38;
-      this.drawRecessedBay3D(ctx, camX, camY, nw0, nw1, nyTop, nyBot, Z_WALL, Z_NICHE, bi, time);
-      if (!pal.crypt && mod(bi, 2) === 0) {
-        windowSpots.push({ wx: midX, wyTop: nyTop, wyBot: nyBot });
+      for (let ti = 0; ti < tierCount; ti++) {
+        const tierBaseY = floorY - ti * tierStep;
+        const nyBot = pal.crypt ? tierBaseY - 12 : tierBaseY - 38;
+        const nyTop = Math.max(ceilY + 34, tierBaseY - 168);
+        if (nyBot - nyTop < 72) continue;
+        this.drawRecessedBay3D(ctx, camX, camY, nw0, nw1, nyTop, nyBot, Z_WALL, Z_NICHE, bi + ti * 2, time);
+        if (!pal.crypt && mod(bi, 2) === 0 && ti === 0) {
+          windowSpots.push({ wx: midX, wyTop: nyTop, wyBot: nyBot });
+        }
       }
     }
 
@@ -1710,7 +1787,7 @@ export class Stage3D {
    * ~1.23x parallax) that automatically fade down whenever the player or an active
    * threat is near, preserving 100% combat & platforming clarity.
    */
-  drawForeground3D(ctx, cam, player, enemies) {
+  drawForeground3D(ctx, cam, player, enemies, landmarks = null) {
     const camX = cam.rx, camY = cam.ry;
     const z = -72;
     const fgTex = this.tex(
@@ -1731,7 +1808,12 @@ export class Stage3D {
       for (const e of enemies) {
         if (e.alive) minDist = Math.min(minDist, Math.abs(e.x - f.wx));
       }
-      const clearFade = Math.max(0.16, Math.min(0.78, (minDist - 44) / 110));
+      if (landmarks) {
+        for (const l of landmarks) {
+          if (l && Number.isFinite(l.x)) minDist = Math.min(minDist, Math.abs(l.x - f.wx));
+        }
+      }
+      const clearFade = Math.max(0.14, Math.min(0.76, (minDist - 48) / 116));
       const w = Math.round(24 * pBot.s);
       const xL = Math.round(pBot.x - w / 2), xR = xL + w;
       const springY = Math.max(48, Math.round(pTop.y + 42));

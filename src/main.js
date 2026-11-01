@@ -7,6 +7,7 @@ import { AudioSys } from './engine/audio.js';
 import { Font } from './engine/font.js';
 import { PostFX } from './engine/postfx.js';
 import { getFxLayers } from './engine/fxlayers.js';
+import { NetClient } from './engine/net.js';
 import { World } from './game/world.js';
 import { STAGES } from './game/stages.js';
 import { THEMES } from './game/builder.js';
@@ -61,6 +62,18 @@ class Game {
     this.stageCursor = this.stageIndex;
     this.mapCursor = STAGES[this.stageIndex].key;
     this.carryState = null;          // score/lives/hearts carried between connected stages
+    this.editingCallsign = false;
+    this.callsignDraft = '';
+    this.net = new NetClient(this.params);
+    this.net.stageTitleLookup = (key) => {
+      const idx = stageIndexOf(key);
+      return idx >= 0 ? STAGES[idx].name.replace(/^THE\s+/, '') : String(key).toUpperCase();
+    };
+    this.net.onRemoteEvent = (ev, peer) => {
+      if (this.world && (this.state === 'play' || this.state === 'pause' || this.state === 'map')) {
+        this.world.handleRemoteEvent(ev, peer);
+      }
+    };
     this.input.onFirstInteraction = () => this.audio.unlock();
     window.addEventListener('resize', () => this.fit());
     if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.fit());
@@ -205,6 +218,106 @@ class Game {
     return n;
   }
 
+  /** Opens the in-canvas Hunter Callsign editor (`C` on menus/map/pause). */
+  openCallsignEditor() {
+    this.editingCallsign = true;
+    this.callsignDraft = this.net.name || '';
+    this.input.setTyping((e) => this.handleCallsignKey(e));   // shared text-entry mode (also used by the Castle Forge)
+    this.audio.sfx('select');
+  }
+
+  closeCallsignEditor(save = false) {
+    if (save) {
+      const clean = this.callsignDraft.trim();
+      if (clean) {
+        this.net.setName(clean);
+        this.muteFlash = `CALLSIGN · ${this.net.name}`;
+        this.muteT = 1.6;
+      }
+    }
+    this.editingCallsign = false;
+    this.input.setTyping(null);
+    this.audio.sfx('select');
+  }
+
+  handleCallsignKey(e) {
+    e.preventDefault();
+    if (e.code === 'Escape') {
+      this.closeCallsignEditor(false);
+      return;
+    }
+    if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+      this.closeCallsignEditor(true);
+      return;
+    }
+    if (e.code === 'Backspace') {
+      this.callsignDraft = this.callsignDraft.slice(0, -1);
+      this.audio.sfx('bone');
+      return;
+    }
+    if (e.key && e.key.length === 1 && this.callsignDraft.length < 12) {
+      const ch = e.key.toUpperCase().replace(/[^A-Z0-9 _.-]/g, '');
+      if (ch) {
+        this.callsignDraft += ch;
+        this.audio.sfx('bone');
+      }
+    }
+  }
+
+  buildNetSnapshot() {
+    const stageKey = STAGES[this.stageIndex] ? STAGES[this.stageIndex].key : 'graveyard';
+    if (!this.world || !this.world.player) {
+      return {
+        stageKey,
+        x: 96,
+        y: 320,
+        vx: 0,
+        vy: 0,
+        normX: 0.02,
+        inSecret: false,
+        anim: 'idle',
+        facing: 1,
+        walkFrame: 0,
+        attackT: -1,
+        attackCrouch: false,
+        throwing: false,
+        whipReach: 68,
+        subWeapon: null,
+        petrified: 0,
+        invuln: 0,
+        hp: 16,
+        maxHp: 16,
+        relicsMask: this.cleared | 0,
+        screen: this.state,
+      };
+    }
+    const p = this.world.player;
+    const normX = this.world.level.width > 0 ? p.x / this.world.level.width : 0;
+    return {
+      stageKey: this.world.stage.key,
+      x: p.x,
+      y: p.y,
+      vx: p.vx,
+      vy: p.vy,
+      normX,
+      inSecret: !!this.world.inSecretArea,
+      anim: p.state,
+      facing: p.facing,
+      walkFrame: p.walkFrame,
+      attackT: p.attackT,
+      attackCrouch: p.attackCrouch,
+      throwing: p.throwing,
+      whipReach: p.whipReach,
+      subWeapon: p.subWeapon,
+      petrified: p.petrified,
+      invuln: p.invuln,
+      hp: p.hp,
+      maxHp: p.maxHp,
+      relicsMask: this.cleared | 0,
+      screen: this.state,
+    };
+  }
+
   /** Opens the full-screen Castle Exploration Map (`M`) showing the hunter's live location. */
   openMap() {
     if (!this.world) return;
@@ -331,9 +444,20 @@ class Game {
 
   update(dt) {
     this.stateT += dt;
+    this.net.update(dt, this.buildNetSnapshot());
+    if (this.editingCallsign) {
+      if (this.state === 'title' || this.state === 'difficulty' || this.state === 'stageselect') {
+        this.updateTitleBackdrop(dt);
+      }
+      return;
+    }
     const inp = this.input;
     if (inp.pressed.mute) { const m = this.audio.toggleMute(); this.muteFlash = m ? 'SOUND OFF' : 'SOUND ON'; this.muteT = 1.2; }
     if (inp.pressed.fx) { const on = this.postfx.toggle(); const fl = getFxLayers(); if (fl) fl.setEnabled(on); this.muteFlash = on ? 'SHADERS ON' : 'SHADERS OFF'; this.muteT = 1.2; }
+    if (inp.pressed.callsign && (this.state === 'title' || this.state === 'stageselect' || this.state === 'map' || this.state === 'pause')) {
+      this.openCallsignEditor();
+      return;
+    }
     this.muteT = Math.max(0, (this.muteT || 0) - dt);
 
     switch (this.state) {
@@ -459,7 +583,10 @@ class Game {
         drawHud(ctx, this.font, this.assets, this.world);
         if (this.state === 'pause') {
           ctx.fillStyle = 'rgba(4, 3, 10, 0.55)'; ctx.fillRect(0, 0, W, H);
-          this.banner(['PAUSED'], 150, { scale: 3, sub: 'ENTER TO RESUME  ·  M FOR MAP  ·  N TO MUTE' });
+          const netSub = this.net && this.net.connected
+            ? `${this.net.onlineCount} ONLINE (${this.net.room.toUpperCase()}) · C CALLSIGN (${this.net.name})`
+            : 'ENTER RESUME · M MAP · C CALLSIGN · N MUTE';
+          this.banner(['PAUSED'], 146, { scale: 3, sub: netSub });
         }
         break;
       case 'clear':
@@ -476,6 +603,7 @@ class Game {
         break;
       default: break;
     }
+    if (this.editingCallsign) this.drawCallsignModal(ctx);
     if (this.muteT > 0) this.font.draw(ctx, this.muteFlash, W - 10, H - 14, { align: 'right', color: '#8a9ab5', shadow: '#120f1c' });
     this.drawWingBanner(ctx);
   }
@@ -520,6 +648,53 @@ class Game {
     ctx.fillRect(W / 2 - 200, y, 400, 1); ctx.fillRect(W / 2 - 200, y + 29, 400, 1);
     this.font.draw(ctx, 'THE CASTLE HAS GROWN', W / 2, y + 5, { align: 'center', color: '#ffd27a', shadow: '#05040a', gothic: false });
     this.font.draw(ctx, `${b.name} NOW RISES ON THE MAP (M)`, W / 2, y + 16, { align: 'center', color: '#f6f0de', shadow: '#05040a', gothic: false });
+    ctx.restore();
+  }
+
+  drawCallsignModal(ctx) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(4, 3, 12, 0.82)';
+    ctx.fillRect(0, 0, W, H);
+    const mw = 336, mh = 104;
+    const mx = Math.round((W - mw) * 0.5), my = Math.round((H - mh) * 0.5);
+    ctx.fillStyle = 'rgba(10, 8, 22, 0.96)';
+    ctx.fillRect(mx, my, mw, mh);
+    ctx.strokeStyle = '#ffd27a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(mx + 0.5, my + 0.5, mw - 1, mh - 1);
+    ctx.strokeStyle = '#3a2e4c';
+    ctx.strokeRect(mx + 2.5, my + 2.5, mw - 5, mh - 5);
+
+    this.font.draw(ctx, 'HUNTER CALLSIGN', W / 2, my + 12, {
+      scale: 2,
+      gothic: false,
+      align: 'center',
+      color: '#ffd27a',
+      shadow: '#05040a',
+    });
+
+    const boxW = 220, boxH = 26;
+    const bx = Math.round((W - boxW) * 0.5), by = my + 40;
+    ctx.fillStyle = '#05040c';
+    ctx.fillRect(bx, by, boxW, boxH);
+    ctx.strokeStyle = '#62f2c2';
+    ctx.strokeRect(bx + 0.5, by + 0.5, boxW - 1, boxH - 1);
+    const cursor = Math.floor(this.stateT * 3) % 2 === 0 ? '_' : ' ';
+    this.font.draw(ctx, `${this.callsignDraft}${cursor}`, W / 2, by + 7, {
+      scale: 2,
+      gothic: false,
+      align: 'center',
+      color: '#f4efe0',
+      shadow: '#05040a',
+    });
+
+    this.font.draw(
+      ctx,
+      'TYPE A-Z / 0-9  ·  ENTER SAVE  ·  ESC CANCEL',
+      W / 2,
+      my + 80,
+      { align: 'center', color: '#9eb0d0', shadow: '#05040a', gothic: false },
+    );
     ctx.restore();
   }
 
@@ -596,10 +771,22 @@ class Game {
       ctx.fillStyle = '#3a2e22'; ctx.fillRect(W / 2 - 236, 298, 472, 1); ctx.fillRect(W / 2 - 236, 331, 472, 1);
       const lines = [
         '←→ MOVE   ↓ CROUCH   Z/J/SPACE JUMP   X/K WHIP   ↑ PASSAGES / + WHIP THROWS',
-        'ENTER PAUSE   M MAP   P EXPAND THE CASTLE   N MUTE   F SHADERS',
+        'ENTER PAUSE   M MAP   P EXPAND THE CASTLE   G SALUTE   C CALLSIGN   N MUTE   F SHADERS',
       ];
       lines.forEach((l, i) => f.draw(ctx, l, W / 2, 304 + i * 12, { align: 'center', color: i === 1 ? '#ffb0a0' : '#c9c3b0', shadow: '#120f1c' }));
-      f.draw(ctx, 'ART · GEMINI     MUSIC · LYRIA 3     VOICE · DAIKON     FORGE · GEMINI + GEMPIX     2026', W / 2, H - 16, { align: 'center', color: '#5b6b86' });
+      if (this.net && this.net.enabled) {
+        const netLine = this.net.connected
+          ? `ONLINE · ${this.net.onlineCount} IN ${this.net.room.toUpperCase()} · AS ${this.net.name} (PRESS C)`
+          : 'CONNECTING TO SHARED CASTLE REALM...';
+        f.draw(ctx, netLine, W / 2, H - 16, {
+          align: 'center',
+          color: this.net.connected ? '#62f2c2' : '#8a9ab5',
+          shadow: '#120f1c',
+          gothic: false,
+        });
+      } else {
+        f.draw(ctx, 'ART · GEMINI     MUSIC · LYRIA 3     VOICE · DAIKON     FORGE · GEMINI + GEMPIX     2026', W / 2, H - 16, { align: 'center', color: '#5b6b86' });
+      }
       this.forgeUI.drawTicker(ctx, 4);
     }
   }
@@ -707,6 +894,10 @@ class Game {
       time: this.stateT,
       difficultyName: this.difficulty.name,
       mode: 'select',
+      remotePlayers: this.net ? this.net.activePeers() : null,
+      onlineCount: this.net ? this.net.onlineCount : 1,
+      roomName: this.net ? this.net.room : 'castle',
+      netConnected: !!(this.net && this.net.connected),
     });
   }
 
@@ -728,6 +919,10 @@ class Game {
       currentStageKey: STAGES[this.stageIndex].key,
       playerNormX: normX,
       inSecret: !!(this.world && this.world.inSecretArea),
+      remotePlayers: this.net ? this.net.activePeers() : null,
+      onlineCount: this.net ? this.net.onlineCount : 1,
+      roomName: this.net ? this.net.room : 'castle',
+      netConnected: !!(this.net && this.net.connected),
     });
   }
 

@@ -31,6 +31,7 @@ export class Player extends Entity {
     this.throwing = false;
     this.crouching = false;
     this.petrified = 0;            // seconds left turned to stone
+    this.saluteT = 0;
   }
 
   get alive() { return this.state !== 'dead'; }
@@ -96,6 +97,7 @@ export class Player extends Entity {
     const axis = ctl ? input.axis : 0;
     this.invuln = Math.max(0, this.invuln - dt);
     this.hurtT = Math.max(0, this.hurtT - dt);
+    this.saluteT = Math.max(0, (this.saluteT || 0) - dt);
     this.coyote = this.onGround ? PLAYER.coyote : Math.max(0, this.coyote - dt);
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     if (ctl && input.pressed.jump) this.jumpBuffer = PLAYER.buffer;
@@ -178,7 +180,9 @@ export class Player extends Entity {
         // CRIMSON MANTLE relic (Throne): whip unleashes a piercing crimson flame wave!
         if (hasRelic('throne')) {
           const waveY = this.y - (this.attackCrouch ? 25 : 42);
-          world.spawnProjectile(new Projectile('crimson_wave', this.x + this.facing * 24, waveY, this.facing, 'player'));
+          const waveX = this.x + this.facing * 24;
+          world.spawnProjectile(new Projectile('crimson_wave', waveX, waveY, this.facing, 'player'));
+          if (world.onPlayerProjectile) world.onPlayerProjectile('crimson_wave', waveX, waveY, this.facing);
         }
       }
     }
@@ -315,7 +319,14 @@ export class Player extends Entity {
         ctx.quadraticCurveTo(sx + this.facing * len * 0.5, sy + 4, sx + this.facing * len, sy - 1);
         ctx.stroke();
         ctx.fillStyle = '#e8e2c8';
-        ctx.fillRect(Math.round(sx + this.facing * len) - 1, sy - 2, 3, 3);
+        const tx = sx + this.facing * len, ty = sy - 1;
+        ctx.beginPath();
+        ctx.moveTo(tx + this.facing * 2.5, ty);
+        ctx.lineTo(tx, ty - 1.8);
+        ctx.lineTo(tx - this.facing * 2, ty);
+        ctx.lineTo(tx, ty + 1.8);
+        ctx.closePath();
+        ctx.fill();
         ctx.restore();
       }
       return;

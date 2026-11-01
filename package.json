@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "bash serve.sh",
-    "check": "for f in src/*.js src/engine/*.js src/game/*.js; do node --check \"$f\" || exit 1; done && python3 -m py_compile tools/forge_server.py && echo syntax ok",
+    "check": "node --check server.mjs && for f in src/*.js src/engine/*.js src/game/*.js; do node --check \"$f\" || exit 1; done && python3 -m py_compile tools/forge_server.py && echo syntax ok",
     "assets": ".venv/bin/python tools/process_assets.py --preview",
     "shot": "bash tools/screenshot.sh",
     "forge": ".venv/bin/python tools/forge_server.py --port 8712"

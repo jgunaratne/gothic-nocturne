@@ -47,18 +47,26 @@ arena with spoken Daikon boss voice lines at the end of every stage.
   borealis curtains, moonlit and stained-glass volumetric god-rays with drifting
   dust motes, forked sky lightning bolts, flowing / frozen water and churning
   molten lava pools, living flames on torches, braziers, candelabra, chandeliers
-  and fire pools, enemy & boss plasma/beam/miasma/crescent attack shaders,
-  expanding arena shockwave rings, and rolling foreground mist).
+  and fire pools, batched combat comet-sparks, whip-slash star bursts, embers,
+  faceted shards and wispy vapour puffs, enemy & boss plasma/beam/miasma/crescent
+  attack shaders, expanding arena shockwave rings, and rolling foreground mist).
 
-## Play
+## Play (Single-Player & Network Multiplayer)
 
 ```bash
-./serve.sh            # http://<host>:8712/   (game + Castle Forge API; ES modules need HTTP)
+./serve.sh            # http://<host>:8711/   (HTTP + WebSocket/SSE multiplayer + Castle Forge API)
 ```
 
-`serve.sh` runs `tools/forge_server.py` (plain Python, uses `.venv` when present so
-generated pixel art can be processed). Any static server still works for playing;
-without the forge API the castle can only be expanded in local procedural mode.
+`serve.sh` starts `node server.mjs` (static files, multiplayer, and a proxy for
+`/api/forge/*`) alongside `tools/forge_server.py` on port 8712 (plain Python,
+uses `.venv` when present so generated pixel art can be processed). Any static
+server still works for playing; without the forge API the castle can only be
+expanded in local procedural mode.
+
+Opening the URL in multiple browsers or across machines on the network automatically connects every player into the shared **`castle`** realm (`?room=<name>` to join a private room, `?name=<callsign>` to set a Hunter callsign, or `?offline=1` for solo offline mode):
+
+- **Explore Any Region Independently**: Each hunter can roam any of the 13 castle stages simultaneously at their own pace while seeing every other hunter's live position across the **Castle Exploration Map (`M`)** and **7×4 HUD Mini-Map**.
+- **Pass By One Another in Real Time**: When two or more hunters enter the same region, directional edge chevrons (`< VESPER 14M`) show which way nearby hunters are, and crossing paths renders each hunter in a distinct pixel-art cloak palette with smooth 60 fps stride/jump/whip interpolation, cooperative whip & sub-weapon combat, floating nameplates, **`G` Salute flares**, and a **Soul-Lantern resonance** spark shimmer as they pass one another.
 
 | Action | Keyboard | Gamepad |
 | --- | --- | --- |
@@ -69,6 +77,8 @@ without the forge API the castle can only be expanded in local procedural mode.
 | Throw sub-weapon (costs 1 heart) | ↑ + whip | ↑ + attack |
 | Castle Exploration Map (live location & fast travel) | M or Tab | Back / Select / View |
 | Expand the Castle (propose a new wing) | P, or the title menu | title menu |
+| Salute / greet nearby hunters | G | — |
+| Edit Hunter Callsign (on Title / Map / Pause) | C | — |
 | Pause / start | Enter or Esc | Start |
 | Mute | N or U | Right stick click (R3) |
 | Toggle shaders (bloom, grading, scanlines) | F | Left stick click (L3) |
@@ -164,7 +174,13 @@ POST /api/forge              {name, description, fallback}  -> job
 GET  /api/forge/job/<id>     steps, blueprint, registry entry
 GET  /api/forge/stages       raised wings
 GET  /api/forge/health       capabilities (generate CLI, pipeline, ffmpeg, ElevenLabs)
+
+.venv/bin/python tools/forge_server.py --list            # raised wings and their stage numbers
+.venv/bin/python tools/forge_server.py --remove <key>    # tear a wing down (registry, assets, job files)
 ```
+
+Removing a wing shifts the stage numbers of the wings raised after it (and their
+bits in saved progress), so prefer tearing down the newest one.
 
 ## Difficulty
 

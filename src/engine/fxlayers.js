@@ -448,6 +448,126 @@ void main() {
 }
 `;
 
+// Batched combat spark, hit-slash burst, ember, faceted shard & vapour shader
+const SPARK_VERT = `
+attribute vec2 aPos;
+attribute vec2 aLocal;
+attribute vec4 aColor;
+attribute vec4 aMeta;    // x=kind, y=lifeFrac(0..1), z=seed, w=aspect(halfL/halfW)
+uniform vec2 uRes;
+varying vec2 vLocal;
+varying vec4 vColor;
+varying vec4 vMeta;
+void main() {
+  vLocal = aLocal;
+  vColor = aColor;
+  vMeta = aMeta;
+  gl_Position = vec4((aPos.x / uRes.x) * 2.0 - 1.0, 1.0 - (aPos.y / uRes.y) * 2.0, 0.0, 1.0);
+}
+`;
+
+const SPARK_FRAG = `
+precision mediump float;
+varying vec2 vLocal;
+varying vec4 vColor;
+varying vec4 vMeta;
+uniform float uTime;
+${NOISE}
+void main() {
+  float kind = vMeta.x;
+  float life = vMeta.y;
+  float seed = vMeta.z;
+  float aspect = max(1.0, vMeta.w);
+  vec2 q = vLocal; // -1..1 along oriented quad (+x = forward along velocity/slash)
+
+  if (kind < 0.5) {
+    // Kind 0: Velocity-aligned combat comet-spark + twinkling 4-point star glint
+    float headX = aspect > 1.15 ? 0.42 : 0.0;
+    vec2 hp = vec2((q.x - headX) * aspect, q.y);
+    float dHead = length(hp);
+    float core = exp(-dHead * 3.2);
+    float twinkle = 0.72 + 0.28 * sin(uTime * 30.0 + seed * 19.0);
+    float star = (exp(-abs(hp.x) * 5.0) * exp(-abs(hp.y) * 1.35)
+                + exp(-abs(hp.y) * 5.0) * exp(-abs(hp.x) * 1.35)) * twinkle;
+    float streak = 0.0;
+    if (aspect > 1.08 && q.x <= headX + 0.08) {
+      float tailT = clamp((headX - q.x) / (headX + 1.0), 0.0, 1.0);
+      float w = mix(0.28, 0.025, tailT);
+      streak = exp(-abs(q.y) / max(0.02, w)) * pow(1.0 - tailT, 1.35);
+    }
+    float e = max(core * 1.25, max(streak * 0.95, star * 0.72));
+    if (e <= 0.04) discard;
+    float qE = floor(clamp(e, 0.0, 1.0) * 6.0) / 6.0;
+    float a = qE * vColor.a;
+    if (a <= 0.015) discard;
+    vec3 warm = min(vec3(1.0), vColor.rgb * 1.3 + vec3(0.16, 0.12, 0.06));
+    vec3 col = mix(vColor.rgb, warm, smoothstep(0.25, 0.65, e));
+    col = mix(col, vec3(1.0, 0.98, 0.92), smoothstep(0.68, 1.08, e));
+    gl_FragColor = vec4(col * a, a);
+  } else if (kind < 1.5) {
+    // Kind 1: Directional whip-slash X-flare + expanding shock-spark corona
+    float t = clamp(1.0 - life, 0.0, 1.0);
+    float reach = 0.32 + 0.68 * sin(min(1.0, t * 1.65) * 1.5708);
+    float slashMain = exp(-abs(q.y) * 9.5) * (1.0 - smoothstep(0.12, reach, abs(q.x)));
+    float slashCross = exp(-abs(q.x) * 10.5) * (1.0 - smoothstep(0.08, reach * 0.68, abs(q.y))) * (1.0 - t * 0.6);
+    // Secondary diagonal glint at 45 deg
+    vec2 dg = vec2((q.x + q.y) * 0.7071, (q.y - q.x) * 0.7071);
+    float diag = (exp(-abs(dg.y) * 13.0) * (1.0 - smoothstep(0.05, reach * 0.52, abs(dg.x)))) * (1.0 - t * 0.75);
+    float r = length(q);
+    float ringR = 0.14 + 0.76 * (1.0 - (1.0 - t) * (1.0 - t));
+    float ang = atan(q.y, q.x);
+    float spokes = smoothstep(0.35, 0.90, 0.5 + 0.5 * cos(ang * 8.0 + seed * 6.283));
+    float corona = exp(-abs(r - ringR) * 11.5) * spokes * (1.0 - t * 0.75);
+    float core = exp(-r * 5.2) * (1.0 - t * 0.85);
+    float e = max(max(slashMain, slashCross * 0.88), max(diag * 0.65 + corona * 0.92, core * 1.3));
+    if (e <= 0.04) discard;
+    float a = (floor(clamp(e, 0.0, 1.0) * 6.0) / 6.0) * vColor.a;
+    if (a <= 0.015) discard;
+    vec3 col = mix(vColor.rgb, vec3(1.0, 0.98, 0.90), smoothstep(0.42, 0.95, e));
+    gl_FragColor = vec4(col * a, a);
+  } else if (kind < 2.5) {
+    // Kind 2: Flickering incandescent teardrop ember / bioluminescent firefly
+    float headX = aspect > 1.12 ? 0.28 : 0.0;
+    vec2 ep = vec2((q.x - headX) * aspect, q.y * (q.x < headX ? 1.18 : 1.0));
+    float d = length(ep);
+    float flick = 0.74 + 0.26 * sin(uTime * 20.0 + seed * 23.0);
+    float halo = exp(-d * 2.55) * flick;
+    float core = smoothstep(0.46, 0.04, d);
+    float e = max(halo * 0.82, core * 1.15);
+    if (e <= 0.04) discard;
+    float a = (floor(clamp(e, 0.0, 1.0) * 5.0) / 5.0) * vColor.a;
+    if (a <= 0.015) discard;
+    vec3 hot = min(vec3(1.0), vColor.rgb * 1.45 + vec3(0.28, 0.22, 0.12));
+    vec3 col = mix(vColor.rgb * (0.7 + 0.3 * life), hot, smoothstep(0.45, 0.95, e));
+    gl_FragColor = vec4(col * a, a);
+  } else if (kind < 3.5) {
+    // Kind 3: Spinning faceted bone / stone splinter (beveled diamond)
+    float spin = (seed > 0.5 ? 1.0 : -1.0) * (5.5 + seed * 7.5);
+    float ang = uTime * spin + seed * 6.283;
+    float ca = cos(ang), sa = sin(ang);
+    vec2 rq = vec2(q.x * ca - q.y * sa, q.x * sa + q.y * ca);
+    float d = abs(rq.x) * 0.88 + abs(rq.y) * 1.55;
+    if (d > 0.95) discard;
+    float edge = 1.0 - smoothstep(0.72, 0.95, d);
+    float facet = rq.y > 0.0 ? 1.16 : 0.76;
+    float rim = smoothstep(0.55, 0.82, d) * (rq.x > 0.0 ? 0.18 : -0.10);
+    vec3 col = clamp(vColor.rgb * facet + rim, 0.0, 1.0);
+    float a = edge * vColor.a;
+    gl_FragColor = vec4(col * a, a);
+  } else {
+    // Kind 4: Soft noise-eroded wispy dust & smoke puff
+    float r = length(q);
+    if (r > 1.0) discard;
+    float n = vnoise(q * 2.3 + vec2(seed * 7.1, -uTime * 1.15));
+    float body = smoothstep(0.96, 0.18, r + (n - 0.5) * 0.38);
+    float a = (floor(body * 5.0) / 5.0) * vColor.a;
+    if (a <= 0.015) discard;
+    vec3 col = vColor.rgb * (0.82 + 0.28 * n);
+    gl_FragColor = vec4(col * a, a);
+  }
+}
+`;
+
 const GODRAY_THEMES = {
   graveyard: { a: [0.68, 0.74, 1.00], b: [0.52, 0.62, 0.95], c: [0.75, 0.80, 1.00], multi: 0, lean: 96, alpha: 0.72 },
   ramparts:  { a: [0.66, 0.74, 1.00], b: [0.54, 0.64, 0.96], c: [0.78, 0.84, 1.00], multi: 0, lean: 104, alpha: 0.70 },
@@ -501,6 +621,16 @@ export class FxLayers {
     this.pGodRays = this.program(VERT, GODRAYS_FRAG);
     this.pAttack = this.program(VERT, ATTACK_FRAG);
     this.pShockRing = this.program(VERT, SHOCKRING_FRAG);
+    this.pSpark = this.program(SPARK_VERT, SPARK_FRAG);
+    this.pSpark.aLocal = gl.getAttribLocation(this.pSpark.p, 'aLocal');
+    this.pSpark.aColor = gl.getAttribLocation(this.pSpark.p, 'aColor');
+    this.pSpark.aMeta = gl.getAttribLocation(this.pSpark.p, 'aMeta');
+    this.sparkCap = 720;
+    this.sparkFloats = new Float32Array(this.sparkCap * 6 * 12);
+    this.sparkVbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.sparkVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, this.sparkFloats.byteLength, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);
     this.ok = true; this.enabled = true;
@@ -700,6 +830,100 @@ export class FxLayers {
         gl.uniform1f(u.uAlpha, r.alpha);
       }, 'lighter');
     }
+  }
+
+  /**
+   * Renders an array of oriented particle quads in a single scissored WebGL draw call.
+   * Each quad: `{ x, y, halfL, halfW, dirX, dirY, r, g, b, a, kind, life, seed }`.
+   */
+  drawSparkBatch(ctx, quads, composite = 'lighter') {
+    if (!this.enabled || !quads || !quads.length) return;
+    const gl = this.gl, k = this.scale, cw = this.canvas.width, ch = this.canvas.height;
+    const prog = this.pSpark;
+    const buf = this.sparkFloats;
+    const count = Math.min(quads.length, this.sparkCap);
+    let minX = W, minY = H, maxX = 0, maxY = 0;
+    let vi = 0;
+
+    for (let i = 0; i < count; i++) {
+      const q = quads[i];
+      const fx = q.dirX, fy = q.dirY;
+      const px = -fy, py = fx;
+      const hl = q.halfL, hw = q.halfW;
+      const aspect = hw > 0.001 ? hl / hw : 1.0;
+      const reach = Math.max(hl, hw) + 2;
+      if (q.x - reach < minX) minX = q.x - reach;
+      if (q.y - reach < minY) minY = q.y - reach;
+      if (q.x + reach > maxX) maxX = q.x + reach;
+      if (q.y + reach > maxY) maxY = q.y + reach;
+
+      // 4 oriented quad corners: (-1,-1), (1,-1), (-1,1), (1,1)
+      const x0 = q.x - fx * hl - px * hw, y0 = q.y - fy * hl - py * hw;
+      const x1 = q.x + fx * hl - px * hw, y1 = q.y + fy * hl - py * hw;
+      const x2 = q.x - fx * hl + px * hw, y2 = q.y - fy * hl + py * hw;
+      const x3 = q.x + fx * hl + px * hw, y3 = q.y + fy * hl + py * hw;
+
+      const writeV = (vx, vy, lu, lv) => {
+        buf[vi] = vx; buf[vi + 1] = vy;
+        buf[vi + 2] = lu; buf[vi + 3] = lv;
+        buf[vi + 4] = q.r; buf[vi + 5] = q.g; buf[vi + 6] = q.b; buf[vi + 7] = q.a;
+        buf[vi + 8] = q.kind; buf[vi + 9] = q.life; buf[vi + 10] = q.seed; buf[vi + 11] = aspect;
+        vi += 12;
+      };
+      writeV(x0, y0, -1, -1);
+      writeV(x1, y1,  1, -1);
+      writeV(x2, y2, -1,  1);
+      writeV(x2, y2, -1,  1);
+      writeV(x1, y1,  1, -1);
+      writeV(x3, y3,  1,  1);
+    }
+
+    const bx = Math.max(0, Math.floor(minX)), by = Math.max(0, Math.floor(minY));
+    const bw = Math.min(W - bx, Math.ceil(maxX - bx)), bh = Math.min(H - by, Math.ceil(maxY - by));
+    if (bw <= 0 || bh <= 0) return;
+
+    const sx = Math.floor(bx * k), sy = Math.floor(by * k);
+    const sw = Math.min(cw - sx, Math.ceil(bw * k) + 1);
+    const sh = Math.min(ch - sy, Math.ceil(bh * k) + 1);
+
+    gl.viewport(0, 0, cw, ch);
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(sx, ch - sy - sh, sw, sh);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+    gl.useProgram(prog.p);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.sparkVbo);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, buf.subarray(0, vi));
+
+    const stride = 12 * 4;
+    gl.enableVertexAttribArray(prog.aPos);
+    gl.vertexAttribPointer(prog.aPos, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(prog.aLocal);
+    gl.vertexAttribPointer(prog.aLocal, 2, gl.FLOAT, false, stride, 8);
+    gl.enableVertexAttribArray(prog.aColor);
+    gl.vertexAttribPointer(prog.aColor, 4, gl.FLOAT, false, stride, 16);
+    gl.enableVertexAttribArray(prog.aMeta);
+    gl.vertexAttribPointer(prog.aMeta, 4, gl.FLOAT, false, stride, 32);
+
+    gl.uniform2f(prog.u.uRes, W, H);
+    gl.uniform1f(prog.u.uTime, this.time);
+    gl.drawArrays(gl.TRIANGLES, 0, count * 6);
+
+    gl.disableVertexAttribArray(prog.aLocal);
+    gl.disableVertexAttribArray(prog.aColor);
+    gl.disableVertexAttribArray(prog.aMeta);
+    gl.disable(gl.BLEND);
+    gl.disable(gl.SCISSOR_TEST);
+
+    ctx.save();
+    ctx.globalCompositeOperation = composite;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.canvas, sx, sy, sw, sh, Math.round(sx / k), Math.round(sy / k), Math.round(sw / k), Math.round(sh / k));
+    ctx.restore();
   }
 }
 

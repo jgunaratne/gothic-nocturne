@@ -21,47 +21,72 @@ const HIGH_BALCONY_STAGES = new Set([
 ]);
 
 /**
+ * Returns true if a monumental portal centered on tile column `col` with
+ * threshold row `gateRow` (`[wx - 44, wx + 44] × [wy - 128, wy + 4]`) intersects
+ * any moving platform's sweep volume or hub gear.
+ */
+function overlapsMoverSweep(level, col, gateRow) {
+  if (!level.movers || !level.movers.length) return false;
+  const wx0 = col * TILE - 28, wx1 = (col + 1) * TILE + 28;
+  const wy0 = gateRow * TILE - 128, wy1 = gateRow * TILE + 8;
+  for (const m of level.movers) {
+    const mx0 = m.kind === 'orbit' ? (m.cx - m.r - m.w * 0.5) : (Math.min(m.x0, m.x1) - m.w * 0.5);
+    const mx1 = m.kind === 'orbit' ? (m.cx + m.r + m.w * 0.5) : (Math.max(m.x0, m.x1) + m.w * 0.5);
+    const my0 = m.kind === 'orbit' ? (m.cy - m.r - 8) : (Math.min(m.y0, m.y1) - 4);
+    const my1 = m.kind === 'orbit' ? (m.cy + m.r + 22) : (Math.max(m.y0, m.y1) + 22);
+    if (mx1 >= wx0 && mx0 <= wx1 && my1 >= wy0 && my0 <= wy1) return true;
+  }
+  return false;
+}
+
+/**
  * Finds a safe, flat 3-tile solid material floor span near `targetCol` inside
  * `[minCol, maxCol]` that does not crowd any column in `usedCols` or overlap
- * spikes, lava, or boss arenas.
+ * spikes, lava, or boss arenas. Prefers columns outside moving-platform sweeps
+ * first, falling back gracefully if the whole span is mechanical.
  */
 function findSafeFloor(level, targetCol, minCol, maxCol, usedCols, needBalcony = false) {
   const lo = Math.max(4, minCol);
   const hi = Math.min(level.cols - 6, maxCol);
   const clamped = Math.max(lo, Math.min(hi, Math.round(targetCol)));
 
-  for (let d = 0; d <= hi - lo; d++) {
-    for (const sign of (d === 0 ? [1] : [1, -1])) {
-      const c = clamped + sign * d;
-      if (c < lo || c > hi) continue;
-      if (usedCols.some((u) => Math.abs(u - c) < 6)) continue;
+  for (const avoidMovers of [true, false]) {
+    for (let d = 0; d <= hi - lo; d++) {
+      for (const sign of (d === 0 ? [1] : [1, -1])) {
+        const c = clamped + sign * d;
+        if (c < lo || c > hi) continue;
+        if (usedCols.some((u) => Math.abs(u - c) < 6)) continue;
 
-      const row = level.surfaceRow(c);
-      if (row < (needBalcony ? 7 : 4) || row >= level.rows - 1) continue;
+        const row = level.surfaceRow(c);
+        if (row < (needBalcony ? 7 : 4) || row >= level.rows - 1) continue;
 
-      // Require 3 contiguous material floor tiles at the exact same elevation
-      let ok = true;
-      for (let tc = c - 1; tc <= c + 1; tc++) {
-        if (!isMaterialTile(level.tile(tc, row))) { ok = false; break; }
-        if (level.surfaceRow(tc) !== row) { ok = false; break; }
-      }
-      if (!ok) continue;
-
-      // Require clear headroom (and clear balcony air if building a 5-tile-high balcony)
-      const topClear = needBalcony ? row - 7 : row - 3;
-      if (topClear < 1) continue;
-      for (let ty = topClear; ty <= row - 1; ty++) {
+        // Require 3 contiguous material floor tiles at the exact same elevation
+        let ok = true;
         for (let tc = c - 1; tc <= c + 1; tc++) {
-          if (level.isSolid(tc, ty) || level.isSpike(tc, ty) || level.isLava(tc, ty)) {
-            ok = false;
-            break;
-          }
+          if (!isMaterialTile(level.tile(tc, row))) { ok = false; break; }
+          if (level.surfaceRow(tc) !== row) { ok = false; break; }
         }
-        if (!ok) break;
-      }
-      if (!ok) continue;
+        if (!ok) continue;
 
-      return { col: c, row };
+        // Require 4 full tiles (128px) of clear headroom for 124px monumental arches
+        const topClear = needBalcony ? row - 8 : row - 4;
+        if (topClear < 1) continue;
+        for (let ty = topClear; ty <= row - 1; ty++) {
+          for (let tc = c - 1; tc <= c + 1; tc++) {
+            if (level.isSolid(tc, ty) || level.isSpike(tc, ty) || level.isLava(tc, ty)) {
+              ok = false;
+              break;
+            }
+          }
+          if (!ok) break;
+        }
+        if (!ok) continue;
+
+        const gateRow = (needBalcony && row >= 7) ? row - 5 : row;
+        if (avoidMovers && overlapsMoverSweep(level, c, gateRow)) continue;
+
+        return { col: c, row };
+      }
     }
   }
   return null;

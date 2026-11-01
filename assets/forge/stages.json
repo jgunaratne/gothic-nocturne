@@ -671,6 +671,322 @@
     "name": "SUNKEN CISTERN",
     "description": "FLOODED BRICK VAULTS BENEATH THE KEEP WHERE DROWNED THINGS WAIT IN BLACK WATER"
    }
+  },
+  {
+   "key": "abandoned_village_2",
+   "blueprint": {
+    "name": "THE ABANDONED VILLAGE",
+    "subtitle": "WHERE THE BELLS RING FOR NO ONE",
+    "where": "FORSAKEN HAMLET",
+    "description": "A frost-bitten hamlet trapped in an eternal snowstorm, where spectral villagers linger among rotting timber homes.",
+    "base": "yule",
+    "connectsTo": [
+     "yule",
+     "graveyard",
+     "darkwood"
+    ],
+    "palette": {
+     "accent": "#c9a86a",
+     "bg": "#0b0a12",
+     "hueShift": 12,
+     "saturate": 1.0
+    },
+    "weather": "snow",
+    "segments": [
+     {
+      "type": "flat",
+      "len": 12,
+      "candles": [
+       3,
+       9
+      ],
+      "enemies": [
+       [
+        "snowman",
+        6
+       ],
+       [
+        "bat",
+        10,
+        {
+         "h": 5
+        }
+       ]
+      ]
+     },
+     {
+      "type": "crumbleRun",
+      "len": 3,
+      "safe": true,
+      "belowBlock": "money"
+     },
+     {
+      "type": "flat",
+      "len": 10,
+      "candles": [
+       [
+        4,
+        "dagger"
+       ],
+       8
+      ],
+      "enemies": [
+       [
+        "skeleton",
+        5,
+        {
+         "variant": "axe"
+        }
+       ]
+      ],
+      "spawn": "wisp"
+     },
+     {
+      "type": "stepUp",
+      "n": 2
+     },
+     {
+      "type": "vistaBridge",
+      "len": 10,
+      "candles": [
+       3,
+       7
+      ],
+      "enemies": [
+       [
+        "bat",
+        4,
+        {
+         "h": 5
+        }
+       ]
+      ]
+     },
+     {
+      "type": "ferryGap",
+      "len": 6,
+      "rise": 0,
+      "candle": "axe",
+      "safeFloor": false
+     },
+     {
+      "type": "splitRoute",
+      "len": 14,
+      "reward": "meat",
+      "spawn": "zombie",
+      "enemies": [
+       [
+        "skeleton",
+        5
+       ],
+       [
+        "icegolem",
+        10
+       ]
+      ],
+      "upperEnemies": [
+       [
+        "bat",
+        8,
+        {
+         "h": 6
+        }
+       ]
+      ]
+     },
+     {
+      "type": "corridor",
+      "len": 10,
+      "ceil": 3,
+      "candles": [
+       4
+      ],
+      "spawn": "medusa"
+     },
+     {
+      "type": "liftShaft",
+      "h": 4,
+      "spawn": "bat",
+      "reward": "holy_water"
+     },
+     {
+      "type": "descent",
+      "h": 4,
+      "enemies": [
+       [
+        "bat",
+        3,
+        {
+         "h": 2
+        }
+       ]
+      ]
+     },
+     {
+      "type": "hiddenVault",
+      "reward": "meat",
+      "weapon": "axe",
+      "enemies": [
+       [
+        "skeleton",
+        7
+       ]
+      ]
+     },
+     {
+      "type": "swingRun",
+      "n": 3,
+      "period": 2.8,
+      "reward": "heart_big"
+     },
+     {
+      "type": "climb",
+      "n": 3,
+      "candles": true
+     },
+     {
+      "type": "blocks",
+      "h": 3,
+      "drops": [
+       "meat",
+       null,
+       "money"
+      ]
+     },
+     {
+      "type": "gap",
+      "len": 4
+     }
+    ],
+    "boss": {
+     "type": "bonecaptain",
+     "name": "THE HOLLOW BELLRINGER",
+     "line": "NO ONE LEAVES THE VILLAGE ALIVE, HUNTER... THE BELLS TOLL FOR YOU!",
+     "voice": {
+      "female": false,
+      "direction": "Deep, resonant, and decaying, like stones grinding against an iron bell."
+     },
+     "art": "A gargantuan, hunchbacked skeleton draped in tattered priest robes, wielding a massive, rusted copper bell as a mace."
+    },
+    "relic": {
+     "name": "BELL OF THE LOST",
+     "effect": "vitality",
+     "color": "#c9a86a"
+    },
+    "art": {
+     "palette": "white, indigo, charcoal, rusted gold",
+     "floorSurface": "frozen mud and frost-covered cobblestones",
+     "floorBelow": "petrified wooden foundations and packed permafrost",
+     "wall": "weathered timber planks and cracked limestone masonry",
+     "backdrop": "silhouetted sagging cottages and a single, swaying crooked bell tower",
+     "props": [
+      {
+       "name": "well",
+       "desc": "a dry stone well with a broken windlass"
+      },
+      {
+       "name": "cart",
+       "desc": "an overturned ox-cart spilling frozen hay"
+      },
+      {
+       "name": "gallows",
+       "desc": "a creaking wooden gallows swaying in the wind"
+      },
+      {
+       "name": "shrine",
+       "desc": "a small, snow-buried shrine to a forgotten saint"
+      }
+     ],
+     "icon": "a cracked iron bell silhouette"
+    },
+    "music": "Slow, melancholic 120BPM waltz in C minor, utilizing a detuned harpsichord, low-register cello, and distant, mournful bell tolls.",
+    "ambience": "A mix of howling wind gusts, the crunching of snow underfoot, and the rhythmic, hollow creaking of a swinging bell.",
+    "source": "gemini",
+    "seed": 3024364260,
+    "outdoor": true,
+    "key": "abandoned_village_2"
+   },
+   "assets": {
+    "backdrop": {
+     "type": "texture",
+     "file": "forge/abandoned_village_2/backdrop.png",
+     "w": 1280,
+     "h": 360
+    },
+    "props": {
+     "type": "sheet",
+     "file": "forge/abandoned_village_2/props.png",
+     "w": 378,
+     "h": 139,
+     "frames": {
+      "well": {
+       "x": 1,
+       "y": 1,
+       "w": 81,
+       "h": 80,
+       "ax": 40.5,
+       "ay": 80
+      },
+      "cart": {
+       "x": 83,
+       "y": 1,
+       "w": 113,
+       "h": 67,
+       "ax": 56.5,
+       "ay": 67
+      },
+      "gallows": {
+       "x": 197,
+       "y": 1,
+       "w": 91,
+       "h": 137,
+       "ax": 45.5,
+       "ay": 137
+      },
+      "shrine": {
+       "x": 289,
+       "y": 1,
+       "w": 88,
+       "h": 103,
+       "ax": 44.0,
+       "ay": 103
+      }
+     }
+    },
+    "icon": {
+     "type": "sheet",
+     "file": "forge/abandoned_village_2/icon.png",
+     "w": 25,
+     "h": 28,
+     "frames": {
+      "icon": {
+       "x": 1,
+       "y": 1,
+       "w": 23,
+       "h": 26,
+       "ax": 11.5,
+       "ay": 26
+      }
+     }
+    },
+    "floor": {
+     "type": "strip",
+     "file": "forge/abandoned_village_2/floor.png",
+     "w": 512,
+     "h": 134,
+     "overhang": 6,
+     "tile": 32
+    }
+   },
+   "music": "forge/abandoned_village_2/music.mp3",
+   "voice": "forge/abandoned_village_2/voice.mp3",
+   "ambient": "forge/abandoned_village_2/ambient.mp3",
+   "createdAt": 1793556767583,
+   "source": "gemini",
+   "proposal": {
+    "name": "ABANDONED VILLAGE",
+    "description": ""
+   }
   }
  ]
 }
