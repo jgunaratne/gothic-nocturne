@@ -146,22 +146,25 @@ export class Projectile {
       case 'dagger': this.vx = dir * 430; this.vy = 0; this.damage = 1; this.life = 1.4; this.w = 18; this.h = 6; break;
       case 'axe': this.vx = dir * 185; this.vy = -440; this.gravity = 1; this.damage = 3; this.pierce = 4; this.w = 16; this.h = 18; break;
       case 'holy_water': this.vx = dir * 150; this.vy = -240; this.gravity = 1; this.damage = 1; this.w = 10; this.h = 14; break;
-      case 'bone': this.vx = dir * 200; this.vy = -370; this.gravity = 0.9; this.damage = 2; this.w = 12; this.h = 12; break;
-      case 'sickle': this.vx = dir * 300; this.vy = 0; this.ax = -dir * 330; this.damage = 3; this.life = 2.6; this.w = 22; this.h = 22; this.pierce = 99; break;
-      case 'skull': this.vx = dir * 100; this.vy = -30; this.damage = 2; this.life = 2.6; this.w = 14; this.h = 14; this.pierce = 99; this.homing = true; break;
-      case 'hellfire': this.vx = dir * 180; this.vy = 0; this.damage = 3; this.life = 2.6; this.w = 16; this.h = 16; this.pierce = 99; break;
-      case 'gaze': this.vx = dir * 380; this.vy = 0; this.damage = 3; this.life = 1.6; this.w = 34; this.h = 10; this.pierce = 99; break;
-      case 'gas': this.vx = dir * 70; this.vy = 4; this.ax = -dir * 22; this.damage = 1; this.life = 2.6; this.w = 26; this.h = 26; this.pierce = 99; this.petrify = true; break;
-      case 'fireball': this.vx = dir * 230; this.vy = 0; this.gravity = 0.12; this.damage = 3; this.life = 2.2; this.w = 14; this.h = 14; break;
-      case 'iceshard': this.vx = dir * 260; this.vy = -60; this.gravity = 0.35; this.damage = 2; this.life = 2; this.w = 12; this.h = 8; break;
-      case 'snowball': this.vx = dir * 190; this.vy = -330; this.gravity = 0.9; this.damage = 2; this.w = 12; this.h = 12; break;
-      case 'present': this.vx = dir * 150; this.vy = -420; this.gravity = 1; this.damage = 3; this.w = 16; this.h = 16; this.bursts = true; break;
-      case 'spore': this.vx = dir * 118; this.vy = -28; this.damage = 2; this.life = 2.8; this.w = 14; this.h = 14; break;
-      case 'shard': this.vx = 0; this.vy = 200; this.gravity = 0.25; this.damage = 2; this.life = 2.6; this.w = 12; this.h = 14; break;
-      case 'page': this.vx = dir * 240; this.vy = 0; this.damage = 1; this.life = 2.0; this.w = 14; this.h = 10; break;
-      case 'cog': this.vx = dir * 210; this.vy = -330; this.gravity = 0.85; this.damage = 2; this.w = 16; this.h = 16; this.bounces = 1; break;
-      case 'thorn': this.vx = dir * 255; this.vy = 0; this.gravity = 0.12; this.damage = 2; this.life = 2.2; this.w = 16; this.h = 8; break;
-      case 'magmaball': this.vx = dir * 185; this.vy = -360; this.gravity = 0.88; this.damage = 3; this.life = 2.8; this.w = 16; this.h = 16; break;
+      case 'bone': this.vx = dir * 228; this.vy = -375; this.gravity = 0.9; this.damage = 3; this.w = 12; this.h = 12; break;
+      case 'sickle': this.vx = dir * 335; this.vy = 0; this.ax = -dir * 355; this.damage = 4; this.life = 2.6; this.w = 22; this.h = 22; this.pierce = 99; break;
+      case 'skull': this.vx = dir * 132; this.vy = -30; this.damage = 3; this.life = 2.8; this.w = 14; this.h = 14; this.pierce = 99; this.homing = true; break;
+      case 'hellfire': this.vx = dir * 222; this.vy = 0; this.damage = 4; this.life = 2.6; this.w = 16; this.h = 16; this.pierce = 99; break;
+      case 'gaze': this.vx = dir * 415; this.vy = 0; this.damage = 4; this.life = 1.6; this.w = 34; this.h = 10; this.pierce = 99; break;
+      case 'gas': this.vx = dir * 86; this.vy = 4; this.ax = -dir * 20; this.damage = 2; this.life = 2.7; this.w = 26; this.h = 26; this.pierce = 99; this.petrify = true; break;
+      case 'fireball': this.vx = dir * 268; this.vy = 0; this.gravity = 0.12; this.damage = 3; this.life = 2.2; this.w = 14; this.h = 14; break;
+      case 'iceshard': this.vx = dir * 296; this.vy = -60; this.gravity = 0.35; this.damage = 3; this.life = 2.1; this.w = 12; this.h = 8; break;
+      case 'snowball': this.vx = dir * 220; this.vy = -335; this.gravity = 0.9; this.damage = 3; this.w = 12; this.h = 12; break;
+      case 'present': this.vx = dir * 175; this.vy = -425; this.gravity = 1; this.damage = 4; this.w = 16; this.h = 16; this.bursts = true; break;
+      case 'spore': this.vx = dir * 150; this.vy = -28; this.damage = 3; this.life = 2.8; this.w = 14; this.h = 14; break;
+      case 'shard': this.vx = 0; this.vy = 235; this.gravity = 0.28; this.damage = 3; this.life = 2.6; this.w = 12; this.h = 14; break;
+      case 'page': this.vx = dir * 278; this.vy = 0; this.damage = 2; this.life = 2.1; this.w = 14; this.h = 10; break;
+      case 'cog': this.vx = dir * 240; this.vy = -335; this.gravity = 0.85; this.damage = 3; this.w = 16; this.h = 16; this.bounces = 2; break;
+      case 'thorn': this.vx = dir * 285; this.vy = 0; this.gravity = 0.12; this.damage = 3; this.life = 2.2; this.w = 16; this.h = 8; break;
+      case 'magmaball': this.vx = dir * 212; this.vy = -365; this.gravity = 0.88; this.damage = 4; this.life = 2.8; this.w = 16; this.h = 16; break;
+      case 'alchflask': this.vx = dir * 215; this.vy = -335; this.gravity = 0.86; this.damage = 3; this.life = 2.6; this.w = 14; this.h = 14; break;
+      case 'waterbolt': this.vx = dir * 305; this.vy = 0; this.gravity = 0.05; this.damage = 3; this.life = 2.0; this.w = 18; this.h = 10; break;
+      case 'starlance': this.vx = dir * 335; this.vy = 0; this.gravity = 0; this.damage = 4; this.life = 2.1; this.w = 24; this.h = 10; break;
       case 'crimson_wave': this.vx = dir * 340; this.vy = 0; this.damage = 2; this.life = 0.44; this.w = 24; this.h = 26; this.pierce = 3; break;
       case 'weapon_boomerang':
         this.vx = dir * 320; this.vy = 0; this.damage = 2; this.life = 2.5;
@@ -253,8 +256,8 @@ export class Projectile {
     if (this.homing && world.player.alive) {
       const dx = world.player.x - this.x, dy = (world.player.y - 30) - this.y;
       const d = Math.hypot(dx, dy) || 1;
-      this.vx += (dx / d) * 145 * dt; this.vy += (dy / d) * 145 * dt;
-      const s = Math.hypot(this.vx, this.vy); if (s > 125) { this.vx *= 125 / s; this.vy *= 125 / s; }
+      this.vx += (dx / d) * 195 * dt; this.vy += (dy / d) * 195 * dt;
+      const s = Math.hypot(this.vx, this.vy); if (s > 160) { this.vx *= 160 / s; this.vy *= 160 / s; }
     }
     this.x += this.vx * dt;
     this.y += this.vy * dt;
@@ -266,6 +269,9 @@ export class Projectile {
       if (Math.random() < 0.4) world.particles.emit({ x: this.x + (Math.random() - 0.5) * this.w, y: this.y + (Math.random() - 0.5) * this.h, vx: this.vx * 0.3, vy: -10, life: 0.6, color: 'rgba(150, 130, 180, 0.35)', size: 5, gravity: -0.02, shrink: true });
     }
     if ((this.type === 'fireball' || this.type === 'magmaball' || this.type === 'catalyst_fire') && Math.random() < 0.65) world.particles.embers(this.x - this.dir * 6, this.y, 1);
+    if (this.type === 'alchflask' && Math.random() < 0.65) world.particles.sparks(this.x, this.y - 4, 1, '#52f0d4');
+    if (this.type === 'waterbolt' && Math.random() < 0.65) world.particles.sparks(this.x - this.dir * 6, this.y, 1, '#58dcff');
+    if (this.type === 'starlance' && Math.random() < 0.75) world.particles.sparks(this.x - this.dir * 7, this.y, 1, '#ffe892');
     if (this.type === 'crimson_wave' && Math.random() < 0.7) world.particles.sparks(this.x - this.dir * 6, this.y + (Math.random() - 0.5) * 14, 1, '#ff4a66');
     if (this.type === 'volt_lance' && Math.random() < 0.8) world.particles.sparks(this.x - this.dir * 8, this.y + (Math.random() - 0.5) * 8, 1, '#ffe66d');
     if (this.type === 'catalyst_void' && Math.random() < 0.55) world.particles.sparks(this.x, this.y, 1, '#c88cff');
@@ -278,6 +284,16 @@ export class Projectile {
       if (this.type === 'holy_water') {
         const floorY = Math.floor((this.y + 4) / TILE) * TILE;
         world.spawnFire(this.x, floorY);
+      } else if (this.type === 'alchflask') {
+        world.particles.sparks(this.x, this.y - 4, 10, '#52f0d4');
+        world.particles.embers(this.x, this.y - 4, 6);
+        if (this.vy > 0) {
+          world.spawnFire(this.x, ty * TILE, 'enemy');
+        }
+      } else if (this.type === 'waterbolt') {
+        world.particles.sparks(this.x, this.y, 7, '#6ce6ff');
+      } else if (this.type === 'starlance') {
+        world.particles.sparks(this.x, this.y, 8, '#ffe892');
       } else if (this.type === 'dagger') {
         world.particles.sparks(this.x, this.y, 4, '#cfd8e8');
       } else if (this.type === 'fireball' || this.type === 'catalyst_fire') {
@@ -750,6 +766,52 @@ export class Projectile {
         ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = '#d8a8ff'; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.stroke();
+        break;
+      }
+      case 'alchflask': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 13, ry: 20, dirX: this.vx || this.dir, dirY: this.vy,
+            mode: 0, seed, core: [0.76, 1.0, 0.94], rim: [1.0, 0.62, 0.14], alpha: 0.92,
+          });
+        }
+        ctx.rotate(this.spin * 0.75);
+        ctx.fillStyle = '#2ad8c8';
+        ctx.beginPath(); ctx.arc(0, 1, 5.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#d89b3c';
+        ctx.fillRect(-2, -6, 4, 4);
+        ctx.fillStyle = '#e8fffb';
+        ctx.fillRect(-2, -1, 2, 2);
+        break;
+      }
+      case 'waterbolt': {
+        const ang = Math.atan2(this.vy, this.vx || this.dir);
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 15, ry: 9, dirX: Math.cos(ang), dirY: Math.sin(ang),
+            mode: 1, seed, core: [0.88, 0.99, 1.0], rim: [0.16, 0.76, 0.96], alpha: 0.92,
+          });
+        }
+        ctx.rotate(ang);
+        ctx.fillStyle = '#38c8ee';
+        ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-8, -4); ctx.lineTo(-5, 0); ctx.lineTo(-8, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#e6fcff';
+        ctx.fillRect(-3, -1, 9, 2);
+        break;
+      }
+      case 'starlance': {
+        const ang = Math.atan2(this.vy, this.vx || this.dir);
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 19, ry: 8, dirX: Math.cos(ang), dirY: Math.sin(ang),
+            mode: 1, seed, core: [1.0, 0.99, 0.88], rim: [1.0, 0.80, 0.24], alpha: 0.96,
+          });
+        }
+        ctx.rotate(ang);
+        ctx.fillStyle = '#ffd668';
+        ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-10, -4); ctx.lineTo(-6, 0); ctx.lineTo(-10, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-6, -1, 14, 2);
         break;
       }
       default: break;

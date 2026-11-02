@@ -104,9 +104,9 @@ BOSS_SHEET_SPECS = {   # mirrors tools/asset_manifest.json for frame processing
     'archon': {'height': 120, 'ref': 'idle', 'colors': 28, 'rows': [['idle', 'roar', 'pounce', 'shell']]},
     'reaper': {'height': 136, 'ref': 'idle0', 'colors': 24, 'rows': [['idle0', 'idle1', 'windup', 'swing']]},
 }
-GROUND_ENEMIES = ['skeleton', 'catoblepas', 'pumpkin', 'icegolem', 'snowman', 'wolf', 'mushroom', 'magmaslime', 'lavagolem', 'armor']
-FLYING_ENEMIES = ['bat', 'dragon', 'owl', 'ghost', 'tome', 'gargoyle', 'cinderimp', 'wraith']
-SPAWNERS = ['zombie', 'pumpkin', 'medusa', 'lantern', 'wisp', 'ghost', 'wraith', 'cinderimp', 'tome', 'gargoyle', 'bat', 'owl']
+GROUND_ENEMIES = ['skeleton', 'zombie', 'catoblepas', 'pumpkin', 'icegolem', 'snowman', 'wolf', 'mushroom', 'magmaslime', 'lavagolem', 'armor', 'alchfiend', 'duelist', 'executioner', 'merman']
+FLYING_ENEMIES = ['bat', 'medusa', 'dragon', 'owl', 'ghost', 'tome', 'gargoyle', 'cinderimp', 'wraith', 'valkyrie', 'necromancer']
+SPAWNERS = ['zombie', 'pumpkin', 'medusa', 'lantern', 'wisp', 'ghost', 'wraith', 'cinderimp', 'tome', 'gargoyle', 'bat', 'owl', 'merman', 'valkyrie', 'necromancer']
 RELIC_EFFECTS = ['vitality', 'hearts', 'whip', 'stride', 'ward']
 MALE_VOICES = ['star07', 'star09', 'star13', 'star15', 'msm00001']
 FEMALE_VOICES = ['star17', 'msf00005']
@@ -314,7 +314,8 @@ RULES
   Use 12-20 segments. Start with a flat. Teach each hazard safely before testing it. Mix calm runs, vertical moves and one risk/reward splitRoute.
   Only use lavaRun for volcanic places and gearWheel for clockwork places. corridor only makes sense indoors; vistaBridge is best outdoors.
 - Ground enemies: {', '.join(GROUND_ENEMIES)}. Flying enemies (need "h" 2-7): {', '.join(FLYING_ENEMIES)}.
-  Enemy entries are [type, offsetTilesFromSegmentStart, options]; options may hold "h" (flying height) and "variant" (skeleton: axe|red, bat: fire).
+  Enemy entries are [type, offsetTilesFromSegmentStart, options]; options may hold "h" (flying height) and "variant" (skeleton: axe|red|blood|frost, bat: fire, zombie: ghoul|plague, wolf: alpha, dragon: frost|elder, gargoyle: obsidian, armor: crimson, wraith: banshee).
+  Use 2-4 enemies per combat segment so rooms feel dangerously populated.
   Spawners ("spawn"): {', '.join(SPAWNERS)}. Candle drops: dagger, axe, holy_water, meat, heart_big, heart_small, money.
 - Boss "type" (behaviour reused from a built-in boss): {bosses}. Give it a NEW name, look and spoken line that fit the place.
 - Relic "effect": one of {', '.join(RELIC_EFFECTS)}.

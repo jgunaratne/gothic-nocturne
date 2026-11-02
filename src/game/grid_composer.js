@@ -29,6 +29,7 @@ function mulberry32(seed) {
 
 const FLYING_ENEMIES = new Set([
   'bat', 'dragon', 'owl', 'ghost', 'tome', 'gargoyle', 'cinderimp', 'wraith', 'medusa', 'lantern', 'wisp',
+  'valkyrie', 'necromancer',
 ]);
 
 /** Returns architectural floor/wall prop descriptors appropriate to a theme. */
@@ -461,8 +462,12 @@ export function composeGridStage(spec) {
       addCandle(x0 + 3, leftLandR);
       addCandle(x0 + 16, rightLandR, 'heart_big');
 
-      // 1 aerial sentry soaring above the grand stairway
-      const [aType, aVar] = pickAerial(mc);
+      // Layered grand-stairway defenders: lower/upper landing guards + soaring aerial sentry
+      const [gStair, gStairVar] = pickGround(mc);
+      const [sStair, sStairVar] = pickSniper(mc + 1);
+      const [aType, aVar] = pickAerial(mc + 2);
+      addEnemy({ type: gStair, variant: gStairVar, off: 2, minOff: 1, maxOff: 3, row: leftLandR }, x0, x1, floorBot);
+      addEnemy({ type: sStair, variant: sStairVar, off: 17, minOff: 16, maxOff: 18, row: rightLandR }, x0, x1, floorBot);
       addEnemy({ type: aType, variant: aVar, off: 10, minOff: 3, maxOff: 16, row: Math.min(leftLandR, rightLandR), h: 3 }, x0, x1, floorBot);
 
       roomSchema.push(createRoomSchemaEntry({
@@ -814,7 +819,13 @@ export function composeGridStage(spec) {
         addCandle(x0 + 8, floorR, 'heart_big');
         addCandle(x0 + 12, floorR);
         const [gType, gVar] = pickGround(mc + mr);
-        addEnemy({ type: gType, variant: gVar, off: 10, minOff: 7, maxOff: 13 }, x0, x1, floorR);
+        const [aSky, aSkyVar] = pickAerial(mc + mr + 1);
+        addEnemy({ type: gType, variant: gVar, off: 10, minOff: 7, maxOff: 12 }, x0, x1, floorR);
+        addEnemy({ type: aSky, variant: aSkyVar, off: 8, minOff: 5, maxOff: 14, h: 3 }, x0, x1, floorR);
+        if (!stairUp && !stairDown) {
+          const [hSky, hSkyVar] = pickHeavy(mc + mr + 2);
+          addEnemy({ type: hSky, variant: hSkyVar, off: 15, minOff: 13, maxOff: 17 }, x0, x1, floorR);
+        }
         continue;
       }
 
@@ -834,7 +845,15 @@ export function composeGridStage(spec) {
         }
         addCandle(x0 + 6, floorR, 'heart_big');
         const [aType, aVar] = pickAerial(mc + mr);
-        addEnemy({ type: aType, variant: aVar, off: 13, minOff: 8, maxOff: 16, h: 3 }, x0, x1, floorR);
+        addEnemy({ type: aType, variant: aVar, off: 9, minOff: 5, maxOff: 15, h: 3 }, x0, x1, floorR);
+        if (!stairDown) {
+          const [gVault, gVaultVar] = pickGround(mc + mr + 1);
+          addEnemy({ type: gVault, variant: gVaultVar, off: 15, minOff: 12, maxOff: 17 }, x0, x1, floorR);
+        }
+        if (!stairUp && !stairDown) {
+          const [sVault, sVaultVar] = pickSniper(mc + mr + 2);
+          addEnemy({ type: sVault, variant: sVaultVar, off: 4, minOff: 2, maxOff: 6 }, x0, x1, floorR);
+        }
         continue;
       }
 
@@ -856,13 +875,17 @@ export function composeGridStage(spec) {
         }
         addCandle(x0 + 11, floorR, (mr & 1) === 0 ? 'heart_big' : null);
 
-        // Disciplined turret / patrol strictly inside the solid central deck `[7..12]`
-        if ((mr + mc) % 2 === 0) {
-          const [gType, gVar] = pickGround(mc + mr);
-          addEnemy({ type: gType, variant: gVar, off: 9, minOff: 7, maxOff: 12 }, x0, x1, floorR);
-        } else {
-          const [aType, aVar] = pickAerial(mc + mr);
-          addEnemy({ type: aType, variant: aVar, off: 10, minOff: 7, maxOff: 12, h: 3 }, x0, x1, floorR);
+        // Disciplined patrol inside solid central deck `[7..12]` + shaft aerial + unblocked wing guard
+        const [gType, gVar] = (mr + mc) % 3 === 0 ? pickHeavy(mc + mr) : pickGround(mc + mr);
+        const [aType, aVar] = pickAerial(mc + mr + 1);
+        addEnemy({ type: gType, variant: gVar, off: 9, minOff: 7, maxOff: 12 }, x0, x1, floorR);
+        addEnemy({ type: aType, variant: aVar, off: 10, minOff: 6, maxOff: 14, h: 3 }, x0, x1, floorR);
+        if (stairUp !== 'east' && stairDown !== 'east') {
+          const [sShaft, sShaftVar] = pickSniper(mc + mr + 2);
+          addEnemy({ type: sShaft, variant: sShaftVar, off: 15, minOff: 13, maxOff: 17 }, x0, x1, floorR);
+        } else if (stairUp !== 'west' && stairDown !== 'west') {
+          const [sShaft, sShaftVar] = pickSniper(mc + mr + 2);
+          addEnemy({ type: sShaft, variant: sShaftVar, off: 4, minOff: 2, maxOff: 6 }, x0, x1, floorR);
         }
         continue;
       }
@@ -905,9 +928,17 @@ export function composeGridStage(spec) {
 
         const [gType, gVar] = pickGround(mc);
         const [sType, sVar] = pickSniper(mc + 1);
+        const [hType, hVar] = colPacing === PACING_ZONES.INTRO_SAFE ? pickGround(mc + 2) : pickHeavy(mc + 2);
+        const [aType, aVar] = pickAerial(mc + 3);
         addEnemy({ type: gType, variant: gVar, off: 4, minOff: 2, maxOff: 6 }, x0, x1, floorR);
         addEnemy({ type: sType, variant: sVar, off: 10, minOff: 7, maxOff: 12, row: floorR - 1 }, x0, x1, floorR);
-        if (roster.spawner && (mc % 3 === 0)) {
+        addEnemy({ type: hType, variant: hVar, off: 15, minOff: 13, maxOff: 17 }, x0, x1, floorR);
+        addEnemy({ type: aType, variant: aVar, off: 12, minOff: 4, maxOff: 16, row: floorR - 1, h: 3 }, x0, x1, floorR);
+        if (colPacing === PACING_ZONES.PRE_BOSS_ACCORDION || colPacing === PACING_ZONES.TWIST_COMBINATION) {
+          const [gExtra, gExtraVar] = pickGround(mc + 4);
+          addEnemy({ type: gExtra, variant: gExtraVar, off: 8, minOff: 7, maxOff: 12, row: floorR - 1 }, x0, x1, floorR);
+        }
+        if (roster.spawner && (mc % 2 === 0)) {
           spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
         }
       } else if (tpl === 'TWIN_BALCONY_AMPHITHEATER') {
@@ -931,10 +962,21 @@ export function composeGridStage(spec) {
         addCandle(x0 + 4, floorR - 2, 'heart_big');
         addCandle(x0 + 15, floorR - 2, isAccordion3 ? 'meat' : 'money');
 
-        const [hType, hVar] = pickHeavy(mc);
+        const [sLeft, sLeftVar] = pickSniper(mc);
+        const [hType, hVar] = pickHeavy(mc + 1);
         const [sType, sVar] = pickSniper(mc + 2);
+        const [gRight, gRightVar] = pickGround(mc + 3);
+        addEnemy({ type: sLeft, variant: sLeftVar, off: 5, minOff: 3, maxOff: 6, row: floorR - 2 }, x0, x1, floorR);
         addEnemy({ type: hType, variant: hVar, off: 9, minOff: 4, maxOff: 14 }, x0, x1, floorR);
         addEnemy({ type: sType, variant: sVar, off: 14, minOff: 13, maxOff: 16, row: floorR - 2 }, x0, x1, floorR);
+        addEnemy({ type: gRight, variant: gRightVar, off: 15, minOff: 11, maxOff: 17 }, x0, x1, floorR);
+        if (colPacing !== PACING_ZONES.INTRO_SAFE) {
+          const [aAmp, aAmpVar] = pickAerial(mc + 4);
+          addEnemy({ type: aAmp, variant: aAmpVar, off: 10, minOff: 4, maxOff: 16, h: 4 }, x0, x1, floorR);
+        }
+        if (roster.spawner && (mc % 3 === 1)) {
+          spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
+        }
       } else if (tpl === 'SUNKEN_HAZARD_COURT') {
         // Framed central hazard court (`offset = 6..13`) with balustrade piers at `5` and `14`
         colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
@@ -1002,10 +1044,19 @@ export function composeGridStage(spec) {
           addDeco(props.sconce[0], props.sconce[1], x0 + 3, floorR, 0, -46);
           addDeco(props.sconce[0], props.sconce[1], x0 + 16, floorR, 0, -46);
         }
-        const [aType, aVar] = pickAerial(mc);
-        const [gType, gVar] = pickGround(mc + 2);
-        addEnemy({ type: aType, variant: aVar, off: 10, minOff: 5, maxOff: 15, h: 4 }, x0, x1, floorR);
-        addEnemy({ type: gType, variant: gVar, off: 16, minOff: 15, maxOff: 18 }, x0, x1, floorR);
+        const [gLeft, gLeftVar] = pickGround(mc);
+        const [aType, aVar] = pickAerial(mc + 1);
+        const [rType, rVar] = isAccordion2 ? pickHeavy(mc + 3) : pickSniper(mc + 3);
+        addEnemy({ type: gLeft, variant: gLeftVar, off: 4, minOff: 2, maxOff: 5 }, x0, x1, floorR);
+        addEnemy({ type: aType, variant: aVar, off: 9, minOff: 5, maxOff: 14, h: 3 }, x0, x1, floorR);
+        if (colPacing !== PACING_ZONES.INTRO_SAFE) {
+          const [aType2, aVar2] = pickAerial(mc + 2);
+          addEnemy({ type: aType2, variant: aVar2, off: 12, minOff: 6, maxOff: 15, h: 4 }, x0, x1, floorR);
+        }
+        addEnemy({ type: rType, variant: rVar, off: 16, minOff: 14, maxOff: 17 }, x0, x1, floorR);
+        if (roster.spawner && (mc % 3 === 2)) {
+          spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
+        }
       } else {
         // `VIADUCT_PROMENADE`: rhythmic 6-tile colonnade / parapet lanterns + central overlook platform
         colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
@@ -1022,11 +1073,15 @@ export function composeGridStage(spec) {
         addCandle(x0 + 9, floorR - 2, 'heart_big');
         addCandle(x0 + 16, floorR, 'money');
 
-        const [gType, gVar] = pickGround(mc + 1);
+        const [gType, gVar] = pickGround(mc);
+        const [sType, sVar] = pickSniper(mc + 1);
+        const [hType, hVar] = colPacing === PACING_ZONES.INTRO_SAFE ? pickGround(mc + 2) : pickHeavy(mc + 2);
         const [aType, aVar] = pickAerial(mc + 3);
-        addEnemy({ type: gType, variant: gVar, off: 6, minOff: 2, maxOff: 11 }, x0, x1, floorR);
-        addEnemy({ type: aType, variant: aVar, off: 14, minOff: 9, maxOff: 17, h: 4 }, x0, x1, floorR);
-        if (roster.spawner && (mc % 4 === 1)) {
+        addEnemy({ type: gType, variant: gVar, off: 4, minOff: 2, maxOff: 8 }, x0, x1, floorR);
+        addEnemy({ type: sType, variant: sVar, off: 9, minOff: 8, maxOff: 11, row: floorR - 2 }, x0, x1, floorR);
+        addEnemy({ type: hType, variant: hVar, off: 15, minOff: 11, maxOff: 17 }, x0, x1, floorR);
+        addEnemy({ type: aType, variant: aVar, off: 13, minOff: 5, maxOff: 17, h: 4 }, x0, x1, floorR);
+        if (roster.spawner && (mc % 2 === 1)) {
           spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
         }
       }

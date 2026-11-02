@@ -16,10 +16,10 @@ export const STAGE1 = composeGridStage({
   seed: 1,
   outdoorUntilCol: 8, // Cols 1..8 outdoor Cemetery, Moor, Viaduct & Stairway; Cols 9..27 indoor Castle Hall
   roster: {
-    ground: [['skeleton', 'normal'], ['zombie', 'normal'], ['skeleton', 'axe']],
-    heavy: [['armor', 'normal'], ['catoblepas', 'normal']],
-    sniper: [['skeleton', 'axe'], ['skeleton', 'red']],
-    aerial: [['bat', 'normal'], ['medusa', 'normal']],
+    ground: [['skeleton', 'normal'], ['zombie', 'normal'], ['zombie', 'ghoul'], ['skeleton', 'axe'], ['skeleton', 'blood']],
+    heavy: [['armor', 'normal'], ['executioner', 'normal'], ['catoblepas', 'normal']],
+    sniper: [['skeleton', 'axe'], ['skeleton', 'red'], ['alchfiend', 'normal']],
+    aerial: [['bat', 'normal'], ['medusa', 'normal'], ['necromancer', 'normal']],
     spawner: 'zombie',
   },
   boss: {

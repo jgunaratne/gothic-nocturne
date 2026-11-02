@@ -101,6 +101,46 @@
   "type": "texture",
   "w": 768
  },
+ "alchfiend": {
+  "file": "alchfiend.png",
+  "frames": {
+   "lob": {
+    "ax": 32.0,
+    "ay": 58,
+    "h": 58,
+    "w": 64,
+    "x": 141,
+    "y": 1
+   },
+   "walk0": {
+    "ax": 23.5,
+    "ay": 58,
+    "h": 58,
+    "w": 47,
+    "x": 1,
+    "y": 1
+   },
+   "walk1": {
+    "ax": 23.0,
+    "ay": 58,
+    "h": 58,
+    "w": 46,
+    "x": 49,
+    "y": 1
+   },
+   "windup": {
+    "ax": 22.0,
+    "ay": 67,
+    "h": 67,
+    "w": 44,
+    "x": 96,
+    "y": 1
+   }
+  },
+  "h": 69,
+  "type": "sheet",
+  "w": 206
+ },
  "aqueduct_props": {
   "file": "aqueduct_props.png",
   "frames": {
@@ -2700,6 +2740,46 @@
   "type": "sheet",
   "w": 332
  },
+ "duelist": {
+  "file": "duelist.png",
+  "frames": {
+   "lunge": {
+    "ax": 32.0,
+    "ay": 60,
+    "h": 60,
+    "w": 88,
+    "x": 174,
+    "y": 1
+   },
+   "parry": {
+    "ax": 22.0,
+    "ay": 76,
+    "h": 76,
+    "w": 44,
+    "x": 129,
+    "y": 1
+   },
+   "step0": {
+    "ax": 32.0,
+    "ay": 64,
+    "h": 64,
+    "w": 64,
+    "x": 1,
+    "y": 1
+   },
+   "step1": {
+    "ax": 31.0,
+    "ay": 64,
+    "h": 64,
+    "w": 62,
+    "x": 66,
+    "y": 1
+   }
+  },
+  "h": 78,
+  "type": "sheet",
+  "w": 263
+ },
  "ending_1": {
   "file": "ending_1.png",
   "h": 360,
@@ -2717,6 +2797,46 @@
   "h": 360,
   "type": "texture",
   "w": 640
+ },
+ "executioner": {
+  "file": "executioner.png",
+  "frames": {
+   "cleave": {
+    "ax": 34.0,
+    "ay": 69,
+    "h": 69,
+    "w": 79,
+    "x": 202,
+    "y": 1
+   },
+   "heave": {
+    "ax": 28.0,
+    "ay": 105,
+    "h": 105,
+    "w": 56,
+    "x": 145,
+    "y": 1
+   },
+   "walk0": {
+    "ax": 34.0,
+    "ay": 78,
+    "h": 78,
+    "w": 68,
+    "x": 1,
+    "y": 1
+   },
+   "walk1": {
+    "ax": 37.0,
+    "ay": 78,
+    "h": 78,
+    "w": 74,
+    "x": 70,
+    "y": 1
+   }
+  },
+  "h": 107,
+  "type": "sheet",
+  "w": 282
  },
  "falling_tiles": {
   "file": "falling_tiles.png",
@@ -5076,6 +5196,46 @@
   "type": "sheet",
   "w": 191
  },
+ "merman": {
+  "file": "merman.png",
+  "frames": {
+   "leap": {
+    "ax": 22.0,
+    "ay": 66,
+    "h": 66,
+    "w": 44,
+    "x": 123,
+    "y": 1
+   },
+   "spit": {
+    "ax": 36.5,
+    "ay": 59,
+    "h": 59,
+    "w": 73,
+    "x": 168,
+    "y": 1
+   },
+   "stalk0": {
+    "ax": 30.0,
+    "ay": 58,
+    "h": 58,
+    "w": 60,
+    "x": 1,
+    "y": 1
+   },
+   "stalk1": {
+    "ax": 30.0,
+    "ay": 60,
+    "h": 60,
+    "w": 60,
+    "x": 62,
+    "y": 1
+   }
+  },
+  "h": 68,
+  "type": "sheet",
+  "w": 242
+ },
  "mountains": {
   "file": "mountains.png",
   "h": 360,
@@ -5117,6 +5277,46 @@
   "h": 288,
   "type": "texture",
   "w": 512
+ },
+ "necromancer": {
+  "file": "necromancer.png",
+  "frames": {
+   "cast": {
+    "ax": 28.0,
+    "ay": 57,
+    "h": 57,
+    "w": 56,
+    "x": 141,
+    "y": 1
+   },
+   "chant": {
+    "ax": 22.5,
+    "ay": 80,
+    "h": 80,
+    "w": 45,
+    "x": 95,
+    "y": 1
+   },
+   "float0": {
+    "ax": 20.5,
+    "ay": 66,
+    "h": 66,
+    "w": 41,
+    "x": 1,
+    "y": 1
+   },
+   "float1": {
+    "ax": 25.5,
+    "ay": 65,
+    "h": 65,
+    "w": 51,
+    "x": 43,
+    "y": 1
+   }
+  },
+  "h": 82,
+  "type": "sheet",
+  "w": 198
  },
  "oracle": {
   "file": "oracle.png",
@@ -6740,6 +6940,46 @@
   "loop": true,
   "type": "sheet",
   "w": 395
+ },
+ "valkyrie": {
+  "file": "valkyrie.png",
+  "frames": {
+   "aim": {
+    "ax": 29.5,
+    "ay": 53,
+    "h": 53,
+    "w": 59,
+    "x": 91,
+    "y": 1
+   },
+   "dive": {
+    "ax": 24.0,
+    "ay": 52,
+    "h": 52,
+    "w": 48,
+    "x": 151,
+    "y": 1
+   },
+   "hover0": {
+    "ax": 20.0,
+    "ay": 62,
+    "h": 62,
+    "w": 40,
+    "x": 1,
+    "y": 1
+   },
+   "hover1": {
+    "ax": 24.0,
+    "ay": 49,
+    "h": 49,
+    "w": 48,
+    "x": 42,
+    "y": 1
+   }
+  },
+  "h": 64,
+  "type": "sheet",
+  "w": 200
  },
  "vampire": {
   "file": "vampire.png",

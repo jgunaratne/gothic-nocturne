@@ -152,6 +152,7 @@ export function enemyExpProfile(enemy, stage, { isBoss = false } = {}) {
         ? { baseExp: 26 + sLv * 16, enemyLevel: sLv + 1 }
         : { baseExp: 16 + sLv * 12, enemyLevel: sLv };
     case 'zombie':
+      if (variant === 'plague') return { baseExp: 32 + sLv * 18, enemyLevel: sLv + 1 };
       return variant === 'ghoul'
         ? { baseExp: 26 + sLv * 16, enemyLevel: sLv + 1 }
         : { baseExp: 20 + sLv * 14, enemyLevel: sLv };
@@ -168,12 +169,30 @@ export function enemyExpProfile(enemy, stage, { isBoss = false } = {}) {
         ? { baseExp: 26 + sLv * 16, enemyLevel: sLv }
         : { baseExp: 34 + sLv * 19, enemyLevel: sLv + 1 };
     case 'gargoyle':
+      return variant === 'obsidian'
+        ? { baseExp: 54 + sLv * 27, enemyLevel: sLv + 2 }
+        : { baseExp: 40 + sLv * 22, enemyLevel: sLv + 1 };
     case 'wraith':
+      return variant === 'banshee'
+        ? { baseExp: 56 + sLv * 28, enemyLevel: sLv + 2 }
+        : { baseExp: 40 + sLv * 22, enemyLevel: sLv + 1 };
     case 'wolf':
+      return variant === 'alpha'
+        ? { baseExp: 54 + sLv * 27, enemyLevel: sLv + 2 }
+        : { baseExp: 40 + sLv * 22, enemyLevel: sLv + 1 };
     case 'sporecap':
     case 'magmaslime':
       return { baseExp: 40 + sLv * 22, enemyLevel: sLv + 1 };
+    case 'alchfiend':
+    case 'merman':
+      return { baseExp: 52 + sLv * 26, enemyLevel: sLv + 1 };
+    case 'duelist':
+    case 'valkyrie':
+    case 'necromancer':
+      return { baseExp: 68 + sLv * 34, enemyLevel: sLv + 2 };
     case 'skeleton':
+      if (variant === 'blood') return { baseExp: 62 + sLv * 30, enemyLevel: sLv + 2 };
+      if (variant === 'frost') return { baseExp: 54 + sLv * 26, enemyLevel: sLv + 1 };
       if (variant === 'axe') return { baseExp: 54 + sLv * 26, enemyLevel: sLv + 2 };
       if (variant === 'red') return { baseExp: 46 + sLv * 24, enemyLevel: sLv + 1 };
       return { baseExp: 42 + sLv * 24, enemyLevel: sLv + 1 };
@@ -184,9 +203,12 @@ export function enemyExpProfile(enemy, stage, { isBoss = false } = {}) {
         : { baseExp: 38 + sLv * 21, enemyLevel: sLv + 1 };
     case 'dragon':
     case 'armor':
+    case 'executioner':
     case 'catoblepas':
     case 'lavagolem':
-      return { baseExp: 82 + sLv * 40, enemyLevel: sLv + 2 };
+      return variant === 'crimson' || variant === 'elder' || variant === 'elite'
+        ? { baseExp: 98 + sLv * 46, enemyLevel: sLv + 3 }
+        : { baseExp: 82 + sLv * 40, enemyLevel: sLv + 2 };
     default:
       return score >= 400
         ? { baseExp: 76 + sLv * 38, enemyLevel: sLv + 2 }

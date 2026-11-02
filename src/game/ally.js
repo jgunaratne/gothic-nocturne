@@ -159,7 +159,7 @@ export class TurtleAlly extends Entity {
           }
         }
         this.facing = this.spinDir;
-        world.sfx('throw');
+        world.sfx('shell_spin');
       }
     } else if (this.state === 'spin') {
       this.vx = this.spinDir * 296;

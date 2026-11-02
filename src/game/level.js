@@ -334,19 +334,18 @@ export class Level {
   drawDecor(ctx, cam, assets, time, stage3d = null) {
     this._assets = assets;
     const camX = cam.rx, camY = cam.ry;
-    const room = this.rooms[0];
+    const bgTint = 'rgba(6, 5, 16, 0.36)';
     for (const d of this.decor) {
       if (d.type === 'gear') {
-        if (stage3d) stage3d.drawGear3D(ctx, camX, camY, d.x, d.y, d.z == null ? 52 : d.z, d, time);
+        if (stage3d) stage3d.drawGear3D(ctx, camX, camY, d.x, d.y, d.z == null ? 52 : d.z, Object.assign({ bright: 0.76 }, d), time);
         continue;
       }
-      // Wall-mounted pieces inside a vaulted hall sit directly on the far 3D masonry
-      // wall (z = 200) at matching perspective scale so they stay 100% locked to the bricks.
-      const inRoom = room && !room.cylinder && d.x >= room.x0 * TILE && d.x <= (room.x1 + 1) * TILE;
-      const onWall = WALL_DECOR.has(d.frame) && inRoom;
+      // Project 3D depth only when an explicit `d.z > 0` is authored so tile-anchored
+      // doorway sconces, banners, and statues stay 100% locked to their `z = 0` tiles
+      // across every room (`rooms[0..N]`) instead of drifting across doorways.
       let x, y, sc = 1;
-      if (onWall) {
-        const p = project3D(d.x, d.y, 200, camX, camY);
+      if (d.z != null && d.z > 0) {
+        const p = project3D(d.x, d.y, d.z, camX, camY);
         x = p.x; y = p.y; sc = p.s;
       } else {
         x = d.x - camX; y = d.y - camY;
@@ -355,7 +354,7 @@ export class Level {
       if (d.type === 'pendulum') { this.drawPendulum(ctx, x, y, d, time); continue; }
       if (d.type === 'chandelier') { this.drawChandelier(ctx, x, y, d, time); continue; }
       if (d.type === 'cage') { this.drawCage(ctx, x, y, d, time); continue; }
-      assets.draw(ctx, d.sheet, d.frame, x, y, false, 1, sc);
+      assets.draw(ctx, d.sheet, d.frame, x, y, false, 1, sc, bgTint);
       if (d.sheet === 'stained_glass') {
         const f = assets.frame('stained_glass', d.frame);
         const glow = getGlowCanvas(d.frame === 'rose' ? 'amber' : d.frame === 'hunter' ? 'crimson' : 'violet');
@@ -363,7 +362,7 @@ export class Level {
           const gw = f.w * sc * 1.6, gh = f.h * sc * 1.3;
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
-          ctx.globalAlpha = 0.22 + 0.06 * Math.sin(time * 0.7 + d.x);
+          ctx.globalAlpha = 0.17 + 0.05 * Math.sin(time * 0.7 + d.x);
           ctx.drawImage(glow, x - gw / 2, y - f.ay * sc + f.h * sc / 2 - gh / 2, gw, gh);
           ctx.restore();
         }
@@ -372,31 +371,31 @@ export class Level {
         const f = assets.frame('arch', 'window');
         const fw = f.w * sc, fh = f.h * sc;
         ctx.save();
-        ctx.globalAlpha = 0.10 + 0.04 * Math.sin(time * 0.8 + d.x);
+        ctx.globalAlpha = 0.08 + 0.03 * Math.sin(time * 0.8 + d.x);
         ctx.fillStyle = '#b08cff';
         ctx.fillRect(Math.round(x - f.ax * sc + 3 * sc), Math.round(y - f.ay * sc + 3 * sc), fw - 6 * sc, fh - 6 * sc);
         ctx.restore();
       }
-      if (d.frame === 'torch') { drawFlameGlow(ctx, x, y - 36 * sc, time + d.x, 22 * sc, 0.55); const fx = getFxLayers(); if (fx) fx.addFlame(x, y - 30 * sc, 9 * sc, 16 * sc, [1.0, 0.58, 0.18], d.x * 0.013); }
-      else if (d.frame === 'jack_big') drawFlameGlow(ctx, x, y - 20, time + d.x, 30, 0.7);
-      else if (d.frame === 'jack_small') drawFlameGlow(ctx, x, y - 12, time + d.x, 20, 0.6);
-      else if (d.frame === 'scarecrow') drawFlameGlow(ctx, x, y - 64, time + d.x, 18, 0.6);
-      else if (d.frame === 'lamppost') drawFlameGlow(ctx, x, y - 66, time + d.x, 26, 0.6);
-      else if (d.frame === 'moss_lantern') drawFlameGlow(ctx, x, y - 48, time + d.x, 28, 0.68, 'emerald');
-      else if (d.frame === 'glow_shrooms') drawFlameGlow(ctx, x, y - 12, time + d.x, 22, 0.55, 'emerald');
-      else if (d.frame === 'ancient_totem') drawFlameGlow(ctx, x, y - 44, time + d.x, 20, 0.50, 'emerald');
-      else if (d.frame === 'brazier') { drawFlameGlow(ctx, x, y - 82 * sc, time + d.x, 30 * sc, 0.72); const fx = getFxLayers(); if (fx) fx.addFlame(x, y - 78 * sc, 16 * sc, 20 * sc, [1.0, 0.55, 0.16], d.x * 0.011); }
-      else if (d.frame === 'magma_vent') drawFlameGlow(ctx, x, y - 56 * sc, time + d.x, 32 * sc, 0.68);
-      else if (d.frame === 'canal_lantern') drawFlameGlow(ctx, x, y - 44 * sc, time + d.x, 26 * sc, 0.66, 'cyan');
+      if (d.frame === 'torch') { drawFlameGlow(ctx, x, y - 36 * sc, time + d.x, 22 * sc, 0.44); const fx = getFxLayers(); if (fx) fx.addFlame(x, y - 30 * sc, 9 * sc, 16 * sc, [1.0, 0.58, 0.18], d.x * 0.013); }
+      else if (d.frame === 'jack_big') drawFlameGlow(ctx, x, y - 20, time + d.x, 30, 0.56);
+      else if (d.frame === 'jack_small') drawFlameGlow(ctx, x, y - 12, time + d.x, 20, 0.48);
+      else if (d.frame === 'scarecrow') drawFlameGlow(ctx, x, y - 64, time + d.x, 18, 0.48);
+      else if (d.frame === 'lamppost') drawFlameGlow(ctx, x, y - 66, time + d.x, 26, 0.48);
+      else if (d.frame === 'moss_lantern') drawFlameGlow(ctx, x, y - 48, time + d.x, 28, 0.54, 'emerald');
+      else if (d.frame === 'glow_shrooms') drawFlameGlow(ctx, x, y - 12, time + d.x, 22, 0.44, 'emerald');
+      else if (d.frame === 'ancient_totem') drawFlameGlow(ctx, x, y - 44, time + d.x, 20, 0.40, 'emerald');
+      else if (d.frame === 'brazier') { drawFlameGlow(ctx, x, y - 82 * sc, time + d.x, 30 * sc, 0.56); const fx = getFxLayers(); if (fx) fx.addFlame(x, y - 78 * sc, 16 * sc, 20 * sc, [1.0, 0.55, 0.16], d.x * 0.011); }
+      else if (d.frame === 'magma_vent') drawFlameGlow(ctx, x, y - 56 * sc, time + d.x, 32 * sc, 0.54);
+      else if (d.frame === 'canal_lantern') drawFlameGlow(ctx, x, y - 44 * sc, time + d.x, 26 * sc, 0.52, 'cyan');
       else if (d.frame === 'water_spout') {
         const fx = getFxLayers();
         const fw = Math.max(4, Math.round(10 * sc)), fh = Math.max(8, Math.round(22 * sc));
         if (fx && fx.enabled) {
           fx.waterfall(ctx, { x: Math.round(x - fw * 0.5), y: Math.round(y - 18 * sc), w: fw, h: fh }, {
-            camX, tint: [0.22, 0.76, 0.96], foam: [0.88, 0.98, 1.0], alpha: 0.86, speed: 1.3,
+            camX, tint: [0.18, 0.62, 0.80], foam: [0.72, 0.84, 0.90], alpha: 0.72, speed: 1.3,
           });
         }
-        drawFlameGlow(ctx, x, y - 8 * sc, time + d.x, 18 * sc, 0.42, 'cyan');
+        drawFlameGlow(ctx, x, y - 8 * sc, time + d.x, 18 * sc, 0.34, 'cyan');
       }
       else if (d.frame === 'tree') {
         const f = assets.frame('xmasprops', 'tree');
@@ -405,7 +404,7 @@ export class Level {
             const k = (Math.sin(time * 3 + i * 1.7 + d.x) + 1) / 2;
             if (k < 0.35) continue;
             const lx = x - f.w / 2 + 6 + ((i * 37) % Math.max(1, f.w - 12)), ly = y - 12 - ((i * 23) % Math.max(1, f.h - 24));
-            ctx.fillStyle = i % 2 ? `rgba(255, 90, 90, ${k})` : `rgba(255, 220, 120, ${k})`;
+            ctx.fillStyle = i % 2 ? `rgba(255, 90, 90, ${k * 0.78})` : `rgba(255, 220, 120, ${k * 0.78})`;
             ctx.fillRect(Math.round(lx), Math.round(ly), 2, 2);
           }
         }
@@ -425,11 +424,11 @@ export class Level {
     const bx = x + Math.sin(a) * len, by = y + Math.cos(a) * len * (0.85 + 0.15 * depth);
     const bob = assets && assets.frame('hanging_props', 'pendulum_bob');
     const hoist = assets && assets.frame('hanging_props', 'hoist_wheel');
-    const hangImg = assets && assets.img('hanging_props');
+    const hangImg = assets && assets.darkened('hanging_props', 0.28);
     ctx.save();
     if (bob && hangImg) {
       const link = assets.frame('arch', 'chain');
-      const linkImg = assets.img('arch');
+      const linkImg = assets.darkened('arch', 0.28);
       const rLen = Math.hypot(bx - x, by - y);
       const ang = Math.atan2(bx - x, by - y);
       if (link && linkImg) {
@@ -459,14 +458,14 @@ export class Level {
       ctx.restore();
       return;
     }
-    ctx.fillStyle = '#2a2218'; ctx.fillRect(Math.round(x) - 6, Math.round(y) - 6, 12, 8);
-    ctx.fillStyle = '#8a7444'; ctx.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4);
-    ctx.strokeStyle = '#3a2f22'; ctx.lineWidth = 4;
+    ctx.fillStyle = '#1f1912'; ctx.fillRect(Math.round(x) - 6, Math.round(y) - 6, 12, 8);
+    ctx.fillStyle = '#685632'; ctx.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4);
+    ctx.strokeStyle = '#2b2319'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(bx, by); ctx.stroke();
     const r = d.r || 22;
     ctx.translate(bx, by);
     ctx.scale(1, 0.7 + 0.3 * depth);
-    ctx.fillStyle = '#8a6a34';
+    ctx.fillStyle = '#664e26';
     ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
@@ -484,7 +483,7 @@ export class Level {
     // Chain: repeated arch 'chain' link sprite along the swing, falling back to lines
     ctx.save();
     const link = assets.frame('arch', 'chain');
-    const linkImg = assets.img('arch');
+    const linkImg = assets.darkened('arch', 0.28);
     const ang = Math.atan2(cx - x, cy - y);
     if (link && linkImg) {
       ctx.translate(x, y); ctx.rotate(-ang);
@@ -494,7 +493,7 @@ export class Level {
       }
       ctx.rotate(ang); ctx.translate(-x, -y);
     } else {
-      ctx.strokeStyle = '#2b2740'; ctx.lineWidth = 2;
+      ctx.strokeStyle = '#221e33'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(cx, cy); ctx.stroke();
     }
     // Body: pivot at the top of the sprite's own chain stub
@@ -504,12 +503,12 @@ export class Level {
     ctx.rotate(sway * 0.6);
     ctx.scale(sc, sc);
     const fr = assets.frame('chandelier', name);
-    ctx.drawImage(assets.img('chandelier'), fr.x, fr.y, fr.w, fr.h, Math.round(-fr.ax), 0, fr.w, fr.h);
+    ctx.drawImage(assets.darkened('chandelier', 0.26), fr.x, fr.y, fr.w, fr.h, Math.round(-fr.ax), 0, fr.w, fr.h);
     ctx.restore();
     // Candle glow sits at the ring (upper third of the sprite), swaying with it
     const ringY = cy + f.h * sc * 0.52;
-    drawFlameGlow(ctx, cx, ringY, time + (d.phase || 0), 30 + 22 * sc, 0.6);
-    drawFlameGlow(ctx, cx, ringY - 6, time * 1.3 + (d.phase || 0), 16 * sc, 0.5);
+    drawFlameGlow(ctx, cx, ringY, time + (d.phase || 0), 30 + 22 * sc, 0.46);
+    drawFlameGlow(ctx, cx, ringY - 6, time * 1.3 + (d.phase || 0), 16 * sc, 0.38);
     const fxl = getFxLayers();
     if (fxl) for (let k = -2; k <= 2; k++) fxl.addFlame(cx + k * 14 * sc, ringY - 8 * sc + Math.abs(k) * 2, 5 * sc, 11 * sc, [1.0, 0.62, 0.2], (d.phase || 0) + k * 0.37);
   }
@@ -522,11 +521,11 @@ export class Level {
     const cx = x + Math.sin(sway) * len, cy = y + Math.cos(sway) * len;
     const cage = assets && assets.frame('hanging_props', 'gibbet_cage');
     const hoist = assets && assets.frame('hanging_props', 'hoist_wheel');
-    const hangImg = assets && assets.img('hanging_props');
+    const hangImg = assets && assets.darkened('hanging_props', 0.28);
     ctx.save();
     if (cage && hangImg) {
       const link = assets.frame('arch', 'chain');
-      const linkImg = assets.img('arch');
+      const linkImg = assets.darkened('arch', 0.28);
       const ang = Math.atan2(cx - x, cy - y);
       if (link && linkImg) {
         ctx.save();

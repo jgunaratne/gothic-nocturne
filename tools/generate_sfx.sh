@@ -41,6 +41,23 @@ SFX=(
   "pause|0.4|two-tone soft click chime, menu pause"
   "fire|0.9|burst of flame igniting with a crackle, short"
   "orb|1.8|shimmering holy relic appearing, ascending angelic sparkle with a choir shimmer"
+  "wolf_snarl|0.65|feral wolf snarl and quick pounce leap, aggressive growl with brush rustle, dry, short, game foley"
+  "zombie_groan|0.8|raspy undead zombie groan clawing up through damp graveyard dirt, short, eerie, dry"
+  "bat_flutter|0.6|vampire bat high squeak and rapid leathery wingbeat flutter, short, dry, punchy"
+  "owl_screech|0.7|eerie nocturnal owl screech with soft heavy feathered wing swoop, dark forest, short, dry"
+  "pumpkin_hop|0.5|hollow carved pumpkin gourd thudding bounce with a dry seed rattle, short, punchy"
+  "spore_puff|0.6|organic mushroom puffing a cloud of spores, soft hollow pop and airy hiss, short, dry"
+  "petrify_gas|0.85|heavy beast guttural exhale releasing toxic petrifying hiss of vapor, dark, short"
+  "ice_shard|0.6|crystalline ice spikes shattering and launching through cold air, sharp frosty chime crack, short"
+  "ghost_moan|0.85|hollow spectral ghost sigh phasing into an eerie breathy wail, gothic haunt, short"
+  "wraith_shriek|0.9|piercing banshee wraith shriek with dark ghostly resonance, chilling, short, punchy"
+  "tome_flap|0.6|heavy leather-bound book bursting open with rapid fluttering parchment pages, dry foley, short"
+  "tome_chomp|0.5|heavy wooden and leather book covers snapping shut like jaws, sharp hollow clack, dry, short"
+  "gargoyle_wake|0.8|stone gargoyle statue cracking awake, grinding granite rumble and heavy stone wing unfurl, short"
+  "magma_slime|0.65|viscous molten magma bubbling leap and wet fiery splat, thick lava foley, short"
+  "lava_hurl|0.8|volcanic golem heaving a heavy molten boulder, deep stone grunt and fiery whoosh, short"
+  "knight_slash|0.65|heavy gothic plate armor clank with a sweeping steel halberd cleave through air, dry, punchy"
+  "shell_spin|0.65|emerald rune turtle shell spinning dash, rapid whirring stone hum with crisp air whoosh, short"
 )
 
 for entry in "${SFX[@]}"; do

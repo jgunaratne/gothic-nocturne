@@ -2115,6 +2115,72 @@
     "cslash2": "left",
     "strike_nowhip": "left"
    }
+  },
+  "alchfiend": {
+   "type": "sheet",
+   "src": "alchfiend_sheet.png",
+   "height": 58,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    ["walk0", "walk1", "windup", "lob"]
+   ]
+  },
+  "duelist": {
+   "type": "sheet",
+   "src": "duelist_sheet.png",
+   "height": 64,
+   "ref": "step0",
+   "colors": 32,
+   "rows": [
+    ["step0", "step1", "parry", "lunge"]
+   ],
+   "anchors": {
+    "lunge": "left"
+   }
+  },
+  "executioner": {
+   "type": "sheet",
+   "src": "executioner_sheet.png",
+   "height": 78,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    ["walk0", "walk1", "heave", "cleave"]
+   ],
+   "anchors": {
+    "cleave": "left"
+   }
+  },
+  "merman": {
+   "type": "sheet",
+   "src": "merman_sheet.png",
+   "height": 58,
+   "ref": "stalk0",
+   "colors": 32,
+   "rows": [
+    ["stalk0", "stalk1", "leap", "spit"]
+   ]
+  },
+  "valkyrie": {
+   "type": "sheet",
+   "src": "valkyrie_sheet.png",
+   "height": 62,
+   "ref": "hover0",
+   "colors": 32,
+   "rows": [
+    ["hover0", "hover1", "aim", "dive"]
+   ]
+  },
+  "necromancer": {
+   "type": "sheet",
+   "src": "necromancer_sheet.png",
+   "height": 66,
+   "ref": "float0",
+   "colors": 32,
+   "rows": [
+    ["float0", "float1", "chant", "cast"]
+   ]
   }
  }
 }

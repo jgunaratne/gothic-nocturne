@@ -1,6 +1,14 @@
 // Audio: Web Audio synthesized sound effects plus a crossfading music looper
 // for the Lyria-generated tracks in assets/music/.
 
+import { ASSET_VERSION } from './constants.js';
+
+function withAssetVersion(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.includes('?') || url.startsWith('blob:') || url.startsWith('data:')) return url;
+  return `${url}?v=${ASSET_VERSION}`;
+}
+
 const TRACKS = {
   title: 'assets/music/title.mp3',
   graveyard: 'assets/music/graveyard.mp3',
@@ -119,7 +127,15 @@ export class AudioSys {
     if (this.pendingTrack) { const t = this.pendingTrack; this.pendingTrack = null; this.playMusic(t.name, t.loop); }
     if (this.pendingVoice) { const v = this.pendingVoice; this.pendingVoice = null; this.playVoice(v.key, v.onDuration, v.opts); }
     if (this.pendingAmbient) { const a = this.pendingAmbient; this.pendingAmbient = null; this.ambient = null; this.playAmbient(a.url, a.volume); }
-    for (const n of ['whip', 'jump', 'land', 'hit', 'hurt', 'candle', 'heart', 'pickup', 'throw', 'enemy_die', 'bone', 'block', 'boss_hit', 'boss_roar', 'gate', 'select', 'fire', 'orb', 'thunder', 'die', 'boss_die', 'pause']) this.ensureSfx(n);
+    for (const n of [
+      'whip', 'jump', 'land', 'hit', 'hurt', 'candle', 'heart', 'pickup', 'throw',
+      'enemy_die', 'bone', 'block', 'boss_hit', 'boss_roar', 'gate', 'select', 'fire',
+      'orb', 'thunder', 'die', 'boss_die', 'pause',
+      'wolf_snarl', 'zombie_groan', 'bat_flutter', 'owl_screech', 'pumpkin_hop',
+      'spore_puff', 'petrify_gas', 'ice_shard', 'ghost_moan', 'wraith_shriek',
+      'tome_flap', 'tome_chomp', 'gargoyle_wake', 'magma_slime', 'lava_hurl',
+      'knight_slash', 'shell_spin',
+    ]) this.ensureSfx(n);
   }
 
   /**
@@ -276,7 +292,7 @@ export class AudioSys {
     if (!url) return Promise.resolve(null);
     const p = (async () => {
       try {
-        const res = await fetch(url);
+        const res = await fetch(withAssetVersion(url));
         const data = await res.arrayBuffer();
         const buf = await this.ctx.decodeAudioData(data);
         this.buffers.set(name, buf);
@@ -304,7 +320,7 @@ export class AudioSys {
   prefetchVoice(key) {
     const url = VOICES[key];
     if (!url || this.voiceBuffers.has(key) || this.voiceRaw.has(key) || typeof fetch === 'undefined') return;
-    const p = fetch(url)
+    const p = fetch(withAssetVersion(url))
       .then((r) => (r.ok ? r.arrayBuffer() : null))
       .catch(() => null);
     this.voiceRaw.set(key, p);
@@ -317,7 +333,7 @@ export class AudioSys {
     try {
       let raw = this.voiceRaw.has(key) ? await this.voiceRaw.get(key) : null;
       if (!raw) {
-        const res = await fetch(url);
+        const res = await fetch(withAssetVersion(url));
         if (!res.ok) return null;
         raw = await res.arrayBuffer();
       }
@@ -332,16 +348,43 @@ export class AudioSys {
     }
   }
 
-  /** Plays a Daikon boss approach voice line through the hall acoustics chain while smoothly ducking background music. */
+  /**
+   * Plays a Daikon boss approach or narrator voice line through the hall acoustics chain
+   * while smoothly ducking background music.
+   * Accepts either `playVoice(key, onDurationFn, opts)` or `playVoice(key, { space, onReady, speechText })`.
+   */
   playVoice(key, onDuration = null, opts = null) {
-    if (!VOICES[key]) return;
+    if (onDuration && typeof onDuration === 'object') {
+      opts = onDuration;
+      onDuration = opts.onReady || opts.onDuration || null;
+    }
+    const cb = typeof onDuration === 'function' ? onDuration : null;
+
+    if (!VOICES[key]) {
+      // Offline forged wing fallback: speak subtitle via Web Speech API if available so no boss stays mute
+      if (opts && opts.speechText && !this.muted && typeof window !== 'undefined' && window.speechSynthesis) {
+        try {
+          window.speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(String(opts.speechText));
+          u.pitch = 0.62;
+          u.rate = 0.86;
+          u.volume = 1.0;
+          window.speechSynthesis.speak(u);
+          this.lastVoicePlayed = key;
+        } catch (e) { /* ignore speechSynthesis quirks */ }
+      }
+      return;
+    }
+
     if (opts && opts.space) this.setVoiceSpace(opts.space);
     this.lastVoicePlayed = key;
     if (!this.ctx) {
-      this.pendingVoice = { key, onDuration, opts };
+      this.pendingVoice = { key, onDuration: cb, opts };
       return;
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state !== 'running') {
+      this.ctx.resume().catch(() => {});
+    }
     if (this.activeVoice) {
       try { this.activeVoice.stop(); } catch (e) { /* already ended */ }
       this.activeVoice = null;
@@ -352,10 +395,13 @@ export class AudioSys {
     if (this.musicBus) {
       const now0 = this.ctx.currentTime;
       this.musicBus.gain.cancelScheduledValues(now0);
-      this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.24, now0, 0.05);
+      this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.20, now0, 0.05);
     }
 
     (async () => {
+      if (this.ctx && this.ctx.state !== 'running') {
+        try { await this.ctx.resume(); } catch (e) { /* ignore */ }
+      }
       const buf = await this.ensureVoiceBuffer(key);
       if (!buf || !this.ctx) {
         this.voiceDucking = false;
@@ -364,16 +410,22 @@ export class AudioSys {
         }
         return;
       }
-      if (onDuration) onDuration(buf.duration);
+      if (cb) {
+        try {
+          cb(buf.duration);
+        } catch (err) {
+          console.warn('voice onDuration callback error', key, err);
+        }
+      }
       const now = this.ctx.currentTime;
       if (this.musicBus) {
         this.musicBus.gain.cancelScheduledValues(now);
-        this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.24, now, 0.06);
+        this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.20, now, 0.06);
       }
       const src = this.ctx.createBufferSource();
       src.buffer = buf;
       const g = this.ctx.createGain();
-      g.gain.value = 1.28;
+      g.gain.value = 1.42;
       src.connect(g).connect(this.voiceBus || this.master);
       this.activeVoice = src;
       let restored = false;
@@ -562,15 +614,17 @@ export class AudioSys {
       this.sfxMissing = new Set(['step', 'crack', 'level_up', 'sword_thrust', 'sword_slash', 'sword_heavy', 'water_step', 'water_splash']);
     }
     if (this.sfxBuffers.has(name)) return Promise.resolve(this.sfxBuffers.get(name));
-    if (this.sfxMissing.has(name) || this.sfxLoading && this.sfxLoading.has(name)) return Promise.resolve(null);
-    if (!this.sfxLoading) this.sfxLoading = new Set();
-    this.sfxLoading.add(name);
-    return fetch(`assets/sfx/${name}.mp3`)
+    if (this.sfxMissing.has(name)) return Promise.resolve(null);
+    if (!this.sfxLoading) this.sfxLoading = new Map();
+    if (this.sfxLoading.has(name)) return this.sfxLoading.get(name);
+    const p = fetch(withAssetVersion(`assets/sfx/${name}.mp3`))
       .then((r) => (r.ok ? r.arrayBuffer() : null))
       .then((raw) => (raw ? this.ctx.decodeAudioData(raw) : null))
       .then((buf) => { if (buf) this.sfxBuffers.set(name, buf); else this.sfxMissing.add(name); return buf; })
       .catch(() => { this.sfxMissing.add(name); return null; })
       .finally(() => this.sfxLoading.delete(name));
+    this.sfxLoading.set(name, p);
+    return p;
   }
 
   playSample(buf, vol = 1, rate = 1) {
@@ -585,10 +639,22 @@ export class AudioSys {
 
   sfx(name) {
     if (!this.ctx) return;
+    if (!this._sfxLastAt) this._sfxLastAt = new Map();
+    const isEnemyCue = ENEMY_SFX_SET.has(name);
+    if (isEnemyCue) {
+      const now = this.ctx.currentTime;
+      const prev = this._sfxLastAt.get(name) || -99;
+      if (now - prev < 0.075) return;
+      this._sfxLastAt.set(name, now);
+    }
     // Sampled effects (generated with tools/generate_sfx.sh) take precedence over the synth.
     if (this.sfxBuffers && this.sfxBuffers.has(name)) {
-      const vol = name === 'thunder' ? 1.05 : (name === 'whip' || name === 'hit' ? 0.9 : 0.8);
-      const rate = name === 'thunder' ? 0.88 + Math.random() * 0.16 : 0.97 + Math.random() * 0.06;
+      const vol = name === 'thunder' ? 1.05 : (name === 'whip' || name === 'hit' ? 0.9 : isEnemyCue ? 0.72 : 0.8);
+      const rate = name === 'thunder'
+        ? 0.88 + Math.random() * 0.16
+        : isEnemyCue
+          ? 0.95 + Math.random() * 0.10
+          : 0.97 + Math.random() * 0.06;
       this.playSample(this.sfxBuffers.get(name), vol, rate);
       if (name === 'thunder') {
         // Layer a deep sub-bass thunder roll underneath the sampled thunderclap
@@ -706,10 +772,89 @@ export class AudioSys {
           this._osc('square', f * 2, f * 2, i === 4 ? 0.22 : 0.10, 0.025, i * 0.068 + 0.01);
         });
         break;
+      case 'wolf_snarl':
+        this._osc('sawtooth', 165, 95, 0.22, 0.16);
+        this._noise(0.18, 0.18, 820, 'bandpass', 0.02);
+        break;
+      case 'zombie_groan':
+        this._osc('sawtooth', 120, 78, 0.36, 0.14);
+        this._noise(0.28, 0.12, 460, 'lowpass', 0.03);
+        break;
+      case 'bat_flutter':
+        this._osc('sine', 2400, 1550, 0.07, 0.08);
+        this._noise(0.06, 0.14, 2400, 'bandpass', 0.04);
+        this._noise(0.06, 0.12, 2200, 'bandpass', 0.12);
+        break;
+      case 'owl_screech':
+        this._osc('triangle', 920, 540, 0.24, 0.12);
+        this._noise(0.18, 0.14, 1600, 'bandpass', 0.03);
+        break;
+      case 'pumpkin_hop':
+        this._osc('triangle', 175, 92, 0.11, 0.15);
+        this._noise(0.06, 0.12, 2600, 'bandpass', 0.04);
+        break;
+      case 'spore_puff':
+        this._osc('sine', 290, 150, 0.10, 0.12);
+        this._noise(0.22, 0.15, 1350, 'bandpass', 0.03);
+        break;
+      case 'petrify_gas':
+        this._osc('sawtooth', 98, 64, 0.32, 0.15);
+        this._noise(0.36, 0.18, 1750, 'bandpass', 0.04);
+        break;
+      case 'ice_shard':
+        this._osc('triangle', 1860, 1180, 0.12, 0.11);
+        this._osc('sine', 2740, 2120, 0.09, 0.08, 0.03);
+        this._noise(0.08, 0.14, 4200, 'highpass');
+        break;
+      case 'ghost_moan':
+        this._osc('sine', 420, 290, 0.42, 0.12);
+        this._osc('triangle', 630, 435, 0.38, 0.06, 0.04);
+        break;
+      case 'wraith_shriek':
+        this._osc('sawtooth', 880, 1420, 0.14, 0.12);
+        this._osc('sawtooth', 1420, 620, 0.26, 0.12, 0.12);
+        this._noise(0.24, 0.14, 2800, 'bandpass', 0.04);
+        break;
+      case 'tome_flap':
+        this._noise(0.08, 0.18, 1950, 'bandpass');
+        this._noise(0.07, 0.14, 2400, 'bandpass', 0.09);
+        break;
+      case 'tome_chomp':
+        this._noise(0.05, 0.22, 1400, 'bandpass');
+        this._osc('square', 260, 110, 0.07, 0.13);
+        break;
+      case 'gargoyle_wake':
+        this._noise(0.26, 0.22, 420, 'lowpass');
+        this._osc('sawtooth', 115, 68, 0.28, 0.14, 0.02);
+        break;
+      case 'magma_slime':
+        this._osc('sine', 160, 310, 0.13, 0.14);
+        this._noise(0.16, 0.15, 920, 'bandpass', 0.04);
+        break;
+      case 'lava_hurl':
+        this._osc('sawtooth', 110, 58, 0.26, 0.18);
+        this._noise(0.28, 0.20, 740, 'lowpass', 0.03);
+        break;
+      case 'knight_slash':
+        this._noise(0.12, 0.24, 2200, 'bandpass');
+        this._osc('sawtooth', 520, 145, 0.14, 0.13, 0.01);
+        this._osc('triangle', 1320, 580, 0.08, 0.08, 0.02);
+        break;
+      case 'shell_spin':
+        this._osc('triangle', 480, 780, 0.16, 0.11);
+        this._noise(0.16, 0.15, 2300, 'bandpass', 0.02);
+        break;
       default: break;
     }
   }
 }
+
+const ENEMY_SFX_SET = new Set([
+  'wolf_snarl', 'zombie_groan', 'bat_flutter', 'owl_screech', 'pumpkin_hop',
+  'spore_puff', 'petrify_gas', 'ice_shard', 'ghost_moan', 'wraith_shriek',
+  'tome_flap', 'tome_chomp', 'gargoyle_wake', 'magma_slime', 'lava_hurl',
+  'knight_slash', 'shell_spin',
+]);
 
 /** Finds the first/last non-silent sample so loops skip encoder padding. */
 function trimPoints(buf) {

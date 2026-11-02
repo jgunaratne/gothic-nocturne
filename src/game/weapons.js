@@ -810,6 +810,12 @@ export const ENEMY_WEAPON_DROPS = {
   wraith: [['shadow_glaive', 0.11, 0.02]],
   owl: [['volt_katana', 0.10, 0.02]],
   medusa: [['thunder_knuckles', 0.08, 0.015]],
+  alchfiend: [['void_grimoire', 0.12, 0.02], ['ember_codex', 0.10, 0.02]],
+  duelist: [['silver_rapier', 0.12, 0.02], ['cinder_scimitar', 0.11, 0.02]],
+  executioner: [['executioner_zweihander', 0.14, 0.025], ['obsidian_warhammer', 0.12, 0.02]],
+  merman: [['rime_aegis', 0.12, 0.02], ['frost_stiletto', 0.10, 0.02]],
+  valkyrie: [['shadow_glaive', 0.13, 0.02], ['halcyon_chakram', 0.11, 0.02]],
+  necromancer: [['astral_scythe', 0.11, 0.02], ['void_grimoire', 0.12, 0.02]],
 };
 
 export function resolveEnemySpeciesKey(enemy) {
@@ -894,11 +900,29 @@ export const ENEMY_RESISTANCES = {
   catoblepas:  { cut: 1.20, blunt: 1.25, fire: 1.55, holy: 1.40 },
   tome:        { cut: 1.35, blunt: 0.85, fire: 1.90, void: 0.55, holy: 1.50 },
   archivist:   { cut: 1.20, blunt: 0.85, fire: 1.65, holy: 1.65, void: 0.45 },
+
+  // Castle Wing Bosses & Newly Forged Species
+  alchemist:   { cut: 1.15, blunt: 0.95, volt: 1.65, holy: 1.40, fire: 0.65, void: 0.55 },
+  masquerade:  { cut: 0.85, blunt: 1.00, holy: 1.75, volt: 1.35, fire: 0.70, void: 0.45 },
+  gladiator:   { cut: 0.45, blunt: 1.80, volt: 1.75, fire: 0.85, frost: 1.25 },
+  oracle:      { cut: 1.15, blunt: 1.10, volt: 1.85, fire: 0.70, frost: 0.45 },
+  seraph:      { cut: 0.60, blunt: 1.65, void: 1.85, volt: 1.35, holy: 0.40 },
+
+  alchfiend:   { cut: 1.35, blunt: 1.05, volt: 1.75, frost: 1.45, fire: 0.55 },
+  duelist:     { cut: 0.75, blunt: 1.35, holy: 1.75, volt: 1.50, void: 0.50 },
+  executioner: { cut: 0.42, blunt: 1.85, volt: 1.90, holy: 1.35, fire: 0.85 },
+  merman:      { cut: 1.30, blunt: 1.05, volt: 2.00, fire: 0.75, frost: 0.45 },
+  valkyrie:    { cut: 0.65, blunt: 1.65, void: 1.90, volt: 1.55, holy: 0.40 },
+  necromancer: { cut: 1.25, blunt: 1.15, holy: 2.00, fire: 1.55, void: 0.35 },
 };
 
 export function getEnemyMultipliers(enemy) {
   if (!enemy) return null;
   if (enemy.sheet === 'bat' && enemy.variant === 'fire') return ENEMY_RESISTANCES.firebat;
+  if (enemy.sheet === 'dragon' && enemy.variant === 'frost') return ENEMY_RESISTANCES.icegolem;
+  if (enemy.sheet === 'skeleton' && enemy.variant === 'frost') {
+    return { cut: 0.35, blunt: 2.00, holy: 1.75, fire: 1.85, frost: 0.25, void: 0.55 };
+  }
   const key = resolveEnemySpeciesKey(enemy);
   return ENEMY_RESISTANCES[key] || null;
 }

@@ -4,6 +4,7 @@
 
 import { getFxLayers } from '../engine/fxlayers.js';
 import { W, H, TILE } from '../engine/constants.js';
+import { parallaxElevY } from './parallax.js';
 import {
   LIGHT, getTexBank, getGlowCanvas, shadeOverlay32, texTri, texQuad, texQuadSubZ, texStripZ,
 } from './tex3d.js';
@@ -432,34 +433,34 @@ export class Stage3D {
 
     if (this.stageTheme === 'skykeep') {
       this.drawScanlinePlane(ctx, cam, time, {
-        kind: 'cloudsea', horizon: 236, fx: 0.34, focal: 108, drift: true,
+        kind: 'cloudsea', horizon: 236, fx: 0.44, focal: 108, drift: true,
         fog: [14, 22, 46], shimmer: true, shimmerRgb: [196, 238, 255],
       });
       this.drawSkykeepSanctums3D(ctx, camX, camY, time);
       this.drawRampartParapets3D(ctx, camX, camY, 'marble');
     } else if (k === 'ramparts') {
+      this.drawHorizonWall(ctx, cam, 186);
       this.drawScanlinePlane(ctx, cam, time, {
-        kind: 'courtyard', horizon: 186, fx: 0.42, focal: 120,
+        kind: 'courtyard', horizon: 186, fx: 0.44, focal: 120,
         fog: [16, 15, 32], torches: true,
       });
-      this.drawHorizonWall(ctx, cam, 186);
       this.drawRampartParapets3D(ctx, camX, camY);
     } else if (k === 'yule') {
       this.drawScanlinePlane(ctx, cam, time, {
-        kind: 'ice', horizon: 242, fx: 0.36, focal: 105,
+        kind: 'ice', horizon: 242, fx: 0.46, focal: 105,
         fog: [14, 22, 42], shimmer: true,
-        water: { tint: [0.45, 0.62, 0.9], spec: [0.85, 0.95, 1.0], frozen: 1, alpha: 0.7 },
+        water: { tint: [0.45, 0.62, 0.9], spec: [0.85, 0.95, 1.0], frozen: 1, alpha: 0.62 },
       });
     } else if (k === 'darkwood') {
       this.drawScanlinePlane(ctx, cam, time, {
-        kind: 'darkwood', horizon: 266, fx: 0.44, focal: 96,
+        kind: 'darkwood', horizon: 266, fx: 0.48, focal: 96,
         fog: [8, 18, 22], shimmer: true, shimmerRgb: [95, 235, 185],
-        water: { tint: [0.1, 0.45, 0.42], spec: [0.45, 1.0, 0.8], frozen: 0, alpha: 0.9 },
+        water: { tint: [0.1, 0.45, 0.42], spec: [0.45, 1.0, 0.8], frozen: 0, alpha: 0.78 },
       });
       this.drawDarkwoodColonnade3D(ctx, camX, camY, time);
     } else if (k === 'forest') {
       this.drawScanlinePlane(ctx, cam, time, {
-        kind: 'forest', horizon: 248, fx: 0.48, focal: 95,
+        kind: 'forest', horizon: 248, fx: 0.50, focal: 95,
         fog: [16, 11, 22],
       });
       this.drawForestColonnade3D(ctx, camX, camY, time);
@@ -468,13 +469,13 @@ export class Stage3D {
       const roomX = hasRoom ? this.level.rooms[0].x0 * TILE : Infinity;
       if (!hasRoom) {
         // Forged moorland wings: open moor and fence all the way, no barbican set-piece.
-        this.drawScanlinePlane(ctx, cam, time, { kind: 'moor', horizon: 238, fx: 0.44, focal: 96, fog: [13, 12, 26] });
+        this.drawScanlinePlane(ctx, cam, time, { kind: 'moor', horizon: 238, fx: 0.48, focal: 96, fog: [13, 12, 26] });
         this.drawMausoleums3D(ctx, camX, camY, time, this.level.cols - 1);
         this.drawCemeteryFence3D(ctx, camX, camY, this.level.cols - 1);
       } else if (camX < roomX + 96) {
         const portalX = Math.round(project3D(roomX - 18, EYE_Y, 40, camX, camY).x);
         this.drawScanlinePlane(ctx, cam, time, {
-          kind: 'moor', horizon: 238, fx: 0.44, focal: 96,
+          kind: 'moor', horizon: 238, fx: 0.48, focal: 96,
           fog: [13, 12, 26], clipRight: portalX + 8,
         });
         const fenceEnd = Math.min(this.level.cols - 1, Math.floor(roomX / TILE) - 8);
@@ -520,15 +521,14 @@ export class Stage3D {
    * perspective as the hunter advances across the stage.
    */
   drawDistantKeep3D(ctx, camX, camY, time, flash, scale = 0.7, celestial = false) {
-    const progress = camX / Math.max(1, this.level.width);
-    const keepScreenX = Math.round(W * (0.72 - progress * 0.34));
-    const keepScreenY = Math.round((celestial ? 156 : 168) - (camY - (this.level.height - H)) * 0.09);
+    const keepScreenX = Math.round(W + 140 - mod(camX * 0.26 + 260, W + 920));
+    const keepScreenY = Math.round((celestial ? 156 : 168) + parallaxElevY(camY, this.level.height) * 0.11);
     if (keepScreenX < -140 || keepScreenX > W + 140) return;
-    const yaw = -0.38 + progress * 0.76;
+    const yaw = ((W * 0.5 - keepScreenX) / (W + 280)) * 0.84;
     const fog = this.pal.fog;
     const stoneTex = this.tex(celestial ? 'marble' : 'keep_stone');
     const roofTex = this.tex(celestial ? 'stone_trim' : 'slate_roof');
-    const flashBoost = flash > 0.05 ? 1.45 : 0.92;
+    const flashBoost = flash > 0.05 ? 1.35 : 0.74;
 
     const drawPrism = (ox, oy, oz, rad, h, sides, coneH = 0) => {
       const ptsTop = [], ptsBot = [], tip = rotY(ox, oy - h - coneH, oz, yaw);
@@ -558,12 +558,12 @@ export class Stage3D {
         const nz = (ptsBot[i].z + ptsBot[j].z) * 0.5 - centerRot.z;
         const n = norm3(nx, -0.1, nz);
         const u0 = i * faceW, u1 = (i + 1) * faceW;
-        const wallShade = shadeOverlay32(n, fog, 0.44, flashBoost);
+        const wallShade = shadeOverlay32(n, fog, 0.52, flashBoost);
         texQuad(ctx, stoneTex, t0, t1, b1, b0, u0, 0, u1, 0, u1, h, u0, h, wallShade);
         if (coneH > 0) {
           const tp = proj(tip);
           const cn = norm3(nx, -0.55, nz);
-          const roofShade = shadeOverlay32(cn, fog, 0.38, flashBoost);
+          const roofShade = shadeOverlay32(cn, fog, 0.46, flashBoost);
           texTri(ctx, roofTex, t0, t1, tp, u0, coneH, u1, coneH, (u0 + u1) * 0.5, 0, roofShade, 0.45);
         }
       }
@@ -586,7 +586,7 @@ export class Stage3D {
     if (win.z < 12) {
       const s = (260 / (260 + win.z)) * scale;
       const wx = Math.round(keepScreenX + win.x * s), wy = Math.round(keepScreenY + win.y * s);
-      const pulse = 0.65 + 0.25 * Math.sin(time * 3.1);
+      const pulse = 0.50 + 0.20 * Math.sin(time * 3.1);
       ctx.fillStyle = `rgba(255, 185, 90, ${pulse.toFixed(2)})`;
       ctx.fillRect(wx - 4, wy, 2, 7);
       ctx.fillRect(wx + 2, wy, 2, 7);
@@ -599,8 +599,7 @@ export class Stage3D {
    * `cfg.horizon`. Pre-bakes a 512x128 tileable procedural texture once.
    */
   drawScanlinePlane(ctx, cam, time, cfg) {
-    const base = this.level.height - H;
-    const horizon = Math.round(cfg.horizon - (cam.ry - base) * 0.26);
+    const horizon = Math.round(cfg.horizon + parallaxElevY(cam.ry, this.level.height) * 0.22);
     if (horizon >= H - 2) return;
     const tex = this.getPlaneTexture(cfg.kind);
     const clipW = cfg.clipRight == null ? W : Math.min(W, Math.max(0, Math.round(cfg.clipRight)));
@@ -635,10 +634,10 @@ export class Stage3D {
 
     // Single vertical atmospheric depth-fog pass over the entire ground plane
     const fgGrad = ctx.createLinearGradient(0, Math.max(0, horizon), 0, H);
-    fgGrad.addColorStop(0, rgbA(cfg.fog, 0.90));
-    fgGrad.addColorStop(0.22, rgbA(cfg.fog, 0.62));
-    fgGrad.addColorStop(0.55, rgbA(cfg.fog, 0.32));
-    fgGrad.addColorStop(1, rgbA(cfg.fog, 0.14));
+    fgGrad.addColorStop(0, rgbA(cfg.fog, 0.93));
+    fgGrad.addColorStop(0.22, rgbA(cfg.fog, 0.70));
+    fgGrad.addColorStop(0.55, rgbA(cfg.fog, 0.42));
+    fgGrad.addColorStop(1, rgbA(cfg.fog, 0.24));
     ctx.fillStyle = fgGrad;
     ctx.fillRect(0, yStart, clipW, H - yStart);
 
@@ -695,7 +694,7 @@ export class Stage3D {
       if (fx) {
         fx.water(ctx, { x: 0, y: Math.max(0, horizon), w: clipW, h: H - Math.max(0, horizon) }, {
           horizon, camX: cam.rx * cfg.fx, tint: cfg.water.tint, spec: cfg.water.spec,
-          frozen: cfg.water.frozen || 0, alpha: cfg.water.alpha == null ? 1 : cfg.water.alpha,
+          frozen: cfg.water.frozen || 0, alpha: (cfg.water.alpha == null ? 1 : cfg.water.alpha) * 0.82,
         });
       }
     }
@@ -704,13 +703,12 @@ export class Stage3D {
 
   /** Texture-mapped 3D crenellated bailey curtain wall & watchtowers along the ramparts horizon. */
   drawHorizonWall(ctx, cam, baseHorizon) {
-    const base = this.level.height - H;
-    const hy = Math.round(baseHorizon - (cam.ry - base) * 0.26);
-    const scroll = Math.round(cam.rx * 0.22);
+    const hy = Math.round(baseHorizon + parallaxElevY(cam.ry, this.level.height) * 0.22);
+    const scroll = Math.round(cam.rx * 0.35);
     const stoneTex = this.tex('keep_stone');
     const roofTex = this.tex('slate_roof');
-    const wallShade = shadeOverlay32([0, -0.1, -1], this.pal.fog, 0.52, 0.85);
-    const roofShade = shadeOverlay32([0, -0.5, -0.8], this.pal.fog, 0.46, 0.88);
+    const wallShade = shadeOverlay32([0, -0.1, -1], this.pal.fog, 0.56, 0.72);
+    const roofShade = shadeOverlay32([0, -0.5, -0.8], this.pal.fog, 0.50, 0.75);
     if (!stoneTex || !roofTex) return;
 
     texQuad(
@@ -757,8 +755,8 @@ export class Stage3D {
       if (lv.isSpike(tx, r - 1)) continue;
       const wx0 = tx * TILE + 4;
       const wyBot = r * TILE;
-      this.drawBox3D(ctx, camX, camY, wx0, wyBot - 19, 44, 28, 19, 20, wallKey, { topTex: capKey });
-      this.drawBox3D(ctx, camX, camY, wx0 - 1, wyBot - 23, 42, 30, 4, 24, capKey);
+      this.drawBox3D(ctx, camX, camY, wx0, wyBot - 19, 44, 28, 19, 20, wallKey, { topTex: capKey, bright: 0.78 });
+      this.drawBox3D(ctx, camX, camY, wx0 - 1, wyBot - 23, 42, 30, 4, 24, capKey, { bright: 0.78 });
     }
   }
 
@@ -774,8 +772,8 @@ export class Stage3D {
     const glow = getGlowCanvas('cyan') || getGlowCanvas('emerald');
     const spacing = 420;
     const ranks = [
-      { z: 212, dx: 190, dy: -22, w: 196, cols: 4, dark: 0.42 },
-      { z: 116, dx: 0, dy: 14, w: 168, cols: 3, dark: 0.18 },
+      { z: 212, dx: 190, dy: -22, w: 196, cols: 4, dark: 0.58, bright: 0.54 },
+      { z: 116, dx: 0, dy: 14, w: 168, cols: 3, dark: 0.46, bright: 0.62 },
     ];
     for (let ri = 0; ri < ranks.length; ri++) {
       const rk = ranks[ri];
@@ -790,18 +788,18 @@ export class Stage3D {
 
         const w = rk.w, d = 54;
         // Tapering 3D stepped marble & stone_trim under-corbel
-        this.drawBox3D(ctx, camX, camY, cx - w * 0.24, deckY + 34, rk.z + 10, w * 0.48, 26, d - 20, 'stone_trim', { bright: 0.72 });
-        this.drawBox3D(ctx, camX, camY, cx - w * 0.38, deckY + 14, rk.z + 4, w * 0.76, 22, d - 8, 'stone_trim', { bright: 0.84 });
-        this.drawBox3D(ctx, camX, camY, cx - w * 0.5, deckY, rk.z, w, 16, d, 'marble', { topTex: 'marble', bright: 0.96 });
+        this.drawBox3D(ctx, camX, camY, cx - w * 0.24, deckY + 34, rk.z + 10, w * 0.48, 26, d - 20, 'stone_trim', { bright: rk.bright * 0.82 });
+        this.drawBox3D(ctx, camX, camY, cx - w * 0.38, deckY + 14, rk.z + 4, w * 0.76, 22, d - 8, 'stone_trim', { bright: rk.bright * 0.92 });
+        this.drawBox3D(ctx, camX, camY, cx - w * 0.5, deckY, rk.z, w, 16, d, 'marble', { topTex: 'marble', bright: rk.bright });
 
         // Classical 3D fluted marble temple colonnade & entablature lintel
         const colSpan = w - 36;
         const colH = 88;
         for (let k = 0; k < rk.cols; k++) {
           const px = cx - colSpan * 0.5 + (rk.cols > 1 ? (k / (rk.cols - 1)) * colSpan : 0);
-          this.drawPillar3D(ctx, camX, camY, px, deckY - colH, deckY, rk.z + 10, 16);
+          this.drawPillar3D(ctx, camX, camY, px, deckY - colH, deckY, rk.z + 10, 16, null, rk.bright);
         }
-        this.drawBox3D(ctx, camX, camY, cx - w * 0.46, deckY - colH - 12, rk.z + 6, w * 0.92, 12, d - 12, 'marble');
+        this.drawBox3D(ctx, camX, camY, cx - w * 0.46, deckY - colH - 12, rk.z + 6, w * 0.92, 12, d - 12, 'marble', { bright: rk.bright });
         this.drawArchSpan3D(ctx, camX, camY, cx - w * 0.36, cx + w * 0.36, deckY - colH + 18, deckY - colH - 4, rk.z + 8, 26, 'stone_trim');
 
         // Sky-bridge 3D arch linking every second sanctum
@@ -875,8 +873,8 @@ export class Stage3D {
       const r = lv.groundRow(tx);
       if (r < 0) continue;
       const wx = tx * TILE + 16, wy = r * TILE;
-      this.drawBox3D(ctx, camX, camY, wx - 5, wy - 36, z, 10, 36, 14, 'wall');
-      this.drawBox3D(ctx, camX, camY, wx - 7, wy - 40, z - 2, 14, 4, 18, 'stone_trim');
+      this.drawBox3D(ctx, camX, camY, wx - 5, wy - 36, z, 10, 36, 14, 'wall', { bright: 0.78 });
+      this.drawBox3D(ctx, camX, camY, wx - 7, wy - 40, z - 2, 14, 4, 18, 'stone_trim', { bright: 0.78 });
       const nr = lv.groundRow(tx + 3);
       if (tx + 3 <= maxCol && nr === r) {
         const p0 = project3D(wx + 5, wy - 28, z + 4, camX, camY);
@@ -910,12 +908,12 @@ export class Stage3D {
     const r = this.level.surfaceRow(gateCol - 3);
     const floorY = (r > 0 ? r : 9) * TILE;
     // Recessed curtain wall & vaulted arch drawn first (`z = 48..90`), tucked behind proud flanking towers (`z = 40..94`)
-    this.drawBox3D(ctx, camX, camY, gx - 132, floorY - 212, 48, 70, 54, 42, 'wall_b');
+    this.drawBox3D(ctx, camX, camY, gx - 132, floorY - 212, 48, 70, 54, 42, 'wall_b', { bright: 0.76 });
     this.drawArchSpan3D(ctx, camX, camY, gx - 132, gx - 62, floorY - 120, floorY - 158, 48, 42, 'stone_trim');
-    this.drawBox3D(ctx, camX, camY, gx - 178, floorY - 216, 40, 46, 216, 54, 'wall');
-    this.drawBox3D(ctx, camX, camY, gx - 62, floorY - 232, 40, 50, 232, 54, 'wall');
+    this.drawBox3D(ctx, camX, camY, gx - 178, floorY - 216, 40, 46, 216, 54, 'wall', { bright: 0.78 });
+    this.drawBox3D(ctx, camX, camY, gx - 62, floorY - 232, 40, 50, 232, 54, 'wall', { bright: 0.78 });
     for (let i = 0; i < 5; i++) {
-      this.drawBox3D(ctx, camX, camY, gx - 176 + i * 38, floorY - 246, 38, 22, 16, 30, 'stone_trim');
+      this.drawBox3D(ctx, camX, camY, gx - 176 + i * 38, floorY - 246, 38, 22, 16, 30, 'stone_trim', { bright: 0.78 });
     }
 
     const w0 = project3D(gx - 152, floorY - 118, 38, camX, camY);
@@ -938,7 +936,7 @@ export class Stage3D {
     const glowImg = getGlowCanvas('amber');
     for (let pass = 0; pass < 2; pass++) {
       const z = pass === 0 ? 155 : 78;
-      const bright = pass === 0 ? 0.68 : 0.96;
+      const bright = pass === 0 ? 0.52 : 0.74;
       for (let i = i0; i <= i1; i++) {
         const wx = i * spacing + (pass ? 108 : 0);
         const col = Math.max(0, Math.min(this.level.cols - 1, Math.floor(wx / TILE)));
@@ -957,15 +955,15 @@ export class Stage3D {
           const bot = project3D(bx + sway, by + 38, z, camX, camY);
           ctx.strokeStyle = '#2a201c'; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(bot.x, bot.y); ctx.stroke();
-          this.drawBox3D(ctx, camX, camY, bx + sway - 7, by + 38, z - 6, 14, 18, 14, 'iron_rivet');
+          this.drawBox3D(ctx, camX, camY, bx + sway - 7, by + 38, z - 6, 14, 18, 14, 'iron_rivet', { bright: 0.76 });
           const glow = project3D(bx + sway, by + 47, z - 7, camX, camY);
-          ctx.fillStyle = '#ffd074';
+          ctx.fillStyle = '#e6b862';
           ctx.fillRect(Math.round(glow.x - 3), Math.round(glow.y - 4), 6, 8);
           if (glowImg) {
             const gr = 28 * glow.s;
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            ctx.globalAlpha = 0.62;
+            ctx.globalAlpha = 0.48;
             ctx.drawImage(glowImg, glow.x - gr, glow.y - gr, gr * 2, gr * 2);
             ctx.restore();
           }
@@ -988,11 +986,11 @@ export class Stage3D {
     const i1 = Math.ceil((camX + W + 320) / spacing);
     const trunks = ['trunk_a', 'trunk_b', 'trunk_c'];
     // Organic elder trunks at three depths (far -> near), bottom-anchored on the
-    // forest floor and scaled by projected depth; far ranks are darkened.
+    // forest floor and scaled by projected depth; all background ranks are dimmed.
     const passes = [
-      { z: 240, dark: 0.55, dx: 64, scale: 1.25 },
-      { z: 162, dark: 0.34, dx: 0, scale: 1.1 },
-      { z: 74, dark: 0.0, dx: 118, scale: 1.0 },
+      { z: 240, dark: 0.62, dx: 64, scale: 1.25 },
+      { z: 162, dark: 0.46, dx: 0, scale: 1.1 },
+      { z: 74, dark: 0.28, dx: 118, scale: 1.0 },
     ];
     for (let pi = 0; pi < passes.length; pi++) {
       const P = passes[pi];
@@ -1032,7 +1030,7 @@ export class Stage3D {
             ctx.save();
             ctx.translate(Math.round(lp.x), Math.round(lp.y));
             ctx.rotate(sway);
-            ctx.drawImage(A.img(sheet), lf.x, lf.y, lf.w, lf.h, Math.round(-lf.ax * ls), 0, Math.round(lf.w * ls), Math.round(lf.h * ls));
+            ctx.drawImage(A.darkened(sheet, 0.24), lf.x, lf.y, lf.w, lf.h, Math.round(-lf.ax * ls), 0, Math.round(lf.w * ls), Math.round(lf.h * ls));
             ctx.restore();
             if (glowImg) {
               const pulse = 0.7 + 0.3 * Math.sin(time * 2.6 + i);
@@ -1040,7 +1038,7 @@ export class Stage3D {
               const gx = lp.x + Math.sin(sway) * lf.h * ls * 0.75, gy = lp.y + lf.h * ls * 0.72;
               ctx.save();
               ctx.globalCompositeOperation = 'lighter';
-              ctx.globalAlpha = 0.55 * pulse;
+              ctx.globalAlpha = 0.44 * pulse;
               ctx.drawImage(glowImg, gx - gr, gy - gr, gr * 2, gr * 2);
               ctx.restore();
             }
@@ -1133,7 +1131,7 @@ export class Stage3D {
     const span = 224;
     const fxLayers = getFxLayers();
     const glow = getGlowCanvas('cyan');
-    for (const rank of [{ z: 236, dx: 96, bright: 0.76 }, { z: 132, dx: 0, bright: 0.98 }]) {
+    for (const rank of [{ z: 236, dx: 96, bright: 0.68 }, { z: 132, dx: 0, bright: 0.80 }]) {
       const i0 = Math.floor((camX - 300) / span);
       const i1 = Math.ceil((camX + W + 300) / span);
       for (let i = i0; i <= i1; i++) {
@@ -1264,8 +1262,8 @@ export class Stage3D {
     const wxWall1 = (bEnd + 1) * bayW;
     const yWallTop = r.y0 * TILE - 128;
     const yWallBot = abyssHall ? floorY : (r.y1 + 1) * TILE + 128;
-    const dark = Math.min(0.32, r.dark == null ? 0.28 : r.dark);
-    const wallShade = shadeOverlay32([0, 0, -1], pal.fog, dark, 1.02);
+    const dark = Math.max(0.40, Math.min(0.52, (r.dark == null ? 0.28 : r.dark) + 0.14));
+    const wallShade = shadeOverlay32([0, 0, -1], pal.fog, dark, 0.76);
     if (wxWall1 > wxWall0 && yWallBot > yWallTop) {
       const w0 = project3D(wxWall0, yWallTop, Z_WALL, camX, camY);
       const w1 = project3D(wxWall1, yWallTop, Z_WALL, camX, camY);
@@ -1287,7 +1285,7 @@ export class Stage3D {
       texQuad(
         ctx, brinkTex, k0, k1, k2, k3,
         wxWall0, 0, wxWall1, 0, wxWall1, 10, wxWall0, 10,
-        shadeOverlay32([0, -0.8, -0.5], pal.fog, 0.30, 1.0),
+        shadeOverlay32([0, -0.8, -0.5], pal.fog, 0.38, 0.80),
       );
       ctx.fillStyle = 'rgba(4, 6, 12, 0.78)';
       ctx.fillRect(clipLeft, Math.round(farFloor.y) + 2, clipRight - clipLeft, 4);
@@ -1403,7 +1401,7 @@ export class Stage3D {
       // Skip wall pilaster right down the middle of a 2-bay Grand Mural Gallery (`bi - 1` is `mural_left`)
       const splitsMural = special.murals && special.murals.includes(bi - 1);
       if (!splitsMural) {
-        this.drawBox3D(ctx, camX, camY, px - 14, ceilY + 24, Z_WALL - 22, 28, floorY - ceilY - 24, 22, pilasterTex);
+        this.drawBox3D(ctx, camX, camY, px - 14, ceilY + 24, Z_WALL - 22, 28, floorY - ceilY - 24, 22, pilasterTex, { bright: 0.76 });
       }
       this.drawPillar3D(ctx, camX, camY, px, ceilY + 22, floorY, 54, 22);
     }
@@ -1434,7 +1432,7 @@ export class Stage3D {
         const pulse = 0.78 + 0.22 * Math.sin(time * 0.9 + w.wx * 0.01);
         const tint = w.moon ? MOON_RGB : pal.glass;
         const g = ctx.createLinearGradient(wt.x, wt.y, fb0.x, fb0.y);
-        g.addColorStop(0, rgbA(tint, (w.moon ? 0.16 : 0.13) * pulse));
+        g.addColorStop(0, rgbA(tint, (w.moon ? 0.12 : 0.10) * pulse));
         g.addColorStop(1, rgbA(tint, 0.01));
         ctx.fillStyle = g;
         fillQuad(ctx, wt, { x: wb.x, y: wt.y + 18 }, fb1, fb0);
@@ -1457,8 +1455,8 @@ export class Stage3D {
       const gx = r.x0 * TILE;
       const gRow = this.level.surfaceRow(Math.max(0, r.x0 - 3));
       const gFloorY = (gRow > 0 ? gRow : 9) * TILE;
-      this.drawBox3D(ctx, camX, camY, gx - 62, gFloorY - 232, 40, 50, 232, 54, 'wall');
-      this.drawBox3D(ctx, camX, camY, gx - 24, gFloorY - 246, 38, 22, 16, 30, 'stone_trim');
+      this.drawBox3D(ctx, camX, camY, gx - 62, gFloorY - 232, 40, 50, 232, 54, 'wall', { bright: 0.78 });
+      this.drawBox3D(ctx, camX, camY, gx - 24, gFloorY - 246, 38, 22, 16, 30, 'stone_trim', { bright: 0.78 });
     }
   }
 
@@ -1578,7 +1576,7 @@ export class Stage3D {
 
     // 1. Full 512x288 pixel-art mural / fresco / tapestry mapped onto the recessed back wall
     const muralTex = this.tex(muralKey);
-    const muralShade = shadeOverlay32([0, 0, -1], pal.fog, 0.20, 0.96);
+    const muralShade = shadeOverlay32([0, 0, -1], pal.fog, 0.30, 0.80);
     texQuad(
       ctx, muralTex, bTL, bTR, bBR, bBL,
       0, 0, muralTex.w, 0, muralTex.w, muralTex.h, 0, muralTex.h,
@@ -1587,26 +1585,26 @@ export class Stage3D {
 
     // 2. Texture-mapped 3D recessed side jambs, soffit ceiling, and dado sill
     if (bTL.x > fTL.x + 0.4) {
-      const shL = shadeOverlay32([1, 0, -0.25], pal.fog, 0.44);
+      const shL = shadeOverlay32([1, 0, -0.25], pal.fog, 0.48, 0.80);
       texQuad(ctx, trimTex, fTL, bTL, bBL, fBL, 0, yTop, depth, yTop, depth, yBot, 0, yBot, shL);
     }
     if (bTR.x < fTR.x - 0.4) {
-      const shR = shadeOverlay32([-1, 0, -0.25], pal.fog, 0.46);
+      const shR = shadeOverlay32([-1, 0, -0.25], pal.fog, 0.50, 0.80);
       texQuad(ctx, trimTex, bTR, fTR, fBR, bBR, 0, yTop, depth, yTop, depth, yBot, 0, yBot, shR);
     }
     if (fTL.y < bTL.y - 0.4) {
-      const shTop = shadeOverlay32([0, 1, -0.25], pal.fog, 0.50);
+      const shTop = shadeOverlay32([0, 1, -0.25], pal.fog, 0.54, 0.78);
       texQuad(ctx, trimTex, fTL, fTR, bTR, bTL, x0, 0, x1, 0, x1, depth, x0, depth, shTop);
     }
     if (fBL.y > bBL.y + 0.4) {
-      const shBot = shadeOverlay32([0, -1, -0.3], pal.fog, 0.38);
+      const shBot = shadeOverlay32([0, -1, -0.3], pal.fog, 0.44, 0.80);
       texQuad(ctx, trimTex, bBL, bBR, fBR, fBL, x0, 0, x1, 0, x1, depth, x0, depth, shBot);
     }
 
     // 3. Projecting 3D entablature cornice & carved dado plinth framing the gallery
     const w = x1 - x0;
-    this.drawBox3D(ctx, camX, camY, x0 - 10, yTop - 12, zFront - 10, w + 20, 12, 12, corniceKey, { bright: 1.05 });
-    this.drawBox3D(ctx, camX, camY, x0 - 8, yBot, zFront - 8, w + 16, 10, 10, trimKey, { bright: 0.95 });
+    this.drawBox3D(ctx, camX, camY, x0 - 10, yTop - 12, zFront - 10, w + 20, 12, 12, corniceKey, { bright: 0.82 });
+    this.drawBox3D(ctx, camX, camY, x0 - 8, yBot, zFront - 8, w + 16, 10, 10, trimKey, { bright: 0.76 });
 
     // 4. Subtle gallery illumination washing across the mural surface
     const glowKey = this.stageTheme === 'alchemy' ? 'emerald'
@@ -1621,7 +1619,7 @@ export class Stage3D {
       for (const t of [0.28, 0.72]) {
         const gp = project3D(x0 + w * t, yTop + (yBot - yTop) * 0.36, zBack - 4, camX, camY);
         const rad = 88 * gp.s;
-        ctx.globalAlpha = 0.22 * pulse;
+        ctx.globalAlpha = 0.16 * pulse;
         ctx.drawImage(glow, gp.x - rad, gp.y - rad, rad * 2, rad * 2);
       }
       ctx.restore();
@@ -1648,36 +1646,36 @@ export class Stage3D {
       if (theme === 'alchemy' && (bi & 1) === 0) {
         // Overhead 3D riveted iron & brass distillation gantry + counter-rotating pressure cogwheels
         const beamY = ceilY + 56;
-        this.drawBox3D(ctx, camX, camY, bx0 + 18, beamY, 118, BAY_W - 36, 14, 34, 'iron_truss');
-        this.drawBox3D(ctx, camX, camY, midX - 20, beamY - 4, 114, 40, 22, 42, 'brass_rim');
-        this.drawBox3D(ctx, camX, camY, midX - 8, beamY + 18, 148, 16, hallH - 74, 16, 'brass_rim', { bright: 0.92 });
+        this.drawBox3D(ctx, camX, camY, bx0 + 18, beamY, 118, BAY_W - 36, 14, 34, 'iron_truss', { bright: 0.78 });
+        this.drawBox3D(ctx, camX, camY, midX - 20, beamY - 4, 114, 40, 22, 42, 'brass_rim', { bright: 0.80 });
+        this.drawBox3D(ctx, camX, camY, midX - 8, beamY + 18, 148, 16, hallH - 74, 16, 'brass_rim', { bright: 0.74 });
         const dir = (bi & 2) ? 1 : -1;
-        this.drawGear3D(ctx, camX, camY, midX - 30, beamY + 46, 158, { r: 28, speed: 0.55 * dir, teeth: 10, phase: bi * 0.3 }, time);
-        this.drawGear3D(ctx, camX, camY, midX + 26, beamY + 62, 162, { r: 22, speed: -0.7 * dir, teeth: 8, phase: 0.4 }, time);
+        this.drawGear3D(ctx, camX, camY, midX - 30, beamY + 46, 158, { r: 28, speed: 0.55 * dir, teeth: 10, phase: bi * 0.3, bright: 0.76 }, time);
+        this.drawGear3D(ctx, camX, camY, midX + 26, beamY + 62, 162, { r: 22, speed: -0.7 * dir, teeth: 8, phase: 0.4, bright: 0.76 }, time);
       } else if (theme === 'ballroom' && hallH >= 230 && (((bi % 3) + 3) % 3) === 1) {
         // Elevated 3D white-marble & gilded-brass musicians' gallery / opera box
         const galY = ceilY + Math.min(126, Math.round(hallH * 0.46));
-        this.drawBox3D(ctx, camX, camY, midX - 88, galY, 138, 176, 12, 48, 'marble', { topTex: 'marble', bright: 1.04 });
-        this.drawBox3D(ctx, camX, camY, midX - 84, galY + 12, 146, 20, 24, 36, 'marble', { bright: 0.88 });
-        this.drawBox3D(ctx, camX, camY, midX + 64, galY + 12, 146, 20, 24, 36, 'marble', { bright: 0.88 });
-        this.drawBox3D(ctx, camX, camY, midX - 88, galY - 26, 138, 176, 6, 8, 'brass_rim', { bright: 1.08 });
+        this.drawBox3D(ctx, camX, camY, midX - 88, galY, 138, 176, 12, 48, 'marble', { topTex: 'marble', bright: 0.82 });
+        this.drawBox3D(ctx, camX, camY, midX - 84, galY + 12, 146, 20, 24, 36, 'marble', { bright: 0.74 });
+        this.drawBox3D(ctx, camX, camY, midX + 64, galY + 12, 146, 20, 24, 36, 'marble', { bright: 0.74 });
+        this.drawBox3D(ctx, camX, camY, midX - 88, galY - 26, 138, 176, 6, 8, 'brass_rim', { bright: 0.84 });
         for (let sx = -72; sx <= 72; sx += 36) {
-          this.drawBox3D(ctx, camX, camY, midX + sx - 4, galY - 20, 140, 8, 20, 6, 'marble');
+          this.drawBox3D(ctx, camX, camY, midX + sx - 4, galY - 20, 140, 8, 20, 6, 'marble', { bright: 0.78 });
         }
       } else if (theme === 'coliseum' && (bi & 1) === 1) {
         // Recessed 3D travertine vomitorium archway + blazing suspended iron arena brazier
         const archTop = Math.max(ceilY + 38, floorY - 196);
         this.drawArchSpan3D(ctx, camX, camY, midX - 82, midX + 82, archTop + 56, archTop, 136, 40, 'travertine_stone');
         const bzY = ceilY + 78;
-        this.drawBox3D(ctx, camX, camY, midX - 2, ceilY + 26, 124, 4, 52, 4, 'iron_rivet');
-        this.drawBox3D(ctx, camX, camY, midX - 16, bzY, 118, 32, 12, 24, 'iron_rivet', { topTex: 'brass_rim' });
+        this.drawBox3D(ctx, camX, camY, midX - 2, ceilY + 26, 124, 4, 52, 4, 'iron_rivet', { bright: 0.76 });
+        this.drawBox3D(ctx, camX, camY, midX - 16, bzY, 118, 32, 12, 24, 'iron_rivet', { topTex: 'brass_rim', bright: 0.78 });
         const glow = getGlowCanvas('amber');
         if (glow) {
           const gp = project3D(midX, bzY - 6, 124, camX, camY);
           const rad = (34 + 6 * Math.sin(time * 5.2 + bi)) * gp.s;
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
-          ctx.globalAlpha = 0.34;
+          ctx.globalAlpha = 0.26;
           ctx.drawImage(glow, gp.x - rad, gp.y - rad, rad * 2, rad * 2);
           ctx.restore();
         }
@@ -1711,15 +1709,15 @@ export class Stage3D {
     const zSteps = [zFar, 152, 108, 70, zNear];
     for (let zi = 0; zi < zSteps.length - 1; zi++) {
       const zA = zSteps[zi], zB = zSteps[zi + 1];
-      const fogT = 0.24 + 0.46 * (zA / zFar);
-      const shade = shadeOverlay32([0, -0.9, -0.4], pal.fog, fogT, 0.94);
+      const fogT = 0.32 + 0.44 * (zA / zFar);
+      const shade = shadeOverlay32([0, -0.9, -0.4], pal.fog, fogT, 0.78);
       texStripZ(ctx, floorTex, camX, camY, x0, x1, floorY, zA, zB, zA, zB, shade, 1, FOCAL, EYE_X, EYE_Y);
     }
 
     // Texture-mapped Runner Carpet (royal crimson or gilded ballroom velvet)
     if (pal.carpet || this.stageTheme === 'ballroom') {
       const carpetTex = this.tex(this.stageTheme === 'ballroom' ? 'ballroom_carpet' : 'carpet');
-      const cShade = shadeOverlay32([0, -0.85, -0.5], pal.fog, 0.30, 0.96);
+      const cShade = shadeOverlay32([0, -0.85, -0.5], pal.fog, 0.38, 0.78);
       texStripZ(ctx, carpetTex, camX, camY, x0, x1, floorY, 148, 76, 0, 32, cShade, 2, FOCAL, EYE_X, EYE_Y);
     }
 
@@ -1732,7 +1730,7 @@ export class Stage3D {
         const a1 = project3D(w.wx + 24, floorY, 172, camX, camY);
         const b1 = project3D(w.wx + 66, floorY, 56, camX, camY);
         const b0 = project3D(w.wx + 4, floorY, 56, camX, camY);
-        ctx.fillStyle = rgbA(w.moon ? MOON_RGB : pal.glass, (w.moon ? 0.20 : 0.18) * pulse);
+        ctx.fillStyle = rgbA(w.moon ? MOON_RGB : pal.glass, (w.moon ? 0.14 : 0.13) * pulse);
         fillQuad(ctx, a0, a1, b1, b0);
       }
       ctx.restore();
@@ -1765,20 +1763,20 @@ export class Stage3D {
 
     // 6 ashlar-textured vaulting web triangles anchored to world (x0..x1, crownY..springY, zNear..zFar)
     texTri(ctx, vTex, nL, fL, boss, zNear, springY, zFar, springY, midZ, crownY,
-      shadeOverlay32([0.55, 0.7, -0.4], pal.fog, 0.42), 0.55);
+      shadeOverlay32([0.55, 0.7, -0.4], pal.fog, 0.46, 0.78), 0.55);
     texTri(ctx, vTex, fR, nR, boss, zFar, springY, zNear, springY, midZ, crownY,
-      shadeOverlay32([-0.55, 0.7, -0.4], pal.fog, 0.46), 0.55);
+      shadeOverlay32([-0.55, 0.7, -0.4], pal.fog, 0.50, 0.78), 0.55);
 
-    const shFar = shadeOverlay32([0, 0.8, 0.5], pal.fog, 0.48);
+    const shFar = shadeOverlay32([0, 0.8, 0.5], pal.fog, 0.52, 0.76);
     texTri(ctx, vTex, fL, fApex, boss, x0, springY, midX, crownY, midX, crownY - 32, shFar, 0.55);
     texTri(ctx, vTex, fApex, fR, boss, midX, crownY, x1, springY, midX, crownY - 32, shFar, 0.55);
 
-    const shNear = shadeOverlay32([0, 0.8, -0.5], pal.fog, 0.36);
+    const shNear = shadeOverlay32([0, 0.8, -0.5], pal.fog, 0.42, 0.78);
     texTri(ctx, vTex, nL, boss, nApex, x0, springY, midX, crownY - 32, midX, crownY, shNear, 0.55);
     texTri(ctx, vTex, nApex, boss, nR, midX, crownY, midX, crownY - 32, x1, springY, shNear, 0.55);
 
     // Moulded stone diagonal groin ribs & transverse arch ribs
-    ctx.strokeStyle = shade32(pal.trim, [-0.2, 0.5, -0.8], pal.fog, 0.30);
+    ctx.strokeStyle = shade32(pal.trim, [-0.2, 0.5, -0.8], pal.fog, 0.38);
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(nL.x, nL.y); ctx.lineTo(nApex.x, nApex.y); ctx.lineTo(nR.x, nR.y);
@@ -1790,19 +1788,21 @@ export class Stage3D {
 
     // Carved 3D keystone boss at the vault crown
     this.drawBox3D(ctx, camX, camY, midX - 7, crownY - 10, midZ - 6, 14, 9, 12,
-      this.trimStoneKey());
+      this.trimStoneKey(), { bright: 0.78 });
   }
 
   /** Fluted 3D stone column with moulded plinth base, fluted shaft & carved capital. */
-  drawPillar3D(ctx, camX, camY, wx, yTop, yBot, z, w, texKey = null) {
+  drawPillar3D(ctx, camX, camY, wx, yTop, yBot, z, w, texKey = null, bright = null) {
     const useMarble = texKey === 'marble' || this.stageTheme === 'ballroom' || this.stageTheme === 'skykeep';
     const shaftKey = texKey || (useMarble ? 'marble' : 'pillar_shaft');
     const trimKey = useMarble ? 'marble' : this.trimStoneKey();
     const capKey = this.stageTheme === 'ballroom' ? 'brass_rim' : trimKey;
+    const bShaft = bright != null ? bright : (useMarble ? 0.80 : 0.76);
+    const bCap = bright != null ? bright : 0.78;
     this.drawBox3D(ctx, camX, camY, wx - w / 2, yTop + 14, z, w, yBot - yTop - 28, w,
-      shaftKey, { uFit: useMarble ? 64 : 96, bright: useMarble ? 1.04 : 1.02 });
-    this.drawBox3D(ctx, camX, camY, wx - w * 0.72, yTop, z - 4, w * 1.44, 14, w + 8, capKey);
-    this.drawBox3D(ctx, camX, camY, wx - w * 0.72, yBot - 16, z - 4, w * 1.44, 16, w + 8, trimKey);
+      shaftKey, { uFit: useMarble ? 64 : 96, bright: bShaft });
+    this.drawBox3D(ctx, camX, camY, wx - w * 0.72, yTop, z - 4, w * 1.44, 14, w + 8, capKey, { bright: bCap });
+    this.drawBox3D(ctx, camX, camY, wx - w * 0.72, yBot - 16, z - 4, w * 1.44, 16, w + 8, trimKey, { bright: bCap });
   }
 
   // ======================================= FAR-WALL DEPTH SET-PIECES (PASS II)
@@ -1859,7 +1859,7 @@ export class Stage3D {
       g.restore();
     }
     // Far ridges & castle crags, darkened, with the horizon in the lower third of the lancets.
-    for (const [name, f, dy, dark] of [['mountains', 0.12, 74, 0.30], ['castle', 0.24, 84, 0.46]]) {
+    for (const [name, f, dy, dark] of [['mountains', 0.09, 74, 0.42], ['castle', 0.22, 84, 0.54]]) {
       if (!A.img(name)) continue;
       const img = A.darkened(name, dark);
       const o = mod(-(camX * f), img.width);
@@ -1871,9 +1871,8 @@ export class Stage3D {
   /** Unglazed lancet opening: the night backdrop behind iron Y-tracery, clipped to the arch. */
   drawSkyOpening3D(ctx, camX, camY, bTL, bApex, bTR, bBR, bBL, time) {
     const view = this.getSkyView(camX, time);
-    const base = this.level.height - H;
-    // Climbing reveals a little more sky above the ridges (slight vertical parallax).
-    const viewY = Math.round(-(camY - base) * 0.10);
+    // Bounded elevation parallax keeps moonlit sky & ridges centered across multi-story halls.
+    const viewY = Math.round(parallaxElevY(camY, this.level.height) * 0.14);
     const left = Math.floor(Math.min(bTL.x, bBL.x)) - 1, right = Math.ceil(Math.max(bTR.x, bBR.x)) + 1;
     const top = Math.floor(bApex.y) - 1, bottom = Math.ceil(Math.max(bBL.y, bBR.y)) + 2;
     ctx.save();
@@ -1882,9 +1881,11 @@ export class Stage3D {
     ctx.lineTo(bTR.x, bTR.y); ctx.lineTo(bBR.x, bBR.y + 1);
     ctx.closePath();
     ctx.clip();
+    ctx.fillStyle = '#151228';
+    ctx.fillRect(left, top, right - left, bottom - top);
     ctx.drawImage(view, 0, viewY);
     // Night haze keeps the opening from outshining the play layer.
-    ctx.fillStyle = 'rgba(10, 12, 32, 0.10)';
+    ctx.fillStyle = 'rgba(8, 10, 26, 0.32)';
     ctx.fillRect(left, top, right - left, bottom - top);
     // Iron tracery: central mullion, transom and Y-tracery branching into the arch head.
     const s = Math.max(0.5, (bBR.x - bBL.x) / 92);
@@ -2035,7 +2036,7 @@ export class Stage3D {
     if (!set) return;
     const A = this.assets;
     const fog = this.pal.fog;
-    const tint = `rgba(${fog[0]}, ${fog[1]}, ${fog[2]}, 0.42)`;
+    const tint = `rgba(${fog[0]}, ${fog[1]}, ${fog[2]}, 0.54)`;
     for (let bi = bStart; bi <= bEnd; bi++) {
       const h = hash32(bi + 17, this.level.cols);
       if ((h & 7) >= 5) continue;
@@ -2069,9 +2070,9 @@ export class Stage3D {
   /** Texture-mapped 3D stone sarcophagus with a raised lid and carved effigy ridge. */
   drawSarcophagus3D(ctx, camX, camY, wx, floorY, z, h) {
     const w = 64 + (h & 15), d = 30;
-    this.drawBox3D(ctx, camX, camY, wx - w / 2, floorY - 24, z, w, 24, d, 'crypt_stone', { bright: 0.9 });
-    this.drawBox3D(ctx, camX, camY, wx - w / 2 - 3, floorY - 30, z - 2, w + 6, 6, d + 4, 'crypt_stone', { bright: 1.05 });
-    this.drawBox3D(ctx, camX, camY, wx - 6, floorY - 36, z + 4, 12, 6, d - 8, 'crypt_stone', { bright: 0.8 });
+    this.drawBox3D(ctx, camX, camY, wx - w / 2, floorY - 24, z, w, 24, d, 'crypt_stone', { bright: 0.72 });
+    this.drawBox3D(ctx, camX, camY, wx - w / 2 - 3, floorY - 30, z - 2, w + 6, 6, d + 4, 'crypt_stone', { bright: 0.82 });
+    this.drawBox3D(ctx, camX, camY, wx - 6, floorY - 36, z + 4, 12, 6, d - 8, 'crypt_stone', { bright: 0.66 });
   }
 
   /**
@@ -2246,8 +2247,8 @@ export class Stage3D {
       const z = 112 + ((tx * 7) % 3) * 12;
       const w = 58, h = 46, d = 48;
       const fog = this.pal.fog;
-      const fogAmt = clamp01((z - 15) / 400) * 0.46;
-      this.drawBox3D(ctx, camX, camY, wx - w / 2, wy - h, z, w, h, d, 'keep_stone');
+      const fogAmt = clamp01((z - 15) / 360) * 0.54;
+      this.drawBox3D(ctx, camX, camY, wx - w / 2, wy - h, z, w, h, d, 'keep_stone', { bright: 0.76 });
       // Gabled slate roof: far-facing slope first
       const ridgeY = wy - h - 24;
       const slope = (dir) => {
@@ -2256,7 +2257,7 @@ export class Stage3D {
         const b = project3D(wx, ridgeY, z - 3, camX, camY);
         const c = project3D(wx, ridgeY, z + d + 3, camX, camY);
         const e = project3D(ex, wy - h + 2, z + d + 3, camX, camY);
-        const sh = shadeOverlay32([dir * 0.7, -0.72, 0], fog, fogAmt);
+        const sh = shadeOverlay32([dir * 0.7, -0.72, 0], fog, fogAmt, 0.78);
         texQuad(ctx, roofTex, a, b, c, e, 0, 0, 28, 0, 28, d + 6, 0, d + 6, sh);
       };
       const nearSide = wx < eyeWorldX ? 1 : -1;
@@ -2266,7 +2267,7 @@ export class Stage3D {
       const g0 = project3D(wx - w / 2, wy - h, z - 0.5, camX, camY);
       const g1 = project3D(wx, ridgeY + 2, z - 0.5, camX, camY);
       const g2 = project3D(wx + w / 2, wy - h, z - 0.5, camX, camY);
-      texTri(ctx, stoneTex, g0, g1, g2, wx - w / 2, wy - h, wx, ridgeY + 2, wx + w / 2, wy - h, shadeOverlay32([0, -0.15, -1], fog, fogAmt), 0.45);
+      texTri(ctx, stoneTex, g0, g1, g2, wx - w / 2, wy - h, wx, ridgeY + 2, wx + w / 2, wy - h, shadeOverlay32([0, -0.15, -1], fog, fogAmt, 0.78), 0.45);
       const dr = project3D(wx - 7, wy - 28, z - 1, camX, camY);
       ctx.fillStyle = '#07060e';
       ctx.fillRect(Math.round(dr.x), Math.round(dr.y), Math.max(2, Math.round(14 * dr.s)), Math.max(3, Math.round(28 * dr.s)));
@@ -2330,11 +2331,11 @@ export class Stage3D {
     // Single cached horizontal cylindrical lighting gradient instead of 320 fillRects
     if (!this._cylShade) {
       const g = ctx.createLinearGradient(0, 0, W, 0);
-      g.addColorStop(0.00, 'rgba(5, 4, 12, 0.94)');
-      g.addColorStop(0.16, 'rgba(5, 4, 12, 0.58)');
-      g.addColorStop(0.50, 'rgba(5, 4, 12, 0.22)');
-      g.addColorStop(0.84, 'rgba(5, 4, 12, 0.58)');
-      g.addColorStop(1.00, 'rgba(5, 4, 12, 0.94)');
+      g.addColorStop(0.00, 'rgba(5, 4, 12, 0.96)');
+      g.addColorStop(0.16, 'rgba(5, 4, 12, 0.70)');
+      g.addColorStop(0.50, 'rgba(5, 4, 12, 0.46)');
+      g.addColorStop(0.84, 'rgba(5, 4, 12, 0.70)');
+      g.addColorStop(1.00, 'rgba(5, 4, 12, 0.96)');
       this._cylShade = g;
     }
     ctx.fillStyle = this._cylShade;
@@ -2359,7 +2360,7 @@ export class Stage3D {
         const y1 = sy + Math.cos(a1) * tilt;
         const facing = Math.cos((a0 + a1) * 0.5);
         const u0 = a0 * radius + rot, u1 = a1 * radius + rot;
-        const sh = shadeOverlay32([Math.sin((a0 + a1) * 0.5) * 0.6, -0.2, -facing], this.pal.fog, 0.55 - facing * 0.35);
+        const sh = shadeOverlay32([Math.sin((a0 + a1) * 0.5) * 0.6, -0.2, -facing], this.pal.fog, 0.62 - facing * 0.30, 0.76);
         texQuad(
           ctx, ironTex,
           { x: x0, y: y0 - 5 }, { x: x1, y: y1 - 5 },
@@ -2376,12 +2377,12 @@ export class Stage3D {
     for (let bi = bi0; bi <= bi1; bi++) {
       const by = bi * shaftBay + 120;
       const cx = ((Math.abs(bi) * 193) % Math.max(320, this.level.width - 320)) + 160;
-      this.drawBox3D(ctx, camX, camY, cx - 220, by - 8, 145, 440, 18, 24, 'iron_truss');
+      this.drawBox3D(ctx, camX, camY, cx - 220, by - 8, 145, 440, 18, 24, 'iron_truss', { bright: 0.74 });
       this.drawGear3D(ctx, camX, camY, cx, by - 14, 130, {
         r: 58, teeth: 12, thick: 16, speed: (bi & 1) ? 0.65 : -0.65,
-        tiltX: 1.18, tiltY: 0.15, brass: true,
+        tiltX: 1.18, tiltY: 0.15, brass: true, bright: 0.76,
       }, time);
-      this.drawBox3D(ctx, camX, camY, cx - 6, by - 150, 126, 12, 280, 12, 'iron_rivet');
+      this.drawBox3D(ctx, camX, camY, cx - 6, by - 150, 126, 12, 280, 12, 'iron_rivet', { bright: 0.74 });
     }
     ctx.restore();
   }
@@ -2403,6 +2404,7 @@ export class Stage3D {
     const tiltX = opts.tiltX || 0;
     const tiltY = opts.tiltY || 0;
     const brass = opts.brass !== false;
+    const bright = opts.bright != null ? opts.bright : 1;
     const rimTex = this.tex(brass ? 'brass_rim' : 'iron_rivet');
     const fog = this.pal.fog;
     const fogBase = clamp01(z / 380) * 0.62;
@@ -2440,7 +2442,7 @@ export class Stage3D {
     const pr = (v) => project3D(v.wx, v.wy, v.wz, camX, camY);
 
     // Axle plunging into depth behind the gear
-    this.drawBox3D(ctx, camX, camY, wx - 5, wy - 5, z + thick * 0.5, 10, 10, 64, 'iron_rivet');
+    this.drawBox3D(ctx, camX, camY, wx - 5, wy - 5, z + thick * 0.5, 10, 10, 64, 'iron_rivet', { bright });
 
     const front = profile.map(([px, py]) => xform(px, py, -thick * 0.5));
     const back = profile.map(([px, py]) => xform(px, py, thick * 0.5));
@@ -2475,8 +2477,9 @@ export class Stage3D {
 
     // Fast path for front-on 3D cogwheels: pre-baked spoked/toothed 2D wheel caps + 3D extruded flanks!
     if (!tiltX && !tiltY && this.bank) {
+      const darkCap = bright < 0.99;
       const backWheel = this.bank.gearWheel(brass, teeth, true);
-      const frontWheel = this.bank.gearWheel(brass, teeth, false);
+      const frontWheel = this.bank.gearWheel(brass, teeth, darkCap);
       const pBack = project3D(wx, wy, z + thick * 0.5, camX, camY);
       const pFront = project3D(wx, wy, z - thick * 0.5, camX, camY);
       const hb = (96 / 88) * rTip * pBack.s;
@@ -2489,7 +2492,7 @@ export class Stage3D {
       ctx.restore();
 
       for (const q of quads) {
-        const sh = shadeOverlay32(q.nrm, fog, clamp01(q.mz / 380) * 0.65, 0.88);
+        const sh = shadeOverlay32(q.nrm, fog, clamp01(q.mz / 380) * 0.65, 0.88 * bright);
         texQuad(ctx, rimTex, pr(q.f0), pr(q.f1), pr(q.b1), pr(q.b0), q.u0, 0, q.u1, 0, q.u1, thick, q.u0, thick, sh);
       }
 
@@ -2514,7 +2517,7 @@ export class Stage3D {
         (nrmFront.wy - org.wy) * (isNear === frontFacing ? 1 : -1) - 0.25,
         (nrmFront.wz - org.wz) * (isNear === frontFacing ? 1 : -1),
       );
-      const sh = shadeOverlay32(capNormal, fog, fogBase, isNear ? 1.0 : 0.62);
+      const sh = shadeOverlay32(capNormal, fog, fogBase, (isNear ? 1.0 : 0.62) * bright);
       const pt = (lx, ly, dz = 0) => pr(xform(lx, ly, capZ + dz));
 
       const wSp = rad * 0.10;
@@ -2554,7 +2557,7 @@ export class Stage3D {
       }
 
       const hubDz = isNear ? (frontFacing ? -2 : 2) : 0;
-      const hubSh = shadeOverlay32(capNormal, fog, fogBase * 0.9, isNear ? 1.1 : 0.7);
+      const hubSh = shadeOverlay32(capNormal, fog, fogBase * 0.9, (isNear ? 1.1 : 0.7) * bright);
       const hc = pt(0, 0, hubDz);
       for (let h = 0; h < 8; h++) {
         const ha0 = (h / 8) * Math.PI * 2, ha1 = ((h + 1) / 8) * Math.PI * 2;
@@ -2568,7 +2571,7 @@ export class Stage3D {
     // Tilted gears only need their camera-facing cap drawn once (back cap is occluded by solid hub/rim)
     drawRingCap(frontFacing ? -thick * 0.5 : thick * 0.5, true);
     for (const q of quads) {
-      const sh = shadeOverlay32(q.nrm, fog, clamp01(q.mz / 380) * 0.65, 0.88);
+      const sh = shadeOverlay32(q.nrm, fog, clamp01(q.mz / 380) * 0.65, 0.88 * bright);
       texQuad(ctx, rimTex, pr(q.f0), pr(q.f1), pr(q.b1), pr(q.b0), q.u0, 0, q.u1, 0, q.u1, thick, q.u0, thick, sh);
     }
   }
@@ -2632,15 +2635,15 @@ export class Stage3D {
       this.drawBox3D(ctx, camX, camY, tx - 28, floorY - 222, 102, 56, 14, 50, 'brass_rim');
       this.drawBox3D(ctx, camX, camY, tx - 28, floorY - 18, 102, 56, 18, 50, 'brass_rim');
     }
-    this.drawGear3D(ctx, camX, camY, cx - 96, floorY - 156, 152, { r: 44, speed: 0.52, teeth: 12 }, time);
-    this.drawGear3D(ctx, camX, camY, cx, floorY - 126, 156, { r: 60, speed: -0.38, teeth: 14, phase: 0.25 }, time);
-    this.drawGear3D(ctx, camX, camY, cx + 96, floorY - 156, 152, { r: 44, speed: 0.52, teeth: 12, phase: 0.5 }, time);
+    this.drawGear3D(ctx, camX, camY, cx - 96, floorY - 156, 152, { r: 44, speed: 0.52, teeth: 12, bright: 0.78 }, time);
+    this.drawGear3D(ctx, camX, camY, cx, floorY - 126, 156, { r: 60, speed: -0.38, teeth: 14, phase: 0.25, bright: 0.78 }, time);
+    this.drawGear3D(ctx, camX, camY, cx + 96, floorY - 156, 152, { r: 44, speed: 0.52, teeth: 12, phase: 0.5, bright: 0.78 }, time);
     this.drawBox3D(ctx, camX, camY, cx - 108, floorY - 12, 124, 216, 12, 48, 'iron_rivet', { topTex: 'brass_rim' });
     this.drawBox3D(ctx, camX, camY, cx - 64, floorY - 24, 134, 128, 12, 38, 'brass_rim', { topTex: 'brass_rim' });
     const A = this.assets;
     for (const [dx, frame] of [[-128, 'tesla_coil'], [0, 'athanor'], [128, 'tesla_coil']]) {
       const p = project3D(cx + dx, floorY - (dx === 0 ? 24 : 0), dx === 0 ? 142 : 118, camX, camY);
-      A.draw(ctx, 'alchemy_props', frame, p.x, p.y, dx > 0, 1, p.s);
+      A.draw(ctx, 'alchemy_props', frame, p.x, p.y, dx > 0, 1, p.s, 'rgba(6, 8, 18, 0.34)');
     }
     const glow = getGlowCanvas('emerald');
     if (glow) {
@@ -2665,8 +2668,8 @@ export class Stage3D {
       }
     }
     // Elevated 3D imperial opera gallery box
-    this.drawBox3D(ctx, camX, camY, cx - 108, floorY - 138, 134, 216, 14, 48, 'marble', { topTex: 'marble', bright: 1.05 });
-    this.drawBox3D(ctx, camX, camY, cx - 108, floorY - 164, 132, 216, 6, 10, 'brass_rim', { bright: 1.1 });
+    this.drawBox3D(ctx, camX, camY, cx - 108, floorY - 138, 134, 216, 14, 48, 'marble', { topTex: 'marble', bright: 0.82 });
+    this.drawBox3D(ctx, camX, camY, cx - 108, floorY - 164, 132, 216, 6, 10, 'brass_rim', { bright: 0.84 });
     for (let sx = -90; sx <= 90; sx += 36) {
       this.drawBox3D(ctx, camX, camY, cx + sx - 4, floorY - 158, 134, 8, 20, 8, 'marble');
     }
@@ -2675,12 +2678,12 @@ export class Stage3D {
     this.drawBox3D(ctx, camX, camY, cx - 72, floorY - 20, 134, 144, 10, 40, 'marble', { topTex: 'ballroom_carpet' });
     const A = this.assets;
     const hp = project3D(cx, floorY - 138, 148, camX, camY);
-    A.draw(ctx, 'ballroom_props', 'gilded_mirror', hp.x, hp.y, false, 1, hp.s);
+    A.draw(ctx, 'ballroom_props', 'gilded_mirror', hp.x, hp.y, false, 1, hp.s, 'rgba(8, 6, 18, 0.34)');
     for (const side of [-1, 1]) {
       const bp = project3D(cx + side * 62, floorY - 138, 142, camX, camY);
-      A.draw(ctx, 'ballroom_props', 'marble_bust', bp.x, bp.y, side < 0, 1, bp.s);
+      A.draw(ctx, 'ballroom_props', 'marble_bust', bp.x, bp.y, side < 0, 1, bp.s, 'rgba(8, 6, 18, 0.34)');
       const cp = project3D(cx + side * 96, floorY - 10, 128, camX, camY);
-      A.draw(ctx, 'ballroom_props', 'candelabra', cp.x, cp.y, side < 0, 1, cp.s);
+      A.draw(ctx, 'ballroom_props', 'candelabra', cp.x, cp.y, side < 0, 1, cp.s, 'rgba(8, 6, 18, 0.34)');
     }
     const glow = getGlowCanvas('violet');
     if (glow) {
@@ -2707,14 +2710,14 @@ export class Stage3D {
     }
     // Imperial Tribune podium & brass parapet
     this.drawBox3D(ctx, camX, camY, cx - 84, floorY - 112, 128, 168, 22, 46, 'travertine_stone', { topTex: 'marble' });
-    this.drawBox3D(ctx, camX, camY, cx - 88, floorY - 130, 124, 176, 8, 12, 'brass_rim', { bright: 1.06 });
+    this.drawBox3D(ctx, camX, camY, cx - 88, floorY - 130, 124, 176, 8, 12, 'brass_rim', { bright: 0.82 });
     this.drawBox3D(ctx, camX, camY, cx - 112, floorY - 12, 126, 224, 12, 48, 'stone_trim');
     const A = this.assets;
     for (const side of [-1, 1]) {
       const bp = project3D(cx + side * 72, floorY - 130, 134, camX, camY);
-      A.draw(ctx, 'coliseum_props', 'war_standard', bp.x, bp.y, side < 0, 1, bp.s);
+      A.draw(ctx, 'coliseum_props', 'war_standard', bp.x, bp.y, side < 0, 1, bp.s, 'rgba(8, 6, 18, 0.34)');
       const wp = project3D(cx + side * 144, floorY, 122, camX, camY);
-      A.draw(ctx, 'coliseum_props', 'trophy_pillar', wp.x, wp.y, side > 0, 1, wp.s);
+      A.draw(ctx, 'coliseum_props', 'trophy_pillar', wp.x, wp.y, side > 0, 1, wp.s, 'rgba(8, 6, 18, 0.34)');
     }
     const glow = getGlowCanvas('amber');
     if (glow) {
@@ -2797,17 +2800,17 @@ export class Stage3D {
       this.drawPillar3D(ctx, camX, camY, cx + side * 108, floorY - 188, floorY, 138, 20, 'marble');
     }
     // Concentric rotating 3D celestial astrolabe gears suspended inside the marble rotunda
-    this.drawGear3D(ctx, camX, camY, cx, floorY - 156, 154, { r: 66, speed: 0.28, teeth: 16 }, time);
-    this.drawGear3D(ctx, camX, camY, cx, floorY - 156, 148, { r: 42, speed: -0.46, teeth: 12, phase: 0.35 }, time);
+    this.drawGear3D(ctx, camX, camY, cx, floorY - 156, 154, { r: 66, speed: 0.28, teeth: 16, bright: 0.78 }, time);
+    this.drawGear3D(ctx, camX, camY, cx, floorY - 156, 148, { r: 42, speed: -0.46, teeth: 12, phase: 0.35, bright: 0.78 }, time);
     // Stepped white-marble & gilded-brass sanctum altar
-    this.drawBox3D(ctx, camX, camY, cx - 118, floorY - 12, 122, 236, 12, 52, 'marble', { topTex: 'marble', bright: 1.06 });
-    this.drawBox3D(ctx, camX, camY, cx - 72, floorY - 24, 132, 144, 12, 40, 'marble', { topTex: 'brass_rim', bright: 1.08 });
+    this.drawBox3D(ctx, camX, camY, cx - 118, floorY - 12, 122, 236, 12, 52, 'marble', { topTex: 'marble', bright: 0.82 });
+    this.drawBox3D(ctx, camX, camY, cx - 72, floorY - 24, 132, 144, 12, 40, 'marble', { topTex: 'brass_rim', bright: 0.84 });
     const A = this.assets;
     const sp = project3D(cx, floorY - 24, 138, camX, camY);
-    A.draw(ctx, 'skykeep_props', 'moon_astrolabe', sp.x, sp.y, false, 1, sp.s);
+    A.draw(ctx, 'skykeep_props', 'moon_astrolabe', sp.x, sp.y, false, 1, sp.s, 'rgba(8, 10, 24, 0.34)');
     for (const side of [-1, 1]) {
       const up = project3D(cx + side * 102, floorY - 12, 126, camX, camY);
-      A.draw(ctx, 'skykeep_props', 'fountain_basin', up.x, up.y, side < 0, 1, up.s);
+      A.draw(ctx, 'skykeep_props', 'fountain_basin', up.x, up.y, side < 0, 1, up.s, 'rgba(8, 10, 24, 0.34)');
     }
     const glow = getGlowCanvas('moon');
     if (glow) {
@@ -3242,9 +3245,9 @@ export class Stage3D {
 
     const tex = this.tex(typeof texKey === 'string' ? texKey : 'wall');
     const topTex = (opts && opts.topTex) ? this.tex(opts.topTex) : tex;
-    const bright = (opts && opts.bright) || 1;
+    const bright = (opts && opts.bright != null) ? opts.bright : 0.80;
     const fog = this.pal.fog;
-    const fogAmt = clamp01((z - 15) / 400) * 0.46;
+    const fogAmt = clamp01((z - 15) / 360) * 0.52;
 
     const u0 = (opts && opts.uFit) ? 0 : wx;
     const u1 = (opts && opts.uFit) ? opts.uFit : wx + w;
@@ -3326,9 +3329,9 @@ export class Stage3D {
     const span = x1 - x0;
     const archH = (ySpring - yTop) * 0.68;
     const fog = this.pal.fog;
-    const fogAmt = clamp01((z - 15) / 400) * 0.46;
+    const fogAmt = clamp01((z - 15) / 360) * 0.52;
     const tex = this.tex(typeof texKey === 'string' ? texKey : 'stone_trim');
-    const frontShade = shadeOverlay32([0, -0.15, -1], fog, fogAmt);
+    const frontShade = shadeOverlay32([0, -0.15, -1], fog, fogAmt, 0.80);
 
     // Pass 1: Curved 3D intrados soffits (z -> z + d) drawn first so they never overlap z front spandrels
     let arcU = 0;
@@ -3344,7 +3347,7 @@ export class Stage3D {
       const b1 = project3D(ax1, ay1, z + d, camX, camY);
       const b0 = project3D(ax0, ay0, z + d, camX, camY);
       const nx = Math.cos(((t0 + t1) * 0.5) * Math.PI) * 0.6;
-      const soffitShade = shadeOverlay32([nx, 0.8, -0.2], fog, fogAmt + 0.08);
+      const soffitShade = shadeOverlay32([nx, 0.8, -0.2], fog, fogAmt + 0.08, 0.76);
       texQuad(ctx, tex, f0, f1, b1, b0, arcU, 0, arcU + segLen, 0, arcU + segLen, d, arcU, d, soffitShade);
       arcU += segLen;
     }

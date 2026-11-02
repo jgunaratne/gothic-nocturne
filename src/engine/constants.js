@@ -9,7 +9,7 @@ export const DT = 1 / 60;        // fixed simulation step
 
 // Tile ids
 /** Bumped whenever assets/ change so browsers never pair a stale atlas with new code. */
-export const ASSET_VERSION = '20261102e';
+export const ASSET_VERSION = '20261102g';
 
 export const T_EMPTY = 0;
 export const T_GROUND = 1;       // graveyard earth (strip "ground")
@@ -80,18 +80,19 @@ export const PLAYER = {
   width: 20,
   height: 56,
   crouchHeight: 36,
-  invuln: 1.25,
+  invuln: 1.05,
   hurtTime: 0.38,
   whipDamage: 2,
   whipTime: 0.40,
   whipActive: [0.13, 0.31],
   whipReach: 96,
-  petrifyTime: 1.5,
+  petrifyTime: 1.6,
 };
 
 export const SCORE = {
   candle: 10, zombie: 100, bat: 200, owl: 200, wolf: 250, mushroom: 250, ghost: 300, tome: 150, gargoyle: 350,
   magmaslime: 250, cinderimp: 300, lavagolem: 450, armor: 450, wraith: 350,
+  alchfiend: 380, duelist: 460, executioner: 520, merman: 380, valkyrie: 480, necromancer: 500,
   skeleton: 300, medusa: 300, boss: 3000,
   money: 500, timeBonus: 10,
 };
@@ -101,27 +102,27 @@ export const SCORE = {
 export const DIFFICULTIES = {
   easy: {
     key: 'easy', name: 'EASY', tagline: 'A GENTLE NIGHT',
-    desc: '7 LIVES · 1 DMG HITS · 1600 SEC · PITS FORGIVE · STRONG WHIP',
+    desc: '7 LIVES · GENTLE HITS · 1600 SEC · PITS FORGIVE · STRONG WHIP',
     lives: 7, hearts: 15, time: 1600,
-    damageTaken: 0.4, enemyHp: 0.6, spawnInterval: 2.2, maxAlive: 1,
-    throwCooldown: 2.0, bossTempo: 1.6, bossPhase2: 0.3, scoreMult: 0.5,
-    playerDamage: 1.5, invulnMul: 1.6, pitForgiving: true, knockbackMul: 0.6,
+    damageTaken: 0.45, enemyHp: 0.65, spawnInterval: 2.0, maxAlive: 2,
+    throwCooldown: 1.8, bossTempo: 1.45, bossPhase2: 0.38, scoreMult: 0.5,
+    playerDamage: 1.45, invulnMul: 1.65, pitForgiving: true, knockbackMul: 0.6,
   },
   normal: {
     key: 'normal', name: 'NORMAL', tagline: 'THE CLASSIC HUNT',
-    desc: '3 LIVES · 900 SEC · STANDARD FIENDS',
+    desc: '3 LIVES · 900 SEC · FIERCE CASTLE FIENDS',
     lives: 3, hearts: 5, time: 900,
-    damageTaken: 1, enemyHp: 1, spawnInterval: 1, maxAlive: 3,
-    throwCooldown: 1, bossTempo: 1, bossPhase2: 0.5, scoreMult: 1,
+    damageTaken: 1.15, enemyHp: 1.1, spawnInterval: 0.82, maxAlive: 4,
+    throwCooldown: 0.85, bossTempo: 0.86, bossPhase2: 0.62, scoreMult: 1,
     playerDamage: 1, invulnMul: 1, pitForgiving: false, knockbackMul: 1,
   },
   hard: {
     key: 'hard', name: 'HARD', tagline: 'NO MERCY AT MIDNIGHT',
-    desc: '2 LIVES · 1.5X DAMAGE · 660 SEC · RELENTLESS FIENDS · 2X SCORE',
+    desc: '2 LIVES · 1.65X DAMAGE · 660 SEC · RELENTLESS LEGIONS · 2X SCORE',
     lives: 2, hearts: 3, time: 660,
-    damageTaken: 1.5, enemyHp: 1.5, spawnInterval: 0.65, maxAlive: 4,
-    throwCooldown: 0.7, bossTempo: 0.75, bossPhase2: 0.65, scoreMult: 2,
-    playerDamage: 1, invulnMul: 1, pitForgiving: false, knockbackMul: 1,
+    damageTaken: 1.65, enemyHp: 1.6, spawnInterval: 0.54, maxAlive: 6,
+    throwCooldown: 0.62, bossTempo: 0.68, bossPhase2: 0.75, scoreMult: 2,
+    playerDamage: 1, invulnMul: 0.9, pitForgiving: false, knockbackMul: 1,
   },
 };
 export const DIFFICULTY_ORDER = ['easy', 'normal', 'hard'];

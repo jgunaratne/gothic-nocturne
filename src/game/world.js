@@ -21,7 +21,7 @@ import { Candle, Item, Projectile, Fire, rollDrop, rectsOverlap } from './object
 import { populateExploration } from './exploration.js';
 import { cellsToRevealAt, stageIndexOf } from './castlemap.js';
 import { BOSS_RELICS, FORGED_RELIC_EFFECTS } from './relics.js';
-import { computeExpYield, enemyExpProfile } from './progression.js';
+import { computeExpYield, enemyExpProfile, stageRankFor } from './progression.js';
 import { drawRemotePlayers, drawRemoteEdgeIndicators } from './net_player.js';
 import {
   WEAPONS, ELEMENT_META, computeStrengthBreakdown, computeWeaponHit, rollEnemyWeaponDrop,
@@ -39,8 +39,18 @@ const BOSS_TALK_FRAMES = {
   gorgon: { idle: ['a', 'b'], talk: ['a', 'stare', 'b', 'a', 'stare'] },
   automaton: { idle: ['idle'], talk: ['idle', 'walk', 'overload', 'idle', 'punch'] },
   archivist: { idle: ['idle'], talk: ['idle', 'cast', 'summon', 'idle', 'shield'] },
+  archon: { idle: ['idle', 'roar'], talk: ['roar', 'pounce', 'idle', 'roar', 'shell'] },
   reaperlord: { idle: ['idle0', 'idle1'], talk: ['idle0', 'windup', 'idle1', 'swing'] },
   count: { idle: ['idle'], talk: ['idle', 'cast', 'cape', 'idle', 'cast'] },
+};
+
+/** Sheet-specific overrides for dedicated Castle Wing boss sheets (`Stages 14–18`). */
+const BOSS_SHEET_TALK_FRAMES = {
+  alchemist: { idle: ['idle'], talk: ['idle', 'cast', 'summon', 'idle', 'shield'] },
+  masquerade: { idle: ['idle', 'cape'], talk: ['idle', 'cape', 'cast', 'lunge', 'cape'] },
+  gladiator: { idle: ['walk0'], talk: ['walk0', 'throw0', 'walk1', 'throw1', 'walk0'] },
+  oracle: { idle: ['a', 'b'], talk: ['a', 'stare', 'b', 'a', 'stare'] },
+  seraph: { idle: ['idle', 'roar'], talk: ['idle', 'roar', 'pounce', 'roar', 'shell'] },
 };
 
 /** Idle pose frame shown while a boss speaks (for sheets without a 'walk0'). */
@@ -48,6 +58,7 @@ const BOSS_POSE_FRAME = {
   giantbat: 'fly1', gorgon: 'a', greatjack: 'flame0', bonecaptain: 'walk0', treant: 'idle0',
   cinderqueen: 'idle', automaton: 'idle', archivist: 'idle', archon: 'roar',
   devilsanta: 'idle', count: 'idle', reaper: 'idle0', reaperlord: 'idle0',
+  alchemist: 'idle', masquerade: 'idle', gladiator: 'walk0', oracle: 'a', seraph: 'idle',
 };
 
 export const BOSS_LINES = {
@@ -264,11 +275,28 @@ export class World {
   sfx(name) { this.audio.sfx(name); }
   addScore(n) { this.score += Math.round(n * this.difficulty.scoreMult); }
   showMessage(text, sub, dur = 2) { this.messages = [{ text, sub, t: 0, dur }]; }
-  /** Registers an enemy, scaling multi-hit health by the difficulty preset. */
+  /** Registers an enemy, scaling health, contact force & boss tempo by stage rank and difficulty. */
   spawnEnemy(e) {
-    if (e.hp > 1) {
-      e.hp = Math.max(1, Math.round(e.hp * this.difficulty.enemyHp));
-      if (e.maxHp) e.maxHp = e.hp;
+    const rank = stageRankFor(this.stage);
+    const isBoss = e === this.boss || !!(e && e.arena);
+    if (isBoss) {
+      // Ensure late-game Castle Wings & forged bosses scale with castle depth rather than early-stage base HP
+      const rankFloorHp = Math.round(38 + rank * 7.6);
+      if (e.hp < rankFloorHp) e.hp = rankFloorHp;
+      e.hp = Math.max(12, Math.round(e.hp * this.difficulty.enemyHp));
+      e.maxHp = e.hp;
+      e.touchDamage = Math.max(3, Math.round((e.touchDamage || 3) * (1 + Math.max(0, rank - 1) * 0.042)));
+      e.swingDamage = Math.max(4, Math.round((e.swingDamage || 5) * (1 + Math.max(0, rank - 1) * 0.048)));
+      if (e.tempo && rank >= 9) {
+        e.tempo *= Math.max(0.76, 1 - (rank - 8) * 0.015);
+      }
+    } else {
+      const rankHpMult = 1 + Math.max(0, rank - 1) * 0.088;
+      if (e.hp > 1 || rank >= 4) {
+        e.hp = Math.max(1, Math.round(e.hp * rankHpMult * this.difficulty.enemyHp));
+        if (e.maxHp != null) e.maxHp = e.hp;
+      }
+      e.touchDamage = Math.max(2, Math.round((e.touchDamage || 2) * (1 + Math.max(0, rank - 1) * 0.042)));
     }
     this.enemies.push(e);
   }
@@ -851,7 +879,7 @@ export class World {
       }
       if (e === this.boss) {
         const sb = e.swingBox();
-        if (sb && rectsOverlap(sb, pb)) { p.hurt(4, e.x, this); continue; }
+        if (sb && rectsOverlap(sb, pb)) { p.hurt(e.swingDamage || 5, e.x, this); continue; }
         if (e.alpha > 0.7 && rectsOverlap(e.box(-6), pb)) p.hurt(e.touchDamage, e.x, this);
         continue;
       }
@@ -861,6 +889,7 @@ export class World {
       if (rectsOverlap(e.box(e.flies ? -4 : -2), pb)) p.hurt(e.touchDamage, e.x, this);
     }
     const shSlot = p.activeShieldSlot ? p.activeShieldSlot() : null;
+    const rankProjScale = 1 + Math.max(0, stageRankFor(this.stage) - 1) * 0.04;
     for (const pr of this.projectiles) {
       if (pr.owner === 'enemy' && !pr.dead && rectsOverlap(pr.box, pb)) {
         // Active Shield Socket blocks frontal enemy projectiles with a metallic clang!
@@ -872,7 +901,7 @@ export class World {
           this.spawnPopup(p.x, p.y - 54, 'GUARD!', { color: '#ffd27a', dur: 0.65, vy: -20 });
           continue;
         }
-        let dmg = pr.damage;
+        let dmg = Math.max(1, Math.round(pr.damage * rankProjScale));
         if (this.hasRelic('darkcave') && (pr.type === 'fireball' || pr.type === 'magmaball' || pr.type === 'hellfire')) {
           dmg = Math.max(1, Math.round(dmg * 0.35));
         }
@@ -975,7 +1004,12 @@ export class World {
       this.boss.alpha = 0;
       this.boss.introPose = true;
       this.boss.poseY = this.boss.y;
-      if (!this.assets.frame(this.boss.sheet, this.boss.frame)) this.boss.frame = BOSS_POSE_FRAME[b.type] || this.boss.frame;
+      if (!this.assets.frame(this.boss.sheet, this.boss.frame)) {
+        const poseFallback = BOSS_POSE_FRAME[this.boss.sheet] || BOSS_POSE_FRAME[b.type];
+        if (poseFallback && this.assets.frame(this.boss.sheet, poseFallback)) {
+          this.boss.frame = poseFallback;
+        }
+      }
       return;
     }
     const intro = this.bossIntro;
@@ -998,14 +1032,13 @@ export class World {
       }
       bs.facing = p.x > bs.x ? 1 : -1;
       // Talking gestures: alternate each boss's idle pose with characteristic gesture frames
-      const G = BOSS_TALK_FRAMES[this.data.boss.type];
-      if (bs.sheet === 'archon') bs.frame = Math.floor(bs.t * 6) % 2 ? 'pounce' : 'roar';
-      else if (bs.sheet === 'seraph') {
-        const seq = talking ? ['idle', 'roar', 'idle', 'pounce', 'roar'] : ['idle', 'roar'];
-        bs.frame = seq[Math.floor(bs.t * (talking ? 1.8 : 1.2)) % seq.length];
+      const G = BOSS_SHEET_TALK_FRAMES[bs.sheet] || BOSS_TALK_FRAMES[this.data.boss.type];
+      if (bs.sheet === 'archon') {
+        bs.frame = Math.floor(bs.t * 6) % 2 ? 'pounce' : 'roar';
       } else if (G) {
         const seq = talking ? G.talk : G.idle;
-        bs.frame = seq[Math.floor(bs.t * (talking ? 1.6 : 0.8)) % seq.length];
+        const cand = seq[Math.floor(bs.t * (talking ? 1.65 : 0.85)) % seq.length];
+        if (cand && this.assets.frame(bs.sheet, cand)) bs.frame = cand;
       }
       if (talking && Math.floor(bs.t * 6) % 2 === 0) {
         if (Math.random() < 0.25) this.particles.sparks(bs.x + (Math.random() - 0.5) * bs.w, bs.y - bs.h * 0.8, 1, '#ffd27a');
@@ -1031,6 +1064,10 @@ export class World {
     if (b.sheet && this.assets.info(b.sheet)) boss.sheet = b.sheet;
     else if (b.tint) boss.tint = b.tint;   // no generated sheet: recolour the base boss
     if (b.aura) boss.aura = b.aura;
+    if (!this.assets.frame(boss.sheet, boss.frame)) {
+      const poseFallback = BOSS_POSE_FRAME[boss.sheet] || BOSS_POSE_FRAME[b.type];
+      if (poseFallback && this.assets.frame(boss.sheet, poseFallback)) boss.frame = poseFallback;
+    }
   }
 
   triggerBossVoice() {
@@ -1053,6 +1090,7 @@ export class World {
         // Call playVoice first so synchronous voiceDucking + hall acoustics engage before musicBus ramps.
         this.audio.playVoice(key, {
           space: this.voiceSpaceForStage(),
+          speechText: cue.text,
           onReady: (dur) => {
             if (this.voiceCue === cue && dur > 1) cue.dur = Math.max(cue.t + 1.2, dur + 0.35);
           },
@@ -1214,13 +1252,14 @@ export class World {
     if (dbgHp > 0) this.boss.hp = dbgHp;
     this.enemies = this.enemies.filter((e) => e === this.boss || e.x > b.camX - 100);
     if (!hadIntro) {
-      // Direct start (tests / debug): still announce the boss.
+      // Direct start (tests / debug / instant arena jump): still announce and voice the boss!
       this.sfx('gate');
       this.camera.shake(4, 0.5);
       this.showMessage(b.name, 'DEFEAT IT TO CLAIM THE ORB', 3);
-      this.bossSpoken = true;
+      this.triggerBossVoice();
+    } else {
+      this.audio.playMusic('boss');
     }
-    this.audio.playMusic('boss');
     setTimeout(() => { this.sfx('boss_roar'); this.onBossRoar(); }, 900);
   }
 
@@ -1556,12 +1595,12 @@ export class World {
       }
       // 1a. Sky dome + celestial 3D aurora (behind mountains & trees) + clouds + lightning
       this.parallax.drawSky(ctx, cam, flash, this.boltX, this.boltSeed, (c) => this.stage3d.drawSky3D(c, cam, t));
-      // 1b. Far horizon ridges & distant castle crags (`fx < 0.32`)
-      this.parallax.drawBackRange(ctx, cam, flash, 0, 0.32, false);
-      // 1c. Mid-far 3D Gothic Keep (`fx ≈ 0.26`), behind near cemetery trees & bat flocks
+      // 1b. Far horizon ridges, panoramic vistas & distant castle crags (`fx < 0.25`)
+      this.parallax.drawBackRange(ctx, cam, flash, 0, 0.25, false);
+      // 1c. Mid-far 3D Gothic Keep (`fx = 0.26`), behind wheeling bat flocks & near trees
       this.stage3d.drawMidHorizon3D(ctx, cam, t, flash);
-      // 1d. Near scrolling forests / snowbound village (`fx >= 0.32`) + wheeling bat flock
-      this.parallax.drawBackRange(ctx, cam, flash, 0.32, 2.0, true);
+      // 1d. Wheeling bat flock (`fx = 0.30`) + near scrolling forests / snowbound village (`fx >= 0.30`)
+      this.parallax.drawBackRange(ctx, cam, flash, 0.25, 2.0, true);
       ctx.restore();
 
       // 1e. 3D receding ground/water plane, colonnades & barbican gatehouse set-piece
@@ -1601,9 +1640,16 @@ export class World {
     // 3. Far/mid weather particles + stage decor (with extruded 3D cogwheels) + indoor god-rays
     this.drawWeather(ctx, false);
     this.level.drawDecor(ctx, cam, this.assets, t, this.stage3d);
-    if (fxl && fxl.enabled && !showOutdoor) {
-      fxl.godRays(ctx, camX, this.fxTheme, 1.0);
+    if (fxl) {
+      fxl.flushFlames(ctx);
+      if (fxl.enabled && !showOutdoor) {
+        fxl.godRays(ctx, camX, this.fxTheme, 0.65);
+      }
     }
+    // Atmospheric depth-separation veil: keeps all background parallax, 3D architecture,
+    // and wall decor noticeably dimmer so the z = 0 foreground terrain & sprites stand out.
+    ctx.fillStyle = showOutdoor ? 'rgba(6, 5, 14, 0.15)' : 'rgba(6, 5, 14, 0.19)';
+    ctx.fillRect(0, 0, W, H);
 
     // 4a. Boss gate + static architectural terrain (viaducts, 3D decks, z = 0 tiles & static balconies)
     if (this.gateClosed) {

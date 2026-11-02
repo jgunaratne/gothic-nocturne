@@ -8,63 +8,76 @@ const LAYER_SETS = {
   // Graveyard road: mountains, panoramic 1920px valley/viaduct vista & distant keep ridge behind cemetery trees.
   outdoor: {
     layers: [
-      { img: 'mountains', fx: 0.10, fy: 0.05, dy: -26 },
-      { img: 'graveyard_vista', fx: 0.18, fy: 0.08, dy: -22, dark: 0.22 },
-      { img: 'castle', fx: 0.25, fy: 0.10, dy: -18 },
-      { img: 'forest', fx: 0.50, fy: 0.20, dy: -28 },
+      { img: 'mountains', fx: 0.09, fy: 0.05, dy: -26, dark: 0.48 },
+      { img: 'graveyard_vista', fx: 0.16, fy: 0.08, dy: -24, dark: 0.42 },
+      { img: 'castle', fx: 0.22, fy: 0.10, dy: -20, dark: 0.36 },
+      { img: 'forest', fx: 0.36, fy: 0.15, dy: -28, dark: 0.34 },
     ],
     front: true,
     flock: { count: 7, cx: 0.7, cy: 0.22, rx: 200, ry: 60 },
-    shafts: { count: 3, color: 'rgba(200, 210, 255, 0.05)' },
+    shafts: { count: 3, color: 'rgba(200, 210, 255, 0.04)' },
   },
   // Castle ramparts: high above the outer bailey, overlooking the panoramic valley & 3D courtyard.
   ramparts: {
     layers: [
-      { img: 'mountains', fx: 0.09, fy: 0.05, dy: -24 },
-      { img: 'graveyard_vista', fx: 0.17, fy: 0.09, dy: -24, dark: 0.18 },
-      { img: 'castle', fx: 0.25, fy: 0.12, dy: -22 },
+      { img: 'mountains', fx: 0.09, fy: 0.05, dy: -24, dark: 0.48 },
+      { img: 'graveyard_vista', fx: 0.16, fy: 0.08, dy: -24, dark: 0.42 },
+      { img: 'castle', fx: 0.22, fy: 0.10, dy: -22, dark: 0.36 },
     ],
     front: false,
     flock: { count: 9, cx: 0.55, cy: 0.26, rx: 230, ry: 64 },
-    shafts: { count: 3, color: 'rgba(185, 205, 255, 0.05)' },
+    shafts: { count: 3, color: 'rgba(185, 205, 255, 0.04)' },
   },
   // Pumpkin woods: two copies of the deep forest, top-clamped so tree crowns never drop into sky.
   forest: {
     layers: [
-      { img: 'mountains', fx: 0.08, fy: 0.05, dy: -18 },
-      { img: 'deepforest', fx: 0.22, fy: 0.10, dy: -48, dark: 0.55, topCut: 0 },
-      { img: 'deepforest', fx: 0.46, fy: 0.17, dy: -38, topCut: 0 },
+      { img: 'mountains', fx: 0.08, fy: 0.05, dy: -22, dark: 0.48 },
+      { img: 'deepforest', fx: 0.19, fy: 0.09, dy: -48, dark: 0.58, topCut: 0 },
+      { img: 'deepforest', fx: 0.40, fy: 0.16, dy: -34, dark: 0.34, topCut: 0 },
     ],
     front: true,
     flock: { count: 6, cx: 0.4, cy: 0.18, rx: 180, ry: 50 },
-    shafts: { count: 4, color: 'rgba(255, 200, 140, 0.06)' },
+    shafts: { count: 4, color: 'rgba(255, 200, 140, 0.05)' },
   },
   // Darkwood: midnight ancient canopy (topCut=33 keeps cropped crown edge above viewport).
   darkwood: {
     layers: [
-      { img: 'mountains', fx: 0.07, fy: 0.05, dy: -34, dark: 0.35 },
-      { img: 'darkwood_canopy', fx: 0.18, fy: 0.08, dy: -54, dark: 0.55, topCut: 33 },
-      { img: 'darkwood_canopy', fx: 0.42, fy: 0.15, dy: -68, topCut: 33 },
+      { img: 'mountains', fx: 0.07, fy: 0.05, dy: -34, dark: 0.52 },
+      { img: 'darkwood_canopy', fx: 0.18, fy: 0.09, dy: -52, dark: 0.58, topCut: 33 },
+      { img: 'darkwood_canopy', fx: 0.38, fy: 0.15, dy: -56, dark: 0.36, topCut: 33 },
     ],
     front: false,
     flock: { count: 5, cx: 0.52, cy: 0.20, rx: 190, ry: 46 },
-    shafts: { count: 4, color: 'rgba(105, 240, 190, 0.06)' },
+    shafts: { count: 4, color: 'rgba(105, 240, 190, 0.05)' },
   },
   // Frozen village: distant peaks rising above the snowbound village & pine treeline.
   winter: {
     layers: [
-      { img: 'mountains', fx: 0.08, fy: 0.05, dy: -68 },
-      { img: 'winter', fx: 0.40, fy: 0.16, dy: -34 },
+      { img: 'mountains', fx: 0.08, fy: 0.05, dy: -64, dark: 0.46 },
+      { img: 'winter', fx: 0.30, fy: 0.13, dy: -34, dark: 0.34 },
     ],
     front: false,
-    shafts: { count: 3, color: 'rgba(180, 220, 255, 0.05)' },
+    shafts: { count: 3, color: 'rgba(180, 220, 255, 0.04)' },
   },
 };
 
 /**
+ * Smoothly bounded elevation offset (`>= 0` as the camera climbs above the base
+ * story floor `levelH - H`), preventing multi-story stages (`63` rows / `2016 px`)
+ * from detaching 2D backdrops, 3D scanline ground planes, or sky openings.
+ */
+export function parallaxElevY(camRy, levelH) {
+  const base = levelH - H;
+  const raw = Math.max(-64, base - camRy);
+  if (raw <= 0) return raw * 0.35;
+  const half = Math.max(220, base * 0.42);
+  return 135 * (raw / (raw + half));
+}
+
+/**
  * Registers a parallax layer set for a forged or celestial wing: `backdropImg`
  * (a generated wide panoramic mid-distance layer) is stacked at two parallax
- * depths behind the play plane, with optional custom `skyImg` dome.
+ * depths behind the 3D horizon keep (`fx = 0.26`) and play plane.
  */
 export function registerLayerSet(name, {
   skyImg = null,
@@ -75,9 +88,9 @@ export function registerLayerSet(name, {
   const base = LAYER_SETS[baseSet] || LAYER_SETS.outdoor;
   const layers = backdropImg
     ? [
-      ...(skyImg ? [] : [{ img: 'mountains', fx: 0.08, fy: 0.05, dy: -36, dark: 0.3 }]),
-      { img: backdropImg, fx: 0.18, fy: 0.08, dy: -42, dark: 0.46, topCut: 0 },
-      { img: backdropImg, fx: 0.42, fy: 0.16, dy: -24, topCut: 0 },
+      ...(skyImg ? [] : [{ img: 'mountains', fx: 0.08, fy: 0.05, dy: -36, dark: 0.48 }]),
+      { img: backdropImg, fx: 0.14, fy: 0.06, dy: -42, dark: 0.54, topCut: 0 },
+      { img: backdropImg, fx: 0.22, fy: 0.10, dy: -26, dark: 0.40, topCut: 0 },
     ]
     : base.layers.slice();
   LAYER_SETS[name] = {
@@ -85,7 +98,7 @@ export function registerLayerSet(name, {
     layers,
     front: false,
     flock: base.flock ? Object.assign({}, base.flock) : { count: 6, cx: 0.55, cy: 0.22, rx: 200, ry: 56 },
-    shafts: { count: 3, color: `rgba(${accentRgb[0]}, ${accentRgb[1]}, ${accentRgb[2]}, 0.05)` },
+    shafts: { count: 3, color: `rgba(${accentRgb[0]}, ${accentRgb[1]}, ${accentRgb[2]}, 0.04)` },
   };
 }
 
@@ -104,9 +117,11 @@ export class Parallax {
         dark: L.dark || 0,
         fx: L.fx,
         fy: L.fy,
+        dy: L.dy || 0,
         topCut: L.topCut == null ? null : L.topCut,
         worldY: levelH - H + L.dy,
-      }));
+      }))
+      .sort((a, b) => a.fx - b.fx);
     this.hasFront = set.front;
     this.flock = set.flock ? makeFlock(set.flock) : null;
     this.shafts = set.shafts ? makeShafts(set.shafts) : null;
@@ -119,7 +134,8 @@ export class Parallax {
   update(dt) { this.time += dt; }
 
   drawSky(ctx, cam, flash, boltX = 320, boltSeed = 1.0, extraSkyFn = null) {
-    const sky = (this.skyImg && this.assets.img(this.skyImg)) || this.assets.img('sky');
+    const skyKey = (this.skyImg && this.assets.img(this.skyImg)) ? this.skyImg : 'sky';
+    const sky = this.assets.darkened(skyKey, 0.22);
     const off = mod(-(cam.rx * 0.04) - this.time * 1.5, sky.width);
     for (let x = off - sky.width; x < W; x += sky.width) ctx.drawImage(sky, Math.round(x), 0);
     // Shader & 3D aurora ribbons belong in the celestial sky dome behind mountains & trees.
@@ -137,21 +153,27 @@ export class Parallax {
   }
 
   drawBack(ctx, cam, flash) {
-    this.drawBackRange(ctx, cam, flash, 0, 1, true);
+    this.drawBackRange(ctx, cam, flash, 0, 2.0, true);
   }
 
   /**
    * Draws scrolling parallax layers whose horizontal depth factor `fx` falls in
-   * `[fxMin, fxMax)` so 3D horizon landmarks (e.g. the distant castle keep at
-   * `fx ≈ 0.26`) interleave at their true depth between far ridges and near trees.
+   * `[fxMin, fxMax)` in strict back-to-front `fx` order, interleaving the bat
+   * flock at its true depth (`fx = 0.30`) behind nearer trees (`fx >= 0.36`).
    */
-  drawBackRange(ctx, cam, flash, fxMin = 0, fxMax = 1, includeFlock = false) {
-    const base = this.levelH - H;
+  drawBackRange(ctx, cam, flash, fxMin = 0, fxMax = 2.0, includeFlock = false) {
+    const elev = parallaxElevY(cam.ry, this.levelH);
+    const wantFlock = !!(includeFlock && this.flock && 0.30 >= fxMin && 0.30 < fxMax);
+    let drewFlock = false;
     for (const L of this.layers) {
       if (L.fx < fxMin || L.fx >= fxMax) continue;
+      if (wantFlock && !drewFlock && L.fx > 0.30) {
+        this.drawFlock(ctx, cam);
+        drewFlock = true;
+      }
       const img = L.dark ? this.assets.darkened(L.img, L.dark) : this.assets.img(L.img);
       const off = mod(-(cam.rx * L.fx), img.width);
-      let y = Math.round(L.worldY - base - (cam.ry - base) * L.fy);
+      let y = Math.round(L.dy + elev * L.fy);
       if (L.topCut != null) y = Math.min(-L.topCut, y);
       for (let x = off - img.width; x < W; x += img.width) {
         const dx = Math.round(x);
@@ -168,22 +190,23 @@ export class Parallax {
         ctx.restore();
       }
     }
-    if (includeFlock && this.flock) this.drawFlock(ctx, cam);
+    if (wantFlock && !drewFlock) this.drawFlock(ctx, cam);
   }
 
   /** Drawn after 3D outdoor vistas so moonlight beams & mist unify 2D and 3D depth. */
   drawAtmosphere(ctx, cam) {
     const fx = getFxLayers();
-    if (fx && fx.enabled) fx.godRays(ctx, cam.rx, this.setName, 1.0);
+    if (fx && fx.enabled) fx.godRays(ctx, cam.rx, this.setName, 0.72);
     else if (this.shafts) this.drawShafts(ctx, cam);
-    this.drawFog(ctx, cam, 0.62, 0.20, 36, 22);
+    this.drawFog(ctx, cam, 0.62, 0.16, 36, 22);
   }
 
-  /** A wheeling flock of bats at depth: scaled, darkened, on Lissajous paths. */
+  /** A wheeling flock of bats at depth (`fx = 0.30`): scaled, darkened, on Lissajous paths. */
   drawFlock(ctx, cam) {
     const F = this.flock;
     if (!this.assets.frame('bat', 'fly0')) return;
-    const cx = F.cx * W - cam.rx * 0.3, cy = F.cy * H - (cam.ry - (this.levelH - H)) * 0.15;
+    const elev = parallaxElevY(cam.ry, this.levelH);
+    const cx = F.cx * W - cam.rx * 0.30, cy = F.cy * H + elev * 0.13;
     for (const b of F.bats) {
       const t = this.time * b.speed + b.phase;
       const x = mod(cx + Math.cos(t) * F.rx + Math.cos(t * 2.3) * 20, W + 120) - 60;
@@ -227,8 +250,8 @@ export class Parallax {
 
   drawFog(ctx, cam, fx, alpha, speed, yOff) {
     const fog = this.fog;
-    const base = this.levelH - H;
-    const y = Math.round(H - fog.height - yOff - (cam.ry - base) * 0.5);
+    const elev = parallaxElevY(cam.ry, this.levelH);
+    const y = Math.round(H - fog.height - yOff + elev * 0.24);
     ctx.save();
     ctx.globalAlpha = alpha;
     let off = mod(-(cam.rx * fx) + this.time * speed, fog.width);
@@ -255,8 +278,7 @@ export class Parallax {
     if (clipRight <= 0) return;
 
     const off = mod(-(cam.rx * 1.28), img.width);
-    const base = this.levelH - H;
-    const elev = Math.max(0, base - cam.ry); // >= 0 as camera climbs above base floor
+    const elev = Math.max(0, parallaxElevY(cam.ry, this.levelH)); // bounded >= 0 as camera climbs above base floor
 
     // Top overhanging gnarled branches & chains: anchored to top border (`topY <= 0`).
     const topSrcH = Math.min(148, img.height);
