@@ -336,6 +336,8 @@ atlas. Previews land in `art/work/`.
 
 ### Animating sprites with video (Gemini Omni)
 
+> Full step-by-step playbook, prompt anatomy, feel thresholds, and troubleshooting table: [`art/ANIMATION.md`](art/ANIMATION.md).
+
 Multi-frame animations come from short video clips rather than hand-posed
 sheets, so the in-betweens, arm swing, hair and whip follow-through are real
 motion. `tools/animate_sprites.py` cuts a reference pose out of its raw sheet,

@@ -33,3 +33,5 @@ Keyed-asset suffix (anything that is not a full-frame backdrop)
 Provenance: all raw generations live in `art/raw/`, prompts in
 `art/PROMPTS.md`, processing rules in `tools/asset_manifest.json`; outputs in
 `assets/` are produced deterministically by `tools/process_assets.py`.
+For the full Gemini Omni image-to-video sprite animation + procedural feel
+playbook, see [`ANIMATION.md`](ANIMATION.md).
