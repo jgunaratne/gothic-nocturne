@@ -2,7 +2,8 @@
 // orbiting gear gondolas, crumbling masonry) and 3D-extruded tile rendering.
 
 import {
-  TILE, T_EMPTY, T_GROUND, T_STONE, T_CATACOMB, T_CLOCK, T_FOREST, T_SNOW, T_DARKWOOD, T_CAVERN, T_LAVA,
+  TILE, T_EMPTY, T_GROUND, T_STONE, T_CATACOMB, T_CLOCK, T_FOREST, T_SNOW, T_DARKWOOD, T_CAVERN, T_LAVA, T_WATER,
+  T_BALLROOM, T_COLISEUM, T_AQUEDUCT, T_SKYKEEP,
   T_PLATFORM, T_CRUMBLE, T_SPIKES, T_BLOCK, T_GATE, T_BOUND,
   MATERIAL_STRIP, isMaterialTile, isSolidTile, W, H,
 } from '../engine/constants.js';
@@ -30,6 +31,8 @@ export class Level {
     this.platformRuns = [];
     this.bridgeRuns = [];
     this.lavaRuns = [];
+    this.waterRuns = [];
+    this.waterBasins = (data.waterBasins || []).map((b) => Object.assign({}, b));
     this.crumbles = [];
     this.crumbleMap = new Map();
     this.movers = (data.movers || []).map((m) => makeMover(m));
@@ -64,6 +67,7 @@ export class Level {
     }
   }
   clear(x0, x1, y0 = 0, y1 = this.rows - 1) { this.fill(x0, x1, y0, y1, T_EMPTY); }
+  water(x0, x1, y0, y1) { this.fill(x0, x1, y0, y1, T_WATER); }
   platform(x0, x1, row) { this.fill(x0, x1, row, row, T_PLATFORM); }
   set(x, y, t) { if (x >= 0 && y >= 0 && x < this.cols && y < this.rows) this.tiles[y * this.cols + x] = t; }
 
@@ -121,6 +125,20 @@ export class Level {
         } else x++;
       }
     }
+    // Contiguous play-plane water channel / cistern runs for shader rendering & interactive ripples.
+    this.waterRuns = [];
+    for (let y = 1; y < this.rows; y++) {
+      let x = 0;
+      while (x < this.cols) {
+        if (this.tile(x, y) === T_WATER && this.tile(x, y - 1) !== T_WATER) {
+          const x0 = x;
+          while (x < this.cols && this.tile(x, y) === T_WATER && this.tile(x, y - 1) !== T_WATER) x++;
+          let hTiles = 1;
+          while (y + hTiles < this.rows && this.tile(x0, y + hTiles) === T_WATER) hTiles++;
+          this.waterRuns.push({ x0, x1: x - 1, y, hTiles });
+        } else x++;
+      }
+    }
   }
 
   // ------------------------------------------------------------- queries
@@ -134,7 +152,35 @@ export class Level {
   isOneWay(tx, ty) { const t = this.tile(tx, ty); return t === T_PLATFORM || t === T_CRUMBLE; }
   isSpike(tx, ty) { return this.tile(tx, ty) === T_SPIKES; }
   isLava(tx, ty) { return this.tile(tx, ty) === T_LAVA; }
+  isWater(tx, ty) { return this.tile(tx, ty) === T_WATER; }
   isStandable(tx, ty) { const t = this.tile(tx, ty); return isSolidTile(t) || t === T_PLATFORM || t === T_CRUMBLE; }
+
+  /**
+   * Returns `{ x0, x1, surfaceY, bottomY, depth }` when world point `(wx, wy)` is
+   * touching or wading in a play-plane water channel or reflecting basin, else `null`.
+   */
+  waterSurfaceAt(wx, wy) {
+    for (let i = 0; i < this.waterRuns.length; i++) {
+      const wr = this.waterRuns[i];
+      const x0 = wr.x0 * TILE, x1 = (wr.x1 + 1) * TILE;
+      if (wx < x0 || wx > x1) continue;
+      const surfaceY = wr.y * TILE + 6;
+      const bottomY = (wr.y + wr.hTiles) * TILE;
+      if (wy >= surfaceY - 4 && wy <= bottomY + 10) {
+        return { x0, x1, surfaceY, bottomY, depth: bottomY - surfaceY };
+      }
+    }
+    for (let i = 0; i < this.waterBasins.length; i++) {
+      const b = this.waterBasins[i];
+      const x0 = b.x, x1 = b.x + b.w;
+      if (wx < x0 || wx > x1) continue;
+      const surfaceY = b.y, bottomY = b.y + b.h;
+      if (wy >= surfaceY - 4 && wy <= bottomY + 10) {
+        return { x0, x1, surfaceY, bottomY, depth: bottomY - surfaceY };
+      }
+    }
+    return null;
+  }
 
   /** First standable row at column tx (from the top), or -1. */
   surfaceRow(tx, fromRow = 0) {
@@ -341,6 +387,17 @@ export class Level {
       else if (d.frame === 'ancient_totem') drawFlameGlow(ctx, x, y - 44, time + d.x, 20, 0.50, 'emerald');
       else if (d.frame === 'brazier') { drawFlameGlow(ctx, x, y - 82 * sc, time + d.x, 30 * sc, 0.72); const fx = getFxLayers(); if (fx) fx.addFlame(x, y - 78 * sc, 16 * sc, 20 * sc, [1.0, 0.55, 0.16], d.x * 0.011); }
       else if (d.frame === 'magma_vent') drawFlameGlow(ctx, x, y - 56 * sc, time + d.x, 32 * sc, 0.68);
+      else if (d.frame === 'canal_lantern') drawFlameGlow(ctx, x, y - 44 * sc, time + d.x, 26 * sc, 0.66, 'cyan');
+      else if (d.frame === 'water_spout') {
+        const fx = getFxLayers();
+        const fw = Math.max(4, Math.round(10 * sc)), fh = Math.max(8, Math.round(22 * sc));
+        if (fx && fx.enabled) {
+          fx.waterfall(ctx, { x: Math.round(x - fw * 0.5), y: Math.round(y - 18 * sc), w: fw, h: fh }, {
+            camX, tint: [0.22, 0.76, 0.96], foam: [0.88, 0.98, 1.0], alpha: 0.86, speed: 1.3,
+          });
+        }
+        drawFlameGlow(ctx, x, y - 8 * sc, time + d.x, 18 * sc, 0.42, 'cyan');
+      }
       else if (d.frame === 'tree') {
         const f = assets.frame('xmasprops', 'tree');
         if (f) {
@@ -357,32 +414,60 @@ export class Level {
   }
 
   /**
-   * Clock-tower pendulum: a rod on a pivot swinging in a 3D arc that comes
-   * toward the viewer, foreshortening the brass bob into an ellipse.
+   * Clock-tower pendulum: pixel-art `hanging_props` hoist wheel, `arch` chain/rod
+   * links, and brass/steel `pendulum_bob` swinging in a foreshortened 3D arc.
    */
   drawPendulum(ctx, x, y, d, time) {
+    const assets = this._assets;
     const len = d.len || 150, period = d.period || 2.6;
     const a = Math.sin(time * (Math.PI * 2) / period + (d.phase || 0)) * 0.55;
     const depth = Math.cos(a);
     const bx = x + Math.sin(a) * len, by = y + Math.cos(a) * len * (0.85 + 0.15 * depth);
+    const bob = assets && assets.frame('hanging_props', 'pendulum_bob');
+    const hoist = assets && assets.frame('hanging_props', 'hoist_wheel');
+    const hangImg = assets && assets.img('hanging_props');
     ctx.save();
+    if (bob && hangImg) {
+      const link = assets.frame('arch', 'chain');
+      const linkImg = assets.img('arch');
+      const rLen = Math.hypot(bx - x, by - y);
+      const ang = Math.atan2(bx - x, by - y);
+      if (link && linkImg) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(-ang);
+        const step = 11;
+        for (let k = 0; k < rLen - 6; k += step) {
+          ctx.drawImage(linkImg, link.x, link.y, link.w, Math.min(step, link.h), -3, k, 6, step);
+        }
+        ctx.restore();
+      }
+      if (hoist) {
+        const hs = 20 / Math.max(16, hoist.w);
+        ctx.drawImage(
+          hangImg, hoist.x, hoist.y, hoist.w, hoist.h,
+          Math.round(x - hoist.w * hs * 0.5), Math.round(y - hoist.h * hs * 0.5),
+          Math.round(hoist.w * hs), Math.round(hoist.h * hs),
+        );
+      }
+      const r = d.r || 22;
+      const sc = (r * 2.15) / Math.max(20, bob.w);
+      ctx.translate(bx, by);
+      ctx.rotate(-a * 0.85);
+      ctx.scale(sc, sc * (0.76 + 0.24 * depth));
+      ctx.drawImage(hangImg, bob.x, bob.y, bob.w, bob.h, Math.round(-bob.w * 0.5), Math.round(-bob.h * 0.55), bob.w, bob.h);
+      ctx.restore();
+      return;
+    }
     ctx.fillStyle = '#2a2218'; ctx.fillRect(Math.round(x) - 6, Math.round(y) - 6, 12, 8);
     ctx.fillStyle = '#8a7444'; ctx.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4);
     ctx.strokeStyle = '#3a2f22'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(bx, by); ctx.stroke();
-    ctx.strokeStyle = '#8a7444'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x - 1, y); ctx.lineTo(bx - 1, by); ctx.stroke();
     const r = d.r || 22;
     ctx.translate(bx, by);
     ctx.scale(1, 0.7 + 0.3 * depth);
-    const g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 2, 0, 0, r);
-    g.addColorStop(0, '#c9a96a'); g.addColorStop(0.6, '#8a6a34'); g.addColorStop(1, '#3a2a14');
-    ctx.fillStyle = g;
+    ctx.fillStyle = '#8a6a34';
     ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#2a2218'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(0, 0, r - 1, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = '#2a2218';
-    ctx.beginPath(); ctx.arc(0, 0, r * 0.25, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
 
@@ -429,23 +514,52 @@ export class Level {
     if (fxl) for (let k = -2; k <= 2; k++) fxl.addFlame(cx + k * 14 * sc, ringY - 8 * sc + Math.abs(k) * 2, 5 * sc, 11 * sc, [1.0, 0.62, 0.2], (d.phase || 0) + k * 0.37);
   }
 
-  /** Crypt gibbet cage swinging gently on its chain. */
+  /** Crypt gibbet cage: pixel-art `hanging_props.gibbet_cage` swinging on `arch.chain` links. */
   drawCage(ctx, x, y, d, time) {
+    const assets = this._assets;
     const sway = Math.sin(time * 0.8 + (d.phase || 0)) * 0.12;
     const len = d.len || 70, w = 22, h = 40;
     const cx = x + Math.sin(sway) * len, cy = y + Math.cos(sway) * len;
+    const cage = assets && assets.frame('hanging_props', 'gibbet_cage');
+    const hoist = assets && assets.frame('hanging_props', 'hoist_wheel');
+    const hangImg = assets && assets.img('hanging_props');
     ctx.save();
+    if (cage && hangImg) {
+      const link = assets.frame('arch', 'chain');
+      const linkImg = assets.img('arch');
+      const ang = Math.atan2(cx - x, cy - y);
+      if (link && linkImg) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(-ang);
+        const step = 10;
+        for (let k = 0; k < len - 4; k += step) {
+          ctx.drawImage(linkImg, link.x, link.y, link.w, Math.min(step, link.h), -3, k, 6, step);
+        }
+        ctx.restore();
+      }
+      if (hoist) {
+        const hs = 16 / Math.max(16, hoist.w);
+        ctx.drawImage(
+          hangImg, hoist.x, hoist.y, hoist.w, hoist.h,
+          Math.round(x - hoist.w * hs * 0.5), Math.round(y - hoist.h * hs * 0.5),
+          Math.round(hoist.w * hs), Math.round(hoist.h * hs),
+        );
+      }
+      const squeeze = 0.86 + 0.14 * Math.cos(sway * 4);
+      const sc = 46 / Math.max(24, cage.h);
+      ctx.translate(cx, cy);
+      ctx.rotate(sway);
+      ctx.scale(sc * squeeze, sc);
+      ctx.drawImage(hangImg, cage.x, cage.y, cage.w, cage.h, Math.round(-cage.ax), 0, cage.w, cage.h);
+      ctx.restore();
+      return;
+    }
     ctx.strokeStyle = '#2b2740'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(cx, cy); ctx.stroke();
     ctx.translate(cx, cy); ctx.rotate(sway);
-    const squeeze = 0.8 + 0.2 * Math.cos(sway * 4);
-    ctx.scale(squeeze, 1);
     ctx.strokeStyle = '#3a3424'; ctx.lineWidth = 2;
     ctx.strokeRect(-w / 2, 0, w, h);
-    for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-w / 2 + (i * w) / 4, 0); ctx.lineTo(-w / 2 + (i * w) / 4, h); ctx.stroke(); }
-    ctx.beginPath(); ctx.moveTo(-w / 2, h / 2); ctx.lineTo(w / 2, h / 2); ctx.stroke();
-    ctx.fillStyle = '#c9c3b0'; ctx.fillRect(-4, 14, 8, 7);
-    ctx.fillStyle = '#1a1626'; ctx.fillRect(-3, 16, 2, 2); ctx.fillRect(1, 16, 2, 2);
     ctx.restore();
   }
 
@@ -555,7 +669,7 @@ export class Level {
     for (let ty = ty0; ty <= ty1; ty++) {
       for (let tx = tx0; tx <= tx1; tx++) {
         const t = this.tiles[ty * this.cols + tx];
-        if (t === T_EMPTY || t === T_PLATFORM || t === T_CRUMBLE || t === T_GATE || t === T_BOUND || t === T_LAVA) continue;
+        if (t === T_EMPTY || t === T_PLATFORM || t === T_CRUMBLE || t === T_GATE || t === T_BOUND || t === T_LAVA || t === T_WATER) continue;
         const x = tx * TILE - camX, y = ty * TILE - camY;
         if (isMaterialTile(t)) {
           let name = MATERIAL_STRIP[t];
@@ -696,6 +810,81 @@ export class Level {
     if (this.movers.length) this.drawMovers3D(ctx, camX, camY, pImg, plat, platTex, time, stage3d);
   }
 
+  /**
+   * Real-time reflective & refractive WebGL water pass for play-plane canals and
+   * reflecting basins. Runs AFTER 3D halls, tiles, candles, bosses, and the hunter
+   * so the water reflects & refracts the live scene and responds to ripple wakes.
+   */
+  drawWaterSurfaces(ctx, cam, fx, ripples, themeKey, time = 0) {
+    if (!this.waterRuns.length && !this.waterBasins.length) return;
+    const camX = cam.rx, camY = cam.ry;
+    const rects = [];
+    for (let i = 0; i < this.waterRuns.length; i++) {
+      const wr = this.waterRuns[i];
+      const wx = wr.x0 * TILE, wy = wr.y * TILE + 6;
+      const pw = (wr.x1 - wr.x0 + 1) * TILE, ph = wr.hTiles * TILE - 6;
+      const sx = Math.round(wx - camX), sy = Math.round(wy - camY);
+      if (sx + pw < -8 || sx > W + 8 || sy + ph < -8 || sy > H + 8) continue;
+      rects.push({ x: sx, y: sy, w: pw, h: Math.max(8, ph), alpha: null, deep: ph >= 36 });
+    }
+    for (let i = 0; i < this.waterBasins.length; i++) {
+      const b = this.waterBasins[i];
+      const sx = Math.round(b.x - camX), sy = Math.round(b.y - camY);
+      const pw = Math.round(b.w), ph = Math.max(8, Math.round(b.h));
+      if (sx + pw < -8 || sx > W + 8 || sy + ph < -8 || sy > H + 8) continue;
+      rects.push({ x: sx, y: sy, w: pw, h: ph, alpha: b.alpha || null, deep: ph >= 28 });
+    }
+    if (!rects.length) return;
+
+    const pal = themeKey === 'darkwood'
+      ? { tint: [0.10, 0.56, 0.48], deep: [0.02, 0.12, 0.11], foam: [0.72, 0.98, 0.88], alpha: 0.82, glow: 'emerald' }
+      : themeKey === 'skykeep'
+        ? { tint: [0.34, 0.76, 0.98], deep: [0.08, 0.22, 0.42], foam: [0.92, 0.99, 1.0], alpha: 0.80, glow: 'cyan' }
+        : (themeKey === 'ossuary' || themeKey === 'catacombs')
+          ? { tint: [0.12, 0.46, 0.54], deep: [0.02, 0.08, 0.13], foam: [0.72, 0.92, 0.95], alpha: 0.80, glow: 'cyan' }
+          : { tint: [0.12, 0.62, 0.82], deep: [0.02, 0.13, 0.22], foam: [0.80, 0.97, 1.0], alpha: 0.84, glow: 'cyan' };
+
+    const glow = getGlowCanvas(pal.glow);
+    if (fx && fx.enabled) {
+      fx.uploadScene(ctx);
+      for (let i = 0; i < rects.length; i++) {
+        const r = rects[i];
+        fx.waterPool(ctx, r, {
+          camX, camY, upload: false, ripples,
+          tint: pal.tint, deep: pal.deep, foam: pal.foam,
+          alpha: r.alpha || pal.alpha,
+        });
+        if (glow && r.deep) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.14 + 0.04 * Math.sin(time * 2.2 + i);
+          for (let gx = r.x + 36; gx < r.x + r.w - 16; gx += 84) {
+            ctx.drawImage(glow, gx - 42, r.y - 20, 84, 44);
+          }
+          ctx.restore();
+        }
+      }
+      return;
+    }
+
+    // Clean 2D fallback when WebGL is unavailable
+    ctx.save();
+    for (let i = 0; i < rects.length; i++) {
+      const r = rects[i];
+      const g = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
+      g.addColorStop(0, `rgba(${Math.round(pal.tint[0] * 255)}, ${Math.round(pal.tint[1] * 255)}, ${Math.round(pal.tint[2] * 255)}, 0.58)`);
+      g.addColorStop(1, `rgba(${Math.round(pal.deep[0] * 255)}, ${Math.round(pal.deep[1] * 255)}, ${Math.round(pal.deep[2] * 255)}, 0.84)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.fillStyle = `rgba(${Math.round(pal.foam[0] * 255)}, ${Math.round(pal.foam[1] * 255)}, ${Math.round(pal.foam[2] * 255)}, 0.65)`;
+      for (let bx = 0; bx < r.w; bx += 14) {
+        const wv = Math.round(Math.sin(time * 3.6 + (r.x + camX + bx) * 0.07) * 1.5);
+        ctx.fillRect(r.x + bx, r.y + Math.max(0, wv), 10, 2);
+      }
+    }
+    ctx.restore();
+  }
+
   /** Extruded & texture-mapped 3D viaduct arches, soffits & bridge piers beneath open spans. */
   drawBridgeUnderstructure3D(ctx, camX, camY, br, bank) {
     if (!bank) return;
@@ -704,11 +893,19 @@ export class Level {
     const isElder = br.mat === T_DARKWOOD;
     const isWood = br.mat === T_FOREST || br.mat === T_SNOW;
     const isClock = br.mat === T_CLOCK;
+    const stoneBody = br.mat === T_AQUEDUCT ? 'aqueduct_stone'
+      : br.mat === T_COLISEUM ? 'travertine_stone'
+        : (br.mat === T_BALLROOM || br.mat === T_SKYKEEP) ? 'marble'
+          : br.mat === T_CATACOMB ? 'crypt_stone' : 'wall';
+    const stoneSoffit = br.mat === T_AQUEDUCT ? 'aqueduct_stone'
+      : br.mat === T_COLISEUM ? 'travertine_stone'
+        : (br.mat === T_BALLROOM || br.mat === T_SKYKEEP) ? 'marble'
+          : br.mat === T_CATACOMB ? 'crypt_stone' : 'stone_trim';
     const bodyTex = bank.get(
-      isElder ? 'elder_bark' : isClock ? 'iron_truss' : isWood ? 'wood_plank' : (br.mat === T_CATACOMB ? 'crypt_stone' : 'wall'),
+      isElder ? 'elder_bark' : isClock ? 'iron_truss' : isWood ? 'wood_plank' : stoneBody,
     );
     const soffitTex = bank.get(
-      isElder ? 'elder_bark_h' : isClock ? 'iron_rivet' : isWood ? 'wood_plank' : (br.mat === T_CATACOMB ? 'crypt_stone' : 'stone_trim'),
+      isElder ? 'elder_bark_h' : isClock ? 'iron_rivet' : isWood ? 'wood_plank' : stoneSoffit,
     );
     const trimTex = bank.get(isElder ? 'moss_stone' : isClock ? 'brass_rim' : isWood ? 'iron_rivet' : 'stone_trim');
 

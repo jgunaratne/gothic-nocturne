@@ -8,6 +8,8 @@ const KEYMAP = {
   ArrowDown: 'down', KeyS: 'down',
   Space: 'jump', KeyZ: 'jump', KeyJ: 'jump',
   KeyX: 'attack', KeyK: 'attack',
+  KeyV: 'offhand', KeyL: 'offhand', ShiftLeft: 'offhand', ShiftRight: 'offhand',
+  KeyE: 'armory', KeyI: 'armory',
   Enter: 'start', Escape: 'start',
   KeyM: 'map', Tab: 'map',
   KeyN: 'mute', KeyU: 'mute',
@@ -17,7 +19,10 @@ const KEYMAP = {
   KeyC: 'callsign',
 };
 
-const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'start', 'map', 'mute', 'fx', 'forge', 'salute', 'callsign'];
+const ACTIONS = [
+  'left', 'right', 'up', 'down', 'jump', 'attack', 'offhand', 'armory',
+  'start', 'map', 'mute', 'fx', 'forge', 'salute', 'callsign',
+];
 
 export class Input {
   constructor(target) {
@@ -62,6 +67,7 @@ export class Input {
         return;
       }
       if (e.code === 'Escape') this.keyState._escape = true;
+      if (e.code === 'KeyC') this.keyState.offhand = true;
       const a = KEYMAP[e.code];
       if (a) {
         this.keyState[a] = true;
@@ -70,6 +76,7 @@ export class Input {
     });
     window.addEventListener('keyup', (e) => {
       if (e.code === 'Escape') this.keyState._escape = false;
+      if (e.code === 'KeyC') this.keyState.offhand = false;
       const a = KEYMAP[e.code];
       if (a) { this.keyState[a] = false; e.preventDefault(); }
     });
@@ -97,7 +104,8 @@ export class Input {
       s.up = ay < -0.5 || b(12);
       s.down = ay > 0.5 || b(13);
       s.jump = b(0) || b(1);
-      s.attack = b(2) || b(3) || b(5) || b(7);
+      s.attack = b(2) || b(5);                   // X / RB -> Hand_L (Slot 0)
+      s.offhand = b(3) || b(4) || b(6) || b(7);  // Y / LB / LT / RT -> Hand_R (Slot 1)
       s.start = b(9);
       s.map = b(8);           // Back / View / Select toggles Castle Map
       s.fx = b(10);           // left-stick click toggles shaders

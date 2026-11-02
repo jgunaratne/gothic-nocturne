@@ -360,11 +360,11 @@
     background: radial-gradient(circle at 40% 35%, #5c4832, #241a2e);
   }
 
-  /* Right Action Cluster (WHIP, JUMP, SUB) */
+  /* Right Action Cluster (L-HAND, R-HAND, JUMP, SUB) */
   #touch-actions {
     position: relative;
-    width: clamp(148px, 42vw, 178px);
-    height: clamp(136px, 38vw, 160px);
+    width: clamp(154px, 44vw, 184px);
+    height: clamp(142px, 40vw, 168px);
     touch-action: none;
   }
   .act-btn {
@@ -425,12 +425,12 @@
     background: radial-gradient(circle at 42% 35%, rgba(86, 108, 164, 0.95), rgba(28, 34, 66, 0.98));
     box-shadow: 0 0 16px rgba(255, 210, 122, 0.45);
   }
-  /* SUB: tucked above WHIP for instant 1-tap sub-weapon throws (↑+Whip) */
+  /* SUB: tucked above L-HAND for instant 1-tap sub-weapon throws (↑+Attack) */
   .act-sub {
-    left: 14px;
-    top: 0;
-    width: clamp(50px, 14vw, 56px);
-    height: clamp(50px, 14vw, 56px);
+    left: 10px;
+    top: 2px;
+    width: clamp(48px, 13.5vw, 54px);
+    height: clamp(48px, 13.5vw, 54px);
     background: radial-gradient(circle at 42% 35%, rgba(28, 52, 56, 0.86), rgba(10, 16, 24, 0.92));
     border: 1.5px solid #5b6b86;
     color: #d8e6f2;
@@ -448,22 +448,44 @@
     opacity: 1;
     background: radial-gradient(circle at 42% 35%, rgba(44, 110, 102, 0.95), rgba(18, 36, 42, 0.98));
   }
+  /* OFF-HAND (`Hand_R`): top-right socket of right thumb arc, amethyst & gold */
+  .act-offhand {
+    right: 10px;
+    top: 0;
+    width: clamp(52px, 14.5vw, 58px);
+    height: clamp(52px, 14.5vw, 58px);
+    background: radial-gradient(circle at 42% 35%, rgba(82, 42, 128, 0.88), rgba(22, 12, 40, 0.94));
+    border: 1.5px solid #a87cff;
+    color: #f4eaff;
+  }
+  .act-offhand .act-label { font-size: 9px; }
+  .act-offhand.is-down {
+    transform: scale(0.92);
+    border-color: #ffd27a;
+    background: radial-gradient(circle at 42% 35%, rgba(138, 76, 206, 0.96), rgba(46, 22, 82, 0.98));
+    box-shadow: 0 0 16px rgba(184, 132, 255, 0.55);
+  }
 
   /* Landscape button sizing overrides based on viewport height */
   body.touch-active[data-orient="landscape"] .act-whip {
-    width: clamp(58px, 16.5vh, 70px);
-    height: clamp(58px, 16.5vh, 70px);
+    width: clamp(58px, 16vh, 68px);
+    height: clamp(58px, 16vh, 68px);
     bottom: 4px;
   }
   body.touch-active[data-orient="landscape"] .act-jump {
-    width: clamp(58px, 16.5vh, 70px);
-    height: clamp(58px, 16.5vh, 70px);
-    bottom: 20px;
+    width: clamp(58px, 16vh, 68px);
+    height: clamp(58px, 16vh, 68px);
+    bottom: 16px;
   }
   body.touch-active[data-orient="landscape"] .act-sub {
-    width: clamp(46px, 13vh, 54px);
-    height: clamp(46px, 13vh, 54px);
-    left: 12px;
+    width: clamp(44px, 12.5vh, 50px);
+    height: clamp(44px, 12.5vh, 50px);
+    left: 8px;
+  }
+  body.touch-active[data-orient="landscape"] .act-offhand {
+    width: clamp(48px, 13.5vh, 54px);
+    height: clamp(48px, 13.5vh, 54px);
+    right: 8px;
   }
 </style>
 </head>
@@ -476,6 +498,7 @@
   <div id="touch-ui" aria-label="Touch game controls" hidden>
     <div id="touch-bar" role="toolbar" aria-label="Game actions">
       <button type="button" class="t-pill" data-act="pause">START</button>
+      <button type="button" class="t-pill" data-act="armory" hidden>GEAR</button>
       <button type="button" class="t-pill" data-act="map" hidden>MAP</button>
       <button type="button" class="t-pill" data-act="context">FORGE</button>
       <button type="button" class="t-pill" data-act="callsign">NAME</button>
@@ -506,7 +529,11 @@
           <span class="act-label" id="sub-label">SUB</span>
           <span class="act-sub-meta" id="sub-meta">NONE</span>
         </div>
-        <div class="act-btn act-whip" data-btn="whip" role="button" aria-label="Whip Attack">
+        <div class="act-btn act-offhand" data-btn="offhand" role="button" aria-label="Right Hand Weapon" hidden>
+          <span class="act-label" id="offhand-label">R-HAND</span>
+          <span class="act-sub-meta" id="offhand-meta">R</span>
+        </div>
+        <div class="act-btn act-whip" data-btn="whip" role="button" aria-label="Left Hand Weapon">
           <span class="act-label" id="whip-label">WHIP</span>
         </div>
         <div class="act-btn act-jump" data-btn="jump" role="button" aria-label="Jump">

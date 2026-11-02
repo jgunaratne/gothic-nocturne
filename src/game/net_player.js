@@ -5,7 +5,9 @@
 // - Off-screen directional edge beacons for peers in the same castle region
 
 import { W, H, TILE, PLAYER } from '../engine/constants.js';
+import { getFxLayers } from '../engine/fxlayers.js';
 import { heroFrame, drawWhipFrame } from './hero_anim.js';
+import { WEAPONS, drawWeaponAction } from './weapons.js';
 
 export const HUNTER_PALETTES = [
   {
@@ -167,6 +169,14 @@ function drawRemoteWhipStrike(ctx, assets, slot, reach, x, y, flip, alpha, sheet
 
 function remoteFrame(assets, p) {
   const whipScale = ((p.relicsMask >> 11) & 1) ? 0.75 : 1;
+  const rw = p.wId && WEAPONS[p.wId] ? WEAPONS[p.wId] : null;
+  const meleeAnim = (rw && rw.category !== 'whip' && p.wT != null && p.wT >= 0) ? {
+    category: rw.category,
+    k: Math.max(0, Math.min(1, p.wT / Math.max(0.05, p.wDur || rw.duration || 0.3))),
+    crouch: !!(p.wCr || p.anim === 'crouch'),
+    guarding: !!p.wGd,
+    airborne: p.anim === 'jump',
+  } : null;
   return heroFrame(assets, {
     state: p.anim,
     walkFrame: p.walkFrame,
@@ -181,6 +191,7 @@ function remoteFrame(assets, p) {
     deadT: p.deadT || 0,
     hurtT: p.hurtT || 0,
     landT: 0,
+    meleeAnim,
   });
 }
 
@@ -271,10 +282,26 @@ export function drawRemotePlayers(ctx, world, peersInStage, time = 0) {
       }
     } else {
       drawCloakFrame(ctx, assets, fr.sheet, fr.name, p.slot, sx, sy, flip, alpha);
+      const rw = p.wId && WEAPONS[p.wId] ? WEAPONS[p.wId] : null;
+      if (rw && rw.category !== 'whip' && p.wT != null && p.wT >= 0) {
+        drawWeaponAction(ctx, {
+          slot: 0,
+          active: true,
+          weapon: rw,
+          timer: p.wT,
+          duration: p.wDur || rw.duration || 0.3,
+          reach: rw.reach,
+          crouch: !!(p.wCr || p.anim === 'crouch'),
+          guarding: !!p.wGd,
+          isSkill: false,
+        }, sx, sy, p.facing, !!(p.wCr || p.anim === 'crouch'), getFxLayers(), time, fr.name);
+      }
     }
 
     // 5. Floating Nameplate, Salute Banner & Mini HP Bar
-    const label = p.screen === 'map' ? `${p.name} · MAP` : p.name;
+    const lvTag = (p.level || 1) > 1 ? `LV${p.level} ` : '';
+    const baseName = `${lvTag}${p.name}`;
+    const label = p.screen === 'map' ? `${baseName} · MAP` : baseName;
     const tw = font.width(label, 1, 1, false);
     const pillW = tw + 12;
     const px = Math.round(sx - pillW * 0.5);

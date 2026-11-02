@@ -5,22 +5,24 @@ import { W, H } from '../engine/constants.js';
 import { getFxLayers } from '../engine/fxlayers.js';
 
 const LAYER_SETS = {
-  // Graveyard road: mountains & distant keep ridge behind near cemetery trees.
+  // Graveyard road: mountains, panoramic 1920px valley/viaduct vista & distant keep ridge behind cemetery trees.
   outdoor: {
     layers: [
-      { img: 'mountains', fx: 0.12, fy: 0.06, dy: -26 },
-      { img: 'castle', fx: 0.24, fy: 0.10, dy: -18 },
+      { img: 'mountains', fx: 0.10, fy: 0.05, dy: -26 },
+      { img: 'graveyard_vista', fx: 0.18, fy: 0.08, dy: -22, dark: 0.22 },
+      { img: 'castle', fx: 0.25, fy: 0.10, dy: -18 },
       { img: 'forest', fx: 0.50, fy: 0.20, dy: -28 },
     ],
     front: true,
     flock: { count: 7, cx: 0.7, cy: 0.22, rx: 200, ry: 60 },
     shafts: { count: 3, color: 'rgba(200, 210, 255, 0.05)' },
   },
-  // Castle ramparts: high above the outer bailey, overlooking the 3D courtyard.
+  // Castle ramparts: high above the outer bailey, overlooking the panoramic valley & 3D courtyard.
   ramparts: {
     layers: [
-      { img: 'mountains', fx: 0.10, fy: 0.06, dy: -24 },
-      { img: 'castle', fx: 0.24, fy: 0.12, dy: -22 },
+      { img: 'mountains', fx: 0.09, fy: 0.05, dy: -24 },
+      { img: 'graveyard_vista', fx: 0.17, fy: 0.09, dy: -24, dark: 0.18 },
+      { img: 'castle', fx: 0.25, fy: 0.12, dy: -22 },
     ],
     front: false,
     flock: { count: 9, cx: 0.55, cy: 0.26, rx: 230, ry: 64 },
@@ -60,20 +62,26 @@ const LAYER_SETS = {
 };
 
 /**
- * Registers a parallax layer set for a forged wing: `backdropImg` (a generated
- * seamless 1280x360 mid-distance layer) is stacked twice behind the play plane,
- * the far copy darkened, over the shared mountain silhouettes.
+ * Registers a parallax layer set for a forged or celestial wing: `backdropImg`
+ * (a generated wide panoramic mid-distance layer) is stacked at two parallax
+ * depths behind the play plane, with optional custom `skyImg` dome.
  */
-export function registerLayerSet(name, { backdropImg = null, baseSet = 'outdoor', accentRgb = [200, 210, 255] } = {}) {
+export function registerLayerSet(name, {
+  skyImg = null,
+  backdropImg = null,
+  baseSet = 'outdoor',
+  accentRgb = [200, 210, 255],
+} = {}) {
   const base = LAYER_SETS[baseSet] || LAYER_SETS.outdoor;
   const layers = backdropImg
     ? [
-      { img: 'mountains', fx: 0.08, fy: 0.05, dy: -36, dark: 0.3 },
-      { img: backdropImg, fx: 0.20, fy: 0.09, dy: -46, dark: 0.52, topCut: 0 },
-      { img: backdropImg, fx: 0.46, fy: 0.17, dy: -28, topCut: 0 },
+      ...(skyImg ? [] : [{ img: 'mountains', fx: 0.08, fy: 0.05, dy: -36, dark: 0.3 }]),
+      { img: backdropImg, fx: 0.18, fy: 0.08, dy: -42, dark: 0.46, topCut: 0 },
+      { img: backdropImg, fx: 0.42, fy: 0.16, dy: -24, topCut: 0 },
     ]
     : base.layers.slice();
   LAYER_SETS[name] = {
+    skyImg,
     layers,
     front: false,
     flock: base.flock ? Object.assign({}, base.flock) : { count: 6, cx: 0.55, cy: 0.22, rx: 200, ry: 56 },
@@ -87,6 +95,7 @@ export class Parallax {
     this.levelH = levelH;
     this.time = 0;
     const set = LAYER_SETS[setName] || LAYER_SETS.outdoor;
+    this.skyImg = set.skyImg || null;
     this.setName = set === LAYER_SETS.outdoor ? 'graveyard' : setName === 'winter' ? 'yule' : setName;
     this.layers = set.layers
       .filter((L) => assets.img(L.img))
@@ -110,7 +119,7 @@ export class Parallax {
   update(dt) { this.time += dt; }
 
   drawSky(ctx, cam, flash, boltX = 320, boltSeed = 1.0, extraSkyFn = null) {
-    const sky = this.assets.img('sky');
+    const sky = (this.skyImg && this.assets.img(this.skyImg)) || this.assets.img('sky');
     const off = mod(-(cam.rx * 0.04) - this.time * 1.5, sky.width);
     for (let x = off - sky.width; x < W; x += sky.width) ctx.drawImage(sky, Math.round(x), 0);
     // Shader & 3D aurora ribbons belong in the celestial sky dome behind mountains & trees.

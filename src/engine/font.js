@@ -1,7 +1,7 @@
-// Bitmap text: a blackletter (gothic textura) proportional font generated with
-// the image model and baked into assets/font_gothic_<cap>.png by
-// tools/build_font.py, with the original 5x7 pixel font kept as a fallback for
-// glyphs the blackletter set lacks (arrows, heart, symbols) and for headless use.
+// Bitmap text: a legible chiseled Gothic display font (Almendra Bold, OFL)
+// baked into assets/font_gothic_<cap>.png by tools/build_font.py, with the
+// 5x7 pixel font kept for small UI text (scales 1-2), special symbols
+// (arrows, heart), and headless fallback.
 
 const GLYPHS = {
   'A': ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
@@ -53,17 +53,24 @@ const GLYPHS = {
   '/': ['....#', '....#', '...#.', '..#..', '.#...', '#....', '#....'],
   '(': ['...#.', '..#..', '.#...', '.#...', '.#...', '..#..', '...#.'],
   ')': ['.#...', '..#..', '...#.', '...#.', '...#.', '..#..', '.#...'],
+  '[': ['.###.', '.#...', '.#...', '.#...', '.#...', '.#...', '.###.'],
+  ']': ['.###.', '...#.', '...#.', '...#.', '...#.', '...#.', '.###.'],
   '+': ['.....', '..#..', '..#..', '#####', '..#..', '..#..', '.....'],
   '&': ['.##..', '#..#.', '.##..', '.#...', '#.#.#', '#..#.', '.##.#'],
   '=': ['.....', '.....', '#####', '.....', '#####', '.....', '.....'],
   '%': ['##...', '##..#', '...#.', '..#..', '.#...', '#..##', '...##'],
   '*': ['.....', '#.#.#', '.###.', '#####', '.###.', '#.#.#', '.....'],
+  '✦': ['..#..', '..#..', '.###.', '#####', '.###.', '..#..', '..#..'],
+  '✓': ['.....', '....#', '...#.', '#.#..', '.#...', '.....', '.....'],
+  '°': ['.##..', '#..#.', '#..#.', '.##..', '.....', '.....', '.....'],
   '©': ['.###.', '#...#', '#.##.', '#.#..', '#.##.', '#...#', '.###.'],
   '♥': ['.#.#.', '#####', '#####', '#####', '.###.', '..#..', '.....'],
   '←': ['.....', '..#..', '.#...', '#####', '.#...', '..#..', '.....'],
   '→': ['.....', '..#..', '...#.', '#####', '...#.', '..#..', '.....'],
   '↑': ['..#..', '.###.', '#.#.#', '..#..', '..#..', '..#..', '..#..'],
   '↓': ['..#..', '..#..', '..#..', '..#..', '#.#.#', '.###.', '..#..'],
+  '↘': ['.....', '#....', '.#...', '..#.#', '...##', '..###', '.....'],
+  '↙': ['.....', '....#', '...#.', '#.#..', '##...', '###..', '.....'],
   '<': ['...#.', '..#..', '.#...', '#....', '.#...', '..#..', '...#.'],
   '>': ['.#...', '..#..', '...#.', '....#', '...#.', '..#..', '.#...'],
   '·': ['.....', '.....', '.....', '..#..', '.....', '.....', '.....'],
@@ -73,14 +80,14 @@ const GLYPHS = {
 export const GLYPH_W = 5;
 export const GLYPH_H = 7;
 
-/** Blackletter cap height per text scale (scales above 4 upscale the 40px atlas).
+/** Gothic display cap height per text scale (scales above 4 upscale the 40px atlas).
  *  Scales 1-2 (HUD, subtitles, menus, map labels, prompts) keep the crisp
- *  sans-serif pixel font for legibility; the blackletter is reserved for the
- *  title and other large display text (scale 3+). */
+ *  sans-serif pixel font for compact UI density; the chiseled Gothic font is
+ *  used for banners, headings, and large display text (scale 3+). */
 const CAP_FOR_SCALE = { 3: 30, 4: 40 };
 const GOTHIC_MIN_SCALE = 3;
-const SPACE_ADVANCE = 0.42;   // fraction of cap height
-const LETTER_GAP = 1;         // px per scale between glyphs
+const SPACE_ADVANCE = 0.36;   // fraction of cap height
+const LETTER_GAP = 0;         // outlines are baked into each glyph's width
 
 export class Font {
   constructor() {
@@ -135,19 +142,27 @@ export class Font {
     return c;
   }
 
-  /** Tinted copy of a blackletter atlas (colour multiplied over the ivory glyphs). */
-  _tinted(set, color) {
-    const key = `${set.cap}|${color}`;
+  /** Tinted copy of a Gothic atlas: multiplies foreground colour over the neutral
+   *  chiseled glyph interior so the baked 1px dark outline stays crisp and dark,
+   *  or fills solid colour for drop-shadow passes. */
+  _tinted(set, color, isShadow = false) {
+    const key = `${set.cap}|${color}|${isShadow ? 1 : 0}`;
     let c = this.tintCache.get(key);
     if (c) return c;
     c = document.createElement('canvas');
     c.width = set.img.width; c.height = set.img.height;
     const g = c.getContext('2d');
     g.drawImage(set.img, 0, 0);
-    if (color && color !== '#e8e2c8') {
+    if (isShadow) {
       g.globalCompositeOperation = 'source-atop';
+      g.fillStyle = color || '#120f1c';
+      g.fillRect(0, 0, c.width, c.height);
+    } else if (color) {
+      g.globalCompositeOperation = 'multiply';
       g.fillStyle = color;
       g.fillRect(0, 0, c.width, c.height);
+      g.globalCompositeOperation = 'destination-in';
+      g.drawImage(set.img, 0, 0);
     }
     this.tintCache.set(key, c);
     return c;
@@ -157,9 +172,9 @@ export class Font {
   _advance(ch, scale, spacing, set) {
     if (set) {
       const m = this._mul(scale);
-      if (ch === ' ') return Math.round(set.cap * SPACE_ADVANCE * m) + spacing;
+      if (ch === ' ') return Math.round(set.cap * SPACE_ADVANCE * m) + (spacing - 1);
       const gl = set.glyphs[ch];
-      if (gl) return Math.round(gl.w * m) + LETTER_GAP * Math.max(1, Math.round(scale / 2)) + (spacing - 1);
+      if (gl) return Math.round(gl.w * m) + LETTER_GAP + Math.round((spacing - 1) * m);
     }
     return (GLYPH_W + spacing) * scale;
   }
@@ -169,7 +184,9 @@ export class Font {
     const set = this._set(scale, gothic);
     let w = 0;
     for (const ch of text) w += this._advance(ch, scale, spacing, set);
-    return Math.max(0, w - (set ? 0 : spacing * scale));
+    if (!text.length) return 0;
+    const trail = set ? Math.round((spacing - 1) * this._mul(scale)) : spacing * scale;
+    return Math.max(0, w - trail);
   }
 
   /** Cap height in px at a scale (for layout). */
@@ -204,13 +221,8 @@ export class Font {
         if (set && set.glyphs[ch]) {
           const gl = set.glyphs[ch];
           const m = this._mul(scale);
-          const img = this._tinted(set, col);
-          // Baseline sits one cap height below y; glyph tops are stored relative to the baseline.
-          // Vertically position mid-line hyphens/interpuncts and cap-top apostrophes cleanly.
-          let dy = gl.dy;
-          if (ch === '-' || ch === '·') dy = -Math.round((set.cap + gl.h) * 0.5);
-          else if (ch === "'") dy = -set.cap;
-          const gy = y + Math.round(set.cap * m) + Math.round(dy * m);
+          const img = this._tinted(set, col, off > 0);
+          const gy = y + Math.round(set.cap * m) + Math.round(gl.dy * m);
           ctx.drawImage(img, gl.x, gl.y, gl.w, gl.h, px + dxy, gy + dxy, Math.round(gl.w * m), Math.round(gl.h * m));
         } else if (ch !== ' ') {
           // Fallback pixel glyph (arrows, heart, symbols), vertically centred on the cap height

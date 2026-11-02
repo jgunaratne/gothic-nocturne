@@ -48,6 +48,7 @@ class Boss extends Enemy {
     if (this.hp <= 0) {
       this.hp = 0; this.deathT = 0; this.vx = 0; this.vy = 0;
       world.sfx('boss_die'); world.camera.shake(8, 1.2); world.addScore(this.score);
+      if (world.awardEnemyExp) world.awardEnemyExp(this, { isBoss: true });
     }
     return this.hp <= 0;
   }
@@ -176,7 +177,7 @@ export class BoneCaptain extends Boss {
     this.checkPhase2(world);
     const p = world.player;
     this.volleyCd -= dt; this.chargeCd -= dt; this.leapCd -= dt;
-    const walk = ['walk0', 'walk1', 'walk2', 'walk3'];
+    const walk = this.sheet === 'gladiator' ? ['walk0', 'walk1', 'walk0', 'walk1'] : ['walk0', 'walk1', 'walk2', 'walk3'];
     const dx = p.x - this.x;
     switch (this.state) {
       case 'enter':
@@ -213,7 +214,7 @@ export class BoneCaptain extends Boss {
         break;
       case 'charge':
         this.vx = this.facing * 240;
-        this.frame = walk[Math.floor(this.t * 16) % 4];
+        this.frame = this.sheet === 'gladiator' ? 'throw1' : walk[Math.floor(this.t * 16) % 4];
         this.physics(level, dt); this.clampX(20);
         if (this.hitWall || this.stateT > 0.9 || this.x <= this.arena.x0 + 22 || this.x >= this.arena.x1 - 22) {
           this.setState('walk'); this.chargeCd = (3.5 + Math.random()) * this.tempo; world.camera.shake(3, 0.2);
@@ -347,7 +348,7 @@ export class Count extends Boss {
 
   update(dt, level, world) {
     this.t += dt; this.stateT += dt; this.flash = Math.max(0, this.flash - dt);
-    if (this.deathT >= 0) { this.frame = 'hurt'; this.updateDeath(dt, world); return; }
+    if (this.deathT >= 0) { this.frame = this.sheet === 'vampire' ? 'hurt' : 'cape'; this.updateDeath(dt, world); return; }
     this.checkPhase2(world);
     const p = world.player, a = this.arena;
     const dx = p.x - this.x;
@@ -393,7 +394,9 @@ export class Count extends Boss {
       case 'lunge':
         if (this.stateT < 0.03) { this.faceP(p); world.sfx('whip'); }
         this.vx = this.stateT < 0.55 ? this.facing * 290 : 0;
-        this.frame = this.stateT < 0.55 ? (Math.floor(this.stateT * 8) % 2 ? 'lunge0' : 'lunge1') : 'idle';
+        this.frame = this.stateT < 0.55
+          ? (this.sheet === 'vampire' ? (Math.floor(this.stateT * 8) % 2 ? 'lunge0' : 'lunge1') : 'lunge')
+          : 'idle';
         this.physics(level, dt); this.clampX(18);
         if (this.stateT > 0.95) this.setState('idle');
         break;
@@ -1054,8 +1057,10 @@ export class GargoyleArchon extends Boss {
     const p = world.player, a = this.arena;
     const dx = p.x - this.x;
     const bob = Math.sin(this.t * 2) * 5;
-    // Airborne wingbeat: wings spread wide, then swept back, ~3 beats a second.
-    const flap = Math.floor(this.t * 6) % 2 ? 'pounce' : 'roar';
+    // Airborne wingbeat: wings spread wide, then swept back (or upright 6-wing hover for seraph).
+    const flap = this.sheet === 'seraph'
+      ? (Math.floor(this.t * 4) % 2 ? 'roar' : 'idle')
+      : (Math.floor(this.t * 6) % 2 ? 'pounce' : 'roar');
     this._flapping = false;
     switch (this.state) {
       case 'enter':

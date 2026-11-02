@@ -11,13 +11,15 @@ import { BOSS_RELICS } from './relics.js';
 import { stageDoorsFor, stageIndexOf, canTraverseDoor } from './castlemap.js';
 import { rectsOverlap } from './objects.js';
 import { getGlowCanvas } from './tex3d.js';
+import { WeaponPedestal } from './armory_ui.js';
+import { STAGE_PEDESTAL_WEAPONS } from './weapons.js';
 
 const ROYAL_HALL_STAGES = new Set([
-  'arcade', 'library', 'cathedral', 'clocktower', 'throne',
+  'arcade', 'library', 'cathedral', 'clocktower', 'throne', 'ballroom', 'alchemy',
 ]);
 
 const HIGH_BALCONY_STAGES = new Set([
-  'graveyard', 'jack', 'ramparts', 'ossuary', 'arcade', 'cathedral',
+  'graveyard', 'jack', 'ramparts', 'ossuary', 'arcade', 'cathedral', 'ballroom', 'skykeep',
 ]);
 
 /**
@@ -50,42 +52,44 @@ function findSafeFloor(level, targetCol, minCol, maxCol, usedCols, needBalcony =
   const hi = Math.min(level.cols - 6, maxCol);
   const clamped = Math.max(lo, Math.min(hi, Math.round(targetCol)));
 
-  for (const avoidMovers of [true, false]) {
-    for (let d = 0; d <= hi - lo; d++) {
-      for (const sign of (d === 0 ? [1] : [1, -1])) {
-        const c = clamped + sign * d;
-        if (c < lo || c > hi) continue;
-        if (usedCols.some((u) => Math.abs(u - c) < 6)) continue;
+  for (const minSep of [6, 4]) {
+    for (const avoidMovers of [true, false]) {
+      for (let d = 0; d <= hi - lo; d++) {
+        for (const sign of (d === 0 ? [1] : [1, -1])) {
+          const c = clamped + sign * d;
+          if (c < lo || c > hi) continue;
+          if (usedCols.some((u) => Math.abs(u - c) < minSep)) continue;
 
-        const row = level.surfaceRow(c);
-        if (row < (needBalcony ? 7 : 4) || row >= level.rows - 1) continue;
+          const row = level.surfaceRow(c);
+          if (row < (needBalcony ? 7 : 4) || row >= level.rows - 1) continue;
 
-        // Require 3 contiguous material floor tiles at the exact same elevation
-        let ok = true;
-        for (let tc = c - 1; tc <= c + 1; tc++) {
-          if (!isMaterialTile(level.tile(tc, row))) { ok = false; break; }
-          if (level.surfaceRow(tc) !== row) { ok = false; break; }
-        }
-        if (!ok) continue;
-
-        // Require 4 full tiles (128px) of clear headroom for 124px monumental arches
-        const topClear = needBalcony ? row - 8 : row - 4;
-        if (topClear < 1) continue;
-        for (let ty = topClear; ty <= row - 1; ty++) {
+          // Require 3 contiguous material floor tiles at the exact same elevation
+          let ok = true;
           for (let tc = c - 1; tc <= c + 1; tc++) {
-            if (level.isSolid(tc, ty) || level.isSpike(tc, ty) || level.isLava(tc, ty)) {
-              ok = false;
-              break;
-            }
+            if (!isMaterialTile(level.tile(tc, row))) { ok = false; break; }
+            if (level.surfaceRow(tc) !== row) { ok = false; break; }
           }
-          if (!ok) break;
+          if (!ok) continue;
+
+          // Require 4 full tiles (128px) of clear headroom for 124px monumental arches
+          const topClear = needBalcony ? row - 8 : row - 4;
+          if (topClear < 1) continue;
+          for (let ty = topClear; ty <= row - 1; ty++) {
+            for (let tc = c - 1; tc <= c + 1; tc++) {
+              if (level.isSolid(tc, ty) || level.isSpike(tc, ty) || level.isLava(tc, ty)) {
+                ok = false;
+                break;
+              }
+            }
+            if (!ok) break;
+          }
+          if (!ok) continue;
+
+          const gateRow = (needBalcony && row >= 7) ? row - 5 : row;
+          if (avoidMovers && overlapsMoverSweep(level, c, gateRow)) continue;
+
+          return { col: c, row };
         }
-        if (!ok) continue;
-
-        const gateRow = (needBalcony && row >= 7) ? row - 5 : row;
-        if (avoidMovers && overlapsMoverSweep(level, c, gateRow)) continue;
-
-        return { col: c, row };
       }
     }
   }
@@ -149,7 +153,7 @@ export class SanctuaryStone {
     const pulse = 0.5 + 0.5 * Math.sin(time * 4.2);
     const assets = world && world.assets;
     const sIdx = world && world.stage ? Math.max(0, (world.stage.id || 1) - 1) : 0;
-    const disc = world && world.game ? ((world.game.discovered >> sIdx) & 1) : 1;
+    const disc = world && world.game ? ((world.game.discovered >>> sIdx) & 1) : 1;
     const lit = !!(this.usedThisVisit || disc);
     const frameName = lit ? 'sanctuary_lit' : 'sanctuary_idle';
 
@@ -398,7 +402,7 @@ export class AncientVessel {
 
   isCollected(world) {
     const v = world.game && world.game.vessels ? world.game.vessels : 0;
-    return !!((v >> this.stageIndex) & 1);
+    return !!((v >>> this.stageIndex) & 1);
   }
 
   get box() { return { x: this.x - 16, y: this.y - 60, w: 32, h: 60 }; }
@@ -458,8 +462,66 @@ export class AncientVessel {
 }
 
 /**
+ * Enforces Section 3.2 Mandatory Doorway & Sanctuary Safe Buffers (`[col - 4, col + 4] × 3 tiles`)
+ * plus calm `SAVE_ROOM` zones (`0` enemies, `0` active spawners within `100px` trigger range).
+ */
+export function enforceSafeBuffers(world, safeWindows) {
+  if (!world || !safeWindows || !safeWindows.length) return;
+
+  for (const win of safeWindows) {
+    const bufX0 = win.x0Px;
+    const bufX1 = win.x1Px;
+
+    if (Array.isArray(world.enemies)) {
+      world.enemies = world.enemies.filter((e) => {
+        if (!e || e === world.boss) return true;
+        if (e.x >= bufX0 - 16 && e.x <= bufX1 + 16) return false;
+        if (e.x < bufX0 - 16 && typeof e.maxX === 'number' && e.maxX > bufX0 - 16) {
+          e.maxX = Math.max(typeof e.minX === 'number' ? e.minX : 0, bufX0 - 16);
+        }
+        if (e.x > bufX1 + 16 && typeof e.minX === 'number' && e.minX < bufX1 + 16) {
+          e.minX = Math.min(typeof e.maxX === 'number' ? e.maxX : Infinity, bufX1 + 16);
+        }
+        return true;
+      });
+    }
+
+    if (Array.isArray(world.spawners)) {
+      const cut0 = bufX0 - 104;
+      const cut1 = bufX1 + 104;
+      const nextSpawners = [];
+      for (const sp of world.spawners) {
+        if (sp.x1 <= cut0 || sp.x0 >= cut1) {
+          nextSpawners.push(sp);
+          continue;
+        }
+        if (sp.x0 < cut0 && cut0 - sp.x0 >= 64) {
+          const leftSp = Object.assign(Object.create(Object.getPrototypeOf(sp)), sp, {
+            x0: sp.x0,
+            x1: cut0,
+            alive: [],
+          });
+          nextSpawners.push(leftSp);
+        }
+        if (sp.x1 > cut1 && sp.x1 - cut1 >= 64) {
+          const rightSp = Object.assign(Object.create(Object.getPrototypeOf(sp)), sp, {
+            x0: cut1,
+            x1: sp.x1,
+            alive: [],
+          });
+          nextSpawners.push(rightSp);
+        }
+      }
+      world.spawners = nextSpawners;
+    }
+  }
+}
+
+/**
  * Populates `world` with its Sanctuary Waystone, connected Passage Gateways,
- * ability-gated high balconies, and hidden Ancient Life Vessel.
+ * ability-gated high balconies, hidden Ancient Life Vessel, and Weapon Pedestal,
+ * honoring authored Section-5 anchors (`sanctuaryAnchor`, `doorAnchors`, `vesselAnchor`)
+ * and enforcing Section 3.2 `4x3` Doorway Safe Buffers.
  */
 export function populateExploration(world) {
   const level = world.level;
@@ -469,19 +531,50 @@ export function populateExploration(world) {
     ? Math.floor(stage.boss.triggerX / TILE) - 6
     : level.cols - 12;
   const usedCols = [Math.floor(stage.start.x / TILE)];
-
-  // 1. Sanctuary Waystone near the stage entrance crossroads
-  const sancSpot = findSafeFloor(level, 9, 6, Math.min(28, bossTriggerCol - 10), usedCols, false);
-  const sanctuary = sancSpot
-    ? new SanctuaryStone(sancSpot.col * TILE + 16, sancSpot.row * TILE)
-    : null;
-  if (sancSpot) usedCols.push(sancSpot.col);
-
-  // 2. Connected Area Passage Gateways (matching MAP_DOORS)
-  const passages = [];
+  const safeWindows = [];
   let addedPlatforms = false;
+
+  // 1. Sanctuary Waystone (1 per biome near the biome's geometric center, never adjacent to SAVE_ROOM)
+  let sanctuary = null;
+  if (stage.sanctuaryAnchor && stage.sanctuaryAnchor.col != null) {
+    const sc = stage.sanctuaryAnchor.col;
+    const sr = stage.sanctuaryAnchor.row != null ? stage.sanctuaryAnchor.row : level.surfaceRow(sc);
+    sanctuary = new SanctuaryStone(sc * TILE + 16, sr * TILE);
+    usedCols.push(sc);
+    safeWindows.push({ x0Px: (sc - 4) * TILE, x1Px: (sc + 5) * TILE });
+  } else {
+    const midTarget = Math.max(10, Math.round(bossTriggerCol * 0.44));
+    const sancSpot = findSafeFloor(level, midTarget, 8, Math.max(12, bossTriggerCol - 24), usedCols, false);
+    if (sancSpot) {
+      sanctuary = new SanctuaryStone(sancSpot.col * TILE + 16, sancSpot.row * TILE);
+      usedCols.push(sancSpot.col);
+      safeWindows.push({ x0Px: (sancSpot.col - 4) * TILE, x1Px: (sancSpot.col + 5) * TILE });
+    }
+  }
+
+  // 2. Connected Area Passage Gateways (matching MAP_DOORS & authored doorAnchors)
+  const passages = [];
   const doorDescs = stageDoorsFor(stage.key);
   for (const desc of doorDescs) {
+    const authored = stage.doorAnchors && stage.doorAnchors[desc.id];
+    if (authored) {
+      const col = authored.col;
+      const floorRow = authored.floorRow != null ? authored.floorRow : level.surfaceRow(col);
+      const needBalcony = !!(desc.highLedge || authored.highLedge);
+      let gateRow = authored.gateRow != null ? authored.gateRow : floorRow;
+      if (needBalcony) {
+        if (authored.gateRow == null && floorRow >= 7) gateRow = floorRow - 5;
+        if (!isMaterialTile(level.tile(col, gateRow))) {
+          level.platform(Math.max(2, col - 4), Math.min(level.cols - 3, col + 4), gateRow);
+          addedPlatforms = true;
+        }
+      }
+      usedCols.push(col);
+      passages.push(new PassageGate(desc, col * TILE + 16, gateRow * TILE));
+      safeWindows.push({ x0Px: (col - 4) * TILE, x1Px: (col + 5) * TILE });
+      continue;
+    }
+
     const targetCol = Math.round(4 + desc.atFrac * (bossTriggerCol - 6));
     const needBalcony = !!desc.highLedge;
     const spot = findSafeFloor(level, targetCol, 4, bossTriggerCol, usedCols, needBalcony)
@@ -497,31 +590,78 @@ export function populateExploration(world) {
       addedPlatforms = true;
     }
     passages.push(new PassageGate(desc, spot.col * TILE + 16, gateRow * TILE));
+    safeWindows.push({ x0Px: (spot.col - 4) * TILE, x1Px: (spot.col + 5) * TILE });
   }
 
   // 3. Hidden Ancient Life Vessel (either 5-tile Night-Wings high balcony or sunken vault)
   let vessel = null;
-  const wantHigh = HIGH_BALCONY_STAGES.has(stage.key);
-  if (wantHigh) {
-    const midCol = Math.round(bossTriggerCol * 0.52);
-    const spot = findSafeFloor(level, midCol, 16, bossTriggerCol - 6, usedCols, true);
-    if (spot) {
-      usedCols.push(spot.col);
-      const bRow = spot.row - 5;
-      level.platform(spot.col - 1, spot.col + 1, bRow);
+  if (stage.vesselAnchor && stage.vesselAnchor.col != null) {
+    const vc = stage.vesselAnchor.col;
+    const vr = stage.vesselAnchor.row;
+    const highB = !!stage.vesselAnchor.highBalcony;
+    if (highB) {
+      level.platform(vc - 2, vc + 2, vr);
       addedPlatforms = true;
-      vessel = new AncientVessel(stageIdx, spot.col * TILE + 16, bRow * TILE, true);
+    }
+    usedCols.push(vc);
+    vessel = new AncientVessel(stageIdx, vc * TILE + 16, vr * TILE, highB);
+  } else {
+    const wantHigh = HIGH_BALCONY_STAGES.has(stage.key);
+    if (wantHigh) {
+      const midCol = Math.round(bossTriggerCol * 0.52);
+      const spot = findSafeFloor(level, midCol, 16, bossTriggerCol - 6, usedCols, true);
+      if (spot) {
+        usedCols.push(spot.col);
+        const bRow = spot.row - 5;
+        level.platform(spot.col - 1, spot.col + 1, bRow);
+        addedPlatforms = true;
+        vessel = new AncientVessel(stageIdx, spot.col * TILE + 16, bRow * TILE, true);
+      }
+    }
+    if (!vessel) {
+      const spot = findVaultFloor(level, Math.round(bossTriggerCol * 0.32), bossTriggerCol - 6, usedCols);
+      if (spot) {
+        usedCols.push(spot.col);
+        vessel = new AncientVessel(stageIdx, spot.col * TILE + 16, spot.row * TILE, false);
+      }
     }
   }
-  if (!vessel) {
-    const spot = findVaultFloor(level, Math.round(bossTriggerCol * 0.32), bossTriggerCol - 6, usedCols);
-    if (spot) {
-      usedCols.push(spot.col);
-      vessel = new AncientVessel(stageIdx, spot.col * TILE + 16, spot.row * TILE, false);
+
+  // 4. Signature Arsenal Pedestal (1 per castle region, placed on an authored Armory Dais or safe plinth)
+  let pedestal = null;
+  const pedestalWeaponId = STAGE_PEDESTAL_WEAPONS[stage.key] || null;
+  if (pedestalWeaponId) {
+    if (stage.pedestalAnchor && stage.pedestalAnchor.col != null) {
+      const pc = stage.pedestalAnchor.col;
+      const pr = stage.pedestalAnchor.row != null ? stage.pedestalAnchor.row : level.surfaceRow(pc);
+      usedCols.push(pc);
+      pedestal = new WeaponPedestal(pedestalWeaponId, pc * TILE + 16, pr * TILE);
+      safeWindows.push({ x0Px: (pc - 3) * TILE, x1Px: (pc + 4) * TILE });
+    } else {
+      const pedSpot = findSafeFloor(level, Math.round(bossTriggerCol * 0.34), 12, Math.max(18, bossTriggerCol - 24), usedCols, false);
+      if (pedSpot) {
+        usedCols.push(pedSpot.col);
+        pedestal = new WeaponPedestal(pedestalWeaponId, pedSpot.col * TILE + 16, pedSpot.row * TILE);
+        safeWindows.push({ x0Px: (pedSpot.col - 3) * TILE, x1Px: (pedSpot.col + 4) * TILE });
+      }
     }
   }
+
+  // 5. Also include any authored SAVE_ROOMs in safeWindows (`0` enemies, `0` spawners)
+  if (Array.isArray(stage.roomSchema)) {
+    for (const rm of stage.roomSchema) {
+      if (rm.save_room) {
+        safeWindows.push({
+          x0Px: rm.bounds.x0 * TILE,
+          x1Px: (rm.bounds.x1 + 1) * TILE,
+        });
+      }
+    }
+  }
+
+  enforceSafeBuffers(world, safeWindows);
 
   if (addedPlatforms) level.recompute();
 
-  return { sanctuary, passages, vessel };
+  return { sanctuary, passages, vessel, pedestal };
 }

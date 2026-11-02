@@ -50,7 +50,7 @@ export class TouchControls {
     }
     this.btns = {};
     if (this.actions) {
-      for (const k of ['whip', 'jump', 'sub']) {
+      for (const k of ['whip', 'jump', 'sub', 'offhand']) {
         this.btns[k] = this.actions.querySelector(`[data-btn="${k}"]`);
       }
     }
@@ -68,6 +68,8 @@ export class TouchControls {
     }
     this.subLabel = document.getElementById('sub-label');
     this.subMeta = document.getElementById('sub-meta');
+    this.offhandLabel = document.getElementById('offhand-label');
+    this.offhandMeta = document.getElementById('offhand-meta');
     this.whipLabel = document.getElementById('whip-label');
     this.jumpLabel = document.getElementById('jump-label');
 
@@ -82,7 +84,7 @@ export class TouchControls {
     this.dpadPointers = new Map();     // pointerId -> { x, y }
     this.actionPointers = new Map();   // pointerId -> { x, y }
     this.dpadDir = { up: false, down: false, left: false, right: false };
-    this.actHeld = { whip: false, jump: false, sub: false };
+    this.actHeld = { whip: false, jump: false, sub: false, offhand: false };
     this._subPulseTicks = 0;
 
     if (!this.root) return;
@@ -132,8 +134,10 @@ export class TouchControls {
 
   getViewportSize() {
     const vv = window.visualViewport;
-    const vw = Math.max(1, Math.round(vv ? vv.width : window.innerWidth));
-    const vh = Math.max(1, Math.round(vv ? vv.height : window.innerHeight));
+    const rawW = (vv && vv.width > 0) ? vv.width : (window.innerWidth || document.documentElement.clientWidth || 360);
+    const rawH = (vv && vv.height > 0) ? vv.height : (window.innerHeight || document.documentElement.clientHeight || 640);
+    const vw = Math.max(1, Math.round(rawW));
+    const vh = Math.max(1, Math.round(rawH));
     return { vw, vh, offsetTop: vv ? Math.round(vv.offsetTop) : 0 };
   }
 
@@ -202,7 +206,7 @@ export class TouchControls {
     // Landscape touch mode: fill vertical height cleanly during active play,
     // and reserve a 36px bottom strip on map/menu/forge screens so the bottom
     // toolbar never overlaps inspector cards or prompts.
-    const reserveBottomStrip = inTextForm || s === 'map' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'forging';
+    const reserveBottomStrip = inTextForm || s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'forging';
     const availW = Math.max(200, vw - safe.left - safe.right);
     const availH = reserveBottomStrip
       ? Math.max(110, vh - Math.max(2, Math.round(safe.top * 0.5)) - Math.max(36, safe.bottom + 30))
@@ -340,12 +344,17 @@ export class TouchControls {
     switch (act) {
       case 'pause':
         if (s === 'map') this.input.pulse('map');
+        else if (s === 'armory') this.input.pulse('armory');
         else if (s === 'forge') { this.blurTextProxy(); g.forgeUI.cancel(); }
         else if (s === 'forging' || s === 'difficulty' || s === 'stageselect') this.input.pulseEscape();
         else this.input.pulse('start');
         break;
+      case 'armory':
+        if (s === 'play' || s === 'pause' || s === 'map') g.openArmory(s);
+        else if (s === 'armory') this.input.pulse('armory');
+        break;
       case 'map':
-        if (s === 'play' || s === 'pause' || s === 'map') this.input.pulse('map');
+        if (s === 'play' || s === 'pause' || s === 'map' || s === 'armory') this.input.pulse('map');
         else if (s === 'stageselect') this.input.pulse('start');
         break;
       case 'context':
@@ -618,10 +627,10 @@ export class TouchControls {
   }
 
   _recomputeActions(fromPress = false) {
-    const next = { whip: false, jump: false, sub: false };
+    const next = { whip: false, jump: false, sub: false, offhand: false };
     if (this.actionPointers.size > 0) {
       const specs = [];
-      for (const k of ['whip', 'jump', 'sub']) {
+      for (const k of ['whip', 'jump', 'sub', 'offhand']) {
         const el = this.btns[k];
         if (!el || el.hidden) continue;
         const r = el.getBoundingClientRect();
@@ -654,9 +663,9 @@ export class TouchControls {
     }
 
     const newlySub = next.sub && !this.actHeld.sub;
-    const newlyPrimary = (next.whip && !this.actHeld.whip) || (next.jump && !this.actHeld.jump);
+    const newlyPrimary = (next.whip && !this.actHeld.whip) || (next.jump && !this.actHeld.jump) || (next.offhand && !this.actHeld.offhand);
     if (fromPress || newlyPrimary || newlySub) {
-      if (next.whip || next.jump || next.sub) this.vibrate(7);
+      if (next.whip || next.jump || next.sub || next.offhand) this.vibrate(7);
     }
 
     // Outside active combat, the secondary top button acts as Escape / Back!
@@ -665,7 +674,7 @@ export class TouchControls {
     }
 
     this.actHeld = next;
-    for (const k of ['whip', 'jump', 'sub']) {
+    for (const k of ['whip', 'jump', 'sub', 'offhand']) {
       if (this.btns[k]) this.btns[k].classList.toggle('is-down', next[k]);
     }
     this.actions.classList.toggle('is-active', this.actionPointers.size > 0);
@@ -686,6 +695,7 @@ export class TouchControls {
     this.input.setTouch('down', this.dpadDir.down);
     this.input.setTouch('up', this.dpadDir.up || subThrow);
     this.input.setTouch('attack', this.actHeld.whip || subThrow);
+    this.input.setTouch('offhand', this.actHeld.offhand);
     this.input.setTouch('jump', this.actHeld.jump);
   }
 
@@ -693,12 +703,12 @@ export class TouchControls {
     this.dpadPointers.clear();
     this.actionPointers.clear();
     this.dpadDir = { up: false, down: false, left: false, right: false };
-    this.actHeld = { whip: false, jump: false, sub: false };
+    this.actHeld = { whip: false, jump: false, sub: false, offhand: false };
     this._subPulseTicks = 0;
     for (const dir of ['up', 'down', 'left', 'right']) {
       if (this.dpadArms[dir]) this.dpadArms[dir].classList.remove('is-down');
     }
-    for (const k of ['whip', 'jump', 'sub']) {
+    for (const k of ['whip', 'jump', 'sub', 'offhand']) {
       if (this.btns[k]) this.btns[k].classList.remove('is-down');
     }
     if (this.dpad) this.dpad.classList.remove('is-active');
@@ -873,6 +883,9 @@ export class TouchControls {
         return true;
       }
 
+      case 'armory':
+        return g.armoryUI ? g.armoryUI.handlePoint(gx, gy) : false;
+
       case 'play': {
         const w = g.world;
         // Top-right HUD Mini-Map radar (577, 6, 53x32 + label)
@@ -880,10 +893,16 @@ export class TouchControls {
           g.openMap();
           return true;
         }
-        // HUD Sub-Weapon box & hearts (210..298, 14..48)
-        if (gx >= 206 && gx <= 300 && gy <= 50) {
+        // HUD Sub-Weapon box & hearts (206..281, 14..48)
+        if (gx >= 206 && gx <= 281 && gy <= 50) {
           this.vibrate(6);
           this.pulseSubWeapon();
+          return true;
+        }
+        // HUD Dual-Hand L & R Equipment Sockets (282..339, 14..50) -> Open Armory!
+        if (gx >= 282 && gx <= 339 && gy <= 50) {
+          this.vibrate(6);
+          g.openArmory('play');
           return true;
         }
         if (w && w.player) {
@@ -918,6 +937,7 @@ export class TouchControls {
 
       case 'pause':
         if (gx >= 564 && gy <= 56) { g.openMap(); return true; }
+        if (gx >= 282 && gx <= 339 && gy <= 50) { g.openArmory('pause'); return true; }
         this.input.pulse('start');
         return true;
 
@@ -980,8 +1000,8 @@ export class TouchControls {
     const s = g.state;
     const w = g.world;
     const inTextForm = !!(g.editingCallsign || s === 'forge');
-    const reserveBottomStrip = inTextForm || s === 'map' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'forging';
-    const subtleMenuPads = !inTextForm && (s === 'map' || s === 'stageselect' || s === 'title');
+    const reserveBottomStrip = inTextForm || s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'forging';
+    const subtleMenuPads = !inTextForm && (s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title');
 
     this._setClass('bodyTextForm', document.body, 'in-text-form', inTextForm);
     this._setClass('bodyBottomStrip', document.body, 'has-bottom-strip', reserveBottomStrip);
@@ -1004,13 +1024,17 @@ export class TouchControls {
 
     // Toolbar pills
     const pauseTxt = s === 'play' ? 'PAUSE'
-      : (s === 'pause' || s === 'map') ? '▶ RESUME'
+      : (s === 'pause' || s === 'map' || s === 'armory') ? '▶ RESUME'
       : (s === 'forge' || s === 'forging' || s === 'difficulty' || s === 'stageselect') ? '✕ BACK'
       : 'START';
     this._setText('pillPause', this.pills.pause, pauseTxt);
-    this._setClass('pillPauseGold', this.pills.pause, 't-pill-gold', s === 'pause' || s === 'map' || s === 'title');
+    this._setClass('pillPauseGold', this.pills.pause, 't-pill-gold', s === 'pause' || s === 'map' || s === 'armory' || s === 'title');
 
-    const showMap = s === 'play' || s === 'pause' || s === 'map';
+    const showArmory = s === 'play' || s === 'pause' || s === 'map' || s === 'armory';
+    this._setHidden('pillArmHide', this.pills.armory, !showArmory);
+    this._setClass('pillArmOn', this.pills.armory, 'is-on', s === 'armory');
+
+    const showMap = s === 'play' || s === 'pause' || s === 'map' || s === 'armory';
     this._setHidden('pillMapHide', this.pills.map, !showMap);
     this._setClass('pillMapOn', this.pills.map, 'is-on', s === 'map');
 
@@ -1029,10 +1053,17 @@ export class TouchControls {
     this._setText('pillFxTxt', this.pills.fx, fxOn ? 'FX ON' : 'FX OFF');
     this._setClass('pillFxOff', this.pills.fx, 'is-dim', !fxOn);
 
-    // Action cluster labels & Sub-Weapon state
+    // Action cluster labels, Dual-Hand sockets & Sub-Weapon state
     if (s === 'play' && w && w.player) {
-      this._setText('whipLbl', this.whipLabel, 'WHIP');
+      const wL = g.getHandWeapon ? g.getHandWeapon(0) : null;
+      const wR = g.getHandWeapon ? g.getHandWeapon(1) : null;
+      this._setText('whipLbl', this.whipLabel, (wL && wL.short) || 'WHIP');
       this._setText('jumpLbl', this.jumpLabel, 'JUMP');
+      this._setHidden('offHide', this.btns.offhand, !wR);
+      if (wR) {
+        this._setText('offLbl', this.offhandLabel, wR.short || 'R-HAND');
+        this._setText('offMeta', this.offhandMeta, 'R');
+      }
       const sub = w.player.subWeapon;
       const hearts = w.hearts || 0;
       if (sub) {
@@ -1046,9 +1077,20 @@ export class TouchControls {
         this._setClass('subArmed', this.btns.sub, 'is-armed', false);
         this._setClass('subDim', this.btns.sub, 'is-empty', true);
       }
+    } else if (s === 'armory') {
+      this._setText('whipLbl', this.whipLabel, 'EQUIP L');
+      this._setText('jumpLbl', this.jumpLabel, 'EQUIP R');
+      this._setHidden('offHide', this.btns.offhand, false);
+      this._setText('offLbl', this.offhandLabel, 'EQUIP R');
+      this._setText('offMeta', this.offhandMeta, 'SLOT 1');
+      this._setText('subLbl', this.subLabel, 'BACK');
+      this._setText('subMeta', this.subMeta, 'ESC');
+      this._setClass('subArmed', this.btns.sub, 'is-armed', false);
+      this._setClass('subDim', this.btns.sub, 'is-empty', false);
     } else {
       this._setText('whipLbl', this.whipLabel, 'OK');
       this._setText('jumpLbl', this.jumpLabel, 'OK');
+      this._setHidden('offHide', this.btns.offhand, true);
       const canBack = s === 'map' || s === 'difficulty' || s === 'stageselect' || s === 'forging';
       this._setText('subLbl', this.subLabel, canBack ? 'BACK' : 'ALT');
       this._setText('subMeta', this.subMeta, canBack ? 'ESC' : '');

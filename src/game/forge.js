@@ -16,7 +16,7 @@ import { registerLayerSet } from './parallax.js';
 import { registerForgedMaterial } from './tex3d.js';
 
 export const FORGE_API = 'api/forge';
-export const MAX_FORGED_WINGS = 16;     // 13 built-in + 16 forged stays inside 31-bit progress masks
+export const MAX_FORGED_WINGS = 12;     // 18 built-in + 12 forged stays inside 31-bit progress masks
 const LOCAL_KEY = 'gothic.forge.local.v1';
 
 // ------------------------------------------------------------------ vocabulary
@@ -66,9 +66,11 @@ const WEATHERS = ['none', 'snow', 'fireflies', 'embers', 'leaves'];
 const PREFABS = {
   flat: { len: [6, 16] }, vistaBridge: { len: [6, 14] }, corridor: { len: [8, 12], ceil: [2, 6] },
   crumbleRun: { len: [3, 5] }, ferryGap: { len: [6, 6] }, splitRoute: { len: [12, 16] },
+  doubleDeck: { len: [16, 20] }, tripleStacks: { len: [20, 24] }, undercroftLoop: { len: [16, 18] },
+  towerClimb: { h: [4, 6] }, deepShaft: { h: [4, 6] },
   gearWheel: {}, liftShaft: { h: [3, 6] }, descent: { h: [3, 6] }, hiddenVault: {},
-  swingRun: { n: [2, 4] }, lavaRun: { len: [6, 10] }, stepUp: { n: [1, 3] }, stepDown: { n: [1, 3] },
-  climb: { n: [2, 5] }, blocks: { h: [2, 3] }, spikeRun: { len: [3, 6] }, gap: { len: [2, 3] },
+  swingRun: { n: [2, 4] }, lavaRun: { len: [6, 10] }, canalRun: { len: [6, 10] }, stepUp: { n: [1, 3] }, stepDown: { n: [1, 3] },
+  climb: { n: [2, 5] }, blocks: { h: [2, 3] }, spikeRun: { len: [3, 6] }, gap: { len: [2, 2] },
 };
 
 export const SUGGESTIONS = [
@@ -205,11 +207,14 @@ export function designBlueprint({ name, description = '' }, seedOverride = null)
     { type: 'hiddenVault', reward: 'meat', weapon: 'axe', enemies: [[g1, 7]] },
     { type: 'swingRun', n: 3, period: 2.8, reward: 'heart_big' },
     { type: 'flat', len: 9, candles: [4], enemies: [[g0, 3], [g0, 7]] },
-    { type: 'crumbleRun', len: 4, abyss: true },
+    { type: 'crumbleRun', len: 4, safe: true, belowBlock: 'money' },
     { type: run, len: 8, ceil: 3, candles: [[4, 'heart_big']], enemies: [[fl, 4, { h: 5 }], [g1, 6]], spawn: sp1 },
   ];
   if (base === 'clocktower' || base === 'arcade') segments.splice(10, 0, { type: 'gearWheel', safe: true, speed: 0.52, reward: 'dagger' });
   if (base === 'darkcave') segments.splice(4, 0, { type: 'lavaRun', len: 8, islands: [[2, 2], [5, 2]], candles: [[3, 'dagger']], enemies: [['bat', 6, { h: 5, variant: 'fire' }]] });
+  if ((base === 'ossuary' || base === 'catacombs' || base === 'darkwood') && /water|cistern|sewer|harbour|harbor|drown|canal|aqueduct|pool|lake|river/i.test(`${name} ${description}`)) {
+    segments.splice(4, 0, { type: 'canalRun', len: 8, islands: [[2, 2], [5, 2]], candles: [[3, 'dagger']], enemies: [[g0, 6]] });
+  }
   const place = shortName;
   const descr = String(description || '').trim() || `${shortName.toLowerCase()} of the vampire's castle`;
   return {
@@ -238,11 +243,11 @@ export function designBlueprint({ name, description = '' }, seedOverride = null)
 /** Preferred neighbours on the castle map for a base realm (outdoor wings hug the grounds). */
 function neighboursFor(base) {
   const pref = {
-    graveyard: ['graveyard', 'darkwood', 'ramparts'], darkwood: ['darkwood', 'jack', 'graveyard'], forest: ['jack', 'darkwood', 'yule'],
-    yule: ['yule', 'jack', 'library'], ramparts: ['ramparts', 'graveyard', 'arcade'], catacombs: ['catacombs', 'ossuary', 'darkcave'],
-    darkcave: ['darkcave', 'catacombs', 'darkwood'], ossuary: ['ossuary', 'catacombs', 'arcade'], arcade: ['arcade', 'clocktower', 'cathedral'],
-    library: ['library', 'throne', 'yule'], cathedral: ['cathedral', 'arcade', 'throne'], clocktower: ['clocktower', 'cathedral', 'arcade'],
-    throne: ['throne', 'library', 'cathedral'],
+    graveyard: ['graveyard', 'darkwood', 'ramparts'], darkwood: ['darkwood', 'aqueduct', 'graveyard'], forest: ['jack', 'darkwood', 'yule'],
+    yule: ['yule', 'skykeep', 'jack'], ramparts: ['ramparts', 'coliseum', 'skykeep', 'graveyard'], catacombs: ['catacombs', 'aqueduct', 'ossuary', 'darkcave'],
+    darkcave: ['darkcave', 'catacombs', 'aqueduct'], ossuary: ['ossuary', 'catacombs', 'clocktower'], arcade: ['arcade', 'ballroom', 'clocktower', 'cathedral'],
+    library: ['library', 'alchemy', 'throne', 'cathedral'], cathedral: ['cathedral', 'arcade', 'throne'], clocktower: ['clocktower', 'library', 'arcade'],
+    throne: ['throne', 'ballroom', 'cathedral', 'library'],
   };
   return pref[base] || ['graveyard'];
 }
@@ -364,8 +369,11 @@ export function sanitizeSegments(segments, bt) {
     // Row bookkeeping so lifts/descents never leave the grid.
     if (type === 'stepUp' || type === 'climb') { seg.n = Math.min(seg.n, row - minRow); if (seg.n < (type === 'climb' ? 2 : 1)) continue; row -= seg.n; }
     else if (type === 'stepDown') { seg.n = Math.min(seg.n, maxRow - row); if (seg.n < 1) continue; row += seg.n; }
-    else if (type === 'liftShaft') { seg.h = Math.min(seg.h, row - minRow); if (seg.h < 3) continue; row -= seg.h; }
-    else if (type === 'descent') { seg.h = Math.min(seg.h, maxRow - row); if (seg.h < 3) continue; row += seg.h; }
+    else if (type === 'liftShaft' || type === 'towerClimb') { seg.h = Math.min(seg.h, row - minRow); if (seg.h < 3) continue; row -= seg.h; }
+    else if (type === 'descent' || type === 'deepShaft') { seg.h = Math.min(seg.h, maxRow - row); if (seg.h < 3) continue; row += seg.h; }
+    else if (type === 'tripleStacks' && row < 8) continue;
+    else if (type === 'doubleDeck' && row < 6) continue;
+    else if (type === 'undercroftLoop' && row + 4 >= bt.rows - 1) continue;
     else if (type === 'gearWheel') { if (row - 4 < minRow) continue; row -= 4; }
     else if (type === 'ferryGap') { const rise = clampInt(s.rise, -4, 4, 0); seg.rise = Math.max(row - maxRow, Math.min(row - minRow, rise)); row -= seg.rise; }
     const eLen = len || (type === 'splitRoute' ? 14 : 10);
@@ -407,18 +415,24 @@ export function applySegments(b, segments) {
       case 'crumbleRun': b.crumbleRun(s.len, o); break;
       case 'ferryGap': b.ferryGap(s.len, o); break;
       case 'splitRoute': b.splitRoute(s.len, o); break;
+      case 'doubleDeck': b.doubleDeck(s.len, o); break;
+      case 'tripleStacks': b.tripleStacks(s.len, o); break;
+      case 'undercroftLoop': b.undercroftLoop(s.len, o); break;
+      case 'towerClimb': b.towerClimb(s.h, o); break;
+      case 'deepShaft': b.deepShaft(s.h, o); break;
       case 'gearWheel': b.gearWheel(o); break;
       case 'liftShaft': b.liftShaft(s.h, o); break;
       case 'descent': b.descent(s.h, o); break;
       case 'hiddenVault': b.hiddenVault(o); break;
       case 'swingRun': b.swingRun(s.n, o); break;
       case 'lavaRun': b.lavaRun(s.len, o); break;
+      case 'canalRun': b.canalRun(s.len, o); break;
       case 'stepUp': b.stepUp(s.n); break;
       case 'stepDown': b.stepDown(s.n); break;
       case 'climb': b.climb(s.n, o); break;
       case 'blocks': b.blocks(s.h, s.drops || ['meat', null, 'money'], o); break;
       case 'spikeRun': b.spikeRun(s.len, o); break;
-      case 'gap': b.gap(s.len, o); break;
+      case 'gap': b.gap(o && o.ledge ? s.len : Math.min(2, s.len || 2), o); break;
       default: break;
     }
   }
@@ -514,10 +528,10 @@ export async function registerForgedEntry(entry, { assets, audio = null } = {}) 
     aura: `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.22)`,
   });
   // 7. Castle map rooms + passage, relic
-  const placed = placeForgedRoom(bp.key, { preferred: bp.connectsTo, seed: bp.seed, spineLen: 7 + (bp.seed % 2) });
+  const placed = placeForgedRoom(bp.key, { preferred: bp.connectsTo, seed: bp.seed, spineLen: 9 + (bp.seed % 3), extras: 3 });
   if (!placed) { console.warn('Castle Forge: no room left on the map for', bp.key); return null; }
   registerStage(stage);
-  const icon = loaded.icon ? { sheet: loaded.icon, frame: 'icon' } : { sheet: 'map_icons', frame: bp.base };
+  const icon = loaded.icon ? { sheet: loaded.icon, frame: 'icon' } : ((MAP_ROOMS[bp.base] && MAP_ROOMS[bp.base].icon) || { sheet: 'map_icons', frame: bp.base });
   registerMapRoom(bp.key, Object.assign(placed.room, { where: bp.where, icon }), placed.door);
   registerRelic(bp.key, Object.assign({}, bp.relic, { boss: bp.boss.name }));
   stage.anchorKey = placed.anchorKey;
@@ -650,7 +664,7 @@ export class Forge {
     try {
       const bp = blueprint.segments ? blueprint : null;
       const seed = bp ? bp.seed : 1;
-      return placeForgedRoom(blueprint.key || 'preview', { preferred: blueprint.connectsTo || [], seed, spineLen: 7 + (seed % 2) });
+      return placeForgedRoom(blueprint.key || 'preview', { preferred: blueprint.connectsTo || [], seed, spineLen: 9 + (seed % 3), extras: 3 });
     } catch (e) { return null; }
   }
 

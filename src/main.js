@@ -13,11 +13,16 @@ import { STAGES } from './game/stages.js';
 import { THEMES } from './game/builder.js';
 import { drawHud, drawBanner } from './game/hud.js';
 import {
-  drawCastleMap, moveCursor, nextRoomAfter, stageIndexOf, isDiscovered, MAP_ROOMS,
+  drawCastleMap, moveCursor, nextRoomAfter, stageIndexOf, isDiscovered, MAP_ROOMS, CELL_OWNER,
 } from './game/castlemap.js';
 import { BOSS_RELICS, resolveActiveRelics } from './game/relics.js';
+import {
+  START_LEVEL, LEVEL_CAP, expRequiredForNextLevel, levelBonuses, applyExpGain,
+} from './game/progression.js';
 import { Forge } from './game/forge.js';
 import { ForgeScreens } from './game/forge_ui.js';
+import { ArmoryScreen } from './game/armory_ui.js';
+import { WEAPONS, WEAPON_ORDER, SET_RESONANCES } from './game/weapons.js';
 import { TouchControls } from './engine/touch.js';
 
 class Game {
@@ -49,14 +54,24 @@ class Game {
     this.difficulty = DIFFICULTIES[this.difficultyKey];
     this.menuIndex = DIFFICULTY_ORDER.indexOf(this.difficultyKey);
     // Stage & exploration progress: cleared bosses, discovered sanctuaries, hidden vessels, explored map cells.
-    const allMask = (1 << STAGES.length) - 1;
+    const allMask = STAGES.length >= 31 ? 0x7fffffff : ((1 << STAGES.length) - 1);
     const storedCleared = parseInt(safeStorageGet('gothic.cleared.v3') || '0', 10) || 0;
     this.cleared = this.params.get('cleared') === 'all' ? allMask : storedCleared;
     const storedDisc = parseInt(safeStorageGet('gothic.discovered.v1') || '1', 10) || 1;
     this.discovered = this.params.get('discovered') === 'all' ? allMask : (storedDisc | 1 | this.cleared);
     const storedVessels = parseInt(safeStorageGet('gothic.vessels.v1') || '0', 10) || 0;
     this.vessels = this.params.get('vessels') === 'all' ? allMask : storedVessels;
-    this.exploredCells = loadExploredSet('gothic.explored.v1', this.params.get('explored') === 'all');
+    this.exploredCells = loadExploredSet('gothic.explored.v2', this.params.get('explored') === 'all');
+    const prog = loadProgression('gothic.progression.v1', this.params);
+    this.charLevel = prog.level;
+    this.charExp = prog.exp;
+    this._urlLevelOverride = prog.urlOverride;
+    const armory = loadArmoryState('gothic.armory.v1', this.params);
+    this.ownedWeapons = armory.owned;
+    this.handL = armory.handL;
+    this.handR = armory.handR;
+    this._urlArmoryOverride = armory.urlOverride;
+    this.armoryUI = new ArmoryScreen(this);
     const urlStage = parseInt(this.params.get('stage') || '0', 10);
     this.stageIndex = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1
       : Math.min(STAGES.length - 1, parseInt(safeStorageGet('gothic.stage') || '0', 10) || 0);
@@ -71,7 +86,7 @@ class Game {
       return idx >= 0 ? STAGES[idx].name.replace(/^THE\s+/, '') : String(key).toUpperCase();
     };
     this.net.onRemoteEvent = (ev, peer) => {
-      if (this.world && (this.state === 'play' || this.state === 'pause' || this.state === 'map')) {
+      if (this.world && (this.state === 'play' || this.state === 'pause' || this.state === 'map' || this.state === 'armory')) {
         this.world.handleRemoteEvent(ev, peer);
       }
     };
@@ -107,27 +122,46 @@ class Game {
   }
 
   async boot() {
-    await Promise.all([this.assets.load(), this.font.load(ASSET_VERSION)]);
+    const bootEl = document.getElementById('boot');
+    await Promise.all([
+      this.assets.load((p) => {
+        if (bootEl) bootEl.textContent = `Loading the castle… ${Math.round(p * 100)}%`;
+      }),
+      this.font.load(ASSET_VERSION),
+    ]);
     // Wings raised by the Castle Forge (this server's registry + local ones) join the castle before anything is drawn.
-    try { await this.forge.loadRegistry(); } catch (e) { console.warn('Castle Forge registry unavailable', e); }
+    // Cap at 3.5s so a slow mobile proxy never blocks first frame render.
+    try {
+      await Promise.race([
+        this.forge.loadRegistry(),
+        new Promise((resolve) => setTimeout(resolve, 3500)),
+      ]);
+    } catch (e) { console.warn('Castle Forge registry unavailable', e); }
     {
-      // Re-resolve the requested / remembered stage now that forged wings are part of STAGES.
+      // Re-resolve "=all" test overrides and the requested / remembered stage now that forged wings are part of STAGES.
+      const allMask = STAGES.length >= 31 ? 0x7fffffff : ((1 << STAGES.length) - 1);
+      if (this.params.get('cleared') === 'all') this.cleared = allMask;
+      if (this.params.get('discovered') === 'all') this.discovered = allMask;
+      if (this.params.get('vessels') === 'all') this.vessels = allMask;
+      if (this.params.get('explored') === 'all') {
+        for (const k of CELL_OWNER.keys()) this.exploredCells.add(k);
+      }
       const urlStage = parseInt(this.params.get('stage') || '0', 10);
       const stored = parseInt(safeStorageGet('gothic.stage') || '0', 10) || 0;
       const want = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1 : Math.min(STAGES.length - 1, stored);
       if (want !== this.stageIndex) { this.stageIndex = want; this.stageCursor = want; this.mapCursor = STAGES[want].key; }
     }
-    const bootEl = document.getElementById('boot');
     if (bootEl) bootEl.remove();
     this.titleWorld = new World(this, STAGES[0]);
     this.titleWorld.messages = [];
-    this.titleWorld.camera.snapTo(8 * 32, 12 * 32);
+    this.titleWorld.camera.snapTo(8 * 32, this.titleWorld.player.y);
     this.titleWorld.camera.x = 2 * 32;
     this.setState('title');
     const screen = this.params.get('screen');   // testing aid
     if (this.params.has('ending') || screen === 'ending') {
       if (!this.world) {
-        this.world = new World(this, STAGES[STAGES.length - 1]);
+        const endStage = STAGES.find((s) => s.key === 'throne') || STAGES[STAGES.length - 1];
+        this.world = new World(this, endStage);
         this.world.score = 148500;
       }
       this.beginEnding();
@@ -141,12 +175,23 @@ class Game {
     } else if (screen === 'map') {
       this.startGame();
       this.openMap();
+    } else if (screen === 'armory') {
+      this.startGame();
+      this.openArmory('play');
     } else if (screen === 'clear') {
       this.startGame();
       this.world.timeBonus = 1234;
       this.world.heartBonus = 500;
       this.onStageClear();
       this.stateT = 3.0;
+    } else if (screen === 'pause') {
+      this.startGame();
+      this.world.messages = [];
+      this.setState('pause');
+    } else if (screen === 'gameover') {
+      this.startGame();
+      this.onGameOver();
+      this.stateT = 2.0;
     }
     if (this.params.has('demo')) this.startDemo();
     // Testing aid: ?forge=<name>[&forgedesc=<text>] proposes a wing immediately (local=1 forces the offline forge).
@@ -195,7 +240,7 @@ class Game {
     const before = this.exploredCells.size;
     for (const k of cellKeys) if (k) this.exploredCells.add(k);
     if (this.exploredCells.size !== before) {
-      safeStorageSet('gothic.explored.v1', JSON.stringify([...this.exploredCells]));
+      safeStorageSet('gothic.explored.v2', JSON.stringify([...this.exploredCells]));
     }
   }
 
@@ -226,12 +271,115 @@ class Game {
   /** Number of Ancient Life Vessels collected across all castle regions. */
   getVesselCount() {
     let n = 0;
-    let m = this.vessels;
+    let m = this.vessels >>> 0;
     for (let i = 0; i < STAGES.length; i++) {
       if (m & 1) n++;
-      m >>= 1;
+      m >>>= 1;
     }
     return n;
+  }
+
+  /** Combat & vitality bonuses granted by the hunter's current Character Level. */
+  getLevelBonuses() {
+    return levelBonuses(this.charLevel);
+  }
+
+  saveProgression() {
+    if (this._urlLevelOverride) return;
+    safeStorageSet('gothic.progression.v1', JSON.stringify({
+      level: this.charLevel,
+      exp: this.charExp,
+    }));
+  }
+
+  /** Awards `amount` EXP along the Adaptive Curve and resolves any level-ups. */
+  gainExp(amount) {
+    const prevLevel = this.charLevel;
+    const prevBonuses = levelBonuses(prevLevel);
+    const res = applyExpGain(this.charLevel, this.charExp, amount);
+    this.charLevel = res.level;
+    this.charExp = res.exp;
+    this.saveProgression();
+    return Object.assign(res, {
+      prevLevel,
+      prevBonuses,
+      bonuses: levelBonuses(this.charLevel),
+    });
+  }
+
+  // ------------------------------------------------ Dual-Hand Equipment Matrix
+
+  hasWeapon(id) {
+    return !!(id && this.ownedWeapons && this.ownedWeapons.has(id));
+  }
+
+  unlockWeapon(id) {
+    if (!id || !WEAPONS[id]) return false;
+    const wasNew = !this.ownedWeapons.has(id);
+    this.ownedWeapons.add(id);
+    if (wasNew) this.saveArmory();
+    return wasNew;
+  }
+
+  equipWeapon(slot, id) {
+    if (slot === 0) {
+      const wid = id && WEAPONS[id] ? id : 'hunters_lash';
+      this.ownedWeapons.add(wid);
+      this.handL = wid;
+      if (WEAPONS[wid].isTwoHanded) {
+        // Two-handed weapons lock and visually hide Hand_R
+        this.handR = null;
+      }
+    } else {
+      if (!id) {
+        this.handR = null;
+      } else if (WEAPONS[id]) {
+        this.ownedWeapons.add(id);
+        if (WEAPONS[id].isTwoHanded) {
+          this.handL = id;
+          this.handR = null;
+        } else {
+          if (WEAPONS[this.handL] && WEAPONS[this.handL].isTwoHanded) {
+            this.handL = 'hunters_lash';
+          }
+          this.handR = id;
+        }
+      }
+    }
+    this.saveArmory();
+    if (this.touch && this.touch.active) this.touch.syncUI(true);
+  }
+
+  getHandWeapon(slot) {
+    const wL = WEAPONS[this.handL] || WEAPONS.hunters_lash;
+    if (slot === 0) return wL;
+    if (wL.isTwoHanded) return null;
+    return this.handR && WEAPONS[this.handR] ? WEAPONS[this.handR] : null;
+  }
+
+  getActiveResonance() {
+    const wL = this.getHandWeapon(0);
+    const wR = this.getHandWeapon(1);
+    if (!wL || !wR || wL.isTwoHanded) return null;
+    if (wL.setTag && wL.setTag === wR.setTag && SET_RESONANCES[wL.setTag]) {
+      return SET_RESONANCES[wL.setTag];
+    }
+    return null;
+  }
+
+  saveArmory() {
+    if (this._urlArmoryOverride) return;
+    safeStorageSet('gothic.armory.v1', JSON.stringify({
+      owned: [...this.ownedWeapons],
+      handL: this.handL,
+      handR: this.handR,
+    }));
+  }
+
+  openArmory(returnState = 'play') {
+    this.armoryUI.open(returnState);
+    this.setState('armory');
+    this.audio.sfx('select');
   }
 
   /** Opens the in-canvas Hunter Callsign editor (`C` on menus/map/pause). */
@@ -295,6 +443,7 @@ class Game {
         vx: 0,
         vy: 0,
         normX: 0.02,
+        normY: 0.65,
         inSecret: false,
         anim: 'idle',
         facing: 1,
@@ -308,12 +457,22 @@ class Game {
         invuln: 0,
         hp: 16,
         maxHp: 16,
+        level: this.charLevel,
         relicsMask: this.cleared | 0,
         screen: this.state,
       };
     }
     const p = this.world.player;
     const normX = this.world.level.width > 0 ? p.x / this.world.level.width : 0;
+    const normY = this.world.level.height > 0 ? p.y / this.world.level.height : 0.5;
+    let actSlot = null;
+    if (Array.isArray(p.slots)) {
+      for (const sl of p.slots) {
+        if (sl && sl.active && sl.weapon && sl.weapon.category !== 'whip') {
+          if (!actSlot || (actSlot.guarding && !sl.guarding)) actSlot = sl;
+        }
+      }
+    }
     return {
       stageKey: this.world.stage.key,
       x: p.x,
@@ -321,6 +480,7 @@ class Game {
       vx: p.vx,
       vy: p.vy,
       normX,
+      normY,
       inSecret: !!this.world.inSecretArea,
       anim: p.state,
       facing: p.facing,
@@ -329,11 +489,17 @@ class Game {
       attackCrouch: p.attackCrouch,
       throwing: p.throwing,
       whipReach: p.whipReach,
+      wId: actSlot ? actSlot.weapon.id : null,
+      wT: actSlot ? actSlot.timer : -1,
+      wDur: actSlot ? (actSlot.duration || 0.3) : 0.3,
+      wCr: actSlot ? !!(actSlot.crouch || p.crouching) : false,
+      wGd: actSlot ? !!actSlot.guarding : false,
       subWeapon: p.subWeapon,
       petrified: p.petrified,
       invuln: p.invuln,
       hp: p.hp,
       maxHp: p.maxHp,
+      level: this.charLevel,
       relicsMask: this.cleared | 0,
       screen: this.state,
     };
@@ -368,12 +534,13 @@ class Game {
         this.world.messages = [];
       }
     }
-    // ?at=<tile column> teleports the hunter for testing.
+    // ?at=<tile column>[&aty=<tile row>] teleports the hunter for testing.
     let at = parseInt(this.params.get('at') || '-1', 10);
+    const aty = parseInt(this.params.get('aty') || '-1', 10);
     if (at >= 0 && !carry) {
       at = Math.min(at, Math.floor(stage.boss.triggerX / 32) + 1);
       const lvl = this.world.level;
-      let row = lvl.surfaceRow(at);
+      let row = aty >= 1 ? lvl.surfaceRow(at, aty - 1) : lvl.surfaceRow(at);
       if (row < 0) {
         for (let d = 1; d <= 6 && row < 0; d++) {
           row = lvl.surfaceRow(at - d);
@@ -396,11 +563,19 @@ class Game {
 
   // Hooks from World
   onRespawn() { this.audio.playMusic(this.world.theme.music); }
-  onGameOver() { this.setState('gameover'); this.audio.playMusic('gameover', false); this.audio.stopAmbient(); }
+  onGameOver() {
+    if (this.world) this.world.messages = [];
+    this.setState('gameover');
+    this.audio.playMusic('gameover', false);
+    this.audio.stopAmbient();
+  }
   onStageClear() {
     this.cleared |= 1 << this.stageIndex;
     safeStorageSet('gothic.cleared.v3', String(this.cleared));
-    if (this.world) this.world.relics = this.getActiveRelics();
+    if (this.world) {
+      this.world.messages = [];
+      this.world.relics = this.getActiveRelics();
+    }
     this.setState('clear');
   }
 
@@ -445,9 +620,10 @@ class Game {
       this.acc -= DT;
       steps++;
     }
+    if (this.canvas.clientWidth < 32) this.fit();
     if (this.touch) this.touch.update();
     this.draw();
-    const fxWorld = (this.state === 'play' || this.state === 'pause' || this.state === 'clear' || this.state === 'gameover') ? this.world : null;
+    const fxWorld = (this.state === 'play' || this.state === 'pause' || this.state === 'armory' || this.state === 'clear' || this.state === 'gameover') ? this.world : null;
     if (fxWorld) {
       if (fxWorld.flash > 0.02) this.postfx.strike(fxWorld.flash);
       if (fxWorld.fxHurt) { this.postfx.damage(fxWorld.fxHurt); fxWorld.fxHurt = 0; }
@@ -529,11 +705,16 @@ class Game {
         break;
       }
       case 'play':
+        if (inp.pressed.armory) { this.openArmory('play'); break; }
         if (inp.pressed.map) { this.openMap(); break; }
         if (inp.pressed.start && this.world.phase === 'play') { this.setState('pause'); this.audio.sfx('pause'); break; }
         this.world.update(dt, inp);
         break;
+      case 'armory':
+        this.armoryUI.update(dt, inp);
+        break;
       case 'map': {
+        if (inp.pressed.armory) { this.openArmory('map'); break; }
         let c = this.mapCursor;
         if (inp.pressed.left) c = moveCursor(c, -1, 0);
         else if (inp.pressed.right) c = moveCursor(c, 1, 0);
@@ -562,6 +743,7 @@ class Game {
         break;
       }
       case 'pause':
+        if (inp.pressed.armory) { this.openArmory('pause'); break; }
         if (inp.pressed.map) { this.openMap(); break; }
         if (inp.pressed.start || inp.pressed.escape) { this.setState('play'); this.audio.sfx('pause'); }
         break;
@@ -571,7 +753,7 @@ class Game {
         break;
       case 'ending':
         if (this.stateT > 6 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) { this.setState('title'); this.audio.stopMusic(); this.endingNarrated = false; }
-        if (this.state === 'ending' && !this.endingNarrated && this.stateT > 2.4) { this.endingNarrated = true; this.audio.playVoice('narrator_ending'); }
+        if (this.state === 'ending' && !this.endingNarrated && this.stateT > 2.4) { this.endingNarrated = true; this.audio.playVoice('narrator_ending', { space: 'cathedral' }); }
         break;
       case 'gameover':
         if (this.stateT > 1.5 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) { this.setState('title'); this.audio.stopMusic(); }
@@ -602,6 +784,7 @@ class Game {
       case 'forge': this.forgeUI.drawProposal(ctx); break;
       case 'forging': this.forgeUI.drawForging(ctx); break;
       case 'map': this.drawLiveMap(ctx); break;
+      case 'armory': this.armoryUI.draw(ctx); break;
       case 'play': case 'pause':
         this.world.draw(ctx);
         drawHud(ctx, this.font, this.assets, this.world);
@@ -609,8 +792,8 @@ class Game {
           ctx.fillStyle = 'rgba(4, 3, 10, 0.55)'; ctx.fillRect(0, 0, W, H);
           const isTouch = !!(this.touch && this.touch.active);
           const netSub = this.net && this.net.connected
-            ? `${this.net.onlineCount} ONLINE (${this.net.room.toUpperCase()}) · ${isTouch ? 'TAP TO RESUME · NAME' : 'C CALLSIGN'} (${this.net.name})`
-            : isTouch ? 'TAP SCREEN OR RESUME · MAP · NAME · SOUND' : 'ENTER RESUME · M MAP · C CALLSIGN · N MUTE';
+            ? `${this.net.onlineCount} ONLINE (${this.net.room.toUpperCase()}) · ${isTouch ? 'TAP TO RESUME · GEAR · NAME' : 'E ARMORY · C CALLSIGN'} (${this.net.name})`
+            : isTouch ? 'TAP SCREEN OR RESUME · GEAR · MAP · NAME' : 'ENTER RESUME · E ARMORY · M MAP · C CALLSIGN · N MUTE';
           this.banner(['PAUSED'], 146, { scale: 3, sub: netSub });
         }
         break;
@@ -623,8 +806,8 @@ class Game {
       case 'gameover':
         this.world.draw(ctx, { hud: false });
         ctx.fillStyle = 'rgba(4, 3, 10, 0.6)'; ctx.fillRect(0, 0, W, H);
-        this.banner(['GAME OVER'], 140, { scale: 4, color: '#e23c3c', sub: this.stateT > 1.5 ? ((this.touch && this.touch.active) ? 'TAP OR PRESS START' : 'PRESS ENTER') : ' ' });
-        this.font.draw(ctx, `SCORE ${String(this.world.score).padStart(7, '0')}`, W / 2, 215, { align: 'center', scale: 2, shadow: '#120f1c' });
+        this.banner(['GAME OVER'], 136, { scale: 4, color: '#e23c3c', sub: this.stateT > 1.5 ? ((this.touch && this.touch.active) ? 'TAP OR PRESS START' : 'PRESS ENTER') : ' ' });
+        this.font.draw(ctx, `LV ${String(this.charLevel).padStart(2, '0')} · SCORE ${String(this.world.score).padStart(7, '0')}`, W / 2, 215, { align: 'center', scale: 2, gothic: false, shadow: '#120f1c' });
         break;
       default: break;
     }
@@ -793,14 +976,14 @@ class Game {
       });
       // Controls plate
       ctx.fillStyle = 'rgba(4, 3, 10, 0.55)';
-      ctx.fillRect(W / 2 - 236, 298, 472, 34);
-      ctx.fillStyle = '#3a2e22'; ctx.fillRect(W / 2 - 236, 298, 472, 1); ctx.fillRect(W / 2 - 236, 331, 472, 1);
+      ctx.fillRect(W / 2 - 248, 298, 496, 34);
+      ctx.fillStyle = '#3a2e22'; ctx.fillRect(W / 2 - 248, 298, 496, 1); ctx.fillRect(W / 2 - 248, 331, 496, 1);
       const lines = isTouch ? [
-        'D-PAD MOVE & CROUCH   JUMP (HOLD FOR HEIGHT)   WHIP   SUB THROWS WEAPON',
-        '↑ ENTER PASSAGES   TAP MINI-MAP FOR FAST TRAVEL   TOOLBAR FOR FORGE & SOUND',
+        'D-PAD MOVE   JUMP   L-HAND & R-HAND WEAPONS   SUB THROWS HEART ITEM',
+        'GEAR OPENS DUAL-HAND ARMORY   TAP MINI-MAP FOR FAST TRAVEL   ↓↘→ SKILL',
       ] : [
-        '←→ MOVE   ↓ CROUCH   Z/J/SPACE JUMP   X/K WHIP   ↑ PASSAGES / + WHIP THROWS',
-        'ENTER PAUSE   M MAP   P EXPAND THE CASTLE   G SALUTE   C CALLSIGN   N MUTE   F SHADERS',
+        '←→ MOVE   ↓ CROUCH   Z/J/SPACE JUMP   X/K L-HAND   C/V/L R-HAND   ↓↘→ SKILL',
+        'E ARMORY  M MAP  ↑ PASSAGES / + L-HAND SUB  P FORGE  G SALUTE  N MUTE  F FX',
       ];
       lines.forEach((l, i) => f.draw(ctx, l, W / 2, 304 + i * 12, { align: 'center', color: i === 1 ? '#ffb0a0' : '#c9c3b0', shadow: '#120f1c' }));
       if (this.net && this.net.enabled) {
@@ -826,8 +1009,8 @@ class Game {
     ctx.fillStyle = 'rgba(4, 3, 10, 0.6)';
     ctx.fillRect(0, 0, W, H);
     const f = this.font;
-    f.draw(ctx, 'GOTHIC NOCTURNE', W / 2, 30, { scale: 2, align: 'center', color: '#8a9ab5', spacing: 2, shadow: '#120f1c' });
-    f.draw(ctx, 'CHOOSE YOUR FATE', W / 2, 66, { scale: 3, align: 'center', color: '#e8e2c8', shadow: '#5b2a3a' });
+    f.draw(ctx, 'GOTHIC NOCTURNE', W / 2, 28, { scale: 2, align: 'center', color: '#8a9ab5', spacing: 2, shadow: '#120f1c' });
+    f.draw(ctx, 'CHOOSE YOUR FATE', W / 2, 62, { scale: 3, align: 'center', color: '#e8e2c8', shadow: '#5b2a3a' });
     ctx.fillStyle = '#5b6b86';
     ctx.fillRect(W / 2 - 170, 100, 340, 1);
 
@@ -839,15 +1022,15 @@ class Game {
       const selected = i === this.menuIndex;
       if (selected) {
         ctx.fillStyle = 'rgba(232, 226, 200, 0.07)';
-        ctx.fillRect(W / 2 - 230, y - 8, 460, rowH - 10);
+        ctx.fillRect(W / 2 - 230, y - 8, 460, rowH - 8);
         ctx.fillStyle = colors[key];
-        ctx.fillRect(W / 2 - 230, y - 8, 3, rowH - 10);
+        ctx.fillRect(W / 2 - 230, y - 8, 3, rowH - 8);
         const bob = Math.round(Math.sin(this.stateT * 6) * 2);
-        this.assets.draw(ctx, 'items', 'heart_small', W / 2 - 205 + bob, y + 16);
+        this.assets.draw(ctx, 'items', 'heart_small', W / 2 - 205 + bob, y + 14);
       }
-      f.draw(ctx, d.name, W / 2 - 185, y, { scale: 3, gothic: false, color: selected ? colors[key] : '#6f6a80', shadow: '#120f1c' });
-      f.draw(ctx, d.tagline, W / 2 - 185 + f.width(d.name, 3, 1, false) + 18, y + 12, { color: selected ? '#e8e2c8' : '#5b5670', shadow: '#120f1c' });
-      f.draw(ctx, d.desc, W / 2 - 185, y + 28, { color: selected ? '#c9c3b0' : '#4e4a5e', shadow: '#120f1c' });
+      f.draw(ctx, d.name, W / 2 - 185, y - 4, { scale: 3, color: selected ? colors[key] : '#6f6a80', shadow: '#120f1c' });
+      f.draw(ctx, d.tagline, W / 2 - 185 + f.width(d.name, 3, 1, true) + 16, y + 8, { color: selected ? '#e8e2c8' : '#5b5670', shadow: '#120f1c' });
+      f.draw(ctx, d.desc, W / 2 - 185, y + 29, { color: selected ? '#c9c3b0' : '#4e4a5e', shadow: '#120f1c' });
     });
 
     const pulse = 0.5 + 0.5 * Math.sin(this.stateT * 2.2);
@@ -864,7 +1047,11 @@ class Game {
     ctx.save();
     ctx.globalAlpha = k;
     ctx.fillStyle = 'rgba(4, 3, 10, 0.58)'; ctx.fillRect(0, 0, W, H);
-    this.banner(['STAGE CLEAR'], 68, { scale: 3, gothic: false, color: '#ffd27a', sub: `${w.difficulty.name} · SCORE X${w.difficulty.scoreMult}` });
+    this.banner(['STAGE CLEAR'], 58, {
+      scale: 3,
+      color: '#ffd27a',
+      sub: `${w.difficulty.name} · LV ${String(this.charLevel).padStart(2, '0')} · SCORE X${w.difficulty.scoreMult}`,
+    });
     const lines = [
       ['TIME BONUS', w.timeBonus],
       ['HEART BONUS', w.heartBonus],
@@ -929,6 +1116,7 @@ class Game {
       relics: this.getActiveRelics(),
       time: this.stateT,
       difficultyName: this.difficulty.name,
+      charLevel: this.charLevel,
       mode: 'select',
       remotePlayers: this.net ? this.net.activePeers() : null,
       onlineCount: this.net ? this.net.onlineCount : 1,
@@ -942,6 +1130,9 @@ class Game {
     const normX = this.world && this.world.level.width > 0
       ? this.world.player.x / this.world.level.width
       : 0;
+    const normY = this.world && this.world.level.height > 0
+      ? this.world.player.y / this.world.level.height
+      : 0.5;
     drawCastleMap(ctx, this.font, this.assets, {
       cursor: this.mapCursor,
       cleared: this.cleared,
@@ -951,9 +1142,11 @@ class Game {
       relics: this.getActiveRelics(),
       time: this.stateT,
       difficultyName: this.difficulty.name,
+      charLevel: this.charLevel,
       mode: 'live',
       currentStageKey: STAGES[this.stageIndex].key,
       playerNormX: normX,
+      playerNormY: normY,
       inSecret: !!(this.world && this.world.inSecretArea),
       remotePlayers: this.net ? this.net.activePeers() : null,
       onlineCount: this.net ? this.net.onlineCount : 1,
@@ -1006,7 +1199,7 @@ class Game {
         ctx.fillStyle = e.p % 3 ? '#ff9a3c' : '#ffd27a';
         ctx.fillRect(Math.round(ex), Math.round(yy), e.s > 1.1 ? 2 : 1, e.s > 1.1 ? 2 : 1);
       }
-      if (t > 0.6) this.banner(['THE NIGHT IS OVER'], 38, { scale: 3, gothic: false, color: '#ffd27a', band: true });
+      if (t > 0.6) this.banner(['THE NIGHT IS OVER'], 38, { scale: 3, color: '#ffd27a', band: true });
     } else if (t < 21) {
       drawPanel(p2, 8, 21, 1.1, 1.0, 14);
     } else if (t < 34) {
@@ -1041,7 +1234,7 @@ class Game {
       ctx.strokeRect(cx + 2.5, cy + 2.5, cw - 5, ch - 5);
       if (w) {
         f.draw(ctx, `FINAL SCORE ${String(w.score).padStart(7, '0')}`, W / 2, 198, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
-        f.draw(ctx, `${w.difficulty.name} · ${w.lives} LIVES REMAINING · ${w.hearts} HEARTS`, W / 2, 222, { gothic: false, align: 'center', color: '#e8e2c8', shadow: '#05040a' });
+        f.draw(ctx, `${w.difficulty.name} · LV ${String(this.charLevel).padStart(2, '0')} · ${w.lives} LIVES REMAINING · ${w.hearts} HEARTS`, W / 2, 222, { gothic: false, align: 'center', color: '#e8e2c8', shadow: '#05040a' });
       }
       ctx.fillStyle = '#5a462c';
       ctx.fillRect(W / 2 - 150, 240, 300, 1);
@@ -1109,7 +1302,8 @@ game.boot().catch((e) => {
 });
 
 function loadExploredSet(key, revealAll = false) {
-  const out = new Set(['9,8']);
+  const startCell = MAP_ROOMS.graveyard && MAP_ROOMS.graveyard.spine[0] ? MAP_ROOMS.graveyard.spine[0] : [1, 15];
+  const out = new Set([`${startCell[0]},${startCell[1]}`]);
   if (revealAll) {
     for (const rm of Object.values(MAP_ROOMS)) {
       for (const [c, r] of rm.allCells) out.add(`${c},${r}`);
@@ -1123,6 +1317,102 @@ function loadExploredSet(key, revealAll = false) {
     if (Array.isArray(arr)) for (const item of arr) if (typeof item === 'string') out.add(item);
   } catch (e) { /* ignore malformed storage */ }
   return out;
+}
+
+function loadProgression(key, params) {
+  if (params && params.get('resetlevel') === '1') {
+    safeStorageSet(key, JSON.stringify({ level: START_LEVEL, exp: 0 }));
+    return { level: START_LEVEL, exp: 0, urlOverride: false };
+  }
+  if (params && (params.has('level') || params.has('exp'))) {
+    const rawLv = parseInt(params.get('level') || String(START_LEVEL), 10);
+    const level = Number.isFinite(rawLv)
+      ? Math.max(START_LEVEL, Math.min(LEVEL_CAP, rawLv))
+      : START_LEVEL;
+    const req = expRequiredForNextLevel(level);
+    const rawExp = parseInt(params.get('exp') || '0', 10);
+    const exp = Number.isFinite(rawExp) && req > 0
+      ? Math.max(0, Math.min(req - 1, rawExp))
+      : 0;
+    return { level, exp, urlOverride: true };
+  }
+  const raw = safeStorageGet(key);
+  if (raw) {
+    try {
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj === 'object') {
+        const lv = Math.max(START_LEVEL, Math.min(LEVEL_CAP, parseInt(obj.level, 10) || START_LEVEL));
+        const req = expRequiredForNextLevel(lv);
+        const ex = req > 0 ? Math.max(0, Math.min(req - 1, parseInt(obj.exp, 10) || 0)) : 0;
+        return { level: lv, exp: ex, urlOverride: false };
+      }
+    } catch (e) { /* ignore malformed storage */ }
+  }
+  return { level: START_LEVEL, exp: 0, urlOverride: false };
+}
+
+function loadArmoryState(key, params) {
+  const owned = new Set(['hunters_lash']);
+  let handL = 'hunters_lash';
+  let handR = null;
+  let urlOverride = false;
+
+  if (params && params.get('resetarmory') === '1') {
+    safeStorageSet(key, JSON.stringify({ owned: ['hunters_lash'], handL: 'hunters_lash', handR: null }));
+    return { owned, handL, handR, urlOverride: false };
+  }
+
+  const raw = safeStorageGet(key);
+  if (raw) {
+    try {
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj === 'object') {
+        if (Array.isArray(obj.owned)) {
+          for (const w of obj.owned) if (WEAPONS[w]) owned.add(w);
+        }
+        if (obj.handL && WEAPONS[obj.handL]) { handL = obj.handL; owned.add(handL); }
+        if (obj.handR && WEAPONS[obj.handR] && !WEAPONS[obj.handR].isTwoHanded) {
+          handR = obj.handR;
+          owned.add(handR);
+        }
+      }
+    } catch (e) { /* ignore malformed storage */ }
+  }
+
+  if (params) {
+    const wp = params.get('weapons');
+    if (wp === 'all') {
+      for (const w of WEAPON_ORDER) owned.add(w);
+      urlOverride = true;
+    } else if (wp) {
+      for (const w of wp.split(',')) {
+        const clean = w.trim();
+        if (WEAPONS[clean]) owned.add(clean);
+      }
+      urlOverride = true;
+    }
+    const hl = params.get('handL');
+    if (hl && WEAPONS[hl]) {
+      handL = hl;
+      owned.add(hl);
+      urlOverride = true;
+    }
+    const hr = params.get('handR');
+    if (hr === 'none' || hr === 'empty') {
+      handR = null;
+      urlOverride = true;
+    } else if (hr && WEAPONS[hr] && !WEAPONS[hr].isTwoHanded) {
+      handR = hr;
+      owned.add(hr);
+      urlOverride = true;
+    }
+  }
+
+  if (WEAPONS[handL] && WEAPONS[handL].isTwoHanded) {
+    handR = null;
+  }
+
+  return { owned, handL, handR, urlOverride };
 }
 
 function safeStorageGet(key) {

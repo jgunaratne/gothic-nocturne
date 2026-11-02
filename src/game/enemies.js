@@ -158,8 +158,12 @@ export class Skeleton extends Enemy {
 
   kill(world) {
     if (this.revives) {
-      // Collapse instead of dying; score only the first time.
-      if (!this.scored) { this.scored = true; world.addScore(this.score); }
+      // Collapse instead of dying; score and EXP only the first time.
+      if (!this.scored) {
+        this.scored = true;
+        world.addScore(this.score);
+        if (world.awardEnemyExp) world.awardEnemyExp(this);
+      }
       world.sfx('enemy_die');
       world.particles.shards(this.x, this.y, 10, '#e8b0a0', this.y);
       this.pileT = 4.5;
@@ -1114,13 +1118,18 @@ export class PlateKnight extends Enemy {
     this.slashCd = 1.4 + Math.random() * 0.8;
   }
 
-  takeHit(dmg, fromX, world) {
-    // Shield guard halves frontal damage with a metallic clang!
+  takeHit(dmg, fromX, world, opts = null) {
+    // Shield guard halves frontal damage with a metallic clang — unless pierced by Brawlers!
     const frontal = (fromX - this.x) * this.facing > 0;
+    const piercing = !!(opts && opts.armorPiercing) || !!(world && world._hitArmorPiercing);
     if (this.state === 'guard' && frontal) {
-      dmg = Math.max(1, Math.floor(dmg * 0.5));
-      world.sfx('block');
-      world.particles.sparks(this.x + this.facing * 14, this.y - 40, 6, '#ffd27a');
+      if (piercing) {
+        world.particles.sparks(this.x + this.facing * 14, this.y - 40, 8, '#62f2c2');
+      } else {
+        dmg = Math.max(1, Math.floor(dmg * 0.5));
+        world.sfx('block');
+        world.particles.sparks(this.x + this.facing * 14, this.y - 40, 6, '#ffd27a');
+      }
     }
     const died = super.takeHit(dmg, fromX, world);
     this.knock = 0;

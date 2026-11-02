@@ -1,4 +1,174 @@
 {
+ "alchemist": {
+  "file": "alchemist.png",
+  "frames": {
+   "cast": {
+    "ax": 49.5,
+    "ay": 99,
+    "h": 99,
+    "w": 99,
+    "x": 77,
+    "y": 1
+   },
+   "idle": {
+    "ax": 37.5,
+    "ay": 116,
+    "h": 116,
+    "w": 75,
+    "x": 1,
+    "y": 1
+   },
+   "shield": {
+    "ax": 47.0,
+    "ay": 118,
+    "h": 118,
+    "w": 94,
+    "x": 249,
+    "y": 1
+   },
+   "summon": {
+    "ax": 35.5,
+    "ay": 149,
+    "h": 149,
+    "w": 71,
+    "x": 177,
+    "y": 1
+   }
+  },
+  "h": 151,
+  "type": "sheet",
+  "w": 344
+ },
+ "alchemy_props": {
+  "file": "alchemy_props.png",
+  "frames": {
+   "athanor": {
+    "ax": 31.0,
+    "ay": 71,
+    "h": 71,
+    "w": 62,
+    "x": 160,
+    "y": 1
+   },
+   "elixir_rack": {
+    "ax": 30.5,
+    "ay": 67,
+    "h": 67,
+    "w": 61,
+    "x": 98,
+    "y": 1
+   },
+   "retort_stand": {
+    "ax": 27.5,
+    "ay": 84,
+    "h": 84,
+    "w": 55,
+    "x": 1,
+    "y": 1
+   },
+   "tesla_coil": {
+    "ax": 20.0,
+    "ay": 87,
+    "h": 87,
+    "w": 40,
+    "x": 57,
+    "y": 1
+   }
+  },
+  "h": 89,
+  "type": "sheet",
+  "w": 223
+ },
+ "alchemyfloor": {
+  "file": "alchemyfloor.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "alchemyfloor_b": {
+  "file": "alchemyfloor_b.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "alchemywall": {
+  "file": "alchemywall.png",
+  "h": 384,
+  "type": "texture",
+  "w": 768
+ },
+ "aqueduct_props": {
+  "file": "aqueduct_props.png",
+  "frames": {
+   "canal_lantern": {
+    "ax": 18.0,
+    "ay": 112,
+    "h": 112,
+    "w": 36,
+    "x": 183,
+    "y": 1
+   },
+   "moss_amphora": {
+    "ax": 29.0,
+    "ay": 59,
+    "h": 59,
+    "w": 58,
+    "x": 124,
+    "y": 1
+   },
+   "sluice_wheel": {
+    "ax": 31.0,
+    "ay": 92,
+    "h": 92,
+    "w": 62,
+    "x": 61,
+    "y": 1
+   },
+   "water_spout": {
+    "ax": 29.5,
+    "ay": 84,
+    "h": 84,
+    "w": 59,
+    "x": 1,
+    "y": 1
+   }
+  },
+  "h": 114,
+  "type": "sheet",
+  "w": 220
+ },
+ "aqueduct_stone": {
+  "file": "aqueduct_stone.png",
+  "h": 256,
+  "type": "texture",
+  "w": 256
+ },
+ "aqueductfloor": {
+  "file": "aqueductfloor.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "aqueductfloor_b": {
+  "file": "aqueductfloor_b.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "aqueductwall": {
+  "file": "aqueductwall.png",
+  "h": 384,
+  "type": "texture",
+  "w": 768
+ },
  "arcade_props": {
   "file": "arcade_props.png",
   "frames": {
@@ -937,6 +1107,68 @@
   "loop": true,
   "type": "sheet",
   "w": 705
+ },
+ "ballroom_props": {
+  "file": "ballroom_props.png",
+  "frames": {
+   "candelabra": {
+    "ax": 17.0,
+    "ay": 90,
+    "h": 90,
+    "w": 34,
+    "x": 51,
+    "y": 1
+   },
+   "gilded_mirror": {
+    "ax": 24.5,
+    "ay": 90,
+    "h": 90,
+    "w": 49,
+    "x": 1,
+    "y": 1
+   },
+   "marble_bust": {
+    "ax": 13.5,
+    "ay": 84,
+    "h": 84,
+    "w": 27,
+    "x": 143,
+    "y": 1
+   },
+   "velvet_drape": {
+    "ax": 28.0,
+    "ay": 88,
+    "h": 88,
+    "w": 56,
+    "x": 86,
+    "y": 1
+   }
+  },
+  "h": 92,
+  "type": "sheet",
+  "w": 171
+ },
+ "ballroomfloor": {
+  "file": "ballroomfloor.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "ballroomfloor_b": {
+  "file": "ballroomfloor_b.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "ballroomwall": {
+  "file": "ballroomwall.png",
+  "h": 384,
+  "type": "texture",
+  "w": 768
  },
  "bat": {
   "file": "bat.png",
@@ -2155,6 +2387,74 @@
   "type": "texture",
   "w": 256
  },
+ "coliseum_props": {
+  "file": "coliseum_props.png",
+  "frames": {
+   "iron_brazier": {
+    "ax": 28.5,
+    "ay": 78,
+    "h": 78,
+    "w": 57,
+    "x": 119,
+    "y": 1
+   },
+   "trophy_pillar": {
+    "ax": 21.5,
+    "ay": 89,
+    "h": 89,
+    "w": 43,
+    "x": 75,
+    "y": 1
+   },
+   "war_standard": {
+    "ax": 23.0,
+    "ay": 110,
+    "h": 110,
+    "w": 46,
+    "x": 177,
+    "y": 1
+   },
+   "weapon_rack": {
+    "ax": 36.5,
+    "ay": 86,
+    "h": 86,
+    "w": 73,
+    "x": 1,
+    "y": 1
+   }
+  },
+  "h": 112,
+  "type": "sheet",
+  "w": 224
+ },
+ "coliseumfloor": {
+  "file": "coliseumfloor.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "coliseumfloor_b": {
+  "file": "coliseumfloor_b.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "coliseumwall": {
+  "file": "coliseumwall.png",
+  "h": 384,
+  "type": "texture",
+  "w": 768
+ },
+ "crypt_stone": {
+  "file": "crypt_stone.png",
+  "h": 256,
+  "type": "texture",
+  "w": 256
+ },
  "darkwood_canopy": {
   "file": "darkwood_canopy.png",
   "h": 360,
@@ -2857,6 +3157,46 @@
   "type": "sheet",
   "w": 1024
  },
+ "gladiator": {
+  "file": "gladiator.png",
+  "frames": {
+   "throw0": {
+    "ax": 45.0,
+    "ay": 112,
+    "h": 112,
+    "w": 90,
+    "x": 180,
+    "y": 1
+   },
+   "throw1": {
+    "ax": 44.0,
+    "ay": 105,
+    "h": 105,
+    "w": 116,
+    "x": 271,
+    "y": 1
+   },
+   "walk0": {
+    "ax": 44.0,
+    "ay": 112,
+    "h": 112,
+    "w": 88,
+    "x": 1,
+    "y": 1
+   },
+   "walk1": {
+    "ax": 44.5,
+    "ay": 112,
+    "h": 112,
+    "w": 89,
+    "x": 90,
+    "y": 1
+   }
+  },
+  "h": 114,
+  "type": "sheet",
+  "w": 388
+ },
  "gorgon": {
   "file": "gorgon.png",
   "frames": {
@@ -3018,6 +3358,12 @@
   "type": "sheet",
   "w": 235
  },
+ "graveyard_vista": {
+  "file": "graveyard_vista.png",
+  "h": 360,
+  "type": "texture",
+  "w": 1920
+ },
  "greatjack": {
   "file": "greatjack.png",
   "frames": {
@@ -3163,6 +3509,38 @@
   "type": "strip",
   "w": 512
  },
+ "hanging_props": {
+  "file": "hanging_props.png",
+  "frames": {
+   "gibbet_cage": {
+    "ax": 14.0,
+    "ay": 64,
+    "h": 64,
+    "w": 28,
+    "x": 41,
+    "y": 1
+   },
+   "hoist_wheel": {
+    "ax": 13.0,
+    "ay": 64,
+    "h": 64,
+    "w": 26,
+    "x": 70,
+    "y": 1
+   },
+   "pendulum_bob": {
+    "ax": 19.5,
+    "ay": 64,
+    "h": 64,
+    "w": 39,
+    "x": 1,
+    "y": 1
+   }
+  },
+  "h": 66,
+  "type": "sheet",
+  "w": 97
+ },
  "hero": {
   "file": "hero.png",
   "frames": {
@@ -3266,6 +3644,78 @@
   "h": 68,
   "type": "sheet",
   "w": 444
+ },
+ "hero_csword": {
+  "file": "hero_csword.png",
+  "frames": {
+   "crouch_nowhip": {
+    "ax": 14.0,
+    "ay": 44,
+    "h": 44,
+    "w": 28,
+    "x": 166,
+    "y": 1
+   },
+   "cslash0": {
+    "ax": 15.0,
+    "ay": 39,
+    "h": 39,
+    "w": 30,
+    "x": 36,
+    "y": 1
+   },
+   "cslash1": {
+    "ax": 12.5,
+    "ay": 47,
+    "h": 47,
+    "w": 33,
+    "x": 67,
+    "y": 1
+   },
+   "cslash2": {
+    "ax": 12.5,
+    "ay": 44,
+    "h": 44,
+    "w": 38,
+    "x": 101,
+    "y": 1
+   },
+   "idle_nowhip": {
+    "ax": 12.5,
+    "ay": 64,
+    "h": 64,
+    "w": 25,
+    "x": 140,
+    "y": 1
+   },
+   "stride_nowhip": {
+    "ax": 17.0,
+    "ay": 63,
+    "h": 63,
+    "w": 34,
+    "x": 1,
+    "y": 1
+   },
+   "strike_nowhip": {
+    "ax": 12.5,
+    "ay": 60,
+    "h": 60,
+    "w": 43,
+    "x": 231,
+    "y": 1
+   },
+   "wind_nowhip": {
+    "ax": 17.5,
+    "ay": 66,
+    "h": 66,
+    "w": 35,
+    "x": 195,
+    "y": 1
+   }
+  },
+  "h": 68,
+  "type": "sheet",
+  "w": 275
  },
  "hero_cwhip": {
   "file": "hero_cwhip.png",
@@ -3596,6 +4046,94 @@
   "type": "sheet",
   "w": 285
  },
+ "hero_sword": {
+  "file": "hero_sword.png",
+  "frames": {
+   "airslash": {
+    "ax": 17.0,
+    "ay": 66,
+    "h": 66,
+    "w": 42,
+    "x": 386,
+    "y": 1
+   },
+   "alt0": {
+    "ax": 19.0,
+    "ay": 70,
+    "h": 70,
+    "w": 38,
+    "x": 300,
+    "y": 1
+   },
+   "alt1": {
+    "ax": 17.0,
+    "ay": 64,
+    "h": 64,
+    "w": 46,
+    "x": 339,
+    "y": 1
+   },
+   "heavy0": {
+    "ax": 14.0,
+    "ay": 75,
+    "h": 75,
+    "w": 28,
+    "x": 229,
+    "y": 1
+   },
+   "heavy1": {
+    "ax": 17.0,
+    "ay": 60,
+    "h": 60,
+    "w": 41,
+    "x": 258,
+    "y": 1
+   },
+   "slash0": {
+    "ax": 18.0,
+    "ay": 73,
+    "h": 73,
+    "w": 36,
+    "x": 1,
+    "y": 1
+   },
+   "slash1": {
+    "ax": 17.0,
+    "ay": 65,
+    "h": 65,
+    "w": 48,
+    "x": 38,
+    "y": 1
+   },
+   "slash2": {
+    "ax": 17.0,
+    "ay": 63,
+    "h": 63,
+    "w": 41,
+    "x": 87,
+    "y": 1
+   },
+   "thrust0": {
+    "ax": 17.0,
+    "ay": 64,
+    "h": 64,
+    "w": 34,
+    "x": 129,
+    "y": 1
+   },
+   "thrust1": {
+    "ax": 17.0,
+    "ay": 60,
+    "h": 60,
+    "w": 64,
+    "x": 164,
+    "y": 1
+   }
+  },
+  "h": 77,
+  "type": "sheet",
+  "w": 429
+ },
  "hero_turn": {
   "file": "hero_turn.png",
   "frames": {
@@ -3624,7 +4162,7 @@
   "file": "hero_walk.png",
   "frames": {
    "walk0": {
-    "ax": 13.9,
+    "ax": 16.0,
     "ay": 63,
     "h": 63,
     "w": 32,
@@ -3632,7 +4170,7 @@
     "y": 1
    },
    "walk1": {
-    "ax": 10.7,
+    "ax": 11.0,
     "ay": 64,
     "h": 64,
     "w": 22,
@@ -3640,7 +4178,7 @@
     "y": 1
    },
    "walk2": {
-    "ax": 15.4,
+    "ax": 16.0,
     "ay": 63,
     "h": 63,
     "w": 32,
@@ -3648,7 +4186,7 @@
     "y": 1
    },
    "walk3": {
-    "ax": 11.4,
+    "ax": 12.0,
     "ay": 63,
     "h": 63,
     "w": 24,
@@ -3664,7 +4202,7 @@
     "y": 1
    },
    "walk5": {
-    "ax": 11.8,
+    "ax": 12.0,
     "ay": 62,
     "h": 62,
     "w": 24,
@@ -4411,6 +4949,52 @@
   "type": "texture",
   "w": 640
  },
+ "marble_stone": {
+  "file": "marble_stone.png",
+  "h": 192,
+  "type": "texture",
+  "w": 256
+ },
+ "masquerade": {
+  "file": "masquerade.png",
+  "frames": {
+   "cape": {
+    "ax": 57.0,
+    "ay": 116,
+    "h": 116,
+    "w": 114,
+    "x": 105,
+    "y": 1
+   },
+   "cast": {
+    "ax": 42.0,
+    "ay": 121,
+    "h": 121,
+    "w": 84,
+    "x": 220,
+    "y": 1
+   },
+   "idle": {
+    "ax": 51.5,
+    "ay": 108,
+    "h": 108,
+    "w": 103,
+    "x": 1,
+    "y": 1
+   },
+   "lunge": {
+    "ax": 51.5,
+    "ay": 84,
+    "h": 84,
+    "w": 147,
+    "x": 305,
+    "y": 1
+   }
+  },
+  "h": 123,
+  "type": "sheet",
+  "w": 453
+ },
  "medusa": {
   "file": "medusa.png",
   "frames": {
@@ -4497,6 +5081,74 @@
   "h": 360,
   "type": "texture",
   "w": 1280
+ },
+ "mural_alchemy": {
+  "file": "mural_alchemy.png",
+  "h": 288,
+  "type": "texture",
+  "w": 512
+ },
+ "mural_aqueduct": {
+  "file": "mural_aqueduct.png",
+  "h": 288,
+  "type": "texture",
+  "w": 512
+ },
+ "mural_ballroom": {
+  "file": "mural_ballroom.png",
+  "h": 288,
+  "type": "texture",
+  "w": 512
+ },
+ "mural_catacombs": {
+  "file": "mural_catacombs.png",
+  "h": 288,
+  "type": "texture",
+  "w": 512
+ },
+ "mural_coliseum": {
+  "file": "mural_coliseum.png",
+  "h": 288,
+  "type": "texture",
+  "w": 512
+ },
+ "mural_throne": {
+  "file": "mural_throne.png",
+  "h": 288,
+  "type": "texture",
+  "w": 512
+ },
+ "oracle": {
+  "file": "oracle.png",
+  "frames": {
+   "a": {
+    "ax": 46.0,
+    "ay": 104,
+    "h": 104,
+    "w": 92,
+    "x": 1,
+    "y": 1
+   },
+   "b": {
+    "ax": 34.5,
+    "ay": 107,
+    "h": 107,
+    "w": 69,
+    "x": 94,
+    "y": 1
+   },
+   "stare": {
+    "ax": 33.5,
+    "ay": 94,
+    "h": 94,
+    "w": 67,
+    "x": 164,
+    "y": 1
+   }
+  },
+  "h": 109,
+  "type": "sheet",
+  "w": 232
  },
  "owl": {
   "file": "owl.png",
@@ -4586,6 +5238,12 @@
   "loop": true,
   "type": "sheet",
   "w": 281
+ },
+ "pillar_fluted": {
+  "file": "pillar_fluted.png",
+  "h": 256,
+  "type": "texture",
+  "w": 96
  },
  "platform": {
   "file": "platform.png",
@@ -5025,6 +5683,46 @@
   "type": "sheet",
   "w": 313
  },
+ "seraph": {
+  "file": "seraph.png",
+  "frames": {
+   "idle": {
+    "ax": 50.0,
+    "ay": 120,
+    "h": 120,
+    "w": 100,
+    "x": 1,
+    "y": 1
+   },
+   "pounce": {
+    "ax": 72.0,
+    "ay": 83,
+    "h": 83,
+    "w": 144,
+    "x": 326,
+    "y": 1
+   },
+   "roar": {
+    "ax": 111.5,
+    "ay": 118,
+    "h": 118,
+    "w": 223,
+    "x": 102,
+    "y": 1
+   },
+   "shell": {
+    "ax": 34.0,
+    "ay": 88,
+    "h": 88,
+    "w": 68,
+    "x": 471,
+    "y": 1
+   }
+  },
+  "h": 122,
+  "type": "sheet",
+  "w": 540
+ },
  "shrines": {
   "file": "shrines.png",
   "frames": {
@@ -5337,6 +6035,74 @@
   "type": "texture",
   "w": 640
  },
+ "skykeep_backdrop": {
+  "file": "skykeep_backdrop.png",
+  "h": 360,
+  "type": "texture",
+  "w": 1920
+ },
+ "skykeep_far": {
+  "file": "skykeep_far.png",
+  "h": 360,
+  "type": "texture",
+  "w": 1280
+ },
+ "skykeep_props": {
+  "file": "skykeep_props.png",
+  "frames": {
+   "fountain_basin": {
+    "ax": 31.5,
+    "ay": 66,
+    "h": 66,
+    "w": 63,
+    "x": 90,
+    "y": 1
+   },
+   "ivy_column": {
+    "ax": 20.5,
+    "ay": 87,
+    "h": 87,
+    "w": 41,
+    "x": 48,
+    "y": 1
+   },
+   "moon_astrolabe": {
+    "ax": 23.0,
+    "ay": 88,
+    "h": 88,
+    "w": 46,
+    "x": 1,
+    "y": 1
+   },
+   "star_lantern": {
+    "ax": 10.0,
+    "ay": 85,
+    "h": 85,
+    "w": 20,
+    "x": 154,
+    "y": 1
+   }
+  },
+  "h": 90,
+  "type": "sheet",
+  "w": 175
+ },
+ "skykeepfloor": {
+  "file": "skykeepfloor.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "skykeepfloor_b": {
+  "file": "skykeepfloor_b.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
  "snowfloor": {
   "file": "snowfloor.png",
   "h": 134,
@@ -5506,6 +6272,12 @@
   "type": "sheet",
   "w": 315
  },
+ "stone_trim": {
+  "file": "stone_trim.png",
+  "h": 192,
+  "type": "texture",
+  "w": 256
+ },
  "throne_props": {
   "file": "throne_props.png",
   "frames": {
@@ -5640,6 +6412,12 @@
   "loop": true,
   "type": "sheet",
   "w": 340
+ },
+ "travertine_stone": {
+  "file": "travertine_stone.png",
+  "h": 256,
+  "type": "texture",
+  "w": 256
  },
  "treant": {
   "file": "treant.png",
@@ -6198,15 +6976,63 @@
  },
  "wall": {
   "file": "wall.png",
-  "h": 192,
+  "h": 256,
   "type": "texture",
-  "w": 192
+  "w": 256
  },
  "wall_b": {
   "file": "wall_b.png",
-  "h": 192,
+  "h": 256,
   "type": "texture",
-  "w": 192
+  "w": 256
+ },
+ "wing_icons": {
+  "file": "wing_icons.png",
+  "frames": {
+   "alchemy": {
+    "ax": 12.0,
+    "ay": 26,
+    "h": 26,
+    "w": 24,
+    "x": 1,
+    "y": 1
+   },
+   "aqueduct": {
+    "ax": 13.5,
+    "ay": 22,
+    "h": 22,
+    "w": 27,
+    "x": 85,
+    "y": 1
+   },
+   "ballroom": {
+    "ax": 14.5,
+    "ay": 16,
+    "h": 16,
+    "w": 29,
+    "x": 26,
+    "y": 1
+   },
+   "coliseum": {
+    "ax": 14.0,
+    "ay": 26,
+    "h": 26,
+    "w": 28,
+    "x": 56,
+    "y": 1
+   },
+   "skykeep": {
+    "ax": 13.5,
+    "ay": 25,
+    "h": 25,
+    "w": 27,
+    "x": 113,
+    "y": 1
+   }
+  },
+  "h": 28,
+  "type": "sheet",
+  "w": 141
  },
  "winter": {
   "file": "winter.png",

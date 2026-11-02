@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generates all thirteen gothic boss approach voice clips (plus ending narrator)
+# Generates all eighteen gothic boss approach voice clips (plus ending narrator)
 # using the Daikon NLM TTS engine (models/gemini-v4s-tts-nlm-daikon on Beyond prod),
 # matching male voices to male bosses and female voices to female bosses, with
 # expressive evil laughs, whispers, coughs, and dramatic shouting.
@@ -19,6 +19,11 @@ gen_daikon() {
   local wav="/tmp/daikon_v2_${key}.wav"
   local req="/tmp/daikon_v2_${key}.textproto"
   local mp3="${OUT_DIR}/${key}.mp3"
+
+  if [ -s "${mp3}" ]; then
+    printf "%-20s -> exists (%ss)\n" "${key}" "$(ffprobe -v error -show_entries format=duration -of csv=p=0 "${mp3}")"
+    return
+  fi
 
   if [ ! -s "${wav}" ]; then
     python3 - "${req}" "${voice}" "${lang}" "${style}" "${text}" << 'PY'
@@ -129,6 +134,31 @@ gen_daikon "reaperlord" "star13" "en-US" \
 gen_daikon "count" "msm00001" "en-GB" \
   $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Open with a rich, velvety evil aristocratic laugh, lean close in a chilling predatory whisper, and rise into a grand, wrathful shout.\nEmotion: Aristocratic evil, theatrical, wrathful\nTexture: Deep, velvety, commanding\nPacing: Slow then explosive\nPitch: Low\nExpressivity: High\nRole: Immortal Castle Lord\nCharacter: The Count' \
   "<|laughter|> <|whisper|> So... the little hunter crawls bleeding into my throne hall... <|/whisper|> TONIGHT THE DARKNESS DRINKS ITS FILL!"
+
+# 14. Stage 14 — The Grand Alchemist (Male: star09, manic arcane scholar)
+gen_daikon "wing_alchemy_voice" "star09" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: adult male voice\nDirection: Start with an acrid fume-choked cough and a feverish, unhinged evil laugh, drop into an obsessive conspiratorial whisper, then shout with triumphant arcane madness.\nEmotion: Manic, obsessed, sinister, triumphant\nTexture: Sharp, theatrical, resonant\nPacing: Dynamic\nPitch: Medium-low\nExpressivity: High\nRole: Master of Forbidden Transmutation\nCharacter: The Grand Alchemist' \
+  "<cough> <|laughter|> <|whisper|> Behold the Great Work, mortal... <|/whisper|> YOUR VERY BLOOD SHALL TRANSMUTE MY PHILOSOPHER STONE!"
+
+# 15. Stage 15 — The Masquerade Duke (Male: msm00001, velvety decadent aristocrat)
+gen_daikon "wing_ballroom_voice" "msm00001" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Begin with a cultured, sinister aristocratic chuckle, lean in with a silky, mocking ballroom whisper, then snap into a ruthless, booming command.\nEmotion: Cruel elegance, theatrical malice, wrathful\nTexture: Velvety, deep, resonant\nPacing: Graceful then sudden strike\nPitch: Low\nExpressivity: High\nRole: Phantom Ballroom Aristocrat\nCharacter: The Masquerade Duke' \
+  "<|chuckle|> <|whisper|> May I have this final waltz, little hunter? <|/whisper|> WHEN THE HARPSICHORD STOPS, YOUR HEART SHALL TOO!"
+
+# 16. Stage 16 — The Iron Gladiator (Male: star13, booming arena champion)
+gen_daikon "wing_coliseum_voice" "star13" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nVoice: mature male voice\nDirection: Unleash a roaring, bloodthirsty arena laugh, bark out a fierce martial challenge, and bellow the final threat like an undefeated coliseum warlord.\nEmotion: Fierce, bloodthirsty, commanding, ruthless\nTexture: Thunderous, gravelly, brassy\nPacing: Forceful and driving\nPitch: Low\nExpressivity: High\nRole: Undefeated Arena Champion\nCharacter: The Iron Gladiator' \
+  "<|laughter|> Salute the blood sands, challenger! NO MORTAL HAS EVER WALKED OUT THROUGH MY CHAMPION GATE!"
+
+# 17. Stage 17 — The Drowned Oracle (Female: msf00005, haunting abyssal prophetess)
+gen_daikon "wing_aqueduct_voice" "msf00005" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature female voice\nDirection: Exhale a cold, mournful sigh, speak in an eerie echoing subterranean whisper like dark water rising in stone vaults, then swell into a terrifying prophetic command.\nEmotion: Haunting, cold, merciless, ominous\nTexture: Silky, echoing, abyssal\nPacing: Slow then overwhelming\nPitch: Medium-low\nExpressivity: High\nRole: Abyssal Cistern Prophetess\nCharacter: The Drowned Oracle' \
+  "<|sigh|> <|whisper|> Hear the black tide rising in the cisterns, hunter... <|/whisper|> SINK BENEATH MY SILENT WATERS FOREVER!"
+
+# 18. Stage 18 — The Moonlit Seraph (Female: star17, imperious celestial guardian)
+gen_daikon "wing_skykeep_voice" "star17" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature female voice\nDirection: Begin with a cold, crystalline, imperious laugh, murmur a lofty celestial whisper from high above the clouds, then thunder down with pitiless divine wrath.\nEmotion: Imperious, coldly radiant, wrathful\nTexture: Rich, resonant, commanding\nPacing: Majestic then fierce\nPitch: Medium\nExpressivity: High\nRole: Celestial Sanctuary Warden\nCharacter: The Moonlit Seraph' \
+  "<|laughter|> <|whisper|> Above the clouds no mortal foot may tread... <|/whisper|> PLUMMET FROM THESE CELESTIAL GARDENS INTO THE NIGHT!"
 
 # Ending narrator (epilogue, male chronicler — keep warm & solemn)
 if [ ! -s "${OUT_DIR}/narrator_ending.mp3" ]; then

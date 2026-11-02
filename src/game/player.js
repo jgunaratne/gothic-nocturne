@@ -1,13 +1,19 @@
-// The vampire hunter: movement, whip, sub-weapons, damage and death.
+// The vampire hunter: movement, ambidextrous dual-hand equipment matrix,
+// 30-frame fighting-game command skills, cross-hand resonance, sub-weapons, damage & death.
 
 import { PLAYER, TILE } from '../engine/constants.js';
 import { Entity } from './entities.js';
 import { Projectile } from './objects.js';
+import { getFxLayers } from '../engine/fxlayers.js';
 import {
   heroFrame, heroScale, drawWhipFrame, lashTip, fidgetLength,
   walkAdvance, walkFrameCount, isStepFrame,
   LAND_TIME, LAND_SOFT_TIME, LAUNCH_TIME, TURN_TIME, CROUCH_BLEND, FIDGET_AFTER,
 } from './hero_anim.js';
+import {
+  WEAPONS, ELEMENT_META, SET_RESONANCES, InputBuffer,
+  computeStrengthBreakdown, computeWeaponHit, drawWeaponAction,
+} from './weapons.js';
 
 export class Player extends Entity {
   constructor(x, y) {
@@ -47,6 +53,49 @@ export class Player extends Entity {
     this.crouching = false;
     this.petrified = 0;            // seconds left turned to stone
     this.saluteT = 0;
+
+    // Ambidextrous Dual-Hand Equipment Matrix (`slots[0]` = Hand_L, `slots[1]` = Hand_R)
+    this.inputBuffer = new InputBuffer(30);
+    this.slots = [this._emptySlot(0), this._emptySlot(1)];
+    this.resonanceCd = 0;
+    this.resonanceWardT = 0;
+    this.resonanceWardColor = null;
+    this.skillBanner = null;       // { text, color, t, dur }
+  }
+
+  _emptySlot(slot) {
+    return {
+      slot,
+      active: false,
+      weapon: null,
+      timer: 0,
+      duration: 0,
+      win0: 0,
+      win1: 0,
+      reach: 0,
+      crouch: false,
+      isSkill: false,
+      guarding: false,
+      firedProj: false,
+      hitEnemies: new Map(),
+      hitCandles: false,
+      hitBlocks: false,
+    };
+  }
+
+  _clearSlots() {
+    this.slots[0] = this._emptySlot(0);
+    this.slots[1] = this._emptySlot(1);
+    this.attackT = -1;
+    this.throwing = false;
+  }
+
+  /** Returns active shield slot state if either hand is currently guarding. */
+  activeShieldSlot() {
+    for (const s of this.slots) {
+      if (s.active && s.guarding && s.weapon && s.weapon.category === 'shield') return s;
+    }
+    return null;
   }
 
   get alive() { return this.state !== 'dead'; }
@@ -62,7 +111,7 @@ export class Player extends Entity {
       return;
     }
     this.petrified = dur;
-    this.attackT = -1; this.throwing = false;
+    this._clearSlots();
     this.crouching = false; this.h = PLAYER.height;
     this.vx = 0; this.hurtT = 0;
     world.sfx('block');
@@ -77,6 +126,70 @@ export class Player extends Entity {
     const yTop = this.y - (this.attackCrouch ? 34 : 52);
     const x0 = this.facing > 0 ? this.x + 6 : this.x - 6 - reach;
     return { x: x0, y: yTop, w: reach, h: 18 };
+  }
+
+  /**
+   * Returns all currently live melee weapon hitboxes across Hand_L (`slots[0]`)
+   * and Hand_R (`slots[1]`). Both hands can overlap or interrupt in parallel!
+   */
+  activeWeaponStrikes() {
+    const out = [];
+    for (const s of this.slots) {
+      if (!s.active || !s.weapon) continue;
+      const w = s.weapon;
+      if (w.category === 'boomerang' || w.category === 'catalyst') continue;
+      if (s.timer < s.win0 || s.timer > s.win1) continue;
+
+      const reach = s.reach || w.reach || 56;
+      const f = this.facing;
+      let box = null;
+      switch (w.category) {
+        case 'whip': {
+          const yTop = this.y - (s.crouch ? 34 : 52);
+          box = { x: f > 0 ? this.x + 6 : this.x - 6 - reach, y: yTop, w: reach, h: 18 };
+          break;
+        }
+        case 'light_blade': {
+          // Crisp linear forward thrust at chest/shoulder height
+          const yTop = this.y - (s.crouch ? 30 : 45);
+          box = { x: f > 0 ? this.x + 4 : this.x - 4 - reach, y: yTop, w: reach, h: 16 };
+          break;
+        }
+        case 'standard_blade': {
+          // Forward overhead-to-waist arc
+          const yTop = this.y - (s.crouch ? 44 : 62);
+          box = { x: f > 0 ? this.x - 4 : this.x + 4 - reach, y: yTop, w: reach + 4, h: 44 };
+          break;
+        }
+        case 'heavy_blade': {
+          // Massive 180-degree sweeping cleave covering behind-overhead to floor-front!
+          const backSpan = 22;
+          box = {
+            x: f > 0 ? this.x - backSpan : this.x + backSpan - (reach + backSpan),
+            y: this.y - 78,
+            w: reach + backSpan,
+            h: 78,
+          };
+          break;
+        }
+        case 'brawler': {
+          // Tight horizontal multi-hit strike zone
+          const yTop = this.y - (s.crouch ? 32 : 46);
+          box = { x: f > 0 ? this.x + 2 : this.x - 2 - reach, y: yTop, w: reach, h: 24 };
+          break;
+        }
+        case 'shield': {
+          // Short blunt shield-bash impact zone
+          const yTop = this.y - (s.crouch ? 32 : 46);
+          box = { x: f > 0 ? this.x + 2 : this.x - 2 - reach, y: yTop, w: reach, h: 28 };
+          break;
+        }
+        default:
+          break;
+      }
+      if (box) out.push({ slotState: s, weapon: w, box });
+    }
+    return out;
   }
 
   update(dt, input, level, world) {
@@ -113,14 +226,35 @@ export class Player extends Entity {
     this.invuln = Math.max(0, this.invuln - dt);
     this.hurtT = Math.max(0, this.hurtT - dt);
     this.saluteT = Math.max(0, (this.saluteT || 0) - dt);
+    this.resonanceCd = Math.max(0, this.resonanceCd - dt);
+    this.resonanceWardT = Math.max(0, this.resonanceWardT - dt);
+    if (this.skillBanner) {
+      this.skillBanner.t -= dt;
+      if (this.skillBanner.t <= 0) this.skillBanner = null;
+    }
     this.landT = Math.max(0, this.landT - dt);
     this.launchT = Math.max(0, this.launchT - dt);
     this.coyote = this.onGround ? PLAYER.coyote : Math.max(0, this.coyote - dt);
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     if (ctl && input.pressed.jump) this.jumpBuffer = PLAYER.buffer;
 
+    // Record directional frame into 30-frame fighting-game Input Buffer Queue
+    if (ctl) this.inputBuffer.record(input, this.facing);
+
+    const wL = (world && world.getHandWeapon ? world.getHandWeapon(0) : null) || WEAPONS.hunters_lash;
+    const wR = (wL && wL.isTwoHanded) ? null : (world && world.getHandWeapon ? world.getHandWeapon(1) : null);
+    this.noWhip = !!(wL && wL.category !== 'whip');
+
+    // Check active movement constraints across both hands:
+    // - Heavy Blade (2H) & Whip root grounded movement during swing
+    // - Light Blade, Boomerang, Catalyst allow 100% full movement
+    // - Standard Blade allows free jump & forward combat step
+    // - Shield slows walk slightly while held in active guard
+    const isRootingSlot = (s) => s.active && s.weapon && (s.weapon.category === 'heavy_blade' || s.weapon.category === 'whip');
+    const anyBlockingCrouch = this.attacking || this.slots.some((s) => s.active && !s.guarding && s.weapon && s.weapon.category === 'heavy_blade');
+
     // Crouch (ground only), with head-room check when standing up.
-    const wantCrouch = ctl && input.down.down && this.onGround && !this.attacking;
+    const wantCrouch = ctl && input.down.down && this.onGround && !anyBlockingCrouch;
     if (wantCrouch && !this.crouching) { this.crouching = true; this.h = PLAYER.crouchHeight; this.crouchBlendT = CROUCH_BLEND; }
     else if (!wantCrouch && this.crouching) {
       this.h = PLAYER.height;
@@ -130,10 +264,14 @@ export class Player extends Entity {
     this.crouchBlendT = Math.max(0, this.crouchBlendT - dt);
     this.turnT = Math.max(0, this.turnT - dt);
 
-    // Horizontal movement: full control on the ground, limited in the air;
-    // whipping on the ground roots the hunter in place (classic commitment).
-    const moveSpeed = PLAYER.speed * (hasRelic('ramparts') ? 1.15 : 1) * (1 + (world && world.relicBonus ? world.relicBonus('speed') : 0));
-    const rooted = this.attacking && this.onGround;
+    const guardSlot = this.activeShieldSlot();
+    const speedScale = guardSlot ? 0.72 : 1.0;
+    const relicSpeedMul = Math.min(
+      1.16,
+      (hasRelic('ramparts') ? 1.08 : 1) * (1 + (world && world.relicBonus ? world.relicBonus('speed') : 0)),
+    );
+    const moveSpeed = PLAYER.speed * speedScale * relicSpeedMul;
+    const rooted = this.onGround && (this.throwing || isRootingSlot(this.slots[0]) || isRootingSlot(this.slots[1]));
     const target = rooted || this.crouching ? 0 : axis * moveSpeed;
     const accel = this.onGround ? PLAYER.accel : PLAYER.airAccel;
     if (this.hurtT > 0) {
@@ -141,18 +279,21 @@ export class Player extends Entity {
       if (this.onGround) this.vx *= 0.9;
     } else if (this.vx < target) this.vx = Math.min(target, this.vx + accel * dt);
     else if (this.vx > target) this.vx = Math.max(target, this.vx - accel * dt);
-    if (axis !== 0 && !rooted && !this.attacking) {
+
+    const lockFacing = this.attacking || this.slots.some((s) => s.active && !s.guarding && s.weapon && s.weapon.category !== 'light_blade' && s.weapon.category !== 'boomerang' && s.weapon.category !== 'catalyst');
+    if (axis !== 0 && !rooted && !lockFacing) {
       // Direction change at speed on the ground: a few ticks of skid frame.
-      if (axis !== this.facing && this.onGround && Math.abs(this.vx) > 40) this.turnT = TURN_TIME;
+      if (axis !== this.facing && this.onGround && Math.abs(this.vx) > 32) this.turnT = TURN_TIME;
       this.facing = axis;
     }
     // Weight shift: lean into acceleration, back into a stop (skid); snaps in, eases out.
     const wantLean = this.onGround && this.hurtT <= 0 && !this.attacking
-      ? Math.max(-1, Math.min(1, (target - this.vx) / moveSpeed)) * 0.10 : 0;
+      ? Math.max(-1, Math.min(1, (target - this.vx) / Math.max(1, moveSpeed))) * 0.10 : 0;
     this.lean += (wantLean - this.lean) * Math.min(1, (Math.abs(wantLean) > Math.abs(this.lean) ? 40 : 8) * dt);
 
-    // Jump (coyote + buffer), variable height; down+jump drops through safe one-way ledges.
-    if (ctl && this.jumpBuffer > 0 && this.coyote > 0 && !this.crouching) {
+    // Jump (coyote + buffer), variable height; Heavy Blade roots feet on ground during active cleave!
+    const jumpRooted = this.onGround && this.slots.some((s) => s.active && s.weapon && s.weapon.category === 'heavy_blade' && s.timer < s.win1);
+    if (ctl && !jumpRooted && this.jumpBuffer > 0 && this.coyote > 0 && !this.crouching) {
       this.vy = -PLAYER.jump; this.coyote = 0; this.jumpBuffer = 0;
       this.onGround = false; this.riding = null;
       this.airJumpsLeft = hasRelic('graveyard') ? 1 : 0;
@@ -197,27 +338,108 @@ export class Player extends Entity {
     }
     if (input.released.jump && this.vy < 0) this.vy *= PLAYER.jumpCut;
 
-    // Attack / sub-weapon
-    if (ctl && input.pressed.attack && !this.attacking && this.throwT <= 0) {
-      if (input.down.up && this.subWeapon && world.hearts > 0) {
+    // -----------------------------------------------------------------------
+    // Ambidextrous Dual-Hand Equipment Matrix (`Hand_L` = Slot 0, `Hand_R` = Slot 1)
+    // - `↑ + Attack` throws Heart sub-weapon when armed
+    // - Simultaneous `Hand_L + Hand_R` with matching `setTag` fires Combo Resonance
+    // - 30-frame `[Down, Down-Forward, Forward] + Hand` triggers Hidden Command Skill
+    // - Independent `slots[0]` and `slots[1]` allow Parallel Interruption!
+    // -----------------------------------------------------------------------
+    this.throwT = Math.max(0, this.throwT - dt);
+
+    if (ctl) {
+      const pressL = !!input.pressed.attack;
+      const pressR = !!input.pressed.offhand;
+
+      // Sub-weapon priority (`↑ + Attack`)
+      if (pressL && input.down.up && this.subWeapon && world && world.hearts > 0 && !this.attacking && this.throwT <= 0) {
         world.throwSubWeapon(this);
         this.throwT = 0.35;
         this.attackT = 0; this.attackCrouch = false; this.attackHit = false;
         this.throwing = true;
       } else {
-        this.attackT = 0; this.attackHit = false; this.throwing = false;
-        this.attackCrouch = this.crouching;
-        world.sfx('whip');
-        // CRIMSON MANTLE relic (Throne): whip unleashes a piercing crimson flame wave!
-        if (hasRelic('throne')) {
-          const waveY = this.y - (this.attackCrouch ? 25 : 42);
-          const waveX = this.x + this.facing * 24;
-          world.spawnProjectile(new Projectile('crimson_wave', waveX, waveY, this.facing, 'player'));
-          if (world.onPlayerProjectile) world.onPlayerProjectile('crimson_wave', waveX, waveY, this.facing);
+        if (pressL) this.inputBuffer.noteHandPress(0);
+        if (pressR && wR) this.inputBuffer.noteHandPress(1);
+
+        // Cross-Hand Combo Resonance (`Hand_L + Hand_R` within 2 frames & matching `setTag`)
+        let firedResonance = false;
+        if (
+          (pressL || pressR)
+          && wL && wR && !wL.isTwoHanded
+          && wL.setTag && wL.setTag === wR.setTag
+          && this.resonanceCd <= 0
+          && this.inputBuffer.isCrossHandSimultaneous()
+        ) {
+          const res = SET_RESONANCES[wL.setTag];
+          if (res && world && world.triggerComboResonance) {
+            this.resonanceCd = 3.2;
+            this.resonanceWardT = res.wardDur || 2.0;
+            this.resonanceWardColor = res.hex || '#ffd27a';
+            this.skillBanner = { text: `✦ ${res.name}! ✦`, color: res.hex || '#ffd27a', t: 1.4 };
+            // Cancel shield guard so the resonance detonation takes center stage
+            for (const s of this.slots) s.guarding = false;
+            world.triggerComboResonance(this, res, wL, wR);
+            firedResonance = true;
+          }
+        }
+
+        if (!firedResonance) {
+          if (pressL && wL && (!this.slots[0].active || this.slots[0].guarding) && this.throwT <= 0) {
+            this._startSlotAction(0, wL, input, level, world, whipScale);
+          }
+          if (pressR && wR && (!this.slots[1].active || this.slots[1].guarding)) {
+            // Parallel Interruption: if Hand_L was in recovery frames (`timer > win1`),
+            // starting Hand_R immediately frees any grounded recovery lock!
+            if (this.slots[0].active && this.slots[0].timer > this.slots[0].win1 && this.slots[0].weapon && this.slots[0].weapon.category !== 'whip') {
+              this.slots[0] = this._emptySlot(0);
+            }
+            this._startSlotAction(1, wR, input, level, world, whipScale);
+          } else if (pressL && wL && this.slots[1].active && this.slots[1].timer > this.slots[1].win1) {
+            this.slots[1] = this._emptySlot(1);
+          }
         }
       }
     }
-    this.throwT = Math.max(0, this.throwT - dt);
+
+    // Advance both hand slots independently
+    for (let si = 0; si < 2; si++) {
+      const s = this.slots[si];
+      if (!s.active || !s.weapon) continue;
+      const w = s.weapon;
+      const btnHeld = si === 0 ? !!input.down.attack : !!input.down.offhand;
+      const prevTimer = s.timer;
+      s.timer += dt;
+
+      // Spawn ranged weapon projectiles (Boomerang, Catalyst, or Command Skill waves) at `win0`
+      if (!s.firedProj && prevTimer < s.win0 && s.timer >= s.win0) {
+        s.firedProj = true;
+        this._emitSlotPayloads(s, world);
+      }
+
+      // Ground-slam sparks & stone dust when a 2H Heavy Blade cleave crashes into the floor
+      if (w.category === 'heavy_blade' && this.onGround && world && world.particles) {
+        const slamT = s.win0 + (s.win1 - s.win0) * 0.72;
+        if (prevTimer < slamT && s.timer >= slamT) {
+          const ix = this.x + this.facing * ((s.reach || w.reach || 92) * 0.72);
+          world.particles.sparks(ix, this.y - 4, 7, w.trimColor || '#ffd27a');
+          world.particles.dust(ix, this.y, 5);
+          world.camera.shake(2.2, 0.09);
+        }
+      }
+
+      // Continuous Shield Guard while holding button
+      if (w.category === 'shield' && btnHeld && ctl) {
+        s.guarding = true;
+        if (s.timer > s.duration) s.timer = s.duration;
+      } else {
+        s.guarding = false;
+        if (s.timer >= s.duration) {
+          this.slots[si] = this._emptySlot(si);
+        }
+      }
+    }
+
+    // Advance classic whip / sub-weapon throw timeline (`this.attackT`)
     if (this.attacking) {
       const prevAttackT = this.attackT;
       this.attackT += dt;
@@ -275,6 +497,196 @@ export class Player extends Entity {
     } else if (this.idleT > FIDGET_AFTER && this.fidgetLen > 0) this.fidgetT = 0;
   }
 
+  _startSlotAction(slot, weapon, input, level, world, whipScale = 1) {
+    // Prevent throwing duplicate boomerang from the exact same hand while its ring is still orbiting
+    if (weapon.category === 'boomerang' && world && world.projectiles) {
+      const alreadyFlying = world.projectiles.some(
+        (pr) => !pr.dead && pr.owner === 'player' && pr.isBoomerang && pr.handSlot === slot,
+      );
+      if (alreadyFlying) return;
+    }
+
+    const isSkill = !!(weapon.skill && this.inputBuffer.matchQuarterCircleForward());
+    if (isSkill) {
+      this.inputBuffer.consumeMotion();
+      // Stand up cleanly if headroom allows so dash/uppercut/cleave skills launch freely
+      if (this.crouching) {
+        this.h = PLAYER.height;
+        if (this.headBlocked(level)) this.h = PLAYER.crouchHeight;
+        else this.crouching = false;
+      }
+      const elemCol = weapon.element && ELEMENT_META[weapon.element]
+        ? ELEMENT_META[weapon.element].color
+        : '#ffd27a';
+      this.skillBanner = {
+        text: `* ${weapon.skill.name}! *`,
+        color: elemCol,
+        t: 1.15,
+      };
+    }
+
+    const hasRelic = (k) => !!(world && world.hasRelic && world.hasRelic(k));
+    const speedFactor = hasRelic('clocktower') ? 0.78 : 1.0;
+    const reachScale = hasRelic('library') ? 1.22 : 1.0;
+    const dur = (weapon.duration || 0.3) * speedFactor * (isSkill ? 1.12 : 1.0);
+    const a0 = (weapon.active ? weapon.active[0] : 0.06) * speedFactor;
+    const a1 = (weapon.active ? weapon.active[1] : 0.20) * speedFactor * (isSkill ? 1.15 : 1.0);
+    const reach = Math.round((weapon.reach || 58) * reachScale * (isSkill ? 1.22 : 1.0));
+
+    const s = {
+      slot,
+      active: true,
+      weapon,
+      timer: 0,
+      duration: dur,
+      win0: a0,
+      win1: a1,
+      reach,
+      crouch: this.crouching,
+      isSkill,
+      guarding: weapon.category === 'shield' && (slot === 0 ? !!input.down.attack : !!input.down.offhand),
+      firedProj: false,
+      hitEnemies: new Map(),
+      hitCandles: false,
+      hitBlocks: false,
+    };
+    this.slots[slot] = s;
+
+    // Category & Skill movement impulses
+    if (isSkill && weapon.skill.dashVx) {
+      this.vx = this.facing * weapon.skill.dashVx;
+    } else if (weapon.category === 'brawler' && weapon.lungeVx) {
+      this.vx = this.facing * weapon.lungeVx;
+    } else if (weapon.category === 'standard_blade' && this.onGround && !this.crouching && weapon.stepVx) {
+      if (input.axis === 0 || input.axis === this.facing) {
+        this.vx = this.facing * weapon.stepVx;
+      }
+    } else if (weapon.category === 'heavy_blade' && this.onGround) {
+      this.vx = 0;
+    }
+    if (isSkill && weapon.skill.popVy) {
+      this.vy = weapon.skill.popVy;
+      this.onGround = false;
+      this.riding = null;
+    }
+
+    // Whip category also drives the hunter's Omni whip clip + procedural lash
+    if (weapon.category === 'whip') {
+      this.whipReach = Math.round(PLAYER.whipReach * (hasRelic('library') ? 1.28 : 1) * (isSkill ? 1.28 : 1));
+      this.whipTime = PLAYER.whipTime * whipScale;
+      this.whipActive = [PLAYER.whipActive[0] * whipScale, PLAYER.whipActive[1] * whipScale];
+      s.duration = this.whipTime;
+      s.win0 = this.whipActive[0];
+      s.win1 = this.whipActive[1];
+      s.reach = this.whipReach;
+      this.attackT = 0;
+      this.attackHit = false;
+      this.throwing = false;
+      this.attackCrouch = this.crouching;
+      if (world) world.sfx('whip');
+    } else if (world) {
+      if (weapon.category === 'heavy_blade') {
+        world.sfx('sword_heavy');
+        world.camera.shake(1.8, 0.08);
+      } else if (weapon.category === 'light_blade') {
+        world.sfx('sword_thrust');
+      } else if (weapon.category === 'standard_blade') {
+        world.sfx('sword_slash');
+      } else if (weapon.category === 'brawler') {
+        world.sfx('sword_thrust');
+      } else if (weapon.category === 'catalyst' || weapon.category === 'boomerang') {
+        world.sfx('throw');
+      } else if (weapon.category === 'shield') {
+        world.sfx('block');
+      } else {
+        world.sfx('sword_slash');
+      }
+    }
+
+    // CRIMSON MANTLE relic (Throne): melee swings unleash a piercing crimson wave!
+    if (world && hasRelic('throne') && weapon.category !== 'shield' && weapon.category !== 'catalyst' && weapon.category !== 'boomerang') {
+      const waveY = this.y - (this.crouching ? 25 : 42);
+      const waveX = this.x + this.facing * 24;
+      world.spawnProjectile(new Projectile('crimson_wave', waveX, waveY, this.facing, 'player'));
+      if (world.onPlayerProjectile) world.onPlayerProjectile('crimson_wave', waveX, waveY, this.facing);
+    }
+  }
+
+  _emitSlotPayloads(s, world) {
+    if (!world || !s.weapon) return;
+    const w = s.weapon;
+    const sk = s.isSkill ? w.skill : null;
+    const strTotal = computeStrengthBreakdown(world).total;
+    const baseHit = computeWeaponHit(w, strTotal, null, {
+      skillMult: sk && sk.mult ? sk.mult : 1,
+      flatBonus: (world.hasRelic('jack') ? 1 : 0) + world.relicBonus('whip'),
+      diffMult: 1,
+    });
+    const spawnY = this.y - (s.crouch ? 24 : 38);
+    const spawnX = this.x + this.facing * 16;
+
+    const attachMeta = (pr, mult = 1) => {
+      pr.damage = Math.max(1, Math.round(baseHit.rawCore * mult * 10) / 10);
+      pr.weaponMeta = {
+        weapon: w,
+        physical: w.physical,
+        element: w.element,
+        armorPiercing: !!w.armorPiercing,
+        siphonHp: (sk && sk.siphonHp) || 0,
+        deficit: baseHit.deficit,
+      };
+      return pr;
+    };
+
+    if (w.category === 'boomerang') {
+      const pr = attachMeta(new Projectile('weapon_boomerang', spawnX, spawnY, this.facing, 'player'), sk && sk.mult ? sk.mult : 1);
+      pr.weaponId = w.id;
+      pr.weaponElement = w.element;
+      pr.handSlot = s.slot;
+      pr.maxDist = Math.round((w.reach || 155) * (sk && sk.fastLoop ? 1.32 : 1.0));
+      if (sk && sk.fastLoop) {
+        pr.vx = this.facing * 410;
+        pr.returnSpeed = 430;
+      }
+      world.spawnProjectile(pr);
+      return;
+    }
+
+    if (w.category === 'catalyst') {
+      const boltType = w.boltType || 'catalyst_fire';
+      const count = (sk && sk.spread) ? sk.spread : 1;
+      for (let i = 0; i < count; i++) {
+        const pr = attachMeta(new Projectile(boltType, spawnX, spawnY, this.facing, 'player'), count > 1 ? 0.85 : 1.0);
+        if (count > 1) {
+          const offset = i - (count - 1) * 0.5;
+          pr.vy = offset * 68;
+        }
+        world.spawnProjectile(pr);
+      }
+      return;
+    }
+
+    // Command Skill extra effects on melee / whip weapons
+    if (sk) {
+      if (sk.projectile) {
+        const pr = attachMeta(new Projectile(sk.projectile, spawnX + this.facing * 8, spawnY, this.facing, 'player'), 0.95);
+        world.spawnProjectile(pr);
+      }
+      if (sk.dropFlame) {
+        const floorRow = world.level.surfaceRow(Math.floor((this.x + this.facing * 28) / TILE));
+        const fy = floorRow >= 0 ? floorRow * TILE : this.y;
+        world.spawnFire(this.x + this.facing * 28, fy, 'player');
+      }
+      if (sk.shockwave) {
+        const elem = w.element && ELEMENT_META[w.element] ? ELEMENT_META[w.element].core : [1.0, 0.84, 0.42];
+        world.emitShockwave(this.x + this.facing * 32, this.y - 18, {
+          maxR: 112, dur: 0.42, strength: 0.65, color: elem,
+        });
+        world.camera.shake(3.5, 0.18);
+      }
+    }
+  }
+    // Re-add headBlocked immediately before canDropThrough
   headBlocked(level) {
     const ty = Math.floor(this.top / TILE);
     const tx0 = Math.floor(this.left / TILE), tx1 = Math.floor((this.right - 0.01) / TILE);
@@ -297,27 +709,45 @@ export class Player extends Entity {
     return hasOneWay;
   }
 
-  /** Applies damage (scaled by difficulty) with knockback; returns true if it connected. */
+  /** Applies damage (scaled by difficulty, shield guard & resonance ward) with knockback; returns true if it connected. */
   hurt(amount, fromX, world) {
     if (this.invuln > 0 || this.state === 'dead') return false;
     const hasRelic = (k) => !!(world && world.hasRelic && world.hasRelic(k));
     const relicRed = hasRelic('ossuary') ? 0.85 : 1;
-    amount = Math.max(1, Math.round(amount * world.difficulty.damageTaken * relicRed));
+    const lvRed = world && world.getDamageTakenMult ? world.getDamageTakenMult() : 1;
+    const wardRed = this.resonanceWardT > 0 ? 0.55 : 1;
+
+    // Active frontal Shield Guard mitigates incoming melee/contact blows & softens knockback!
+    const shSlot = this.activeShieldSlot();
+    const frontal = (fromX - this.x) * this.facing > 0;
+    let shieldRed = 1;
+    let guarded = false;
+    if (shSlot && frontal) {
+      shieldRed = shSlot.weapon.guardReduction || 0.5;
+      guarded = true;
+      world.sfx('block');
+      world.particles.sparks(this.x + this.facing * 14, this.y - 34, 8, '#ffd27a');
+      if (world.spawnPopup) {
+        world.spawnPopup(this.x, this.y - 58, 'GUARD!', { color: '#9ef5dc', dur: 0.7 });
+      }
+    }
+
+    amount = Math.max(1, Math.round(amount * world.difficulty.damageTaken * relicRed * lvRed * wardRed * shieldRed));
     this.hp -= amount;
     this.petrified = 0;            // a blow shatters the stone shell
-    world.sfx('hurt');
-    world.camera.shake(3, 0.2);
+    if (!guarded) world.sfx('hurt');
+    world.camera.shake(guarded ? 1.5 : 3, 0.2);
     if (world.onPlayerHurt) world.onPlayerHurt(amount);
     if (this.hp <= 0) { this.hp = 0; this.die(world); return true; }
     const d = world.difficulty;
     this.invuln = PLAYER.invuln * (d.invulnMul || 1) * (hasRelic('yule') ? 1.45 : 1) * (1 + (world.relicBonus ? world.relicBonus('invuln') : 0));
-    this.hurtT = PLAYER.hurtTime;
-    this.attackT = -1;
+    this.hurtT = guarded ? PLAYER.hurtTime * 0.45 : PLAYER.hurtTime;
+    if (!guarded) this._clearSlots();
     this.crouching = false; this.h = PLAYER.height;
     const dir = fromX > this.x ? -1 : 1;
-    const kb = (d.knockbackMul == null ? 1 : d.knockbackMul) * (hasRelic('yule') ? 0.5 : 1);
+    const kb = (d.knockbackMul == null ? 1 : d.knockbackMul) * (hasRelic('yule') ? 0.5 : 1) * (guarded ? 0.35 : 1);
     this.vx = dir * 150 * kb;
-    this.vy = -230 * kb;
+    this.vy = guarded ? -95 * kb : -230 * kb;
     this.onGround = false;
     return true;
   }
@@ -326,7 +756,7 @@ export class Player extends Entity {
     if (this.state === 'dead') return;
     this.state = 'dead';
     this.deadT = 0;
-    this.attackT = -1;
+    this._clearSlots();
     this.vx = -this.facing * 60;
     this.vy = -320;
     this.h = PLAYER.height;
@@ -374,8 +804,29 @@ export class Player extends Entity {
     if (fr.lash) {
       // Whip body frame + the procedural lash flying out / cracking / dropping.
       drawWhipFrame(ctx, assets, fr.sheet, fr.name, x, y, flip, alpha, this.whipReach, fr.lash);
-      return;
+    } else {
+      assets.draw(ctx, fr.sheet, fr.name, x, y, flip, alpha, 1, null, this.spriteXf());
     }
-    assets.draw(ctx, fr.sheet, fr.name, x, y, flip, alpha, 1, null, this.spriteXf());
+
+    // Resonance Ward shimmering protective ring
+    if (this.resonanceWardT > 0) {
+      ctx.save();
+      ctx.strokeStyle = this.resonanceWardColor || '#ffd27a';
+      ctx.globalAlpha = Math.min(0.65, this.resonanceWardT * 0.45);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(Math.round(x), Math.round(y - 30), 20, 30, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Dual-Hand weapon visual arcs, needle thrusts, 2H cleaves, fist blitzes & held shields
+    const fxl = getFxLayers();
+    for (let si = 0; si < 2; si++) {
+      const s = this.slots[si];
+      if (s && s.active && s.weapon && s.weapon.category !== 'whip') {
+        drawWeaponAction(ctx, s, x, y, this.facing, this.crouching, fxl, this.idleT + this.animT, fr.name);
+      }
+    }
   }
 }

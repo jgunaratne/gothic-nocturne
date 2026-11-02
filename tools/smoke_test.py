@@ -5,8 +5,10 @@ bug `node --check` cannot (missing imports, bad frame names, draw-time throws)."
 import os, subprocess, sys, tempfile
 
 BASE = f"http://127.0.0.1:{os.environ.get('PORT', '8711')}/"
-N_STAGES = int(sys.argv[1]) if len(sys.argv) > 1 else 13   # pass 13 + number of forged wings to cover them too
+N_STAGES = int(sys.argv[1]) if len(sys.argv) > 1 else 18   # pass 18 + number of forged wings to cover them too
 scenes = [('title', '?skip=40'), ('map', '?screen=stageselect&skip=20'), ('ending', '?screen=ending&skip=700'),
+          ('armory', '?screen=armory&weapons=all&handL=pyre_shield&handR=ember_codex&skip=20'),
+          ('dual-wield', '?screen=play&weapons=all&handL=silver_rapier&handR=heraldic_buckler&skip=60'),
           ('forge', '?screen=forge&skip=30'), ('forging-local', '?forge=Smoke%20Test%20Wing&local=1&skip=30')]
 for i in range(1, N_STAGES + 1):
     scenes.append((f'stage{i}-start', f'?demo=1&stage={i}&skip=240'))

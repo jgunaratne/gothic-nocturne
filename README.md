@@ -1,13 +1,16 @@
 # Gothic Nocturne
 
-A 32-bit era, whip-cracking 2.5D side-scrolling action platformer across thirteen
-stages: a moonlit graveyard road, an ancient bioluminescent darkwood alongside a
+A 32-bit era, whip-cracking 2.5D side-scrolling action platformer across eighteen
+interconnected stages: a moonlit graveyard road rising up the Great Stairway into
+a multi-story entrance hall and sunken undercroft, an ancient bioluminescent darkwood alongside a
 guardian turtle companion, a pumpkin-lit haunted forest, a snowbound
 village under northern lights, the castle ramparts, catacombs, a molten subterranean
 dark cave of magma rivers and obsidian pillars, an
 ossuary abyss, an arcade gallery of ancient brass automata, a haunted library of phantoms and
 biting grimoires, a soaring cathedral of stained glass and waking gargoyles, a
-cylindrical clock tower of grinding 3D gears, and the vaulted
+cylindrical clock tower of grinding 3D gears, an emerald-lit alchemy laboratory,
+a phantom masquerade ballroom, a torchlit blood coliseum, a sunken subterranean
+aqueduct, a moonlit floating garden high in the clouds, and the vaulted
 throne hall of the Count. Combines crisp nearest-neighbour 2D sprite combat
 with perspective-projected 3D architecture, scanline-projected vista planes,
 deep one-point-perspective passages and moonlit lancets cut through the halls'
@@ -29,12 +32,12 @@ arena with spoken Daikon boss voice lines at the end of every stage.
   squash, flinch and death) and the walk / flight / idle cycles, wind-ups and
   attacks of every enemy and boss are cut from **Gemini Omni** video of the
   sprites themselves (`tools/animate_sprites.py`, `tools/animate_cast.py`).
-- **Music**: seventeen full-length tracks (2–3 minutes each) generated with
-  **Lyria 3**: a distinct theme for every stage plus title, symphonic orchestral
-  boss battle, stage-clear, game-over and ending, streamed on demand and looped
+- **Music**: twenty-three full-length tracks (2–3 minutes each) generated with
+  **Lyria 3**: a distinct theme for every one of the 18 stages plus title, symphonic orchestral
+  boss battle, stage-clear, game-over and ending (plus dedicated tracks for forged wings), streamed on demand and looped
   with crossfades.
-- **Voice**: thirteen bespoke male/female villain voice performances (with sinister laughs,
-  whispers, coughs, and shouts) plus a narrated epilogue generated with the
+- **Voice**: eighteen bespoke male/female villain voice performances (with sinister laughs,
+  whispers, coughs, and shouts — one for every stage's guardian boss, plus forged bosses) and a narrated epilogue generated with the
   **Daikon** TTS model (`assets/voice/*.mp3`), triggered as the orchestral boss
   music rises underneath with ducking and a subtitle plate as the hunter enters each boss arena. Sound effects are
   synthesized in-browser with Web Audio (including multi-layered outdoor thunder), or replaced by sampled effects in
@@ -45,7 +48,7 @@ arena with spoken Daikon boss voice lines at the end of every stage.
   multiples when close and using band-limited sharp sub-pixel anti-aliased
   texel sampling at fractional/HiDPI scales to prevent shimmer), composited
   through a WebGL post-process (`src/engine/postfx.js`: half-res 320×180 bloom,
-  per-stage colour grading across all 13 realms, phosphor scanlines, film grain,
+  per-stage colour grading across all 18 realms, phosphor scanlines, film grain,
   convective lower-screen lava heat haze, radial shockwave refraction +
   chromatic dispersion, directional storm-lightning exposure, and damage pulse;
   press F to toggle, `?nofx` to disable) plus native-res 640×360 procedural
@@ -71,16 +74,20 @@ expanded in local procedural mode.
 
 Opening the URL in multiple browsers or across machines on the network automatically connects every player into the shared **`castle`** realm (`?room=<name>` to join a private room, `?name=<callsign>` to set a Hunter callsign, or `?offline=1` for solo offline mode):
 
-- **Explore Any Region Independently**: Each hunter can roam any of the 13 castle stages simultaneously at their own pace while seeing every other hunter's live position across the **Castle Exploration Map (`M`)** and **7×4 HUD Mini-Map**.
+- **Explore Any Region Independently**: Each hunter can roam any of the 18 castle stages simultaneously at their own pace while seeing every other hunter's live position across the **Castle Exploration Map (`M`)** and **9×5 HUD Mini-Map**.
 - **Pass By One Another in Real Time**: When two or more hunters enter the same region, directional edge chevrons (`< VESPER 14M`) show which way nearby hunters are, and crossing paths renders each hunter in a distinct pixel-art cloak palette with smooth 60 fps stride/jump/whip interpolation, cooperative whip & sub-weapon combat, floating nameplates, **`G` Salute flares**, and a **Soul-Lantern resonance** spark shimmer as they pass one another.
 
 | Action | Keyboard | Gamepad | Mobile / Touch |
 | --- | --- | --- | --- |
 | Move / crouch | ← → / ↓ (WASD) | Left stick / D-pad | Virtual 8-way D-pad |
 | Jump (hold for height; ↓+jump drops through ledges) | Z, J or Space | A / B | **JUMP** button (hold for height) |
-| Whip (also while crouching or airborne) | X or K | X / Y / RB / RT | **WHIP** button |
+| Left Hand (`Hand_L` / Slot 0 — defaults to Whip) | X or K | X / RB | **L-HAND** button |
+| Right Hand (`Hand_R` / Slot 1 — blade, shield, catalyst, ring) | C, V, L or Shift | Y / LB / LT / RT | **R-HAND** button (shown when armed) |
+| Hidden Weapon Command Skill (30-frame motion) | `↓ ↘ →` + Hand button | `↓ ↘ →` + Hand button | `↓ ↘ →` + **L-HAND** / **R-HAND** |
+| Cross-Hand Combo Resonance (matching Set Tags) | `Hand_L` + `Hand_R` together | `X` + `Y` / `RB` + `LB` | **L-HAND** + **R-HAND** together |
+| Dual-Hand Equipment Matrix (`Armory`) | E or I | — | **GEAR** pill or tap HUD `L` / `R` sockets |
 | Enter passageways / doorways | ↑ (at arched portal) | ↑ (at arched portal) | D-pad **▲**, portal prompt pill, or tap portal |
-| Throw sub-weapon (costs 1 heart) | ↑ + whip | ↑ + attack | **SUB** button (or tap HUD sub-weapon box) |
+| Throw sub-weapon (costs 1 heart) | ↑ + Left Hand | ↑ + Left Hand | **SUB** button (or tap HUD sub-weapon box) |
 | Castle Exploration Map (live location & fast travel) | M or Tab | Back / Select / View | **MAP** pill or tap HUD Mini-Map (tap rooms to inspect / warp) |
 | Expand the Castle (propose a new wing) | P, or the title menu | title menu | **FORGE** pill or tap **EXPAND THE CASTLE** (opens OS keyboard) |
 | Salute / greet nearby hunters | G | — | **SALUTE** pill |
@@ -95,28 +102,61 @@ Defeat each stage's boss and claim the orb to march into the next stage.
 
 ## Castle Exploration Map & Interconnected Regions
 
-All thirteen stages fit together as an interlocking **34×14 architectural cell grid** (`168` rooms across cobalt halls, crimson boss chambers, emerald-cyan Sanctuaries, and amber-gold secret vaults):
+All eighteen stages fit together as an interlocking **72×27 architectural cell grid** (`672` cells across multi-story galleries, vertical tower shafts, diagonal grand stairways, sunken undercrofts, cobalt halls, crimson boss chambers, emerald-cyan Sanctuaries, and amber-gold secret vaults, joined by `36` doorways including `18` Boss-Relic Golden Loop shortcuts):
 
-- **Press `M` (or `Tab` / Gamepad Select) Anytime**: Opens the full-screen **Castle Exploration Map** during gameplay, highlighting explored cells (`MAP XX% · RELICS XX/13 · VESSELS XX/13`) alongside a pulsing **`YOU` location beacon** tracking the hunter's exact room cell and fractional position, paired with a live **7×4 HUD Mini-Map radar** in the top-right corner.
-- **Physical Passage Gateways (`↑`)**: Carved Gothic portals inside every stage connect directly into neighbouring regions on the map — carrying health, hearts, sub-weapon, lives, and score seamlessly across doorways. Five shortcut doorways are sealed by **ability-gated runic barriers** that open once their corresponding Boss Relic is claimed (*Night Wings*, *Lantern Flame*, *Soul Harvest*, *Clockwork Heart*).
+- **Press `M` (or `Tab` / Gamepad Select) Anytime**: Opens the full-screen **Castle Exploration Map** during gameplay, highlighting explored cells (`MAP XX% · RELICS XX/18 · VESSELS XX/18`) alongside a pulsing **`YOU` location beacon** projected 1:1 (`20×5` tiles = `640×160 px` per map cell via `src/game/grid_composer.js` & `src/game/level_schema.js`) so moving 1 screen left/right or 1 story up/down on screen always moves 1 cell on both the Castle Map and **9×5 HUD Mini-Map radar**.
+- **Physical Passage Gateways (`↑`)**: Carved Gothic portals inside every stage (framed by safe 9-tile flat buffers) connect directly into neighbouring regions on the map — carrying health, hearts, sub-weapon, lives, and score seamlessly across doorways. Shortcut doorways are sealed by **ability-gated runic barriers** that open once their corresponding Boss Relic is claimed (*Night Wings*, *Briar Bark*, *Lantern Flame*, *Frost Aegis*, *Iron Greaves*, *Soul Harvest*, *Clockwork Heart*, and each guardian's relic).
 - **Sanctuary Waystones & Fast Travel**: Walking past a region's carved **Sanctuary Waystone** mends `+4 HP` and attunes that Sanctuary so the hunter can warp between discovered Sanctuaries from the `M` map.
-- **13 Hidden Ancient Life Vessels**: Each region hides one golden **Ancient Vessel** inside a sunken crypt vault or atop a high stone balcony reachable only with *Night Wings* Double Jump, permanently granting **`+1 Max HP`** and **`+2 Starting Hearts`**.
+- **18 Hidden Ancient Life Vessels**: Each region hides one golden **Ancient Vessel** inside a sunken crypt vault or atop a high stone balcony reachable only with *Night Wings* Double Jump, permanently granting **`+1 Max HP`** and **`+2 Starting Hearts`**.
+
+## Character Leveling & Adaptive Curve System
+
+The hunter begins at **Level 1** (`0/100 EXP`, up to **Level 99**) and earns experience points whenever enemies and stage bosses are vanquished (`src/game/progression.js`), persisted in `localStorage` (`gothic.progression.v1`):
+
+1. **Phase 1 — Quadratic Escalation (Levels 1–18)**: Early-to-mid progression scales quadratically via `EXP_req = 25 * (L + 1)^2 + 25 * (L + 1) - 50` (`100 -> 250 -> 450 -> 700 -> ... -> 9,450 EXP`), preventing early-stage fodder from over-accelerating ranks.
+2. **Phase 2 — Linear Cap Shift (Levels 19–99)**: Once the hunter enters late-game and open-castle routing (`Lv 19+`), `EXP_req` shifts to a flat `10,000 EXP` per level so progression pacing is driven by region rank and enemy tier rather than runaway math curves.
+3. **Dynamic Return Formula (Anti-Grind & Rubber-Band Multiplier)**: Each castle region and enemy species carries a natural **Enemy Rank** (`Rank 01` in the Graveyard Road up to `Rank 23+` in the Throne Hall, shown on the HUD and Castle Exploration Map). Actual yield scales by `Level_Delta = Player_Level - Enemy_Level`:
+   - **Over-leveled (`Delta > 0`)**: `Base_EXP * (0.66 ^ Delta)`, aggressively diminishing grind yield down to a minimum floor of `1 EXP`.
+   - **Under-leveled (`Delta < 0`)**: `Base_EXP * min(3.5, 1.25 ^ |Delta|)`, granting an intentional rubber-band catch-up bonus when sequence-breaking into higher-rank castle wings.
+4. **Stat Growth & Level-Up Mend**: Each rank increases **Strength (`+1 STR/lv`)**, **Attack Power** (whip, sub-weapons, and fire pools), **Max Vitality**, and **Defense** without trivializing late-game brutes or bosses, accompanied by a subtle `LV` indicator, gentle chime, and mid-combat `+3 HP` / `+2 Hearts` mend.
+
+## Modular Dual-Hand Equipment Matrix
+
+Across all eighteen stages, the hunter can claim signature weapons from carved **Arsenal Pedestals** (`1` per region) and rare drops from themed castle monsters (`src/game/weapons.js`, `src/game/armory_ui.js`), pressing **`E` / `I`** (or tapping **GEAR** / HUD `L` & `R` sockets) to open the **Dual-Hand Equipment Matrix**:
+
+1. **Ambidextrous Dual-Slot Handler (`Hand_L` & `Hand_R`)**: Both hands act as generic weapon sockets bound to independent buttons (`X`/`K` for `Hand_L`, `C`/`V`/`L`/`Shift` for `Hand_R`). Initiating an off-hand strike during the other hand's recovery frames triggers **Parallel Interruption**, and equipping a **Two-Handed (`isTwoHanded`)** weapon in `Hand_L` automatically locks and visually hides `Hand_R`.
+2. **Weapon Classification Matrix (20 Weapons)**:
+   - **Light Blade (1H)**: Linear forward thrust, full movement allowed, instant startup (*Quicksilver Estoc*, *Glacial Stiletto*, *Fulgurite Uchigatana*).
+   - **Standard Blade (1H)**: Forward overhead arc with combat step & free jump (*Crypt Falchion*, *Sanctified Mace*, *Cinder Shamshir*).
+   - **Heavy Blade (2H)**: Massive `180°` overhead-to-floor sweep, rooted to ground, heavy knockback (*Executioner Greatsword*, *Magma Maul*, *Voidreaver Scythe*).
+   - **Brawler / Fist (1H)**: Short horizontal multi-hit blitz with forward lunge; ignores frontal shield guards (*Spiked Caestus*, *Galvanic Talons*).
+   - **Boomerang / Projectile (1H)**: Outward loop & homing return with full movement and outbound + inbound double-hit potential (*Halcyon Chakram*, *Umbral Glaive-Ring*).
+   - **Shield & Catalyst (1H)**: Hold-to-guard heater/tower shields (*Heraldic Buckler*, *Salamander Shield*, *Glacial Aegis*) that block frontal shots & halve contact hits, paired with arcane spell foci (*Pyre Tome*, *Boreal Phylactery*, *Abyssal Grimoire*) and starter *Hunter's Lash*.
+3. **30-Frame Input Buffer & Cross-Hand Combo Resonance**: Inputting `[Down, Down-Forward, Forward]` (`↓ ↘ →`) + Hand button within a 30-frame buffer fires that weapon's unique **Command Skill** (*Fleche Lunge*, *Guillotine Arc*, *Lightning Blitz*, *Soul Harvest Arc*, …). Pressing `Hand_L + Hand_R` simultaneously while both hands share a **Set Tag** (*Infernal*, *Glacial*, *Consecrated*, *Knightly*, *Duelist*, *Tempest*, *Abyssal*) unleashes a **Cross-Hand Combo Resonance** detonation and protective ward.
+4. **Stat Deficit Gate & Physical / Elemental Resistance Matrix**:
+   - **Stat Deficit Gate**: `Final_Damage = Base_Damage + (Player_Strength * Scaling * (Player_Strength < Req_Strength ? 0.5 : 1.0))` — under-statted endgame weapons remain usable at a `0.5x` scaling penalty until the hunter's `STR` (from Character Levels, Boss Relics, and Ancient Vessels) meets `Req_Strength`.
+   - **Damage Types & Resistances**: Every weapon pairs a Physical type (**Cut** or **Blunt**) with an optional Elemental type (**Fire**, **Frost**, **Volt**, **Holy**, **Void**) evaluated against per-species multipliers (e.g., armored skeletons resist `Cut` `0.35×` while shattering to `Blunt` `2.0×` and `Holy` `1.75×`; magma brutes resist `Fire` `0.25×` and crack to `Frost` `2.0×`).
 
 | # | Stage | Theme | Signature 2.5D set-pieces & hazards | Boss | Boss Relic Power-Up |
 | --- | --- | --- | --- | --- | --- |
-| 1 | The Graveyard Road | moonlit moor → barbican gate & hall | 3D rotating distant keep, moat drawbridge, outdoor lightning & thunder | The Great Bat | **Night Wings** (Double Jump) |
-| 2 | The Darkwood | 3D elder colonnade & bioluminescent stream | guardian turtle ally (shell-spin combat), root viaducts, log ferry | The Briar King | **Briar Bark** (+1 HP / 8s Regen) |
-| 3 | The Jack-o'-Lantern | 3D forest colonnade & swaying lanterns | crumbling slabs, ravine trestle bridges, gorge ferry, canopy split route | The Great Jack | **Lantern Flame** (+1 Whip Damage & Ember Sparks) |
-| 4 | The Frozen Yule | aurora sky & shimmering 3D ice lake | arched lake causeways, chain ice ferry, snow-gable split route | Devil Santa | **Frost Aegis** (+45% Mercy Invuln & -50% Knockback) |
-| 5 | The Ramparts | high curtain walls over 3D torchlit bailey | open viaduct arches, diagonal siege lifts, shielded plate knights | The Bone Captain | **Iron Greaves** (+15% Speed & -50% Hazard Damage) |
-| 6 | The Catacombs | vaulted skull-niche crypts | crumbling crypt slabs, shadow wraiths, burial gallery, vault ferry | The Phantom Reaper | **Soul Harvest** (Every 6 Kills: +1 HP & +1 Heart) |
-| 7 | The Dark Cave | molten obsidian caverns & magma abyss | WebGL lava basins, stepping basalt islands, magma slimes, lava golems, cinder imps | The Cinder Queen | **Magma Heart** (-65% Lava/Fire Dmg & +1 Sub-Weapon Dmg) |
-| 8 | The Ossuary | broken colonnade over 3D spectral abyss | abyssal viaduct spans, spectral chain ferry, reliquary split route | The Gorgon Queen | **Aegis Mirror** (Stone Immunity & -15% Damage) |
-| 9 | The Arcade | gilded gallery of ancient automata | gallery lifts, balcony split route, clockwork annex cog-wheel | The Brass Automaton | **Clockwork Heart** (Every 2nd Throw Free & Loot Magnet) |
-| 10 | The Library | towering bookshelf walls & reading-room apse | phantoms that phase through the whip, biting grimoires, page storms | The Spectral Archivist | **Forbidden Tome** (+28% Extended Whip Reach) |
-| 11 | The Cathedral | 26-row nave, clerestory lancets & rose window | gargoyles that wake from the cornices, plate knights, organ-loft descent | The Gargoyle Archon | **Sanctuary Halo** (20 Max HP & Stronger Meat Healing) |
-| 12 | The Clock Tower | cylindrical 3D shaft & extruded brass gears | orbiting 3D gear-wheel gondolas, counterweight shaft lift | The Reaper Lord | **Chrono Pendulum** (+25% Faster Whip & Slower Enemy Shots) |
-| 13 | The Throne Hall | crimson rib-vaulted nave & chandeliers | clerestory split route, sanctuary lift, rose-window & pipe-organ dais | The Count | **Crimson Mantle** (Piercing Crimson Flame Wave on Whip) |
+| 1 | The Graveyard Road | moonlit moor → Great Stairway, Entrance Hall & basement | 3D rotating keep, moat viaduct, 3-story Entrance Hall & sunken undercroft | The Great Bat | **Night Wings** (Double Jump) |
+| 2 | The Darkwood | 3D elder colonnade & bioluminescent stream | guardian turtle ally (shell-spin combat), canopy terraces, root viaducts, log ferry | The Briar King | **Briar Bark** (+1 HP / 8s Regen) |
+| 3 | The Jack-o'-Lantern | 3D forest colonnade & swaying lanterns | crumbling slabs, ravine viaducts, gorge plunge shaft, canopy galleries | The Great Jack | **Lantern Flame** (+1 Whip Damage & Ember Sparks) |
+| 4 | The Frozen Yule | aurora sky & shimmering 3D ice lake | arched lake causeways, multi-deck snow-gable galleries, chain ice ferry | Devil Santa | **Frost Aegis** (+45% Mercy Invuln & -50% Knockback) |
+| 5 | The Ramparts | high curtain walls over 3D torchlit bailey | open viaduct arches, watchtower climbs, diagonal siege lifts, plate knights | The Bone Captain | **Iron Greaves** (+15% Speed & -50% Hazard Damage) |
+| 6 | The Catacombs | vaulted skull-niche crypts | sunken crypt undercroft loops, crumbling slabs, shadow wraiths, vault ferry | The Phantom Reaper | **Soul Harvest** (Every 6 Kills: +1 HP & +1 Heart) |
+| 7 | The Dark Cave | molten obsidian caverns & magma abyss | WebGL lava basins, deep plunge shafts, magma slimes, lava golems, cinder imps | The Cinder Queen | **Magma Heart** (-65% Lava/Fire Dmg & +1 Sub-Weapon Dmg) |
+| 8 | The Ossuary | broken colonnade over 3D spectral abyss | abyssal viaduct spans, multi-tier bone galleries, spectral chain ferry | The Gorgon Queen | **Aegis Mirror** (Stone Immunity & -15% Damage) |
+| 9 | The Arcade | gilded gallery of ancient automata | 3-tier promenade stacks, grand stairways, clockwork annex cog-wheel | The Brass Automaton | **Clockwork Heart** (Every 2nd Throw Free & Loot Magnet) |
+| 10 | The Library | towering bookshelf walls & reading-room apse | 3-story reading stacks, spiral ladder tower, phantoms, biting grimoires | The Spectral Archivist | **Forbidden Tome** (+28% Extended Whip Reach) |
+| 11 | The Cathedral | 26-row nave, clerestory lancets & rose window | belfry tower climb, clerestory balconies, waking gargoyles, organ-loft descent | The Gargoyle Archon | **Sanctuary Halo** (20 Max HP & Stronger Meat Healing) |
+| 12 | The Clock Tower | cylindrical 3D shaft & extruded brass gears | soaring gear-shaft climbs, orbiting 3D gear-wheel gondolas, counterweight lift | The Reaper Lord | **Chrono Pendulum** (+25% Faster Whip & Slower Enemy Shots) |
+| 13 | The Throne Hall | crimson rib-vaulted nave & chandeliers | grand ceremonial stairways, 3-tier clerestory nave, rose-window & organ dais | The Count | **Crimson Mantle** (Piercing Crimson Flame Wave on Whip) |
+| 14 | The Alchemy Lab | emerald-lit retort halls & alembic vaults | multi-story reagent galleries, sunken alembic undercroft, bubbling vats, ring runs | The Grand Alchemist | **Philosopher Vial** (+2 Max HP & +3 Starting Hearts) |
+| 15 | The Phantom Ballroom | rose-velvet grand salon & chandelier promenade | diagonal grand stairways, 3-tier waltz balconies, crumbling mezzanine, salon ferry | The Masquerade Duke | **Masquerade Mask** (+35% Mercy Invuln & +2 Max HP) |
+| 16 | The Blood Coliseum | brazen gladiatorial tiers & spiked arena | 3-deck spectator galleries, iron-ring vault runs, spiked pit gauntlets | The Iron Gladiator | **Champion Crest** (+1 Whip Damage & +10% Speed) |
+| 17 | The Sunken Aqueduct | subterranean cisterns & cerulean water channels | flooded undercroft loops, deep plunge shafts, arched cistern viaducts, ferry | The Drowned Oracle | **Tidal Talisman** (+1 Sub-Weapon Dmg & +2 Max HP) |
+| 18 | The Floating Garden | high cloud-sea colonnades & aurora sky | moonlit sky viaducts, 3-story terrace stacks, spiral tower climbs, wind ferries | The Moonlit Seraph | **Celestial Plume** (+12% Speed & +3 Starting Hearts) |
 
 The catoblepas breathes a petrifying cloud: touched by it, the hunter turns to
 stone for a moment — mash any button to break free sooner.
@@ -148,7 +188,16 @@ its own depth set-pieces around the doorways, shrines and terrain in front of it
 - **a grand 3D staircase** — a texture-mapped flight (carpet runner in carpeted
   halls) rising to a balustraded landing and its own doorway in the far wall;
 - **a turning brass orrery** in the Library and Arcade;
+- **monumental 2-bay 3D recessed murals & tapestries** — `512×288` non-repeating
+  pixel-art frescoes and woven tapestries (`mural_alchemy..mural_catacombs`) recessed
+  behind carved 3D stone/marble jambs, entablature cornices and gallery lighting;
+- **wing-specific 3D hall & vista structures** — overhead riveted alchemy distillation
+  gantries with meshing 3D cogwheels, marble ballroom opera galleries, coliseum
+  travertine vomitoria and blazing arena braziers, multi-tier subterranean 3D
+  Roman aqueduct viaducts rising out of cistern waters, and receding 3D cloud-sea
+  marble skykeep sanctums alongside ultra-wide `1280×360`–`1920×360` outdoor vistas;
 - **mid-depth furnishings** (z ≈ 90–104) — pews, bookcases, automata cabinets,
+  alembics, gilded mirrors, gladiatorial trophies, canal sluice wheels, astrolabes,
   angel statues, candle pillars, stalagmites and 3D sarcophagi standing on the
   receding floor between the play plane and the wall, fogged, darkened and
   grounded by contact shadows so the crisp play layer stays dominant.
@@ -158,12 +207,7 @@ the moor behind the Graveyard Road's cemetery fence. Background scenery (tree
 colonnades, fences, tombs) is planted on the true ground (`Level.groundRow`),
 never on an upper gallery ledge, viaduct span or ferry gap.
 
-Stage 1 is hand-built (`src/game/level_data.js`); stages 2–13 are composed
-from prefab segments by `src/game/builder.js` (`flat`, `vistaBridge`, `lavaRun`,
-`crumbleRun`, `ferryGap`, `splitRoute`, `gearWheel`, `liftShaft`, `descent`,
-`hiddenVault`, `swingRun`, `vestibule`, `gap`,
-`spikeRun`, `stepUp/stepDown`, `climb`, `corridor`, `blocks`, `arena`) in
-`src/game/stages.js`, so adding a stage is a dozen lines.
+All 18 built-in stages (`380–760` tiles / `19–38` screens wide) are compiled directly in 2D tile space (`20×5` tiles per map cell) from `src/game/map_layout.js` via `src/game/grid_composer.js` (`src/game/level_data.js` + `src/game/stages.js`) using architectural room archetypes (Opening Parvis, Portal Vestibule, Sanctuary Chapel, stepped Armory Dais, Skylight Atrium, Vault Antechamber, Grand Staircase, Switchback Tower Shaft, Colonnade Nave, Twin-Balcony Amphitheater, Sunken Hazard Court, Viaduct Promenade, and 4-cell Pre-Boss Accordion + Save Sanctum), while Castle Forge wings build from `src/game/builder.js` prefabs.
 
 ## Expand the Castle (Castle Forge)
 
@@ -172,7 +216,7 @@ map), lets the player *propose* a new wing — "Abandoned Village", "Sunken
 Cistern", "Alchemist's Observatory"… — and the castle raises it:
 
 1. **Blueprint** — Gemini (`generate text`) designs the wing as strict JSON:
-   name, subtitle, which of the thirteen base realms it inherits (3D vistas,
+   name, subtitle, which of the built-in base realms it inherits (3D vistas,
    grading, enemy feel), weather, palette, 12–20 prefab segments for
    `StageBuilder`, enemy placements, a new boss (name, look, spoken line) built
    on an existing boss behaviour, a relic with one of five generic effects, art
@@ -190,7 +234,7 @@ Cistern", "Alchemist's Observatory"… — and the castle raises it:
    ducked under the boss theme with its subtitle plate. **Ambience** — an
    optional ElevenLabs loop under the music (needs `ELEVENLABS_API_KEY`).
 4. **The castle expands** — the wing's rooms are placed deterministically in
-   free cells next to a fitting neighbour on the 34×14 castle grid, a passage
+   free cells next to a fitting neighbour on the 72×27 castle grid, a passage
    gateway appears inside that neighbouring stage, the new region gets a
    Sanctuary, a hidden Ancient Vessel, a boss chamber and a relic, and the map
    shows the ghost rooms materialising while the forge works. Press `Esc` to
@@ -198,7 +242,7 @@ Cistern", "Alchemist's Observatory"… — and the castle raises it:
 
 Raised wings live in `assets/forge/<key>/` with a registry in
 `assets/forge/stages.json`, so every player on that server gets them at boot
-(up to 16). Offline (plain static hosting) the forge still works in local
+(up to 12). Offline (plain static hosting) the forge still works in local
 procedural mode and remembers wings in `localStorage`.
 
 ```
@@ -221,9 +265,9 @@ Chosen on the "Choose your fate" screen after the title (remembered in
 
 | | Lives | Hearts | Timer | Damage taken | Enemy HP | Spawn pressure | Boss | Score |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Easy** | 7 | 15 | 900 s | ×0.4 (most hits = 1) | ×0.6 | much slower, max 1 | slower, phase 2 at 30 % | ×0.5 |
-| **Normal** | 3 | 5 | 420 s | ×1 | ×1 | standard, max 3 | standard, phase 2 at 50 % | ×1 |
-| **Hard** | 2 | 3 | 300 s | ×1.5 | ×1.5 | faster, max 4 | faster, phase 2 at 65 % | ×2 |
+| **Easy** | 7 | 15 | 1000 s | ×0.4 (most hits = 1) | ×0.6 | much slower, max 1 | slower, phase 2 at 30 % | ×0.5 |
+| **Normal** | 3 | 5 | 540 s | ×1 | ×1 | standard, max 3 | standard, phase 2 at 50 % | ×1 |
+| **Hard** | 2 | 3 | 390 s | ×1.5 | ×1.5 | faster, max 4 | faster, phase 2 at 65 % | ×2 |
 
 Easy also hits 1.5× harder with whip and sub-weapons, grants longer
 invincibility and softer knockback after a hit, and forgives bottomless pits:
@@ -243,16 +287,25 @@ src/engine/           input (keyboard, gamepad, touch, scripted), touch (mobile
 src/game/             level grid + 2.5D mechanics/tiles, stage3d (perspective
                       projection, vistas, vaulted halls, 3D gears & boss arenas),
                       tex3d (pixel-art 3D polygon texture rasterizer & bank),
-                      builder (prefabs + themes), stages, level_data (stage 1),
+                      builder (Forge prefabs + themes), grid_composer (20x5 tile
+                      per-cell 2D architectural stage compiler), map_layout
+                      (72x27 Castle Map topology & doors), level_schema (1:1 2D
+                      grid coordinate lookup & fog-of-war), stages, level_data,
                       parallax, entities, player, hero_anim (hunter clips,
                       squash/stretch, whip timeline), anim_clips (generated
                       clip frames for enemies/bosses), ally (guardian turtle),
+                      progression (Adaptive Curve leveling & EXP system),
+                      weapons (Dual-Hand Equipment Matrix, 30-frame input buffer,
+                      Stat Deficit Gate & Cut/Blunt + Elemental damage engine),
+                      armory_ui (Armory screen & in-stage Arsenal Pedestals),
                       relics (boss power-ups), enemies, boss (Reaper), bosses
-                      forest_assets (Darkwood pixel art), objects
+                      forest_assets (Darkwood pixel art), castle_wings_assets
+                      (Alchemy, Ballroom, Coliseum, Aqueduct & Floating Garden
+                      pixel art), objects
                       (candles/items/projectiles/fire), exploration (Sanctuary
                       Waystones, Passage Gateways & Ancient Vessels), world
                       (combat, scripting, draw order), castlemap (interlocking
-                      34x14 cell map, forge placement & HUD mini-map), hud,
+                      72x27 cell map, forge placement & HUD mini-map), hud,
                       forge (blueprints, validation, wing registration, API
                       client), forge_ui (proposal / forging / reveal screens)
 assets/               engine-ready PNGs + atlas.json, music/*.mp3, voice/*.mp3, sfx/*.mp3,
@@ -263,7 +316,8 @@ tools/                forge_server.py (game + Castle Forge API), process_assets.
                       (pipeline), asset_manifest.json, import_raw.py,
                       animate_sprites.py (video -> sprite clips), animate_cast.py
                       (batch: every enemy / boss clip),
-                      generate_voices.sh, screenshot.sh, smoke_test.py
+                      generate_wings.sh, generate_music.sh, generate_voices.sh,
+                      screenshot.sh, smoke_test.py
 ```
 
 ## Asset pipeline
@@ -361,13 +415,15 @@ teleports to a tile column, `boss=1` teleports to the boss vestibule,
 enables boss power-ups, `lightning=1` triggers an immediate outdoor storm bolt,
 `ending=<seconds>` jumps into the ending sequence,
 `difficulty=easy|normal|hard` presets the difficulty, `stage=1..N` picks the
-stage (forged wings follow the thirteen built-in ones),
-`screen=play|map|difficulty|stageselect|forge|clear|ending` opens a screen directly,
+stage (forged wings follow the eighteen built-in ones),
+`screen=play|armory|map|difficulty|stageselect|forge|clear|ending` opens a screen directly,
 `forge=<name>[&forgedesc=<text>][&local=1]` proposes a wing immediately
 (`local=1` forces the offline procedural forge),
 `discovered=all`, `vessels=all`, and `explored=all` unlock map exploration state,
+`weapons=all`, `handL=<id>`, `handR=<id>`, `str=<N>`, and `resetarmory=1` configure the Dual-Hand Equipment Matrix,
+`level=1..99`, `exp=N`, and `resetlevel=1` override or reset hunter level & EXP,
 `touch=1` (or `touch=0`) forces the mobile touch controller UI on or off, and `nofx`
 disables the shader post-process.
 
-`PORT=8712 .venv/bin/python tools/smoke_test.py 15` loads every screen and stage
-(13 built-in + forged) in headless Chrome and fails on uncaught errors.
+`PORT=8712 .venv/bin/python tools/smoke_test.py 20` loads every screen and stage
+(18 built-in + forged) in headless Chrome and fails on uncaught errors.

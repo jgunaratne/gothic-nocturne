@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 # Regenerates the full-length Lyria 3 score: one distinct track per stage plus
-# title, boss and ending. Clips land in /tmp/song_<name>.mp3.
+# title, boss and ending. Clips land in /tmp/song_<name>.mp3 and copy into assets/music/.
 set -u
 G=/google/bin/releases/gemini-agents-generate/generate
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OUT_DIR="${ROOT}/assets/music"
+mkdir -p "${OUT_DIR}"
 STYLE="Full-length instrumental video game music (about two and a half minutes, with an intro, main theme, a contrasting bridge and a return to the main theme that can loop) for a gothic horror side-scrolling action platformer, 32-bit console era style with clean bright slightly compressed sound. No vocals, no lyrics, instrumental only."
 gen() {
   local name="$1"; shift
-  if [ -s "/tmp/song_${name}.mp3" ]; then echo "= ${name} exists"; return; fi
-  "$G" -timeout=600s -output="/tmp/song_${name}.mp3" music -model=lyria-3-full-song-mp3 "$* ${STYLE}" 2>&1 | grep -E "Successfully|rror|denied" | tail -2
+  if [ -s "${OUT_DIR}/${name}.mp3" ]; then echo "= ${name} exists"; return; fi
+  if [ ! -s "/tmp/song_${name}.mp3" ]; then
+    "$G" -prod -timeout=600s -output="/tmp/song_${name}.mp3" music -model=lyria-3-full-song-mp3 "$* ${STYLE}" 2>&1 | grep -E "Successfully|rror|denied" | tail -2
+  fi
+  if [ -s "/tmp/song_${name}.mp3" ]; then
+    cp "/tmp/song_${name}.mp3" "${OUT_DIR}/${name}.mp3"
+    chmod 644 "${OUT_DIR}/${name}.mp3"
+  fi
 }
 gen graveyard "Stage theme for a moonlit graveyard road leading to a haunted castle: driving baroque rock in D minor at 150 BPM, harpsichord and pipe-organ arpeggios, pulsing synth bass, crisp punchy drums, heroic soaring lead synth, dramatic chord changes, adventurous and ominous."
 gen jack "Stage theme for a haunted autumn forest full of glowing carved pumpkins: a mischievous sinister Halloween waltz-rock in B minor at 140 BPM, swirling pipe organ, pizzicato strings, tubular bells, bouncy synth bass, crisp drums, a playful but menacing harpsichord melody, a soaring lead synth in the chorus."
@@ -18,8 +27,14 @@ gen darkcave "Stage theme for a deep subterranean volcanic dark cave filled with
 gen ossuary "Stage theme for a vast ossuary of a thousand skulls: slow heavy dread at 112 BPM in F minor, deep male choir drones, tolling bells, dissonant harpsichord clusters, thunderous low toms and chains percussion, a sinister creeping lead melody that builds to a frantic climax before sinking back into gloom."
 gen tower "Stage theme for climbing a giant clock tower full of turning gears: driving and mechanical at 160 BPM in G minor, ticking clockwork percussion with woodblock and rimshot, relentless synth bass ostinato, bright harpsichord and music-box arpeggios, soaring heroic lead synth, pipe organ accents, rising urgency."
 gen throne "Stage theme for the final approach through the throne hall of the vampire count: majestic and menacing organ fugue in A minor at 138 BPM, full pipe organ counterpoint, dark string synths, martial drums, harpsichord flourishes, a grand villainous theme that turns heroic in the chorus, climactic and regal."
+gen alchemy "Stage theme for a forbidden gothic alchemy laboratory filled with bubbling emerald glass retorts, crackling copper coils, and blazing brass furnaces: intricate baroque-synth fugue in F-sharp minor at 134 BPM, crystalline glass armonica and celesta counter-melodies, rapid harpsichord and marimba ostinatos, dramatic pipe organ swells, pulsing synth bass, crisp punchy 32-bit drums, mysterious, volatile and feverishly inventive."
+gen ballroom "Stage theme for a haunted aristocrat's grand mirror ballroom where spectral dancers whirl beneath crystal chandeliers: a haunting, sweeping dark symphonic waltz in 3/4 time in C minor at 138 BPM, lush tragic string section melody, ghostly harpsichord and music-box filigree, dramatic timpani and crisp orchestral waltz percussion, soaring cathedral organ bridge, decadent, romantic and eerie."
+gen coliseum "Stage theme for a subterranean torchlit iron amphitheater and blood-stained gladiator coliseum inside a dark castle: fierce symphonic gothic battle-march in E minor at 156 BPM, thunderous war drums and rolling timpani, bold brazen French horn and trombone fanfares, rapid staccato string ostinatos, harpsichord flourishes, wordless dark choir accents and pipe organ chords, zero electric guitar, relentless, triumphant and perilous."
+gen aqueduct "Stage theme for a vast flooded subterranean Roman aqueduct and sunken crystal cistern beneath a haunted castle: atmospheric driving gothic water-temple theme in G minor at 122 BPM, shimmering cascading harp and celesta arpeggios, deep resonant cello and synth-bass ostinato, mournful solo flute and oboe melody rising into lush strings, echoing cathedral organ harmonies and crisp reverberant percussion, ancient, submerged and haunting."
+gen skykeep "Stage theme for moonlit floating marble sanctuary gardens and astronomical colonnades high above a sea of silver clouds: soaring celestial baroque adventure in B minor shifting to heroic D major in the bridge at 148 BPM, sparkling bell-synth and harpsichord arpeggios, ethereal wordless soprano choir pad, expressive solo violin and bright synth lead, driving bassline and punchy 32-bit drums, breathtaking, lofty and perilous."
 gen title "Title screen theme for a gothic horror castle video game: slow and ominous at 72 BPM in D minor, haunting pipe organ, deep tolling church bell, ethereal choir pad, sparse music-box melody, distant timpani, slowly unfolding and foreboding, building to a brief grand statement of the hero theme before receding."
 gen boss "Boss battle theme: upbeat urgent symphonic gothic orchestral battle music in D minor at 166 BPM, pure symphonic orchestra with zero electric guitar and zero distorted guitar, rapid driving staccato strings and spiccato violin ostinatos, thunderous timpani and crisp orchestral snare and cymbals, bold heroic brass horn and trombone fanfares, dramatic cathedral pipe organ chords, baroque harpsichord flourishes, powerful dark mixed choir stabs, soaring triumphant yet perilous orchestral melody."
+gen clear "Boss defeat and stage victory celebration fanfare and theme: grand celebratory symphonic orchestra in bright D major at 132 BPM, opening immediately on beat one with a triumphant majestic brass fanfare of French horns and trumpets, rolling orchestral timpani, shimmering crash cymbals and tubular cathedral bells, soaring jubilant string ensemble melody, sparkling concert harp and harpsichord flourishes, regal cathedral pipe organ harmonies, uplifting, noble, orchestral and celebratory, pure symphonic orchestra with zero electric guitar and zero vocals."
 gen ending "Ending theme as dawn breaks over the ruined castle: gentle and triumphant at 92 BPM in D major, warm string-pad synth, soft piano melody, distant church bells, quiet harpsichord counter-melody, building to a hopeful brass-like synth crescendo and settling into a peaceful sunrise coda."
 ls -la /tmp/song_*.mp3
 for f in /tmp/song_*.mp3; do printf "%s " "$f"; ffprobe -v error -show_entries format=duration -of csv=p=0 "$f"; done

@@ -40,7 +40,7 @@ export const BOSS_RELICS = {
     boss: 'THE BONE CAPTAIN',
     name: 'IRON GREAVES',
     short: 'SWIFT STRIDE',
-    desc: '+15% MOVE SPEED & HALVED SPIKE/LAVA HAZARD DAMAGE',
+    desc: '+8% MOVE SPEED & HALVED SPIKE/LAVA HAZARD DAMAGE',
     color: '#d8e0ef',
   },
   catacombs: {
@@ -107,6 +107,51 @@ export const BOSS_RELICS = {
     desc: 'WHIP UNLEASHES A PIERCING CRIMSON FLAME WAVE',
     color: '#ff4a66',
   },
+  alchemy: {
+    key: 'alchemy',
+    boss: 'THE GRAND ALCHEMIST',
+    name: 'PHILOSOPHER VIAL',
+    short: 'ELIXIR VITAE',
+    desc: '+2 MAX HP & +3 STARTING HEARTS ACROSS THE KEEP',
+    color: '#4ef2b8',
+    bonuses: { maxHp: 2, hearts: 3 },
+  },
+  ballroom: {
+    key: 'ballroom',
+    boss: 'THE MASQUERADE DUKE',
+    name: 'MASQUERADE MASK',
+    short: 'VELVET GRACE',
+    desc: '+35% MERCY INVULNERABILITY & +2 MAX HP',
+    color: '#ff8ad4',
+    bonuses: { invuln: 0.35, maxHp: 2 },
+  },
+  coliseum: {
+    key: 'coliseum',
+    boss: 'THE IRON GLADIATOR',
+    name: 'CHAMPION CREST',
+    short: 'ARENA MIGHT',
+    desc: '+1 WHIP DAMAGE & +5% STRIDE SPEED IN COMBAT',
+    color: '#ff6e54',
+    bonuses: { whip: 1, speed: 0.05 },
+  },
+  aqueduct: {
+    key: 'aqueduct',
+    boss: 'THE DROWNED ORACLE',
+    name: 'TIDAL TALISMAN',
+    short: 'TORRENT FORCE',
+    desc: '+1 SUB-WEAPON DAMAGE & +2 MAX HP',
+    color: '#52d6ff',
+    bonuses: { subDmg: 1, maxHp: 2 },
+  },
+  skykeep: {
+    key: 'skykeep',
+    boss: 'THE MOONLIT SERAPH',
+    name: 'CELESTIAL PLUME',
+    short: 'ZEPHYR STEP',
+    desc: '+6% SWIFT STRIDE & +3 STARTING HEARTS',
+    color: '#c8f0ff',
+    bonuses: { speed: 0.06, hearts: 3 },
+  },
 };
 
 export const RELIC_ORDER = Object.keys(BOSS_RELICS);
@@ -119,7 +164,7 @@ export const FORGED_RELIC_EFFECTS = {
   vitality: { maxHp: 2, short: 'VITALITY', desc: '+2 MAX HP FOR THE REST OF THE HUNT' },
   hearts: { hearts: 3, short: 'HEART HOARD', desc: '+3 STARTING HEARTS FOR SUB-WEAPONS' },
   whip: { whip: 1, short: 'SEARING LASH', desc: '+1 WHIP DAMAGE ON EVERY STRIKE' },
-  stride: { speed: 0.1, short: 'FLEET STRIDE', desc: '+10% MOVE SPEED ACROSS THE CASTLE' },
+  stride: { speed: 0.05, short: 'FLEET STRIDE', desc: '+5% MOVE SPEED ACROSS THE CASTLE' },
   ward: { invuln: 0.3, short: 'WARDING', desc: '+30% MERCY INVULNERABILITY AFTER A HIT' },
 };
 
@@ -149,7 +194,7 @@ export function resolveActiveRelics(clearedMask, stages, params = null) {
   if (stages) {
     for (let i = 0; i < stages.length; i++) {
       const key = stages[i].key;
-      if (((clearedMask >> i) & 1) && BOSS_RELICS[key]) active.add(key);
+      if (((clearedMask >>> i) & 1) && BOSS_RELICS[key]) active.add(key);
     }
   }
   if (params && typeof params.get === 'function') {

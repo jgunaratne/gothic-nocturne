@@ -131,7 +131,7 @@ export class ForgeScreens {
     ctx.fillStyle = 'rgba(4, 3, 10, 0.72)';
     ctx.fillRect(0, 0, W, H);
     f.draw(ctx, 'GOTHIC NOCTURNE', W / 2, 14, { scale: 2, align: 'center', color: '#8a9ab5', spacing: 2, shadow: '#120f1c' });
-    f.draw(ctx, 'EXPAND THE CASTLE', W / 2, 36, { scale: 3, align: 'center', color: '#e8e2c8', shadow: '#5b2a3a' });
+    f.draw(ctx, 'EXPAND THE CASTLE', W / 2, 34, { scale: 3, align: 'center', color: '#e8e2c8', shadow: '#5b2a3a' });
     ctx.fillStyle = '#5b6b86';
     ctx.fillRect(W / 2 - 190, 70, 380, 1);
     f.draw(ctx, 'PROPOSE A NEW WING AND THE CASTLE WILL RAISE IT: LEVEL, ART, MUSIC AND GUARDIAN', W / 2, 76, { align: 'center', color: '#a89a74', shadow: '#120f1c', gothic: false });
@@ -143,9 +143,9 @@ export class ForgeScreens {
     // Description field
     this.drawField(ctx, lx, 142, fw, 40, 'DESCRIBE IT (OPTIONAL)', this.desc, this.focus === 1, caret, 1, this.desc ? null : 'SHUTTERED COTTAGES, A DRY WELL, A BELL THAT TOLLS AT MIDNIGHT...');
 
-    // Mini castle grid: where the wing will rise
-    const gx = 428, gy = 108, cs = 5;
-    f.draw(ctx, 'WHERE IT WILL RISE', gx, 96, { color: '#c9c3b0', shadow: '#120f1c', gothic: false });
+    // Mini castle grid: where the wing will rise (72x27 at 2px/cell = 144x54 inside a framed right-hand card)
+    const gx = 444, gy = 118, cs = 2;
+    f.draw(ctx, 'WHERE IT WILL RISE', 428, 96, { color: '#c9c3b0', shadow: '#120f1c', gothic: false });
     this.drawMiniGrid(ctx, gx, gy, cs, this.preview ? this.preview.placement : null, this.preview ? this.preview.bp.palette.accent : '#ffd27a');
 
     // Blueprint preview
@@ -203,7 +203,12 @@ export class ForgeScreens {
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
     if (!text && placeholder) {
-      f.draw(ctx, placeholder, x + 8, y + (scale === 2 ? 6 : 5), { scale: 1, color: '#4e4a5e', gothic: false });
+      if (scale === 2) {
+        f.draw(ctx, placeholder, x + 8, y + 6, { scale: 1, color: '#4e4a5e', gothic: false });
+      } else {
+        f.wrap(placeholder, w - 16, 1, 1, false).slice(0, 2)
+          .forEach((ln, i) => f.draw(ctx, ln, x + 8, y + 5 + i * 11, { scale: 1, color: '#4e4a5e', gothic: false }));
+      }
     }
     if (scale === 2) {
       const shown = text.slice(-Math.floor((w - 20) / 12));
@@ -220,39 +225,41 @@ export class ForgeScreens {
     }
   }
 
-  /** Tiny 34x14 castle grid with existing wings dimmed and the proposed wing pulsing. */
+  /** Compact 72x27 castle grid with existing wings dimmed and the proposed wing pulsing. */
   drawMiniGrid(ctx, gx, gy, cs, placement, accent) {
     const pulse = 0.5 + 0.5 * Math.sin(this.t * 4);
-    ctx.fillStyle = 'rgba(8, 11, 24, 0.9)';
-    ctx.fillRect(gx - 3, gy - 3, GRID_COLS * cs + 6, GRID_ROWS * cs + 6);
+    const cellW = cs <= 2 ? cs : cs - 1;
+    const frameX = 428, frameY = 108, frameW = 176, frameH = 74;
+    ctx.fillStyle = 'rgba(8, 11, 24, 0.92)';
+    ctx.fillRect(frameX, frameY, frameW, frameH);
     ctx.strokeStyle = '#3a4a6a';
-    ctx.strokeRect(gx - 2.5, gy - 2.5, GRID_COLS * cs + 5, GRID_ROWS * cs + 5);
+    ctx.strokeRect(frameX + 0.5, frameY + 0.5, frameW - 1, frameH - 1);
     for (const [key, rm] of Object.entries(MAP_ROOMS)) {
       const st = STAGES[stageIndexOf(key)];
       const theme = st ? (THEMES[st.theme] || THEMES.graveyard) : THEMES.graveyard;
       for (const [c, r] of rm.allCells) {
-        ctx.fillStyle = rm.bossSet.has(`${c},${r}`) ? 'rgba(150, 34, 56, 0.7)' : rm.forged ? 'rgba(90, 70, 130, 0.75)' : 'rgba(30, 78, 168, 0.55)';
-        ctx.fillRect(gx + c * cs, gy + r * cs, cs - 1, cs - 1);
+        ctx.fillStyle = rm.bossSet.has(`${c},${r}`) ? 'rgba(176, 42, 68, 0.82)' : rm.forged ? 'rgba(110, 84, 158, 0.82)' : 'rgba(36, 92, 188, 0.68)';
+        ctx.fillRect(gx + c * cs, gy + r * cs, cellW, cellW);
       }
-      const [sc, sr] = rm.spine[0];
+      const [sc, sr] = rm.sanctuary || rm.spine[0];
       ctx.fillStyle = theme.accent;
-      ctx.fillRect(gx + sc * cs, gy + sr * cs + cs - 2, cs - 1, 1);
+      ctx.fillRect(gx + sc * cs, gy + sr * cs, cellW, cellW);
     }
     if (placement) {
       const cells = [...placement.room.spine, ...placement.room.extra];
       cells.forEach(([c, r], i) => {
         const on = (Math.floor(this.t * 6) + i) % 7 !== 0;
         ctx.fillStyle = on ? accent : '#ffffff';
-        ctx.globalAlpha = 0.55 + 0.45 * pulse;
-        ctx.fillRect(gx + c * cs, gy + r * cs, cs - 1, cs - 1);
+        ctx.globalAlpha = 0.65 + 0.35 * pulse;
+        ctx.fillRect(gx + c * cs, gy + r * cs, cellW, cellW);
         ctx.globalAlpha = 1;
       });
       const [bc, br] = placement.room.boss[0];
       ctx.fillStyle = '#ff6a88';
-      ctx.fillRect(gx + bc * cs + 1, gy + br * cs + 1, cs - 3, cs - 3);
+      ctx.fillRect(gx + bc * cs, gy + br * cs, cellW, cellW);
       const [ac, ar] = placement.door.cellA;
       ctx.fillStyle = '#9ef5dc';
-      ctx.fillRect(gx + ac * cs + 1, gy + ar * cs + 1, cs - 3, cs - 3);
+      ctx.fillRect(gx + ac * cs, gy + ar * cs, cellW, cellW);
     }
   }
 
@@ -346,7 +353,8 @@ export class ForgeScreens {
           ctx.fillStyle = `rgba(255, 240, 200, ${Math.max(0, 1 - k)})`;
           for (let p = 0; p < 6; p++) {
             const a = (p / 6) * Math.PI * 2;
-            ctx.fillRect(Math.round(cx + 7 + Math.cos(a) * (4 + k * 10)), Math.round(cy + 7 + Math.sin(a) * (4 + k * 10)), 2, 2);
+            const half = CELL_SIZE * 0.5;
+            ctx.fillRect(Math.round(cx + half + Math.cos(a) * (3 + k * 8)), Math.round(cy + half + Math.sin(a) * (3 + k * 8)), 2, 2);
           }
         }
       } else {

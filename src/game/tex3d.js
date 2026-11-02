@@ -39,6 +39,8 @@ const GLOW_STOPS = {
   amber: ['rgba(255, 175, 70, 0.85)', 'rgba(225, 105, 30, 0.30)', 'rgba(160, 60, 15, 0)'],
   crimson: ['rgba(245, 70, 92, 0.82)', 'rgba(155, 35, 95, 0.30)', 'rgba(40, 10, 35, 0)'],
   ice: ['rgba(185, 232, 255, 0.82)', 'rgba(105, 175, 245, 0.30)', 'rgba(40, 90, 170, 0)'],
+  cyan: ['rgba(145, 242, 255, 0.85)', 'rgba(46, 188, 232, 0.34)', 'rgba(14, 92, 136, 0)'],
+  moon: ['rgba(218, 234, 255, 0.85)', 'rgba(138, 176, 248, 0.32)', 'rgba(48, 76, 156, 0)'],
   violet: ['rgba(195, 140, 255, 0.82)', 'rgba(120, 70, 210, 0.30)', 'rgba(45, 20, 95, 0)'],
 };
 
@@ -431,7 +433,10 @@ class TextureBank3D {
   }
 
   get(name) {
-    return this.map.get(name) || this.map.get('wall');
+    if (this.map.has(name)) return this.map.get(name);
+    const im = this.assets && this.assets.img(name);
+    if (im) return this.reg(name, im);
+    return this.map.get('wall');
   }
 
   matTop(t) {
@@ -465,14 +470,19 @@ class TextureBank3D {
   buildAll() {
     const A = this.assets;
 
-    // 1. Direct seamless wall textures from game assets
-    for (const k of ['wall', 'wall_b', 'catacombwall', 'clockwall', 'arcadewall', 'librarywall', 'cathedralwall', 'cavernwall']) {
+    // 1. Direct seamless wall, carved stone, column & monumental mural textures from game assets
+    for (const k of [
+      'wall', 'wall_b', 'catacombwall', 'clockwall', 'arcadewall', 'librarywall', 'cathedralwall', 'cavernwall',
+      'alchemywall', 'ballroomwall', 'coliseumwall', 'aqueductwall',
+      'stone_trim', 'crypt_stone', 'marble_stone', 'travertine_stone', 'aqueduct_stone', 'pillar_fluted',
+      'mural_alchemy', 'mural_ballroom', 'mural_coliseum', 'mural_aqueduct', 'mural_throne', 'mural_catacombs',
+    ]) {
       const im = A.img(k);
       if (im) this.reg(k, im);
     }
 
-    // 2. Crypt ashlar stone (built from catacombwall's solid stone lintel bands)
-    {
+    // 2. Crypt ashlar stone (high-relief subterranean masonry texture, fallback to catacomb lintels)
+    if (!this.map.has('crypt_stone')) {
       const src = A.img('catacombwall');
       const { c, g } = makeCanvas(192, 128);
       g.fillStyle = '#0c0a14';
@@ -488,21 +498,37 @@ class TextureBank3D {
       this.reg('crypt_stone', c);
     }
 
-    // 3. Carved stone trim / voussoirs & polished Gothic marble
-    this.reg('stone_trim', buildAshlarCanvas(128, 64, {
-      mortar: '#151728', base: '#6e7e9e', alt: '#637392',
-      hi: '#9eb0d0', lo: '#45506a', crack: '#293048', blockW: 32, blockH: 16,
-    }));
-    this.reg('marble', buildAshlarCanvas(128, 64, {
-      mortar: '#22263c', base: '#8c99ba', alt: '#808dae',
-      hi: '#bac6e4', lo: '#5c6786', crack: '#46506c', blockW: 32, blockH: 16, veins: true,
-    }));
+    // 3. Carved stone trim / voussoirs & polished veined Gothic marble
+    if (!this.map.has('stone_trim')) {
+      this.reg('stone_trim', buildAshlarCanvas(128, 64, {
+        mortar: '#151728', base: '#6e7e9e', alt: '#637392',
+        hi: '#9eb0d0', lo: '#45506a', crack: '#293048', blockW: 32, blockH: 16,
+      }));
+    }
+    const marbleImg = A.img('marble_stone');
+    if (marbleImg) {
+      this.reg('marble', marbleImg);
+    } else {
+      this.reg('marble', buildAshlarCanvas(128, 64, {
+        mortar: '#22263c', base: '#8c99ba', alt: '#808dae',
+        hi: '#bac6e4', lo: '#5c6786', crack: '#46506c', blockW: 32, blockH: 16, veins: true,
+      }));
+    }
 
-    // 4. Distant Keep miniature ashlar masonry & conical slate shingle roof
-    this.reg('keep_stone', buildAshlarCanvas(64, 64, {
-      mortar: '#181b32', base: '#5a6890', alt: '#4e5b82',
-      hi: '#7c8db8', lo: '#394364', crack: '#252b46', blockW: 16, blockH: 8,
-    }));
+    // 4. Distant Keep miniature ashlar masonry (downscaled from chiseled wall stone) & slate roof
+    {
+      const wallImg = A.img('wall');
+      if (wallImg) {
+        const { c, g } = makeCanvas(128, 128);
+        g.drawImage(wallImg, 0, 0, wallImg.width, wallImg.height, 0, 0, 128, 128);
+        this.reg('keep_stone', c);
+      } else {
+        this.reg('keep_stone', buildAshlarCanvas(64, 64, {
+          mortar: '#181b32', base: '#5a6890', alt: '#4e5b82',
+          hi: '#7c8db8', lo: '#394364', crack: '#252b46', blockW: 16, blockH: 8,
+        }));
+      }
+    }
     {
       const { c, g } = makeCanvas(64, 64);
       g.fillStyle = '#17142e';
@@ -523,22 +549,25 @@ class TextureBank3D {
       this.reg('slate_roof', c);
     }
 
-    // 5. Fluted Gothic column shaft (extracted from arch.png `column`)
+    // 5. Fluted Gothic column shaft (high-relief 6-flute carved shaft texture)
     {
-      const arch = A.img('arch');
-      const cf = A.frame('arch', 'column');
-      const { c, g } = makeCanvas(32, 128);
-      g.fillStyle = '#4c5874';
-      g.fillRect(0, 0, 32, 128);
-      if (arch && cf) {
-        // Shaft sits at local y = 26..96 inside the 31x128 column frame
-        g.drawImage(arch, cf.x, cf.y + 26, cf.w, 64, 0, 0, 32, 64);
-        g.drawImage(arch, cf.x, cf.y + 26, cf.w, 64, 0, 64, 32, 64);
-        // Subtle gothic night tone balance so column harmonizes with wall stone
-        g.fillStyle = 'rgba(18, 22, 42, 0.24)';
+      const flCol = A.img('pillar_fluted');
+      if (flCol) {
+        this.reg('pillar_shaft', flCol);
+      } else {
+        const arch = A.img('arch');
+        const cf = A.frame('arch', 'column');
+        const { c, g } = makeCanvas(32, 128);
+        g.fillStyle = '#4c5874';
         g.fillRect(0, 0, 32, 128);
+        if (arch && cf) {
+          g.drawImage(arch, cf.x, cf.y + 26, cf.w, 64, 0, 0, 32, 64);
+          g.drawImage(arch, cf.x, cf.y + 26, cf.w, 64, 0, 64, 32, 64);
+          g.fillStyle = 'rgba(18, 22, 42, 0.24)';
+          g.fillRect(0, 0, 32, 128);
+        }
+        this.reg('pillar_shaft', c);
       }
-      this.reg('pillar_shaft', c);
     }
 
     // 6. Interior 3D Hall Flagstones & Royal Crimson Carpet Runner
@@ -589,6 +618,35 @@ class TextureBank3D {
         g.fillRect(x + 15, 14, 2, 4);
       }
       this.reg('carpet', c);
+    }
+    // Wing-specific 3D hall floor & runner textures extracted directly from generated terrain strips
+    for (const [wing, strip, bg, lift] of [
+      ['alchemy_hall_floor', 'alchemyfloor', '#0c121a', 0.28],
+      ['ballroom_hall_floor', 'ballroomfloor', '#180c1c', 0.30],
+      ['coliseum_hall_floor', 'coliseumfloor', '#1a0c0e', 0.28],
+      ['aqueduct_hall_floor', 'aqueductfloor', '#081420', 0.26],
+    ]) {
+      const src = A.img(strip);
+      const { c, g } = makeCanvas(256, 96);
+      g.fillStyle = bg;
+      g.fillRect(0, 0, 256, 96);
+      if (src) {
+        g.drawImage(src, 0, 32, 256, 96, 0, 0, 256, 96);
+        liftBrightness(g, src, 0, 32, 256, 96, 0, 0, 256, 96, lift);
+      }
+      this.reg(wing, c);
+    }
+    {
+      const blb = A.img('ballroomfloor_b');
+      const { c, g } = makeCanvas(256, 32);
+      g.fillStyle = '#5c1438';
+      g.fillRect(0, 0, 256, 32);
+      if (blb) {
+        g.drawImage(blb, 0, 5, 256, 28, 0, 2, 256, 28);
+        g.drawImage(blb, 0, 5, 256, 4, 0, 0, 256, 4);
+        g.drawImage(blb, 0, 29, 256, 4, 0, 28, 256, 4);
+      }
+      this.reg('ballroom_carpet', c);
     }
 
     // 7. Gnarled Ancient Tree Bark & Harvest Rune-Stone Monolith

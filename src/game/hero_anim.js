@@ -13,9 +13,9 @@
 
 import { PLAYER } from '../engine/constants.js';
 
-/** Walk cycle: one frame per this many pixels travelled (feet never slide), with a floor. */
-export const WALK_PX_PER_FRAME = 9.5;
-export const WALK_MIN_FPS = 5;
+/** Walk cycle: one frame per this many pixels travelled (deliberate, weighty stride), with a gentle floor. */
+export const WALK_PX_PER_FRAME = 14.2;
+export const WALK_MIN_FPS = 2.8;
 
 export const IDLE_FPS = 6;
 export const FIDGET_AFTER = 5.0;        // seconds of standing still before the idle fidget
@@ -83,13 +83,102 @@ export function whipPhase(s) {
 }
 
 /**
+ * Resolves active non-whip weapon animation descriptor `{ category, k, crouch, guarding }`
+ * from either local `Player.slots` or remote network peer `meleeAnim`.
+ */
+export function activeMeleeAnim(s) {
+  if (s.meleeAnim && s.meleeAnim.category && s.meleeAnim.category !== 'whip') {
+    return s.meleeAnim;
+  }
+  if (!Array.isArray(s.slots)) return null;
+  let best = null;
+  for (let i = 0; i < s.slots.length; i++) {
+    const sl = s.slots[i];
+    if (!sl || !sl.active || !sl.weapon || sl.weapon.category === 'whip') continue;
+    // Prefer an active swing/thrust over a held shield guard
+    if (!best || (best.guarding && !sl.guarding)) best = sl;
+  }
+  if (!best) return null;
+  const dur = Math.max(0.05, best.duration || best.weapon.duration || 0.3);
+  return {
+    category: best.weapon.category,
+    k: Math.max(0, Math.min(1, (best.timer || 0) / dur)),
+    crouch: !!(best.crouch || s.crouching),
+    guarding: !!best.guarding,
+    airborne: s.onGround === false || s.state === 'jump',
+  };
+}
+
+/**
+ * Picks the martial body pose from `hero_sword` / `hero_csword` for sword,
+ * rapier, greatsword, brawler, shield, boomerang, and catalyst actions.
+ */
+function pickMeleeFrame(assets, m) {
+  const hasSword = !!assets.info('hero_sword');
+  const hasCSword = !!assets.info('hero_csword');
+  if (!hasSword) return null;
+
+  const { category, k, crouch, guarding, airborne } = m;
+
+  if (guarding && category === 'shield') {
+    if (crouch && hasCSword) return { sheet: 'hero_csword', name: 'cslash1', lash: null };
+    return { sheet: 'hero_sword', name: 'thrust0', lash: null };
+  }
+
+  if (airborne && !crouch) {
+    if (category === 'heavy_blade' && k < 0.28) return { sheet: 'hero_sword', name: 'heavy0', lash: null };
+    if (category === 'standard_blade' && k < 0.24) return { sheet: 'hero_sword', name: 'slash0', lash: null };
+    return { sheet: 'hero_sword', name: 'airslash', lash: null };
+  }
+
+  if (crouch && hasCSword) {
+    if (category === 'light_blade') {
+      const nm = k < 0.24 ? 'cslash0' : (k < 0.78 ? 'cslash2' : 'cslash1');
+      return { sheet: 'hero_csword', name: nm, lash: null };
+    }
+    const nm = k < 0.28 ? 'cslash0' : (k < 0.68 ? 'cslash1' : 'cslash2');
+    return { sheet: 'hero_csword', name: nm, lash: null };
+  }
+
+  switch (category) {
+    case 'light_blade': {
+      // Nimble fencing coil -> deep extended lunge thrust -> crisp recovery
+      const nm = k < 0.22 ? 'thrust0' : (k < 0.78 ? 'thrust1' : 'thrust0');
+      return { sheet: 'hero_sword', name: nm, lash: null };
+    }
+    case 'standard_blade': {
+      // 1H overhead wind-up -> stepping horizontal slash -> low diagonal follow-through
+      const nm = k < 0.26 ? 'slash0' : (k < 0.66 ? 'slash1' : 'slash2');
+      return { sheet: 'hero_sword', name: nm, lash: null };
+    }
+    case 'heavy_blade': {
+      // 2H high back-shoulder heave -> driving mid-cleave -> crushing low two-handed slam
+      const nm = k < 0.30 ? 'heavy0' : (k < 0.56 ? 'slash1' : 'heavy1');
+      return { sheet: 'hero_sword', name: nm, lash: null };
+    }
+    case 'brawler': {
+      const nm = k < 0.18 ? 'thrust0' : ((Math.floor(k * 4) & 1) === 0 ? 'alt1' : 'slash1');
+      return { sheet: 'hero_sword', name: nm, lash: null };
+    }
+    case 'shield': {
+      const nm = k < 0.28 ? 'thrust0' : 'alt1';
+      return { sheet: 'hero_sword', name: nm, lash: null };
+    }
+    default: {
+      // Boomerang / Catalyst cast
+      const nm = k < 0.28 ? 'alt0' : 'slash1';
+      return { sheet: 'hero_sword', name: nm, lash: null };
+    }
+  }
+}
+
+/**
  * Picks the frame for a hunter.
  *
  * `s` is plain state: state ('idle' | 'walk' | 'jump' | 'crouch' | 'attack' |
  * 'hurt' | 'dead'), walkFrame, attackT, whipTime, whipActive, throwing,
  * attackCrouch, vy, landT, landHard, launchT, hurtT, deadT, idleT, fidgetT,
- * turnT, crouchBlendT. Missing fields fall back gracefully (remote hunters
- * only send a subset).
+ * turnT, crouchBlendT, slots / meleeAnim. Missing fields fall back gracefully.
  *
  * Returns { sheet, name, lash }: when `lash` is set the frame is a whip body
  * whose lash must be drawn procedurally (`drawWhipFrame`), with lash.mode
@@ -99,9 +188,22 @@ export function heroFrame(assets, s) {
   const has = (sheet) => !!assets.info(sheet);
   const pick = (sheet, name, lash = null) => ({ sheet, name, lash });
 
+  // Non-whip martial weapons (swords, rapiers, greatswords, brawlers, shields, catalysts)
+  // drive dedicated swordsmanship & martial body stances when not hurt, dead, or whipping.
+  if (s.state !== 'hurt' && s.state !== 'dead' && s.state !== 'attack') {
+    const melee = activeMeleeAnim(s);
+    if (melee) {
+      const mf = pickMeleeFrame(assets, melee);
+      if (mf) return mf;
+    }
+  }
+
   switch (s.state) {
     case 'attack': {
-      if (s.throwing) return pick('hero', 'whip1');
+      if (s.throwing) {
+        if (has('hero_sword')) return pick('hero_sword', (s.attackT || 0) < 0.08 ? 'alt0' : 'slash1');
+        return pick('hero', 'whip1');
+      }
       const ph = whipPhase(s);
       const lash = ph.mode === 'extend' || ph.mode === 'live' ? { mode: ph.mode, k: ph.k } : null;
       if (s.attackCrouch) {
@@ -140,6 +242,7 @@ export function heroFrame(assets, s) {
       return pick('hero', 'jump');
     case 'crouch':
       if (has('hero_jump') && s.crouchBlendT > 0) return pick('hero_jump', 'land1');
+      if (s.noWhip && has('hero_csword')) return pick('hero_csword', 'crouch_nowhip');
       return pick('hero', 'crouch');
     case 'walk': {
       if (has('hero_turn') && s.turnT > 0) return pick('hero_turn', s.turnT > TURN_TIME / 2 ? 'turn0' : 'turn1');
@@ -155,9 +258,12 @@ export function heroFrame(assets, s) {
       if (has('hero_jump') && s.landT > 0) {
         return pick('hero_jump', s.landHard && s.landT > LAND_TIME / 2 ? 'land0' : 'land1');
       }
-      if (has('hero_fidget') && s.fidgetT != null && s.fidgetT >= 0) {
+      if (!s.noWhip && has('hero_fidget') && s.fidgetT != null && s.fidgetT >= 0) {
         const n = frameCount(assets, 'hero_fidget', 'fidget');
         return pick('hero_fidget', 'fidget' + Math.min(n - 1, Math.floor(s.fidgetT * FIDGET_FPS)));
+      }
+      if (s.noWhip && has('hero_csword')) {
+        return pick('hero_csword', 'idle_nowhip');
       }
       if (has('hero_idle')) {
         const n = frameCount(assets, 'hero_idle', 'idle') || 6;

@@ -4,11 +4,11 @@
    "type": "texture",
    "src": "tex_wall_brick.png",
    "size": [
-    192,
-    192
+    256,
+    256
    ],
-   "colors": 24,
-   "seamless": "blend"
+   "colors": 64,
+   "seamless": "blend_hv"
   },
   "ground": {
    "type": "strip",
@@ -686,11 +686,11 @@
    "type": "texture",
    "src": "tex_wall_brick_b.png",
    "size": [
-    192,
-    192
+    256,
+    256
    ],
-   "colors": 24,
-   "seamless": "blend"
+   "colors": 64,
+   "seamless": "blend_hv"
   },
   "catacombwall_b": {
    "type": "texture",
@@ -1745,6 +1745,376 @@
      "magmaball"
     ]
    ]
+  },
+  "alchemyfloor": {
+   "type": "strip",
+   "src": "tex_alchemy_floor_strip.png",
+   "size": [512, null],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "alchemyfloor_b": {
+   "type": "strip",
+   "src": "tex_alchemy_floor_strip_b.png",
+   "size": [512, null],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "ballroomfloor": {
+   "type": "strip",
+   "src": "tex_ballroom_floor_strip.png",
+   "size": [512, null],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "ballroomfloor_b": {
+   "type": "strip",
+   "src": "tex_ballroom_floor_strip_b.png",
+   "size": [512, null],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "coliseumfloor": {
+   "type": "strip",
+   "src": "tex_coliseum_floor_strip.png",
+   "size": [512, null],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "coliseumfloor_b": {
+   "type": "strip",
+   "src": "tex_coliseum_floor_strip_b.png",
+   "size": [512, null],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "aqueductfloor": {
+   "type": "strip",
+   "src": "tex_aqueduct_floor_strip.png",
+   "size": [512, null],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "aqueductfloor_b": {
+   "type": "strip",
+   "src": "tex_aqueduct_floor_strip_b.png",
+   "size": [512, null],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "skykeepfloor": {
+   "type": "strip",
+   "src": "tex_skykeep_floor_strip.png",
+   "size": [512, null],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "skykeepfloor_b": {
+   "type": "strip",
+   "src": "tex_skykeep_floor_strip_b.png",
+   "size": [512, null],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "alchemywall": {
+   "type": "texture",
+   "src": "tex_alchemy_wall.png",
+   "size": [768, 384],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "ballroomwall": {
+   "type": "texture",
+   "src": "tex_ballroom_wall.png",
+   "size": [768, 384],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "coliseumwall": {
+   "type": "texture",
+   "src": "tex_coliseum_wall.png",
+   "size": [768, 384],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "aqueductwall": {
+   "type": "texture",
+   "src": "tex_aqueduct_wall.png",
+   "size": [768, 384],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "skykeep_far": {
+   "type": "texture",
+   "src": "bg_skykeep_far.png",
+   "size": [1280, 360],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "skykeep_backdrop": {
+   "type": "texture",
+   "src": "bg_skykeep_mid.png",
+   "key": true,
+   "size": [960, 360],
+   "colors": 36,
+   "seamless": "mirror"
+  },
+  "graveyard_vista": {
+   "type": "texture",
+   "src": "bg_graveyard_vista.png",
+   "key": true,
+   "size": [960, 360],
+   "colors": 32,
+   "seamless": "mirror"
+  },
+  "mural_alchemy": {
+   "type": "texture",
+   "src": "mural_alchemy.png",
+   "size": [512, 288],
+   "colors": 48
+  },
+  "mural_ballroom": {
+   "type": "texture",
+   "src": "mural_ballroom.png",
+   "size": [512, 288],
+   "colors": 48
+  },
+  "mural_coliseum": {
+   "type": "texture",
+   "src": "mural_coliseum.png",
+   "size": [512, 288],
+   "colors": 48
+  },
+  "mural_aqueduct": {
+   "type": "texture",
+   "src": "mural_aqueduct.png",
+   "size": [512, 288],
+   "colors": 48
+  },
+  "mural_throne": {
+   "type": "texture",
+   "src": "mural_throne.png",
+   "size": [512, 288],
+   "colors": 48
+  },
+  "mural_catacombs": {
+   "type": "texture",
+   "src": "mural_catacombs.png",
+   "size": [512, 288],
+   "colors": 48
+  },
+  "wing_icons": {
+   "type": "sheet",
+   "src": "wing_icons_sheet.png",
+   "height": 26,
+   "ref": "alchemy",
+   "colors": 36,
+   "rows": [
+    ["alchemy", "ballroom", "coliseum", "aqueduct", "skykeep"]
+   ]
+  },
+  "alchemy_props": {
+   "type": "sheet",
+   "src": "alchemy_props_sheet.png",
+   "height": 84,
+   "ref": "retort_stand",
+   "colors": 40,
+   "rows": [
+    ["retort_stand", "tesla_coil", "elixir_rack", "athanor"]
+   ]
+  },
+  "ballroom_props": {
+   "type": "sheet",
+   "src": "ballroom_props_sheet.png",
+   "height": 90,
+   "ref": "gilded_mirror",
+   "colors": 40,
+   "rows": [
+    ["gilded_mirror", "candelabra", "velvet_drape", "marble_bust"]
+   ]
+  },
+  "coliseum_props": {
+   "type": "sheet",
+   "src": "coliseum_props_sheet.png",
+   "height": 86,
+   "ref": "weapon_rack",
+   "colors": 40,
+   "rows": [
+    ["weapon_rack", "trophy_pillar", "iron_brazier", "war_standard"]
+   ]
+  },
+  "aqueduct_props": {
+   "type": "sheet",
+   "src": "aqueduct_props_sheet.png",
+   "height": 84,
+   "ref": "water_spout",
+   "colors": 40,
+   "rows": [
+    ["water_spout", "sluice_wheel", "moss_amphora", "canal_lantern"]
+   ]
+  },
+  "skykeep_props": {
+   "type": "sheet",
+   "src": "skykeep_props_sheet.png",
+   "height": 88,
+   "ref": "moon_astrolabe",
+   "colors": 40,
+   "rows": [
+    ["moon_astrolabe", "ivy_column", "fountain_basin", "star_lantern"]
+   ]
+  },
+  "hanging_props": {
+   "type": "sheet",
+   "src": "hanging_props_sheet.png",
+   "height": 64,
+   "ref": "pendulum_bob",
+   "colors": 36,
+   "rows": [
+    ["pendulum_bob", "gibbet_cage", "hoist_wheel"]
+   ]
+  },
+  "alchemist": {
+   "type": "sheet",
+   "src": "alchemist_sheet.png",
+   "height": 116,
+   "ref": "idle",
+   "colors": 36,
+   "rows": [
+    ["idle", "cast", "summon", "shield"]
+   ]
+  },
+  "masquerade": {
+   "type": "sheet",
+   "src": "masquerade_sheet.png",
+   "height": 108,
+   "ref": "idle",
+   "colors": 36,
+   "rows": [
+    ["idle", "cape", "cast", "lunge"]
+   ],
+   "anchors": {
+    "lunge": "left"
+   }
+  },
+  "gladiator": {
+   "type": "sheet",
+   "src": "gladiator_sheet.png",
+   "height": 112,
+   "ref": "walk0",
+   "colors": 36,
+   "rows": [
+    ["walk0", "walk1", "throw0", "throw1"]
+   ],
+   "anchors": {
+    "throw1": "left"
+   }
+  },
+  "oracle": {
+   "type": "sheet",
+   "src": "oracle_sheet.png",
+   "height": 104,
+   "ref": "a",
+   "colors": 36,
+   "rows": [
+    ["a", "b", "stare"]
+   ]
+  },
+  "seraph": {
+   "type": "sheet",
+   "src": "seraph_sheet.png",
+   "height": 120,
+   "ref": "idle",
+   "colors": 36,
+   "rows": [
+    ["idle", "roar", "pounce", "shell"]
+   ]
+  },
+  "stone_trim": {
+   "type": "texture",
+   "src": "tex_stone_trim.png",
+   "size": [256, 192],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "crypt_stone": {
+   "type": "texture",
+   "src": "tex_crypt_stone.png",
+   "size": [256, 256],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "marble_stone": {
+   "type": "texture",
+   "src": "tex_marble_stone.png",
+   "size": [256, 192],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "travertine_stone": {
+   "type": "texture",
+   "src": "tex_travertine_stone.png",
+   "size": [256, 256],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "aqueduct_stone": {
+   "type": "texture",
+   "src": "tex_aqueduct_stone.png",
+   "size": [256, 256],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "pillar_fluted": {
+   "type": "texture",
+   "src": "tex_pillar_fluted.png",
+   "size": [96, 256],
+   "colors": 64,
+   "seamless": "blend_v"
+  },
+  "hero_sword": {
+   "type": "sheet",
+   "src": "hero_sword_sheet.png",
+   "height": 64,
+   "ref": "thrust0",
+   "colors": 36,
+   "rows": [
+    ["slash0", "slash1", "slash2", "thrust0", "thrust1"],
+    ["heavy0", "heavy1", "alt0", "alt1", "airslash"]
+   ],
+   "anchors": {
+    "slash1": "left",
+    "slash2": "left",
+    "thrust1": "left",
+    "heavy1": "left",
+    "alt1": "left",
+    "airslash": "left"
+   }
+  },
+  "hero_csword": {
+   "type": "sheet",
+   "src": "hero_csword_sheet.png",
+   "height": 64,
+   "ref": "idle_nowhip",
+   "colors": 36,
+   "rows": [
+    ["stride_nowhip", "cslash0", "cslash1", "cslash2"],
+    ["idle_nowhip", "crouch_nowhip", "wind_nowhip", "strike_nowhip"]
+   ],
+   "anchors": {
+    "cslash1": "left",
+    "cslash2": "left",
+    "strike_nowhip": "left"
+   }
   }
  }
 }

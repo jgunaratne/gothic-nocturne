@@ -119,6 +119,20 @@ def wrap_blend(px, frac=0.08):
     return px * (1 - a) + shifted * a
 
 
+def wrap_blend_v(px, frac=0.08):
+    """Removes the vertical seam by blending the top/bottom edge zone with the
+    vertical image centre."""
+    h, w, _ = px.shape
+    k = max(2, int(h * frac))
+    shifted = np.roll(px, h // 2, axis=0)
+    y = np.arange(h)
+    dist = np.minimum(y, h - y)
+    a = np.clip(1.0 - dist / k, 0.0, 1.0)
+    a = a * a * (3 - 2 * a)
+    a = a[:, None, None]
+    return px * (1 - a) + shifted * a
+
+
 def mirror_h(px):
     return np.concatenate([px, px[:, ::-1, :]], axis=1)
 
@@ -254,6 +268,10 @@ def process_texture(name, spec, report):
     seam = spec.get("seamless")
     if seam == "blend":
         px = wrap_blend(px)
+    elif seam == "blend_hv":
+        px = wrap_blend_v(wrap_blend(px))
+    elif seam == "blend_v":
+        px = wrap_blend_v(px)
     elif seam == "mirror":
         px = mirror_h(px)
     out = spec.get("out", name + ".png")

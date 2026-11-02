@@ -346,6 +346,8 @@ export class NetClient {
           this.pushFeed(`${msg.name || (p && p.name) || 'HUNTER'} → ${stTitle}`, '#ffd27a', 3.4);
         } else if (msg.kind === 'boss_clear' && msg.data?.bossName) {
           this.pushFeed(`${msg.name || 'HUNTER'} VANQUISHED ${msg.data.bossName}`, '#ffb0a0', 4.5);
+        } else if (msg.kind === 'level_up' && msg.data?.level) {
+          this.pushFeed(`${msg.name || (p && p.name) || 'HUNTER'} REACHED LV ${String(msg.data.level).padStart(2, '0')}!`, '#ffd27a', 3.6);
         }
         if (this.onRemoteEvent) this.onRemoteEvent(msg, p);
         break;
@@ -380,11 +382,17 @@ export class NetClient {
         attackCrouch: !!s.attackCrouch,
         throwing: !!s.throwing,
         whipReach: s.whipReach || PLAYER.whipReach,
+        wId: s.wId || null,
+        wT: s.wT ?? -1,
+        wDur: s.wDur || 0.3,
+        wCr: !!s.wCr,
+        wGd: !!s.wGd,
         subWeapon: s.subWeapon || null,
         petrified: s.petrified || 0,
         invuln: s.invuln || 0,
         hp: s.hp ?? PLAYER.maxHp,
         maxHp: s.maxHp ?? PLAYER.maxHp,
+        level: Math.max(1, s.level || 1),
         relicsMask: s.relicsMask || 0,
         screen: s.screen || 'play',
         saluteT: 0,
@@ -409,11 +417,22 @@ export class NetClient {
     p.attackCrouch = !!s.attackCrouch;
     p.throwing = !!s.throwing;
     p.whipReach = s.whipReach || PLAYER.whipReach;
+    p.wId = s.wId || null;
+    p.wDur = s.wDur || 0.3;
+    p.wCr = !!s.wCr;
+    p.wGd = !!s.wGd;
+    const incomingWT = s.wT ?? -1;
+    if (incomingWT >= 0 && (p.wT == null || p.wT < 0 || s.wGd)) {
+      p.wT = incomingWT;
+    } else if (incomingWT < 0 && (!p.wId || p.wT > p.wDur * 0.85)) {
+      p.wT = -1;
+    }
     p.subWeapon = s.subWeapon || null;
     p.petrified = s.petrified || 0;
     p.invuln = s.invuln || 0;
     p.hp = s.hp ?? p.hp;
     p.maxHp = s.maxHp ?? p.maxHp;
+    if (s.level) p.level = Math.max(1, s.level);
     p.relicsMask = s.relicsMask || 0;
     p.screen = s.screen || 'play';
 
@@ -464,6 +483,18 @@ export class NetClient {
       p.x += (p.tx - p.x) * spring;
       p.y += (p.ty - p.y) * spring;
 
+      if (p.wT != null && p.wT >= 0 && p.wId) {
+        if (p.wGd) {
+          p.wT = Math.min(p.wDur || 0.3, p.wT + dt);
+        } else {
+          p.wT += dt;
+          if (p.wT >= (p.wDur || 0.3)) {
+            p.wT = -1;
+            p.wId = null;
+          }
+        }
+      }
+
       if (p.attackT >= 0) {
         p.attackT += dt;
         const whipScale = ((p.relicsMask >> 11) & 1) ? 0.75 : 1; // clocktower swift lash
@@ -493,7 +524,7 @@ export class NetClient {
     if (snapshot) {
       this._lastSnapshot = snapshot;
       this._sendAcc += dt;
-      const key = `${snapshot.stageKey}|${Math.round(snapshot.x)}|${Math.round(snapshot.y)}|${snapshot.anim}|${snapshot.facing}|${snapshot.attackT >= 0 ? 1 : 0}|${snapshot.screen}`;
+      const key = `${snapshot.stageKey}|${Math.round(snapshot.x)}|${Math.round(snapshot.y)}|${snapshot.anim}|${snapshot.facing}|${snapshot.attackT >= 0 ? 1 : 0}|${snapshot.wId || ''}|${snapshot.screen}`;
       const changed = key !== this._lastSentKey;
       const interval = changed ? 0.05 : 0.35;
       if (this.connected && this._sendAcc >= interval) {

@@ -9,14 +9,23 @@
 // then displayed on a second canvas layered over the 2D one. Toggle with F.
 // If WebGL is unavailable the 2D canvas is simply shown as before.
 
+const SHADER_PREC = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+`;
+
 const VERT = `
+${SHADER_PREC}
 attribute vec2 aPos;
 varying vec2 vUv;
 void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }
 `;
 
 const BRIGHT_FRAG = `
-precision mediump float;
+${SHADER_PREC}
 varying vec2 vUv;
 uniform sampler2D uScene;
 uniform float uThreshold;
@@ -31,7 +40,7 @@ void main() {
 `;
 
 const BLUR_FRAG = `
-precision mediump float;
+${SHADER_PREC}
 varying vec2 vUv;
 uniform sampler2D uTex;
 uniform vec2 uDir;      // (1/w, 0) or (0, 1/h)
@@ -46,7 +55,7 @@ void main() {
 `;
 
 const COMPOSITE_FRAG = `
-precision mediump float;
+${SHADER_PREC}
 varying vec2 vUv;
 uniform sampler2D uScene;
 uniform sampler2D uBloom;
@@ -66,7 +75,12 @@ uniform vec3 uLift;       // shadow lift (added)
 uniform float uGamma;
 uniform float uSat;
 
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+// Overflow-free small-constant hash (safe even on fp16 mobile GPUs where sin(dot)*43758 overflows to NaN).
+float hash(vec2 p) {
+  p = fract(p * vec2(0.1031, 0.1030));
+  p += dot(p, p.yx + 33.33);
+  return fract((p.x + p.y) * p.x);
+}
 
 // Band-limited sharp pixel-art sampler: exact texel centers at integer scales,
 // and strictly 1-device-pixel anti-aliased seams at fractional / HiDPI scales.
@@ -153,7 +167,7 @@ void main() {
   }
 
   // Film grain
-  float g = hash(floor(vUv * uSceneRes) + floor(uTime * 24.0)) - 0.5;
+  float g = hash(floor(vUv * uSceneRes) + mod(floor(uTime * 24.0), 256.0)) - 0.5;
   col += g * uGrain;
 
   // Gentle filmic toe/shoulder
@@ -177,6 +191,11 @@ export const GRADES = {
   cathedral: { tint: [1.02, 0.98, 1.08], lift: [0.016, 0.010, 0.028], gamma: 0.98, sat: 1.08, bloom: 0.74 },
   clocktower: { tint: [1.06, 1.00, 0.92], lift: [0.018, 0.012, 0.006], gamma: 1.0, sat: 1.02, bloom: 0.62 },
   throne: { tint: [1.06, 0.96, 0.98], lift: [0.022, 0.008, 0.014], gamma: 1.0, sat: 1.06, bloom: 0.66 },
+  alchemy: { tint: [0.96, 1.04, 0.98], lift: [0.010, 0.020, 0.014], gamma: 0.99, sat: 1.08, bloom: 0.72 },
+  ballroom: { tint: [1.03, 0.99, 1.06], lift: [0.016, 0.012, 0.026], gamma: 0.98, sat: 1.06, bloom: 0.70 },
+  coliseum: { tint: [1.07, 0.97, 0.92], lift: [0.022, 0.010, 0.010], gamma: 0.99, sat: 1.06, bloom: 0.64 },
+  aqueduct: { tint: [0.92, 1.03, 1.07], lift: [0.006, 0.018, 0.028], gamma: 0.97, sat: 1.10, bloom: 0.74 },
+  skykeep: { tint: [0.98, 1.01, 1.08], lift: [0.012, 0.016, 0.030], gamma: 0.98, sat: 1.06, bloom: 0.70 },
   menu: { tint: [0.98, 0.98, 1.04], lift: [0.010, 0.010, 0.022], gamma: 1.0, sat: 1.0, bloom: 0.52 },
 };
 
@@ -203,9 +222,16 @@ export class PostFX {
     const out = document.createElement('canvas');
     out.id = 'fx';
     out.setAttribute('aria-hidden', 'true');
-    out.style.cssText = 'position:absolute; left:0; top:0; pointer-events:none; image-rendering:auto;';
+    out.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; pointer-events:none; image-rendering:auto; z-index:2;';
     this.src.parentElement.style.position = 'relative';
     this.src.parentElement.appendChild(out);
+    out.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this.ok = false;
+      this.enabled = false;
+      out.style.display = 'none';
+      this.src.style.opacity = '1';
+    });
     const gl = out.getContext('webgl', { alpha: false, antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: false });
     if (!gl) throw new Error('no webgl');
     this.out = out; this.gl = gl;
@@ -220,9 +246,16 @@ export class PostFX {
     this.pComp = this.program(VERT, COMPOSITE_FRAG);
 
     this.sceneTex = this.texture(gl.LINEAR);
-    this.bw = 320; this.bh = 180;   // half-res bloom buffers for silky halo gradients
-    this.fbA = this.framebuffer(this.bw, this.bh);
-    this.fbB = this.framebuffer(this.bw, this.bh);
+    // Try half-res 320x180 bloom buffers first; fall back to power-of-two 256x128 if strict ES2 rejects NPOT FBOs.
+    try {
+      this.bw = 320; this.bh = 180;
+      this.fbA = this.framebuffer(this.bw, this.bh);
+      this.fbB = this.framebuffer(this.bw, this.bh);
+    } catch (e) {
+      this.bw = 256; this.bh = 128;
+      this.fbA = this.framebuffer(this.bw, this.bh);
+      this.fbB = this.framebuffer(this.bw, this.bh);
+    }
     this.ok = true;
     this.setEnabled(true);
   }
@@ -265,7 +298,13 @@ export class PostFX {
     const fb = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+      gl.deleteFramebuffer(fb);
+      gl.deleteTexture(tex);
+      throw new Error('Framebuffer incomplete: ' + status);
+    }
     return { fb, tex, w, h };
   }
 
@@ -273,8 +312,9 @@ export class PostFX {
     this.enabled = !!on && this.ok;
     if (!this.ok) return;
     this.out.style.display = this.enabled ? 'block' : 'none';
-    // Keep the 2D canvas in the layout (focus + sizing) but hide its pixels under the FX canvas.
-    this.src.style.opacity = this.enabled ? '0' : '1';
+    // Keep the 2D source canvas opaque underneath #fx so mobile compositors never
+    // throttle an `opacity: 0` canvas and fallback to 2D is instantaneous.
+    this.src.style.opacity = '1';
   }
 
   toggle() { this.setEnabled(!this.enabled); return this.enabled; }
@@ -309,7 +349,13 @@ export class PostFX {
   draw(dt, theme) {
     if (!this.enabled) return;
     const gl = this.gl;
-    this.time += dt;
+    if (gl.isContextLost && gl.isContextLost()) {
+      this.ok = false;
+      this.enabled = false;
+      this.out.style.display = 'none';
+      return;
+    }
+    this.time = (this.time + dt) % 628.3185307;
     this.shimmer = Math.max(0, this.shimmer - dt * 2.2);
     this.hurt = Math.max(0, this.hurt - dt * 2.6);
     this.lightning = Math.max(0, this.lightning - dt * 3.8);

@@ -6,6 +6,7 @@ import {
 } from '../engine/constants.js';
 import { setClipClock } from './anim_clips.js';
 import { Camera } from '../engine/camera.js';
+import { VOICES } from '../engine/audio.js';
 import { getFxLayers } from '../engine/fxlayers.js';
 import { Particles, parseParticleColor } from '../engine/particles.js';
 import { Level } from './level.js';
@@ -20,7 +21,11 @@ import { Candle, Item, Projectile, Fire, rollDrop, rectsOverlap } from './object
 import { populateExploration } from './exploration.js';
 import { cellsToRevealAt, stageIndexOf } from './castlemap.js';
 import { BOSS_RELICS, FORGED_RELIC_EFFECTS } from './relics.js';
+import { computeExpYield, enemyExpProfile } from './progression.js';
 import { drawRemotePlayers, drawRemoteEdgeIndicators } from './net_player.js';
+import {
+  WEAPONS, ELEMENT_META, computeStrengthBreakdown, computeWeaponHit, rollEnemyWeaponDrop,
+} from './weapons.js';
 
 /** Frame sequences while a posed boss idles / speaks (idle pose vs. gesture). */
 const BOSS_TALK_FRAMES = {
@@ -102,7 +107,12 @@ export class World {
     this.nextLightning = forceBolt ? 0.12 : (4.5 + Math.random() * 5.5);
     this.thunderDelay = -1;
     this.messages = [];          // {text, sub, t, dur}
+    this.popups = [];            // {x, y, vy, text, sub, color, scale, t, dur}
+    this.expFlashT = 0;
+    this.levelUpFlashT = 0;
     this.shockRings = [];        // {x, y, t, dur, maxR, color}
+    this.waterRipples = [];      // {x, y, t, dur, amp}
+    this._fogWorldY = null;      // world-space terrain elevation for ground mist (never player.y!)
     this.phase = 'intro';        // intro | play | dying | respawn | clear | gameover
     this.phaseT = 0;
     this.hitStop = 0;               // frozen ticks after a whip connects (hit-stop)
@@ -123,20 +133,42 @@ export class World {
   hasRelic(key) { return this.relics ? this.relics.has(key) : false; }
 
   /**
-   * Summed bonus of a given kind ('maxHp' | 'hearts' | 'whip' | 'speed' | 'invuln')
-   * from active Castle Forge relics, whose effects are generic and data-driven
-   * (`BOSS_RELICS[key].effect`), unlike the bespoke built-in relics.
+   * Summed bonus of a given kind ('maxHp' | 'hearts' | 'whip' | 'subDmg' | 'speed' | 'invuln')
+   * from active built-in wing relics (`r.bonuses`) and Castle Forge relics (`r.effect`).
    */
   relicBonus(kind) {
     if (!this.relics) return 0;
     let total = 0;
     for (const key of this.relics) {
       const r = BOSS_RELICS[key];
-      if (!r || !r.effect) continue;
-      const b = FORGED_RELIC_EFFECTS[r.effect];
-      if (b && b[kind]) total += b[kind];
+      if (!r) continue;
+      if (r.bonuses && r.bonuses[kind]) total += r.bonuses[kind];
+      if (r.effect) {
+        const b = FORGED_RELIC_EFFECTS[r.effect];
+        if (b && b[kind]) total += b[kind];
+      }
     }
     return total;
+  }
+
+  /** Total hunter Max HP combining base, Cathedral relic, Ancient Vessels, Forge/Wing relics & Character Level. */
+  computeMaxHp() {
+    const vesselBonus = this.game && this.game.getVesselCount ? this.game.getVesselCount() : 0;
+    const lvBonus = this.game && this.game.getLevelBonuses ? this.game.getLevelBonuses().maxHpBonus : 0;
+    return (this.hasRelic('cathedral') ? 20 : PLAYER.maxHp) + vesselBonus + this.relicBonus('maxHp') + lvBonus;
+  }
+
+  getAttackMult() {
+    return this.game && this.game.getLevelBonuses ? this.game.getLevelBonuses().attackMult : 1;
+  }
+
+  getDamageTakenMult() {
+    return this.game && this.game.getLevelBonuses ? this.game.getLevelBonuses().damageTakenMult : 1;
+  }
+
+  getHandWeapon(slot) {
+    if (this.game && this.game.getHandWeapon) return this.game.getHandWeapon(slot);
+    return slot === 0 ? WEAPONS.hunters_lash : null;
   }
 
   // ------------------------------------------------------------- setup
@@ -149,6 +181,8 @@ export class World {
     this.items = [];
     this.projectiles = [];
     this.fires = [];
+    this.waterRipples = [];
+    this._fogWorldY = null;
     this.spawners = d.spawners.map((s) => new Spawner(s));
     this.boss = null;
     this.bossActive = false;
@@ -172,17 +206,19 @@ export class World {
     this.sanctuary = exp.sanctuary;
     this.passages = exp.passages;
     this.vessel = exp.vessel;
-    this.landmarks = [this.sanctuary, ...(this.passages || []), this.vessel].filter(Boolean);
+    this.pedestal = exp.pedestal;
+    this.landmarks = [this.sanctuary, ...(this.passages || []), this.vessel, this.pedestal].filter(Boolean);
     this.stage3d.excludeLandmarks(this.landmarks);
     this.inSecretArea = false;
 
     const cx = d.checkpoints[this.checkpoint];
     const col = Math.floor(cx / TILE);
-    const row = this.level.surfaceRow(col);
+    const row = Array.isArray(d.checkpointRows) && d.checkpointRows[this.checkpoint] != null
+      ? d.checkpointRows[this.checkpoint]
+      : (this.checkpoint === 0 && d.start ? Math.round(d.start.y / TILE) : this.level.surfaceRow(col));
     this.player = new Player(cx, (row >= 0 ? row : 11) * TILE);
     this.player.onGround = row >= 0;
-    const vesselBonus = this.game.getVesselCount ? this.game.getVesselCount() : 0;
-    this.player.maxHp = (this.hasRelic('cathedral') ? 20 : PLAYER.maxHp) + vesselBonus + this.relicBonus('maxHp');
+    this.player.maxHp = this.computeMaxHp();
     this.player.hp = (this.carryHp && this.checkpoint === 0)
       ? Math.min(this.player.maxHp, this.carryHp)
       : this.player.maxHp;
@@ -190,6 +226,8 @@ export class World {
     this.player.airJumpsLeft = this.hasRelic('graveyard') ? 1 : 0;
     this.player.facing = 1;
     this.player.subWeapon = this.subWeaponCarry;
+    const w0 = this.getHandWeapon(0);
+    this.player.noWhip = !!(w0 && !w0.isWhip);
 
     let enteredViaPassage = false;
     if (this.enterFromDoorId && this.checkpoint === 0) {
@@ -255,12 +293,79 @@ export class World {
     const py = player.y - 44;
     const p = new Projectile(player.subWeapon, px, py, player.facing, 'player');
     if (this.hasRelic('darkcave')) p.damage += 1;
+    p.damage += this.relicBonus('subDmg');
     this.projectiles.push(p);
     this.sfx('throw');
     this.onPlayerProjectile(player.subWeapon, px, py, player.facing);
   }
 
+  spawnPopup(x, y, text, { sub = null, color = '#ffe9a0', scale = 1, dur = 1.15, vy = -26, banner = false, maxAlpha = 1 } = {}) {
+    if (this.popups.length >= 16) this.popups.shift();
+    this.popups.push({ x, y, vy, text, sub, color, scale, t: 0, dur, banner, maxAlpha });
+  }
+
+  /**
+   * Awards experience points for defeating `enemy` via the Adaptive Curve
+   * Dynamic Return Formula (anti-grind decay when over-leveled, rubber-band
+   * catch-up multiplier when under-leveled).
+   */
+  awardEnemyExp(enemy, { isBoss = false } = {}) {
+    if (!enemy || enemy._expAwarded) return;
+    if (!this.game || this.game.titleWorld === this || !this.game.gainExp) return;
+    if (!isBoss && this.player && Math.abs(enemy.x - this.player.x) > W * 0.9) return;
+    enemy._expAwarded = true;
+
+    const pLv = this.game.charLevel || 1;
+    const profile = enemyExpProfile(enemy, this.stage, { isBoss });
+    const yieldInfo = computeExpYield(profile.baseExp, pLv, profile.enemyLevel);
+    const res = this.game.gainExp(yieldInfo.exp);
+    this.expFlashT = 0.28;
+
+    if (res.leveledUp && this.player) {
+      this.levelUpFlashT = 1.1;
+      this.sfx('level_up');
+      const prevMax = this.player.maxHp || PLAYER.maxHp;
+      const newMax = this.computeMaxHp();
+      const hpDelta = Math.max(0, newMax - prevMax);
+      this.player.maxHp = newMax;
+      if (this.player.alive) {
+        this.player.hp = Math.min(newMax, this.player.hp + hpDelta + 3);
+        this.hearts = Math.min(99, this.hearts + 2);
+      }
+      this.particles.sparks(this.player.x, this.player.y - 32, 6, '#e8cfa0');
+      this.spawnPopup(
+        this.player.x,
+        this.player.y - 70,
+        `LV ${String(res.level).padStart(2, '0')}`,
+        {
+          color: '#e8cfa0',
+          scale: 1,
+          dur: 1.15,
+          vy: -14,
+          maxAlpha: 0.78,
+        },
+      );
+
+      if (this.game.net && this.game.net.connected) {
+        this.game.net.sendEvent('level_up', {
+          level: res.level,
+          x: Math.round(this.player.x),
+          y: Math.round(this.player.y),
+        });
+      }
+    }
+  }
+
   onEnemyKilled(enemy) {
+    if (enemy !== this.boss) {
+      this.awardEnemyExp(enemy);
+      if (!this.game || this.game.titleWorld !== this) {
+        const dropWid = rollEnemyWeaponDrop(enemy, this.game);
+        if (dropWid) {
+          this.spawnItem(`weapon:${dropWid}`, enemy.x, enemy.y - 16);
+        }
+      }
+    }
     // SOUL HARVEST relic (Catacombs): every 6 enemies slain restores +1 HP and +1 Heart!
     if (this.hasRelic('catacombs') && enemy !== this.boss) {
       this.killCount = (this.killCount || 0) + 1;
@@ -320,6 +425,9 @@ export class World {
     orb.arenaX1 = a.x1 - 28;
     this.items.push(orb);
     this.sfx('orb');
+    if (this.audio && this.audio.playMusic) {
+      this.audio.playMusic('clear', false);
+    }
     this.enemies = this.enemies.filter((e) => e === boss);
     this.projectiles = this.projectiles.filter((p) => p.owner !== 'enemy');
     this.fires = [];
@@ -344,7 +452,7 @@ export class World {
     } else if (ev.kind === 'hit') {
       const hx = d.x ?? peer.x;
       const hy = d.y ?? (peer.y - 36);
-      const dmg = Math.max(1, Math.min(8, d.dmg || 2));
+      const dmg = Math.max(1, Math.min(18, Number(d.dmg) || 2));
       if (Math.abs(hx - this.camera.rx - W * 0.5) < W) {
         this.particles.sparks(hx, hy, 5, '#9ef5dc');
       }
@@ -368,6 +476,17 @@ export class World {
         this.particles.sparks(peer.x, peer.y - 44, 8, '#ffd27a');
         this.sfx('pickup');
       }
+    } else if (ev.kind === 'level_up') {
+      if (d.level) peer.level = d.level;
+      if (Math.abs(peer.x - this.camera.rx - W * 0.5) < W) {
+        this.particles.sparks(peer.x, peer.y - 38, 5, '#e8cfa0');
+        this.spawnPopup(peer.x, peer.y - 68, `LV ${String(d.level || peer.level || 2).padStart(2, '0')}`, {
+          color: '#e8cfa0',
+          dur: 1.0,
+          vy: -12,
+          maxAlpha: 0.68,
+        });
+      }
     }
   }
 
@@ -380,10 +499,20 @@ export class World {
     this.particles.update(dt);
     this.updateLightning(dt);
     this.updateWeather(dt);
+    this.expFlashT = Math.max(0, this.expFlashT - dt);
+    this.levelUpFlashT = Math.max(0, this.levelUpFlashT - dt);
     for (const m of this.messages) m.t += dt;
     this.messages = this.messages.filter((m) => m.t < m.dur);
+    for (const pop of this.popups) {
+      pop.t += dt;
+      pop.y += pop.vy * dt;
+      pop.vy *= 0.96;
+    }
+    this.popups = this.popups.filter((pop) => pop.t < pop.dur);
     for (const r of this.shockRings) r.t += dt;
     this.shockRings = this.shockRings.filter((r) => r.t < r.dur);
+    for (const wr of this.waterRipples) wr.t += dt;
+    this.waterRipples = this.waterRipples.filter((wr) => wr.t < wr.dur);
     if (this.voiceCue) {
       this.voiceCue.t += dt;
       if (this.voiceCue.t >= this.voiceCue.dur) this.voiceCue = null;
@@ -501,6 +630,7 @@ export class World {
       this.inSecretArea = false;
       if (this.sanctuary) this.sanctuary.update(p, this);
       if (this.vessel) this.vessel.update(p, this);
+      if (this.pedestal) this.pedestal.update(p, this);
       if (this.passages) {
         for (const g of this.passages) {
           g.update(p, input, this);
@@ -510,6 +640,7 @@ export class World {
       this.recordExploration();
       this.resolveCombat(dt);
     }
+    this.updateWaterInteractions(dt);
 
     this.enemies = this.enemies.filter((e) => !e.dead);
     this.projectiles = this.projectiles.filter((e) => !e.dead);
@@ -523,13 +654,27 @@ export class World {
   resolveCombat() {
     const p = this.player;
     const lvl = this.level;
-    const whip = p.whipBox();
+    const strTotal = computeStrengthBreakdown(this).total;
+    const flatBonus = (this.hasRelic('jack') ? 1 : 0) + this.relicBonus('whip');
+    const diffMult = (this.difficulty.playerDamage || 1) * this.getAttackMult();
 
-    // Whip vs candles, blocks, enemies, enemy projectiles
-    if (whip && !p.attackHit) {
+    // Dual-Hand Equipment Matrix (`Hand_L` & `Hand_R`) vs candles, blocks, enemies, projectiles
+    const strikes = p.activeWeaponStrikes ? p.activeWeaponStrikes() : [];
+    const legacyWhip = strikes.length === 0 ? p.whipBox() : null;
+    if (legacyWhip && !p.attackHit) {
+      strikes.push({
+        slotState: { timer: 0.2, win0: 0.14, win1: 0.26, isSkill: false, hitEnemies: new Map(), legacy: true },
+        weapon: WEAPONS.hunters_lash,
+        box: legacyWhip,
+      });
+    }
+
+    for (const strike of strikes) {
+      const { slotState, weapon, box } = strike;
       let hitSomething = false;
+
       for (const c of this.candles) {
-        if (rectsOverlap(whip, c.box)) {
+        if (!c.dead && rectsOverlap(box, c.box)) {
           c.dead = true; hitSomething = true;
           this.sfx('candle');
           this.particles.embers(c.x, c.y - 50, 10);
@@ -538,8 +683,9 @@ export class World {
           this.spawnItem(c.drop || rollDrop(), c.x, c.y - 40);
         }
       }
-      const tx0 = Math.floor(whip.x / TILE), tx1 = Math.floor((whip.x + whip.w) / TILE);
-      const ty0 = Math.floor(whip.y / TILE), ty1 = Math.floor((whip.y + whip.h) / TILE);
+
+      const tx0 = Math.floor(box.x / TILE), tx1 = Math.floor((box.x + box.w) / TILE);
+      const ty0 = Math.floor(box.y / TILE), ty1 = Math.floor((box.y + box.h) / TILE);
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
         if (lvl.tile(tx, ty) !== T_BLOCK) continue;
         const drop = lvl.breakBlock(tx, ty);
@@ -550,43 +696,85 @@ export class World {
         this.particles.shards(tx * TILE + 16, ty * TILE + 30, 12, '#8a9ab5', ty * TILE + 32);
         if (drop) this.spawnItem(drop, tx * TILE + 16, ty * TILE + 20);
       }
-      const baseWhip = PLAYER.whipDamage + (this.hasRelic('jack') ? 1 : 0) + this.relicBonus('whip');
-      const whipDmg = Math.round(baseWhip * (this.difficulty.playerDamage || 1));
+
+      const multiHits = (slotState.isSkill && weapon.skill && weapon.skill.multiHit) || weapon.multiHit || 1;
+      const activeSpan = Math.max(0.04, slotState.win1 - slotState.win0);
+      const rehitGap = multiHits > 1 ? (activeSpan / multiHits) : 999;
+      const skillMult = (slotState.isSkill && weapon.skill && weapon.skill.mult) ? weapon.skill.mult : 1;
+
       for (const e of this.enemies) {
         if (!e.alive) continue;
+        const prevInfo = slotState.hitEnemies.get(e);
+        if (prevInfo && (prevInfo.count >= multiHits || (slotState.timer - prevInfo.lastT) < rehitGap)) continue;
+
         const hitBox = e === this.boss ? e.box(12) : (e.flies ? e.box(8) : e.box());
-        if (rectsOverlap(whip, hitBox)) {
-          e.takeHit(whipDmg, p.x, this);
-          // Erupt a directional whip-slash spark flare right at the lash contact point
-          const cx = Math.max(hitBox.x, Math.min(hitBox.x + hitBox.w, p.facing > 0 ? whip.x + whip.w * 0.85 : whip.x + whip.w * 0.15));
-          const cy = Math.max(hitBox.y, Math.min(hitBox.y + hitBox.h, whip.y + whip.h * 0.5));
-          if (Math.abs(cx - e.x) > 12 && this.particles.hitBurst) {
-            this.particles.sparks(cx, cy, 4, this.hasRelic('jack') ? '#ff9a3c' : '#ffe9a0');
+        if (rectsOverlap(box, hitBox)) {
+          slotState.hitEnemies.set(e, {
+            count: (prevInfo ? prevInfo.count : 0) + 1,
+            lastT: slotState.timer,
+          });
+          const hit = computeWeaponHit(weapon, strTotal, e, { skillMult, flatBonus, diffMult });
+          this._hitArmorPiercing = !!weapon.armorPiercing;
+          e.takeHit(hit.damage, p.x, this, { armorPiercing: !!weapon.armorPiercing });
+          this._hitArmorPiercing = false;
+
+          if (e !== this.boss && !e.flies && e.alive && weapon.knockback >= 180) {
+            e.vx = (p.x < e.x ? 1 : -1) * weapon.knockback;
+            e.knockT = Math.max(e.knockT || 0, 0.22);
           }
+          if (slotState.isSkill && weapon.skill && weapon.skill.siphonHp && p.alive) {
+            p.hp = Math.min(p.maxHp || PLAYER.maxHp, p.hp + weapon.skill.siphonHp);
+          }
+
+          const elemCol = weapon.element && ELEMENT_META[weapon.element]
+            ? ELEMENT_META[weapon.element].color
+            : (this.hasRelic('jack') ? '#ff9a3c' : '#ffe9a0');
+          const cx = Math.max(hitBox.x, Math.min(hitBox.x + hitBox.w, p.facing > 0 ? box.x + box.w * 0.85 : box.x + box.w * 0.15));
+          const cy = Math.max(hitBox.y, Math.min(hitBox.y + hitBox.h, box.y + box.h * 0.5));
+          this.particles.sparks(cx, cy, weapon.category === 'heavy_blade' ? 9 : 5, elemCol);
+
+          if (!e._lastTagT || this.time - e._lastTagT > 0.65) {
+            if (hit.deficit) {
+              e._lastTagT = this.time;
+              this.spawnPopup(e.x, e.y - e.h - 6, `${hit.damage} (0.5X STR)`, { color: '#ff7a6e', dur: 0.85, vy: -22 });
+            } else if (hit.tag === 'weak') {
+              e._lastTagT = this.time;
+              this.spawnPopup(e.x, e.y - e.h - 6, 'WEAK!', { color: '#7ef7d4', dur: 0.78, vy: -24 });
+            } else if (hit.tag === 'resist') {
+              e._lastTagT = this.time;
+              this.spawnPopup(e.x, e.y - e.h - 6, 'RESIST', { color: '#9aa8c4', dur: 0.75, vy: -20 });
+            }
+          }
+
           if (this.game && this.game.net && this.game.net.connected) {
             this.game.net.sendEvent('hit', {
               isBoss: e === this.boss,
               x: Math.round(cx),
               y: Math.round(cy),
-              dmg: whipDmg,
+              dmg: hit.damage,
             });
           }
           hitSomething = true;
-          this.camera.shake(2.5, 0.1);
-          this.hitStop = Math.max(this.hitStop, e === this.boss ? 0.11 : 0.08);
+          const shakeAmt = weapon.category === 'heavy_blade' ? 3.8 : (weapon.category === 'light_blade' || weapon.category === 'brawler' ? 1.6 : 2.5);
+          this.camera.shake(shakeAmt, 0.1);
+          const stopDur = weapon.category === 'heavy_blade'
+            ? (e === this.boss ? 0.13 : 0.10)
+            : (weapon.category === 'light_blade' || weapon.category === 'brawler' ? 0.04 : (e === this.boss ? 0.11 : 0.08));
+          this.hitStop = Math.max(this.hitStop, stopDur);
         }
       }
+
       for (const pr of this.projectiles) {
-        if (pr.owner === 'enemy' && pr.type !== 'sickle' && rectsOverlap(whip, pr.box)) {
+        if (!pr.dead && pr.owner === 'enemy' && pr.type !== 'sickle' && rectsOverlap(box, pr.box)) {
           pr.dead = true; hitSomething = true;
           this.particles.sparks(pr.x, pr.y, 5, '#ffffff');
           this.sfx('hit');
         }
       }
-      if (hitSomething) p.attackHit = true;
+      if (hitSomething && (weapon.category === 'whip' || slotState.legacy)) p.attackHit = true;
     }
 
-    // Player projectiles vs enemies / candles
+    // Player projectiles (Heart sub-weapons, Boomerangs, Catalyst bolts & Skill waves) vs enemies / candles
     for (const pr of this.projectiles) {
       if (pr.dead || pr.owner !== 'player') continue;
       for (const e of this.enemies) {
@@ -594,7 +782,37 @@ export class World {
         const projBox = (e === this.boss || e.flies) ? e.box(6) : e.box();
         if (rectsOverlap(pr.box, projBox)) {
           pr.hitSet.add(e);
-          e.takeHit(Math.round(pr.damage * (this.difficulty.playerDamage || 1)), pr.x, this);
+          const projScale = (this.difficulty.playerDamage || 1) * (pr.isRemote ? 1 : this.getAttackMult());
+          let finalDmg = Math.round(pr.damage * projScale * 10) / 10;
+          if (pr.weaponMeta) {
+            const hit = computeWeaponHit(
+              { baseDamage: pr.damage, scaling: 0, reqStr: 0, physical: pr.weaponMeta.physical, element: pr.weaponMeta.element },
+              strTotal,
+              e,
+              { diffMult: projScale },
+            );
+            finalDmg = hit.damage;
+            this._hitArmorPiercing = !!pr.weaponMeta.armorPiercing;
+            e.takeHit(finalDmg, pr.x, this, { armorPiercing: !!pr.weaponMeta.armorPiercing });
+            this._hitArmorPiercing = false;
+            if (pr.weaponMeta.siphonHp && p.alive) {
+              p.hp = Math.min(p.maxHp || PLAYER.maxHp, p.hp + pr.weaponMeta.siphonHp);
+            }
+            if (!e._lastTagT || this.time - e._lastTagT > 0.65) {
+              if (pr.weaponMeta.deficit) {
+                e._lastTagT = this.time;
+                this.spawnPopup(e.x, e.y - e.h - 6, `${finalDmg} (0.5X STR)`, { color: '#ff7a6e', dur: 0.85, vy: -22 });
+              } else if (hit.tag === 'weak') {
+                e._lastTagT = this.time;
+                this.spawnPopup(e.x, e.y - e.h - 6, 'WEAK!', { color: '#7ef7d4', dur: 0.78, vy: -24 });
+              } else if (hit.tag === 'resist') {
+                e._lastTagT = this.time;
+                this.spawnPopup(e.x, e.y - e.h - 6, 'RESIST', { color: '#9aa8c4', dur: 0.75, vy: -20 });
+              }
+            }
+          } else {
+            e.takeHit(finalDmg, pr.x, this);
+          }
           if (pr.pierce > 0) pr.pierce--; else pr.dead = true;
           if (pr.type === 'holy_water') { this.spawnFire(pr.x, Math.floor((e.y) / TILE) * TILE); pr.dead = true; }
           if (pr.dead) break;
@@ -619,7 +837,8 @@ export class World {
           p.hurt(fireDmg, f.x, this);
         }
       } else {
-        for (const e of this.enemies) if (e.alive && rectsOverlap(f.box, e.box())) e.takeHit(1, f.x, this);
+        const fireHit = Math.round(this.getAttackMult() * 10) / 10;
+        for (const e of this.enemies) if (e.alive && rectsOverlap(f.box, e.box())) e.takeHit(fireHit, f.x, this);
       }
     }
 
@@ -641,8 +860,18 @@ export class World {
       if (mb && rectsOverlap(mb, pb)) { p.hurt(e.touchDamage + 1, e.x, this); continue; }
       if (rectsOverlap(e.box(e.flies ? -4 : -2), pb)) p.hurt(e.touchDamage, e.x, this);
     }
+    const shSlot = p.activeShieldSlot ? p.activeShieldSlot() : null;
     for (const pr of this.projectiles) {
       if (pr.owner === 'enemy' && !pr.dead && rectsOverlap(pr.box, pb)) {
+        // Active Shield Socket blocks frontal enemy projectiles with a metallic clang!
+        if (shSlot && pr.type !== 'gaze' && (pr.x - p.x) * p.facing > 0) {
+          pr.dead = true;
+          this.sfx('block');
+          this.particles.sparks(p.x + p.facing * 14, p.y - (p.crouching ? 22 : 36), 8, '#ffd27a');
+          this.camera.shake(1.5, 0.08);
+          this.spawnPopup(p.x, p.y - 54, 'GUARD!', { color: '#ffd27a', dur: 0.65, vy: -20 });
+          continue;
+        }
         let dmg = pr.damage;
         if (this.hasRelic('darkcave') && (pr.type === 'fireball' || pr.type === 'magmaball' || pr.type === 'hellfire')) {
           dmg = Math.max(1, Math.round(dmg * 0.35));
@@ -680,13 +909,21 @@ export class World {
     const itemPad = this.hasRelic('arcade') ? 10 : 2;
     for (const it of this.items) {
       if (it.dead) continue;
-      if (rectsOverlap(it.box(itemPad), pb)) { it.dead = true; this.collect(it.type); }
+      if (rectsOverlap(it.box(itemPad), pb)) { it.dead = true; this.collect(it.type, it); }
     }
   }
 
-  collect(type) {
+  collect(type, item = null) {
     const p = this.player;
     const maxHp = p.maxHp || PLAYER.maxHp;
+    if (item && item.weaponId) {
+      this.onWeaponCollected(item.weaponId, item.x, item.y - 12, false);
+      return;
+    }
+    if (typeof type === 'string' && type.startsWith('weapon:')) {
+      this.onWeaponCollected(type.slice(7), p.x, p.y - 24, false);
+      return;
+    }
     switch (type) {
       case 'heart_small': this.hearts = Math.min(99, this.hearts + 1); this.sfx('heart'); break;
       case 'heart_big': this.hearts = Math.min(99, this.hearts + 5); this.sfx('heart'); break;
@@ -763,7 +1000,10 @@ export class World {
       // Talking gestures: alternate each boss's idle pose with characteristic gesture frames
       const G = BOSS_TALK_FRAMES[this.data.boss.type];
       if (bs.sheet === 'archon') bs.frame = Math.floor(bs.t * 6) % 2 ? 'pounce' : 'roar';
-      else if (G) {
+      else if (bs.sheet === 'seraph') {
+        const seq = talking ? ['idle', 'roar', 'idle', 'pounce', 'roar'] : ['idle', 'roar'];
+        bs.frame = seq[Math.floor(bs.t * (talking ? 1.8 : 1.2)) % seq.length];
+      } else if (G) {
         const seq = talking ? G.talk : G.idle;
         bs.frame = seq[Math.floor(bs.t * (talking ? 1.6 : 0.8)) % seq.length];
       }
@@ -802,7 +1042,7 @@ export class World {
       speaker: b.name || 'BOSS',
       text: b.line || BOSS_LINES[b.type || 'reaper'] || 'NONE SHALL PASS BEYOND THIS THRESHOLD!',
       t: 0,
-      dur: 8.5,
+      dur: VOICES[key] ? 8.5 : 4.6,
       boss: true,
     };
     this.voiceCue = cue;
@@ -810,14 +1050,144 @@ export class World {
     // beneath the Daikon speech and swells it smoothly when the boss finishes!).
     if (this.audio) {
       if (this.audio.playVoice) {
-        // Call playVoice first so synchronous voiceDucking engages before musicBus ramps,
-        // or playMusic('boss') right alongside — both share voiceDucking seamlessly.
-        this.audio.playVoice(key, (dur) => {
-          if (this.voiceCue === cue && dur > 1) cue.dur = Math.max(cue.t + 1.2, dur + 0.35);
+        // Call playVoice first so synchronous voiceDucking + hall acoustics engage before musicBus ramps.
+        this.audio.playVoice(key, {
+          space: this.voiceSpaceForStage(),
+          onReady: (dur) => {
+            if (this.voiceCue === cue && dur > 1) cue.dur = Math.max(cue.t + 1.2, dur + 0.35);
+          },
         });
       }
       this.audio.playMusic('boss');
     }
+  }
+
+  voiceSpaceForStage() {
+    const k = this.stage.theme || this.fxTheme;
+    if (k === 'aqueduct' || k === 'ossuary' || k === 'catacombs' || k === 'darkcave') return 'cistern';
+    if (k === 'cathedral' || k === 'throne' || k === 'ballroom' || k === 'library') return 'cathedral';
+    if (this.theme && this.theme.outdoor) return 'courtyard';
+    return 'hall';
+  }
+
+  addWaterRipple(wx, surfaceY, amp = 0.85, splash = false) {
+    for (let i = 0; i < this.waterRipples.length; i++) {
+      const r = this.waterRipples[i];
+      if (r.t < 0.09 && Math.abs(r.x - wx) < 12) {
+        r.amp = Math.max(r.amp, amp);
+        return;
+      }
+    }
+    if (this.waterRipples.length >= 12) this.waterRipples.shift();
+    this.waterRipples.push({ x: wx, y: surfaceY, t: 0, dur: 1.35, amp });
+
+    const nearCam = !this.camera || Math.abs(wx - (this.camera.rx + W * 0.5)) < W * 0.65;
+    if (!nearCam) return;
+    const count = splash ? 8 : 3;
+    const col = (this.stage.theme === 'darkwood' || this.fxTheme === 'darkwood')
+      ? 'rgba(165, 250, 224, 0.85)'
+      : 'rgba(185, 244, 255, 0.88)';
+    for (let i = 0; i < count; i++) {
+      const sp = splash ? 78 : 42;
+      this.particles.emit({
+        x: wx + (Math.random() - 0.5) * 12,
+        y: surfaceY - 1,
+        vx: (Math.random() - 0.5) * sp * 1.4,
+        vy: -(28 + Math.random() * sp),
+        life: 0.28 + Math.random() * 0.24,
+        color: i % 2 === 0 ? col : 'rgba(235, 252, 255, 0.92)',
+        size: splash && i < 3 ? 2 : 1,
+        gravity: 320,
+        fade: true,
+      });
+    }
+    const now = this.time || 0;
+    if (splash && now - (this._lastSplashSfx || -9) > 0.14) {
+      this._lastSplashSfx = now;
+      this.sfx('water_splash');
+    } else if (!splash && now - (this._lastStepSfx || -9) > 0.22) {
+      this._lastStepSfx = now;
+      this.sfx('water_step');
+    }
+  }
+
+  updateWaterInteractions(dt) {
+    const lvl = this.level;
+    if (!lvl || (!lvl.waterRuns.length && !lvl.waterBasins.length)) return;
+    const checkEnt = (ent, isPlayer) => {
+      if (!ent || ent.alive === false) return;
+      const hit = lvl.waterSurfaceAt(ent.x, ent.y);
+      const wasIn = !!ent._inWater;
+      if (hit && !wasIn) {
+        ent._inWater = true;
+        ent._waterStepT = 0;
+        const fastDrop = Math.abs(ent.vy || 0) > 95;
+        this.addWaterRipple(ent.x, hit.surfaceY, fastDrop ? 1.15 : 0.82, isPlayer && fastDrop);
+      } else if (!hit && wasIn) {
+        ent._inWater = false;
+        const prevY = ent._lastWaterY;
+        if (prevY != null) this.addWaterRipple(ent.x, prevY, 0.88, isPlayer && (ent.vy || 0) < -80);
+      } else if (hit) {
+        ent._lastWaterY = hit.surfaceY;
+        const speed = Math.abs(ent.vx || 0);
+        if (speed > 20 && (ent.onGround || ent.y >= hit.surfaceY - 2)) {
+          ent._waterStepT = (ent._waterStepT || 0) + dt;
+          const period = isPlayer ? 0.19 : 0.34;
+          if (ent._waterStepT >= period) {
+            ent._waterStepT = 0;
+            this.addWaterRipple(ent.x, hit.surfaceY, isPlayer ? 0.72 : 0.55, false);
+          }
+        }
+      }
+    };
+    const p = this.player;
+    checkEnt(p, true);
+    if (p && p.alive && p.attacking && p.attackHitbox) {
+      const hb = p.attackHitbox();
+      if (hb && p._waterStrikeSeq !== p.attackSeq) {
+        const midX = hb.x + hb.w * 0.5;
+        const botY = hb.y + hb.h;
+        const wHit = lvl.waterSurfaceAt(midX, botY);
+        if (wHit) {
+          p._waterStrikeSeq = p.attackSeq;
+          this.addWaterRipple(midX, wHit.surfaceY, 1.05, true);
+        }
+      }
+    }
+    if (this.boss && this.boss.alive) checkEnt(this.boss, false);
+    const camX = this.camera ? this.camera.rx : 0;
+    for (let i = 0; i < this.enemies.length; i++) {
+      const e = this.enemies[i];
+      if (!e || e === this.boss || !e.alive || e.flies) continue;
+      if (Math.abs(e.x - (camX + W * 0.5)) > W * 0.7) continue;
+      checkEnt(e, false);
+    }
+  }
+
+  computeFogWorldY(camX) {
+    const lvl = this.level;
+    const c0 = Math.max(0, Math.floor((camX + W * 0.15) / TILE));
+    const c1 = Math.min(lvl.cols - 1, Math.ceil((camX + W * 0.85) / TILE));
+    const rows = [];
+    for (let c = c0; c <= c1; c += 2) {
+      const gr = lvl.groundRow(c);
+      if (gr > 0) rows.push(gr);
+    }
+    let targetY;
+    if (rows.length) {
+      rows.sort((a, b) => a - b);
+      targetY = rows[rows.length >> 1] * TILE;
+    } else if (this._fogWorldY != null) {
+      targetY = this._fogWorldY;
+    } else {
+      targetY = this.data && this.data.start ? this.data.start.y : lvl.height - 64;
+    }
+    if (this._fogWorldY == null || this.game.titleWorld === this) {
+      this._fogWorldY = targetY;
+    } else {
+      this._fogWorldY += (targetY - this._fogWorldY) * 0.08;
+    }
+    return this._fogWorldY;
   }
 
   startBoss() {
@@ -869,11 +1239,13 @@ export class World {
   recordExploration(extraOpts = {}) {
     if (!this.game || !this.game.markCellsExplored || !this.player || !this.stage.key) return;
     const normX = this.level.width > 0 ? this.player.x / this.level.width : 0;
+    const normY = this.level.height > 0 ? this.player.y / this.level.height : 0.5;
     const sIdx = Math.max(0, (this.stage.id || 1) - 1);
     const vesselFound = !!(this.game.vessels && ((this.game.vessels >> sIdx) & 1));
     const cells = cellsToRevealAt(this.stage.key, normX, Object.assign({
       inSecret: this.inSecretArea,
       vesselFound,
+      normY,
     }, extraOpts));
     this.game.markCellsExplored(cells);
   }
@@ -900,14 +1272,137 @@ export class World {
     if (this.game && this.game.collectVessel) this.game.collectVessel(vessel.stageIndex);
     this.inSecretArea = true;
     this.recordExploration({ inSecret: true, vesselFound: true });
-    this.player.maxHp = (this.player.maxHp || PLAYER.maxHp) + 1;
+    this.player.maxHp = this.computeMaxHp();
     this.player.hp = Math.min(this.player.maxHp, this.player.hp + 6);
     this.hearts = Math.min(99, this.hearts + 3);
     this.addScore(2000);
     this.sfx('orb');
     this.particles.sparks(vessel.x, vessel.y - 22, 18, '#ffd27a');
     this.emitShockwave(vessel.x, vessel.y - 44, { maxR: 132, dur: 0.52, strength: 0.75, color: [1.0, 0.84, 0.36] });
-    this.showMessage('ANCIENT VESSEL FOUND', 'MAX VITALITY +1 · STARTING HEARTS +2', 2.6);
+    const vCount = this.game && this.game.getVesselCount ? this.game.getVesselCount() : 0;
+    const strTag = vCount > 0 && vCount % 3 === 0 ? ' · STR +1' : '';
+    this.showMessage('ANCIENT VESSEL FOUND', `MAX VITALITY +1${strTag} · HEARTS +2`, 2.6);
+  }
+
+  onWeaponCollected(weaponId, x, y, fromPedestal = false) {
+    const w = WEAPONS[weaponId];
+    if (!w) return;
+    const wasNew = this.game && this.game.unlockWeapon ? this.game.unlockWeapon(weaponId) : true;
+    // If Hand_R is empty and Hand_L is 1-handed, auto-slot a newly acquired 1H weapon into Hand_R
+    // so the hunter can try dual-wielding right away (or open `E` Armory anytime).
+    let autoEquippedR = false;
+    if (wasNew && !w.isTwoHanded && this.game && this.game.equipWeapon) {
+      const wL = this.getHandWeapon(0);
+      const wR = this.getHandWeapon(1);
+      if (!wR && (!wL || !wL.isTwoHanded) && (!wL || wL.id !== weaponId)) {
+        this.game.equipWeapon(1, weaponId);
+        autoEquippedR = true;
+      }
+    }
+    this.addScore(wasNew ? 1000 : 400);
+    this.sfx(fromPedestal ? 'orb' : 'pickup');
+    const elem = w.element ? ELEMENT_META[w.element] : null;
+    const sparkCol = elem ? elem.color : '#ffd27a';
+    const ringCol = elem ? elem.rim : [1.0, 0.84, 0.36];
+    this.particles.sparks(x, y, 16, sparkCol);
+    this.emitShockwave(x, y - 8, { maxR: fromPedestal ? 118 : 88, dur: 0.44, strength: 0.55, color: ringCol });
+    if (wasNew) {
+      const sub = autoEquippedR
+        ? 'EQUIPPED TO R-HAND (C/V/L) · E FOR ARMORY'
+        : (w.isTwoHanded ? '2-HANDED ARSENAL · PRESS E FOR ARMORY' : 'PRESS E TO EQUIP IN L / R HAND');
+      if (fromPedestal) {
+        this.showMessage(`ARSENAL: ${w.name}`, sub, 2.5);
+      } else {
+        this.spawnPopup(x, y - 22, `NEW WEAPON: ${w.name}`, {
+          sub,
+          color: sparkCol,
+          scale: 1,
+          dur: 2.2,
+          vy: -18,
+          banner: true,
+        });
+      }
+    } else {
+      this.spawnPopup(x, y - 16, `${w.short} +400`, { color: sparkCol, dur: 1.1 });
+    }
+  }
+
+  /** Executes a Cross-Hand Combo Resonance detonation when Hand_L + Hand_R share a `setTag`. */
+  triggerComboResonance(player, res, wL, wR) {
+    if (!player || !res) return;
+    const cx = player.x + player.facing * 14;
+    const cy = player.y - 34;
+    this.sfx('orb');
+    this.camera.shake(4.2, 0.28);
+    this.hitStop = Math.max(this.hitStop, 0.08);
+    this.emitShockwave(cx, cy, {
+      maxR: res.radius || 120,
+      dur: 0.52,
+      strength: 0.92,
+      color: res.color || [1.0, 0.84, 0.36],
+    });
+    this.particles.sparks(cx, cy, 22, res.hex || '#ffd27a');
+
+    const strTotal = computeStrengthBreakdown(this).total;
+    const reqStr = Math.max((wL && wL.reqStr) || 0, (wR && wR.reqStr) || 0);
+    const synthWeapon = {
+      baseDamage: res.baseDamage || 5.5,
+      scaling: 0.28,
+      reqStr,
+      physical: res.physical || 'blunt',
+      element: res.element || null,
+    };
+    const diffMult = (this.difficulty.playerDamage || 1) * this.getAttackMult();
+    let hitAny = false;
+    const rad = res.radius || 120;
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      const dist = Math.hypot(e.x - cx, (e.y - e.h * 0.5) - cy);
+      if (dist <= rad + e.w * 0.5) {
+        const hit = computeWeaponHit(synthWeapon, strTotal, e, { diffMult });
+        this._hitArmorPiercing = true;
+        e.takeHit(hit.damage, player.x, this, { armorPiercing: true });
+        this._hitArmorPiercing = false;
+        hitAny = true;
+        if (hit.tag === 'weak') {
+          this.spawnPopup(e.x, e.y - e.h - 8, 'WEAK!', { color: '#7ef7d4', dur: 0.85, vy: -24 });
+        }
+      }
+    }
+    for (const pr of this.projectiles) {
+      if (pr.owner === 'enemy' && pr.type !== 'gaze') {
+        const dist = Math.hypot(pr.x - cx, pr.y - cy);
+        if (dist <= rad) {
+          pr.dead = true;
+          this.particles.sparks(pr.x, pr.y, 4, res.hex || '#ffffff');
+        }
+      }
+    }
+    if (hitAny && res.siphonHp && player.alive) {
+      const cap = player.maxHp || PLAYER.maxHp;
+      player.hp = Math.min(cap, player.hp + res.siphonHp);
+    }
+    if (res.projectile) {
+      const pr = new Projectile(res.projectile, cx + player.facing * 12, cy, player.facing, 'player');
+      pr.damage = Math.max(3, Math.round((res.baseDamage || 5) * 0.85));
+      this.spawnProjectile(pr);
+    }
+    if (res.spawnFlames) {
+      for (const off of [-36, 36]) {
+        const col = Math.floor((player.x + off) / TILE);
+        const fRow = this.level.surfaceRow(col);
+        const fy = fRow >= 0 ? fRow * TILE : player.y;
+        this.spawnFire(player.x + off, fy, 'player');
+      }
+    }
+    if (res.iceFan) {
+      for (let i = -2; i <= 2; i++) {
+        const pr = new Projectile('catalyst_frost', cx, cy, player.facing, 'player');
+        pr.vy = i * 62;
+        pr.damage = 3;
+        this.spawnProjectile(pr);
+      }
+    }
   }
 
   traversePassage(gate) {
@@ -928,7 +1423,7 @@ export class World {
     this.phase = 'clear'; this.phaseT = 0;
     this.player.invuln = 999;
     this.recordExploration({ cleared: true });
-    this.audio.playMusic('clear', false);
+    if (this.audio.musicKey !== 'clear') this.audio.playMusic('clear', false);
     this.timeBonus = Math.ceil(this.timeLeft) * SCORE.timeBonus;
     this.heartBonus = this.hearts * 100;
     this.score += this.timeBonus + this.heartBonus;
@@ -1094,11 +1589,18 @@ export class World {
     // 2. 3D Vaulted Interior Halls / Cylindrical Clock Shaft + 3D Boss Set-Pieces
     this.stage3d.drawInterior3D(ctx, cam, t);
     this.stage3d.drawBossCenterpiece3D(ctx, cam, t);
+    const fxl = getFxLayers();
+    if (fxl && fxl.enabled && !showOutdoor && (this.stage.theme === 'aqueduct' || this.fxTheme === 'ossuary')) {
+      fxl.caustics(ctx, { x: 0, y: 72, w: W, h: 204 }, {
+        camX,
+        tint: this.stage.theme === 'aqueduct' ? [0.24, 0.84, 1.0] : [0.20, 0.72, 0.66],
+        alpha: this.stage.theme === 'aqueduct' ? 0.16 : 0.09,
+      });
+    }
 
     // 3. Far/mid weather particles + stage decor (with extruded 3D cogwheels) + indoor god-rays
     this.drawWeather(ctx, false);
     this.level.drawDecor(ctx, cam, this.assets, t, this.stage3d);
-    const fxl = getFxLayers();
     if (fxl && fxl.enabled && !showOutdoor) {
       fxl.godRays(ctx, camX, this.fxTheme, 1.0);
     }
@@ -1116,6 +1618,7 @@ export class World {
     if (this.passages) for (const g of this.passages) g.draw(ctx, cam, this.font, this, t);
     if (this.sanctuary) this.sanctuary.draw(ctx, cam, this.font, t, this);
     if (this.vessel) this.vessel.draw(ctx, cam, this.font, this, t);
+    if (this.pedestal) this.pedestal.draw(ctx, cam, this.font, this, t);
     if (fxl) {
       fxl.flushFlames(ctx);
       fxl.flushAttacks(ctx);
@@ -1149,6 +1652,19 @@ export class World {
       );
       ctx.restore();
     }
+    if (this.player.skillBanner && this.player.skillBanner.t > 0) {
+      const sb = this.player.skillBanner;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, sb.t * 2.2);
+      this.font.draw(
+        ctx,
+        sb.text,
+        Math.round(this.player.x - camX),
+        Math.round(this.player.y - camY - 76 - (1.4 - Math.min(1.4, sb.t)) * 8),
+        { align: 'center', color: sb.color || '#ffd27a', shadow: '#05040a', gothic: false },
+      );
+      ctx.restore();
+    }
     for (const pr of this.projectiles) pr.draw(ctx, this.assets, camX, camY);
     if (this.shockRings.length) {
       for (const r of this.shockRings) {
@@ -1171,6 +1687,8 @@ export class World {
       fxl.flushFlames(ctx);
       fxl.flushAttacks(ctx);
     }
+    // 6b. Real-time reflective & refractive WebGL water pools & sluice canals
+    this.level.drawWaterSurfaces(ctx, cam, fxl, this.waterRipples, this.stage.theme || this.fxTheme, t);
     this.particles.draw(ctx, camX, camY);
 
     // 7. Foreground z < 0 framing silhouettes (auto-fading near player/threats/doors) & near weather
@@ -1183,13 +1701,14 @@ export class World {
       });
     }
     this.stage3d.drawForeground3D(ctx, cam, this.player, this.enemies, this.landmarks);
-    // Shader ground mist hugging the hunter's footing (thicker outdoors and in the crypts)
+    // Shader ground mist anchored to world terrain elevation (never jumps with player.y!)
     if (fxl) {
       const fogCol = outdoor
         ? (this.fxTheme === 'darkwood' ? [0.4, 0.75, 0.68] : [0.62, 0.66, 0.82])
-        : (this.fxTheme === 'darkcave' ? [0.85, 0.34, 0.16] : [0.5, 0.48, 0.6]);
-      const amt = outdoor ? 0.42 : (this.fxTheme === 'catacombs' || this.fxTheme === 'ossuary' ? 0.34 : this.fxTheme === 'darkcave' ? 0.24 : 0.16);
-      fxl.fog(ctx, camX, Math.round(this.player.y - camY) + 6, fogCol, amt);
+        : (this.stage.theme === 'aqueduct' ? [0.36, 0.74, 0.88] : this.fxTheme === 'darkcave' ? [0.85, 0.34, 0.16] : [0.5, 0.48, 0.6]);
+      const amt = outdoor ? 0.42 : (this.stage.theme === 'aqueduct' ? 0.28 : this.fxTheme === 'catacombs' || this.fxTheme === 'ossuary' ? 0.34 : this.fxTheme === 'darkcave' ? 0.24 : 0.16);
+      const fogFloorY = Math.round(this.computeFogWorldY(camX) - camY) + 6;
+      fxl.fog(ctx, camX, fogFloorY, fogCol, amt, camY);
     }
     this.drawWeather(ctx, true);
 
@@ -1218,6 +1737,47 @@ export class World {
     if (peersHere && peersHere.length) drawRemoteEdgeIndicators(ctx, this.font, this, peersHere);
     if (this.sanctuary) this.sanctuary.drawPrompt(ctx, this.camera, this.font);
     if (this.passages) for (const g of this.passages) g.drawPrompt(ctx, this.camera, this.font, this);
+    if (this.popups.length) {
+      const camX = this.camera.rx, camY = this.camera.ry;
+      for (const pop of this.popups) {
+        const alpha = Math.max(0, Math.min(1, pop.t / 0.12, (pop.dur - pop.t) / 0.36)) * (pop.maxAlpha ?? 1);
+        if (alpha <= 0.02) continue;
+        const tw = this.font.width(pop.text, pop.scale || 1, 1, false);
+        const halfW = Math.ceil(tw * 0.5) + 8;
+        const sx = Math.max(halfW, Math.min(W - halfW, Math.round(pop.x - camX)));
+        const sy = Math.max(54, Math.min(H - 28, Math.round(pop.y - camY)));
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        if (pop.banner) {
+          const subW = pop.sub ? this.font.width(pop.sub, 1, 1, false) : 0;
+          const bw = Math.max(tw, subW) + 16;
+          const bh = pop.sub ? 29 : 19;
+          const bx = Math.round(sx - bw * 0.5);
+          const by = sy - 3;
+          ctx.fillStyle = 'rgba(6, 5, 16, 0.88)';
+          ctx.fillRect(bx, by, bw, bh);
+          ctx.strokeStyle = pop.color;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+        }
+        this.font.draw(ctx, pop.text, sx, sy, {
+          scale: pop.scale || 1,
+          align: 'center',
+          color: pop.color,
+          shadow: '#05040a',
+          gothic: false,
+        });
+        if (pop.sub) {
+          this.font.draw(ctx, pop.sub, sx, sy + (pop.scale === 2 ? 16 : 9), {
+            align: 'center',
+            color: '#9ef5dc',
+            shadow: '#05040a',
+            gothic: false,
+          });
+        }
+        ctx.restore();
+      }
+    }
     for (const m of this.messages) {
       const k = Math.min(1, m.t / 0.3, (m.dur - m.t) / 0.4);
       ctx.save();

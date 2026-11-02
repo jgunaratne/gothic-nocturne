@@ -5,6 +5,7 @@ import { Entity, rectsOverlap } from './entities.js';
 import { drawFlameGlow } from './level.js';
 import { getGlowCanvas } from './tex3d.js';
 import { getFxLayers } from '../engine/fxlayers.js';
+import { WEAPONS, ELEMENT_META, getWeaponIconCanvas } from './weapons.js';
 
 const DROP_TABLE = [
   ['heart_small', 0.62], ['heart_big', 0.16], ['money', 0.12], ['dagger', 0.04],
@@ -49,12 +50,14 @@ export class Item extends Entity {
   constructor(type, x, y) {
     super(x, y);
     this.type = type;
+    this.weaponId = typeof type === 'string' && type.startsWith('weapon:') ? type.slice(7) : null;
     const isOrb = type === 'orb';
-    this.w = isOrb ? 20 : 14;
-    this.h = isOrb ? 20 : 14;
-    this.vy = isOrb ? -130 : -160;
+    const isWeapon = !!this.weaponId;
+    this.w = isOrb ? 20 : (isWeapon ? 18 : 14);
+    this.h = isOrb ? 20 : (isWeapon ? 18 : 14);
+    this.vy = isOrb ? -130 : (isWeapon ? -180 : -160);
     this.vx = isOrb ? 0 : (Math.random() - 0.5) * 40;
-    this.life = isOrb ? Infinity : 8;
+    this.life = isOrb ? Infinity : (isWeapon ? 16 : 8);
     this.gravityScale = 0.8;
     this.arenaFloorY = null;
     this.arenaX0 = null;
@@ -91,6 +94,28 @@ export class Item extends Entity {
   }
   draw(ctx, assets, camX, camY, time) {
     if (this.life < 2.5 && Math.floor(this.life * 10) % 2 === 0) return;
+    if (this.weaponId) {
+      const w = WEAPONS[this.weaponId];
+      const bob = Math.sin(time * 4.4) * 2.5;
+      const sx = Math.round(this.x - camX);
+      const sy = Math.round(this.y - camY - 11 + bob);
+      const elem = w && w.element ? ELEMENT_META[w.element] : null;
+      ctx.save();
+      const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, 20);
+      g.addColorStop(0, elem ? `${elem.color}77` : 'rgba(255, 216, 122, 0.48)');
+      g.addColorStop(1, 'rgba(10, 8, 22, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(sx - 20, sy - 20, 40, 40);
+      const icon = getWeaponIconCanvas(this.weaponId);
+      if (icon) {
+        ctx.drawImage(icon, sx - 10, sy - 10);
+      } else {
+        ctx.fillStyle = elem ? elem.color : '#ffd27a';
+        ctx.fillRect(sx - 5, sy - 5, 10, 10);
+      }
+      ctx.restore();
+      return;
+    }
     const bob = this.type === 'orb' ? Math.sin(time * 4) * 3 : 0;
     if (this.type === 'orb') {
       const x = this.x - camX, y = this.y - camY - 8 + bob;
@@ -138,6 +163,36 @@ export class Projectile {
       case 'thorn': this.vx = dir * 255; this.vy = 0; this.gravity = 0.12; this.damage = 2; this.life = 2.2; this.w = 16; this.h = 8; break;
       case 'magmaball': this.vx = dir * 185; this.vy = -360; this.gravity = 0.88; this.damage = 3; this.life = 2.8; this.w = 16; this.h = 16; break;
       case 'crimson_wave': this.vx = dir * 340; this.vy = 0; this.damage = 2; this.life = 0.44; this.w = 24; this.h = 26; this.pierce = 3; break;
+      case 'weapon_boomerang':
+        this.vx = dir * 320; this.vy = 0; this.damage = 2; this.life = 2.5;
+        this.w = 22; this.h = 22; this.pierce = 99;
+        this.isBoomerang = true; this.returning = false;
+        this.x0 = x; this.y0 = y; this.maxDist = 158; this.returnSpeed = 350;
+        break;
+      case 'silver_beam':
+        this.vx = dir * 400; this.vy = 0; this.damage = 2; this.life = 0.50;
+        this.w = 26; this.h = 18; this.pierce = 3;
+        break;
+      case 'holy_wave':
+        this.vx = dir * 330; this.vy = 0; this.damage = 2.4; this.life = 0.62;
+        this.w = 26; this.h = 28; this.pierce = 4;
+        break;
+      case 'volt_lance':
+        this.vx = dir * 470; this.vy = 0; this.damage = 2.4; this.life = 0.48;
+        this.w = 34; this.h = 12; this.pierce = 5;
+        break;
+      case 'catalyst_fire':
+        this.vx = dir * 290; this.vy = 0; this.damage = 2.2; this.life = 1.15;
+        this.w = 16; this.h = 16; this.pierce = 1;
+        break;
+      case 'catalyst_frost':
+        this.vx = dir * 345; this.vy = 0; this.damage = 2.1; this.life = 1.05;
+        this.w = 18; this.h = 12; this.pierce = 2;
+        break;
+      case 'catalyst_void':
+        this.vx = dir * 235; this.vy = 0; this.damage = 2.4; this.life = 1.65;
+        this.w = 18; this.h = 18; this.pierce = 2; this.voidSeek = true;
+        break;
       default: this.vx = dir * 200; this.vy = 0;
     }
   }
@@ -152,6 +207,49 @@ export class Projectile {
     dt = stepDt;
     this.vy += 1500 * this.gravity * dt;
     this.vx += this.ax * dt;
+    if (this.isBoomerang) {
+      if (!this.returning) {
+        const dist = Math.hypot(this.x - (this.x0 || 0), this.y - (this.y0 || 0));
+        // Smoothly decelerate near apex then reverse & re-arm hitSet for double-hit return!
+        if (dist >= (this.maxDist || 155) * 0.78) {
+          this.vx -= this.dir * 980 * dt;
+        }
+        if (dist >= (this.maxDist || 155) || (this.dir * this.vx) <= 18) {
+          this.returning = true;
+          this.hitSet.clear();
+        }
+      } else if (world && world.player && world.player.alive) {
+        const tx = world.player.x;
+        const ty = world.player.y - 34;
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        const d = Math.hypot(dx, dy) || 1;
+        if (d < 18 && this.time > 0.16) {
+          this.dead = true;
+          world.particles.sparks(this.x, this.y, 4, '#ffe9a0');
+          return;
+        }
+        const spd = this.returnSpeed || 350;
+        this.vx += ((dx / d) * spd - this.vx) * Math.min(1, 11 * dt);
+        this.vy += ((dy / d) * spd - this.vy) * Math.min(1, 11 * dt);
+      }
+    }
+    if (this.voidSeek && world && world.enemies) {
+      let best = null, bestD = 220;
+      for (const e of world.enemies) {
+        if (!e.alive) continue;
+        const d = Math.hypot(e.x - this.x, (e.y - e.h * 0.5) - this.y);
+        if (d < bestD) { bestD = d; best = e; }
+      }
+      if (best) {
+        const dx = best.x - this.x, dy = (best.y - best.h * 0.5) - this.y;
+        const d = Math.hypot(dx, dy) || 1;
+        this.vx += (dx / d) * 340 * dt;
+        this.vy += (dy / d) * 340 * dt;
+        const s = Math.hypot(this.vx, this.vy);
+        if (s > 265) { this.vx *= 265 / s; this.vy *= 265 / s; }
+      }
+    }
     if (this.homing && world.player.alive) {
       const dx = world.player.x - this.x, dy = (world.player.y - 30) - this.y;
       const d = Math.hypot(dx, dy) || 1;
@@ -167,8 +265,10 @@ export class Projectile {
       this.w = this.h = 26 + k * 30;
       if (Math.random() < 0.4) world.particles.emit({ x: this.x + (Math.random() - 0.5) * this.w, y: this.y + (Math.random() - 0.5) * this.h, vx: this.vx * 0.3, vy: -10, life: 0.6, color: 'rgba(150, 130, 180, 0.35)', size: 5, gravity: -0.02, shrink: true });
     }
-    if ((this.type === 'fireball' || this.type === 'magmaball') && Math.random() < 0.65) world.particles.embers(this.x - this.dir * 6, this.y, 1);
+    if ((this.type === 'fireball' || this.type === 'magmaball' || this.type === 'catalyst_fire') && Math.random() < 0.65) world.particles.embers(this.x - this.dir * 6, this.y, 1);
     if (this.type === 'crimson_wave' && Math.random() < 0.7) world.particles.sparks(this.x - this.dir * 6, this.y + (Math.random() - 0.5) * 14, 1, '#ff4a66');
+    if (this.type === 'volt_lance' && Math.random() < 0.8) world.particles.sparks(this.x - this.dir * 8, this.y + (Math.random() - 0.5) * 8, 1, '#ffe66d');
+    if (this.type === 'catalyst_void' && Math.random() < 0.55) world.particles.sparks(this.x, this.y, 1, '#c88cff');
     if (this.type === 'spore') {
       this.vy = Math.cos(this.time * 4.8) * 34;
     }
@@ -180,8 +280,10 @@ export class Projectile {
         world.spawnFire(this.x, floorY);
       } else if (this.type === 'dagger') {
         world.particles.sparks(this.x, this.y, 4, '#cfd8e8');
-      } else if (this.type === 'fireball') {
+      } else if (this.type === 'fireball' || this.type === 'catalyst_fire') {
         world.particles.embers(this.x, this.y, 8);
+      } else if (this.type === 'catalyst_frost') {
+        world.particles.dust(this.x, this.y, 5, '#8ad8ff');
       } else if (this.type === 'magmaball') {
         world.particles.embers(this.x, this.y - 4, 12);
         if (this.vy > 0) {
@@ -214,9 +316,12 @@ export class Projectile {
           return;
         }
       }
-      if (!['sickle', 'skull', 'hellfire', 'gaze', 'gas', 'crimson_wave'].includes(this.type)) this.dead = true;
+      if (![
+        'sickle', 'skull', 'hellfire', 'gaze', 'gas', 'crimson_wave',
+        'weapon_boomerang', 'silver_beam', 'holy_wave', 'volt_lance', 'catalyst_void',
+      ].includes(this.type)) this.dead = true;
     }
-    if (this.y > level.height + 60 || this.x < -40 || this.x > level.width + 40) this.dead = true;
+    if (!this.isBoomerang && (this.y > level.height + 60 || this.x < -40 || this.x > level.width + 40)) this.dead = true;
   }
 
   draw(ctx, assets, camX, camY) {
@@ -547,6 +652,104 @@ export class Projectile {
         ctx.strokeStyle = '#ffd6df';
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(-2, 0, 12, -0.85, 0.85); ctx.stroke();
+        break;
+      }
+      case 'weapon_boomerang': {
+        const elem = this.weaponElement ? ELEMENT_META[this.weaponElement] : null;
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 15, ry: 15, dirX: Math.cos(this.spin * 1.4), dirY: Math.sin(this.spin * 1.4),
+            mode: 3, seed,
+            core: elem ? elem.core : [1.0, 0.96, 0.82],
+            rim: elem ? elem.rim : [0.95, 0.72, 0.28],
+            alpha: 0.78,
+          });
+        }
+        ctx.rotate(this.spin * 1.5);
+        const icon = this.weaponId ? getWeaponIconCanvas(this.weaponId) : null;
+        if (icon) {
+          ctx.drawImage(icon, -10, -10);
+        } else {
+          ctx.strokeStyle = elem ? elem.color : '#ffe89e';
+          ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.stroke();
+        }
+        break;
+      }
+      case 'silver_beam': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 16, ry: 12, dirX: this.dir, dirY: 0,
+            mode: 3, seed, core: [0.96, 0.99, 1.0], rim: [0.52, 0.82, 1.0], alpha: 0.92,
+          });
+          break;
+        }
+        ctx.scale(this.dir, 1);
+        ctx.strokeStyle = '#dce8ff'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(-3, 0, 10, -0.95, 0.95); ctx.stroke();
+        break;
+      }
+      case 'holy_wave': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 18, ry: 20, dirX: this.dir, dirY: 0,
+            mode: 3, seed, core: [1.0, 0.98, 0.86], rim: [1.0, 0.80, 0.28], alpha: 0.96,
+          });
+          break;
+        }
+        ctx.scale(this.dir, 1);
+        ctx.strokeStyle = '#ffe89e'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(-4, 0, 13, -1.1, 1.1); ctx.stroke();
+        break;
+      }
+      case 'volt_lance': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 22, ry: 8, dirX: this.dir, dirY: 0,
+            mode: 1, seed, core: [1.0, 1.0, 0.86], rim: [1.0, 0.86, 0.18], alpha: 0.96,
+          });
+        }
+        ctx.fillStyle = '#fff8c8';
+        ctx.fillRect(-14, -2, 28, 4);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(this.dir * 8 - 3, -1, 6, 2);
+        break;
+      }
+      case 'catalyst_fire': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 13, ry: 22, dirX: this.vx || this.dir, dirY: this.vy,
+            mode: 0, seed, core: [1.0, 0.95, 0.72], rim: [1.0, 0.36, 0.08], alpha: 0.95,
+          });
+        }
+        ctx.fillStyle = '#fff2b0';
+        ctx.fillRect(-3, -3, 6, 6);
+        break;
+      }
+      case 'catalyst_frost': {
+        const ang = Math.atan2(this.vy, this.vx || this.dir);
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 12, ry: 18, dirX: Math.cos(ang), dirY: Math.sin(ang),
+            mode: 0, seed, core: [0.92, 0.99, 1.0], rim: [0.28, 0.74, 1.0], alpha: 0.88,
+          });
+        }
+        ctx.rotate(ang);
+        ctx.fillStyle = '#dff6ff';
+        ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-7, -4); ctx.lineTo(-4, 0); ctx.lineTo(-7, 4); ctx.closePath(); ctx.fill();
+        break;
+      }
+      case 'catalyst_void': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 14, ry: 14, dirX: this.vx || this.dir, dirY: this.vy,
+            mode: 0, seed, core: [0.94, 0.86, 1.0], rim: [0.60, 0.22, 0.98], alpha: 0.92,
+          });
+        }
+        ctx.fillStyle = '#241038';
+        ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#d8a8ff'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.stroke();
         break;
       }
       default: break;

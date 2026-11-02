@@ -164,6 +164,7 @@ export class Reaper extends Enemy {
       world.sfx('boss_die');
       world.camera.shake(8, 1.2);
       world.addScore(this.score);
+      if (world.awardEnemyExp) world.awardEnemyExp(this, { isBoss: true });
     }
     return this.hp <= 0;
   }
