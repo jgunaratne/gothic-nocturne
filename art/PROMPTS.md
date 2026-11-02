@@ -30,6 +30,8 @@ subject part is listed here.
 | `ice_sheet.png` | Ice golem of jagged translucent blocks (2 walk frames) and a sinister top-hatted snowman (idle, throw). (2×2.) |
 | `wisp_sheet.png` | Frost wisp: skull-faced spirit of swirling ice crystals, 4 rotation frames. (2×2.) |
 | `santa_sheet.png` | Devil Santa boss: horned, crimson fur coat, sack over shoulder; idle, hurling a gift, lunging with a chain of bells, hurt. (2×2.) |
+| `archon_sheet.png` | Gargoyle Archon boss facing right: colossal dark-basalt gargoyle statue with gold-leaf crown and glowing crimson fissures; folded-wing idle, wide-winged roar, diving pounce, and closed stone-shell cocoon. (1×4.) |
+| `cinderqueen_sheet.png` | Cinder Queen boss facing right: tall warrior-queen in black obsidian and gold filigree plate armour, spiked golden spire crown, gilded faceplate visor, crimson-amber cape, and flame-topped brazier scepter; ready idle, one-handed spell cast, low lunging surge, and two-handed overhead eruption. (1×4.) |
 
 ## Environment
 

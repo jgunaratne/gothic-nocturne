@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "surge0": {
+   "ax": 38.0,
+   "ay": 112.0,
+   "clipFrame": 48,
+   "h": 112,
+   "w": 81,
+   "x": 1,
+   "y": 1
+  },
+  "surge1": {
+   "ax": 52.0,
+   "ay": 102.0,
+   "clipFrame": 55,
+   "h": 102,
+   "w": 110,
+   "x": 83,
+   "y": 1
+  },
+  "surge2": {
+   "ax": 99.0,
+   "ay": 87.0,
+   "clipFrame": 135,
+   "h": 87,
+   "w": 160,
+   "x": 194,
+   "y": 1
+  },
+  "surge3": {
+   "ax": 55.5,
+   "ay": 93.0,
+   "clipFrame": 142,
+   "h": 93,
+   "w": 130,
+   "x": 355,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "cinderqueen_surge_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "cinderqueen_surge.mp4",
+  "frame": "surge",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   48,
+   55,
+   135,
+   142
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1987,
+  "select": "pick",
+  "sheet": "cinderqueen"
+ }
+}

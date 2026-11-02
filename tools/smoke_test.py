@@ -16,7 +16,7 @@ def shoot(q):
     """Loads one scene in headless Chrome; returns (screenshot bytes, JS error lines)."""
     with tempfile.TemporaryDirectory() as udir:
         out = os.path.join(udir, 'shot.png')
-        cmd = ['google-chrome', '--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run',
+        cmd = ['google-chrome', '--headless=new', '--disable-extensions', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run',
                f'--user-data-dir={udir}', '--proxy-server=direct://', '--proxy-bypass-list=*', '--window-size=640,360',
                '--virtual-time-budget=3500', f'--screenshot={out}', BASE + q, '--enable-logging=stderr', '--v=0']
         try:
@@ -24,7 +24,7 @@ def shoot(q):
             err = res.stderr or ''
         except subprocess.TimeoutExpired:
             err = 'TIMEOUT'
-        errs = [l for l in err.splitlines() if ('Uncaught' in l or 'TIMEOUT' in l) and 'chrome-extension' not in l]
+        errs = [l for l in err.splitlines() if ('Uncaught' in l or 'TIMEOUT' in l) and 'chrome-extension' not in l and 'extensions::' not in l]
         size = os.path.getsize(out) if os.path.exists(out) else 0
         return size, errs
 

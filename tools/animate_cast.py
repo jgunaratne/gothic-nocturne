@@ -35,7 +35,7 @@ LOOP, SHOT = "period", "motion"
 # Hovering sprites keep the first frame's ground line as their anchor (a flap or
 # bob must not move the body); walkers are anchored at the feet.
 FLYERS = {"bat", "medusa", "pumpkin", "dragon", "wisp", "owl", "ghost", "tome", "gargoyle", "cinderimp",
-          "wraith", "boss", "giantbat", "gorgon", "archivist", "greatjack"}
+          "wraith", "boss", "giantbat", "gorgon", "archivist", "greatjack", "archon"}
 
 # (sheet, subject, [(family, action, select, count, ref_frame, extra), ...])
 CAST = [
@@ -164,11 +164,18 @@ CAST = [
         ("summon", "summon", SHOT, 4, "idle", ""),
         ("shield", "shield", SHOT, 4, "idle", "books swirl up into a barrier"),
     ]),
-    ("cinderqueen", "Cinder Queen, a molten sorceress", [
-        ("idle", "idle_creature", LOOP, 6, "idle", "flames flickering in her hair"),
-        ("cast", "cast", SHOT, 4, "idle", ""),
-        ("erupt", "erupt", SHOT, 4, "idle", ""),
-        ("surge", "surge", SHOT, 4, "idle", ""),
+    ("archon", "Gargoyle Archon, a colossal winged basalt gargoyle statue with a gold crown", [
+        ("fly", "fly", LOOP, 6, "pounce", "vast stone bat wings sweeping high above its back and down in a heavy rhythmic wingbeat"),
+        ("roar", "roar", SHOT, 4, "roar", "staying airborne, it spreads its stone wings and claws wide in a roar; no magic beams, no shockwaves, no particles"),
+        ("pounce", "lunge", SHOT, 4, "pounce", "staying airborne in place, it coils back then thrusts both clawed hands forward in a fierce pounce"),
+        ("shell", "shield", SHOT, 4, "idle", "it wraps its huge stone bat wings tightly around its body like a closed stone cloak and holds still"),
+    ]),
+    ("cinderqueen", "Cinder Queen, a tall armoured warrior-queen in black obsidian and gold plate with a spiked golden crown, faceplate visor, crimson cape and flame-topped scepter", [
+        ("idle", "idle_creature", LOOP, 6, "idle", "the brazier flame on her scepter flickers and her cape stirs as she breathes"),
+        ("walk", "walk", LOOP, 8, "idle", "a regal heavy armoured stride in place, cape swaying, holding the flame scepter"),
+        ("cast", "cast", SHOT, 4, "cast", "she raises her flame-topped scepter high and thrusts it forward to command a spell; no projectiles, no energy beams, no detached fireballs"),
+        ("surge", "surge", SHOT, 4, "surge", "leaning low in place in a lunging dash, cape billowing behind her; no detached fire trails"),
+        ("erupt", "erupt", SHOT, 4, "erupt", "holding her scepter horizontally with both hands, she braces low and heaves the scepter high overhead; no screen-filling explosions"),
     ]),
 ]
 

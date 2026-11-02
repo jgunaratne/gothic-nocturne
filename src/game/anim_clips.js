@@ -22,6 +22,12 @@ const FAMILY_ALIASES = {
   greatjack: { flame0: 'flame', flame1: 'flame' },
   ice: { golem0: 'golem', golem1: 'golem' },
   automaton: { idle: (e) => (Math.abs(e.vx || 0) > 1 ? 'walk' : 'idle'), walk: 'walk' },
+  cinderqueen: { idle: (e) => (Math.abs(e.vx || 0) > 1 ? 'walk' : 'idle') },
+  archon: {
+    roar: (e) => (e._flapping ? 'fly' : 'roar'),
+    pounce: (e) => (e._flapping ? 'fly' : 'pounce'),
+    shell: (e) => (e.deathT >= 0 ? 'shell_dead' : 'shell'),
+  },
 };
 
 /** Loop playback: px per frame for distance-driven walkers, fps for the rest. */

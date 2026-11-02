@@ -1450,6 +1450,26 @@
     ]
    ]
   },
+  "archon_fly": {
+   "type": "clip",
+   "src": "clips/archon_fly_sheet.png",
+   "frames": "clips/archon_fly_frames.json"
+  },
+  "archon_roar": {
+   "type": "clip",
+   "src": "clips/archon_roar_sheet.png",
+   "frames": "clips/archon_roar_frames.json"
+  },
+  "archon_pounce": {
+   "type": "clip",
+   "src": "clips/archon_pounce_sheet.png",
+   "frames": "clips/archon_pounce_frames.json"
+  },
+  "archon_shell": {
+   "type": "clip",
+   "src": "clips/archon_shell_sheet.png",
+   "frames": "clips/archon_shell_frames.json"
+  },
   "throne_props": {
    "type": "sheet",
    "src": "throne_props_sheet.png",
@@ -1635,6 +1655,31 @@
      "erupt"
     ]
    ]
+  },
+  "cinderqueen_idle": {
+   "type": "clip",
+   "src": "clips/cinderqueen_idle_sheet.png",
+   "frames": "clips/cinderqueen_idle_frames.json"
+  },
+  "cinderqueen_walk": {
+   "type": "clip",
+   "src": "clips/cinderqueen_walk_sheet.png",
+   "frames": "clips/cinderqueen_walk_frames.json"
+  },
+  "cinderqueen_cast": {
+   "type": "clip",
+   "src": "clips/cinderqueen_cast_sheet.png",
+   "frames": "clips/cinderqueen_cast_frames.json"
+  },
+  "cinderqueen_surge": {
+   "type": "clip",
+   "src": "clips/cinderqueen_surge_sheet.png",
+   "frames": "clips/cinderqueen_surge_frames.json"
+  },
+  "cinderqueen_erupt": {
+   "type": "clip",
+   "src": "clips/cinderqueen_erupt_sheet.png",
+   "frames": "clips/cinderqueen_erupt_frames.json"
   },
   "grand_doors": {
    "type": "sheet",

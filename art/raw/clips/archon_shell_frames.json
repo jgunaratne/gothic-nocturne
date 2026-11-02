@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "shell0": {
+   "ax": 81.5,
+   "ay": 128.0,
+   "clipFrame": 95,
+   "h": 128,
+   "w": 155,
+   "x": 1,
+   "y": 1
+  },
+  "shell1": {
+   "ax": 53.5,
+   "ay": 123.0,
+   "clipFrame": 110,
+   "h": 123,
+   "w": 107,
+   "x": 157,
+   "y": 1
+  },
+  "shell2": {
+   "ax": 43.0,
+   "ay": 120.0,
+   "clipFrame": 116,
+   "h": 122,
+   "w": 85,
+   "x": 265,
+   "y": 1
+  },
+  "shell3": {
+   "ax": 33.0,
+   "ay": 120.0,
+   "clipFrame": 130,
+   "h": 120,
+   "w": 66,
+   "x": 351,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "archon_shell_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "archon_shell.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   95,
+   110,
+   116,
+   130
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.2679,
+  "select": "pick",
+  "sheet": "archon"
+ }
+}

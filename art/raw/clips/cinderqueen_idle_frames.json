@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "idle0": {
+   "ax": 35.2,
+   "ay": 119.0,
+   "clipFrame": 30,
+   "h": 119,
+   "w": 74,
+   "x": 1,
+   "y": 1
+  },
+  "idle1": {
+   "ax": 36.7,
+   "ay": 121.0,
+   "clipFrame": 36,
+   "h": 121,
+   "w": 73,
+   "x": 76,
+   "y": 1
+  },
+  "idle2": {
+   "ax": 34.6,
+   "ay": 118.0,
+   "clipFrame": 42,
+   "h": 118,
+   "w": 66,
+   "x": 150,
+   "y": 1
+  },
+  "idle3": {
+   "ax": 27.0,
+   "ay": 118.0,
+   "clipFrame": 48,
+   "h": 118,
+   "w": 53,
+   "x": 217,
+   "y": 1
+  },
+  "idle4": {
+   "ax": 27.5,
+   "ay": 121.0,
+   "clipFrame": 54,
+   "h": 121,
+   "w": 54,
+   "x": 271,
+   "y": 1
+  },
+  "idle5": {
+   "ax": 26.5,
+   "ay": 118.0,
+   "clipFrame": 60,
+   "h": 118,
+   "w": 55,
+   "x": 326,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "cinderqueen_idle_sheet.png",
+ "source": {
+  "action": "idle_creature",
+  "anchor": "mean",
+  "clip": "cinderqueen_idle.mp4",
+  "corr": 0.5147194266319275,
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 36,
+  "picks": [
+   30,
+   36,
+   42,
+   48,
+   54,
+   60
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Cinder Queen, a tall armoured warrior-queen in black obsidian and gold plate with a spiked golden crown, faceplate visor, crimson cape and flame-topped scepter stays in place facing right in its ready stance with a slow looping idle motion: breathing, a slight sway, small shifts of its limbs and weapon. It never steps away, turns or attacks. the brazier flame on her scepter flickers and her cape stirs as she breathes.",
+  "scale": 0.2544,
+  "select": "period",
+  "sheet": "cinderqueen"
+ }
+}

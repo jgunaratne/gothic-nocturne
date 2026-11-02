@@ -9,7 +9,7 @@ export const DT = 1 / 60;        // fixed simulation step
 
 // Tile ids
 /** Bumped whenever assets/ change so browsers never pair a stale atlas with new code. */
-export const ASSET_VERSION = '20261101g';
+export const ASSET_VERSION = '20261101h';
 
 export const T_EMPTY = 0;
 export const T_GROUND = 1;       // graveyard earth (strip "ground")
@@ -27,6 +27,11 @@ export const T_CRUMBLE = 12;     // fissured stone slab that crumbles underfoot
 export const T_DARKWOOD = 13;    // mossy dark-forest earth & roots (strip "darkwoodfloor")
 export const T_CAVERN = 14;      // volcanic obsidian cavern stone (strip "cavernfloor")
 export const T_LAVA = 15;        // searing molten lava pool hazard (non-solid)
+export const T_ALCHEMY = 16;     // alchemical brass-grated flagstones (strip "alchemyfloor")
+export const T_BALLROOM = 17;    // rose-marble & gilt parquet hall floor (strip "ballroomfloor")
+export const T_COLISEUM = 18;    // blood-sand & iron-bound arena stone (strip "coliseumfloor")
+export const T_AQUEDUCT = 19;    // mossy flooded viaduct masonry (strip "aqueductfloor")
+export const T_SKYKEEP = 20;     // moonlit celestial garden marble (strip "skykeepfloor")
 
 /** Terrain material tile id -> strip asset name. */
 export const MATERIAL_STRIP = {
@@ -38,6 +43,11 @@ export const MATERIAL_STRIP = {
   [T_SNOW]: 'snowfloor',
   [T_DARKWOOD]: 'darkwoodfloor',
   [T_CAVERN]: 'cavernfloor',
+  [T_ALCHEMY]: 'alchemyfloor',
+  [T_BALLROOM]: 'ballroomfloor',
+  [T_COLISEUM]: 'coliseumfloor',
+  [T_AQUEDUCT]: 'aqueductfloor',
+  [T_SKYKEEP]: 'skykeepfloor',
 };
 export const isMaterialTile = (t) => t in MATERIAL_STRIP;
 
@@ -90,24 +100,24 @@ export const SCORE = {
 export const DIFFICULTIES = {
   easy: {
     key: 'easy', name: 'EASY', tagline: 'A GENTLE NIGHT',
-    desc: '7 LIVES · 1 DMG HITS · 900 SEC · PITS FORGIVE · STRONG WHIP',
-    lives: 7, hearts: 15, time: 900,
+    desc: '7 LIVES · 1 DMG HITS · 1000 SEC · PITS FORGIVE · STRONG WHIP',
+    lives: 7, hearts: 15, time: 1000,
     damageTaken: 0.4, enemyHp: 0.6, spawnInterval: 2.2, maxAlive: 1,
     throwCooldown: 2.0, bossTempo: 1.6, bossPhase2: 0.3, scoreMult: 0.5,
     playerDamage: 1.5, invulnMul: 1.6, pitForgiving: true, knockbackMul: 0.6,
   },
   normal: {
     key: 'normal', name: 'NORMAL', tagline: 'THE CLASSIC HUNT',
-    desc: '3 LIVES · 420 SEC · STANDARD FIENDS',
-    lives: 3, hearts: 5, time: 420,
+    desc: '3 LIVES · 540 SEC · STANDARD FIENDS',
+    lives: 3, hearts: 5, time: 540,
     damageTaken: 1, enemyHp: 1, spawnInterval: 1, maxAlive: 3,
     throwCooldown: 1, bossTempo: 1, bossPhase2: 0.5, scoreMult: 1,
     playerDamage: 1, invulnMul: 1, pitForgiving: false, knockbackMul: 1,
   },
   hard: {
     key: 'hard', name: 'HARD', tagline: 'NO MERCY AT MIDNIGHT',
-    desc: '2 LIVES · 1.5X DAMAGE · 300 SEC · RELENTLESS FIENDS · 2X SCORE',
-    lives: 2, hearts: 3, time: 300,
+    desc: '2 LIVES · 1.5X DAMAGE · 390 SEC · RELENTLESS FIENDS · 2X SCORE',
+    lives: 2, hearts: 3, time: 390,
     damageTaken: 1.5, enemyHp: 1.5, spawnInterval: 0.65, maxAlive: 4,
     throwCooldown: 0.7, bossTempo: 0.75, bossPhase2: 0.65, scoreMult: 2,
     playerDamage: 1, invulnMul: 1, pitForgiving: false, knockbackMul: 1,

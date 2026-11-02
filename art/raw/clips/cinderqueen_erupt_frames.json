@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "erupt0": {
+   "ax": 45.5,
+   "ay": 90.0,
+   "clipFrame": 40,
+   "h": 90,
+   "w": 96,
+   "x": 1,
+   "y": 1
+  },
+  "erupt1": {
+   "ax": 45.0,
+   "ay": 93.0,
+   "clipFrame": 50,
+   "h": 93,
+   "w": 98,
+   "x": 98,
+   "y": 1
+  },
+  "erupt2": {
+   "ax": 43.5,
+   "ay": 106.0,
+   "clipFrame": 55,
+   "h": 107,
+   "w": 93,
+   "x": 197,
+   "y": 1
+  },
+  "erupt3": {
+   "ax": 51.5,
+   "ay": 140.0,
+   "clipFrame": 185,
+   "h": 140,
+   "w": 91,
+   "x": 291,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "cinderqueen_erupt_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "cinderqueen_erupt.mp4",
+  "frame": "erupt",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   40,
+   50,
+   55,
+   185
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.2401,
+  "select": "pick",
+  "sheet": "cinderqueen"
+ }
+}

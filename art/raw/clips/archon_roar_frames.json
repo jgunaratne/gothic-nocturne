@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "roar0": {
+   "ax": 42.5,
+   "ay": 124.0,
+   "clipFrame": 22,
+   "h": 117,
+   "w": 84,
+   "x": 1,
+   "y": 1
+  },
+  "roar1": {
+   "ax": 99.0,
+   "ay": 135.0,
+   "clipFrame": 30,
+   "h": 130,
+   "w": 169,
+   "x": 86,
+   "y": 1
+  },
+  "roar2": {
+   "ax": 107.0,
+   "ay": 142.0,
+   "clipFrame": 36,
+   "h": 141,
+   "w": 187,
+   "x": 256,
+   "y": 1
+  },
+  "roar3": {
+   "ax": 111.0,
+   "ay": 145.0,
+   "clipFrame": 55,
+   "h": 147,
+   "w": 210,
+   "x": 444,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "archon_roar_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "archon_roar.mp4",
+  "frame": "roar",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   22,
+   30,
+   36,
+   55
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.3119,
+  "select": "pick",
+  "sheet": "archon"
+ }
+}

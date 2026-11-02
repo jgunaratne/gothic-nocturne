@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "cast0": {
+   "ax": 38.0,
+   "ay": 118.0,
+   "clipFrame": 35,
+   "h": 118,
+   "w": 90,
+   "x": 1,
+   "y": 1
+  },
+  "cast1": {
+   "ax": 59.0,
+   "ay": 138.0,
+   "clipFrame": 45,
+   "h": 138,
+   "w": 108,
+   "x": 92,
+   "y": 1
+  },
+  "cast2": {
+   "ax": 61.5,
+   "ay": 138.0,
+   "clipFrame": 55,
+   "h": 138,
+   "w": 113,
+   "x": 201,
+   "y": 1
+  },
+  "cast3": {
+   "ax": 33.0,
+   "ay": 102.0,
+   "clipFrame": 140,
+   "h": 102,
+   "w": 155,
+   "x": 315,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "cinderqueen_cast_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "cinderqueen_cast.mp4",
+  "frame": "cast",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   35,
+   45,
+   55,
+   140
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.2566,
+  "select": "pick",
+  "sheet": "cinderqueen"
+ }
+}
