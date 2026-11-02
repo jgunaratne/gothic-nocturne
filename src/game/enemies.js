@@ -167,8 +167,10 @@ export class Skeleton extends Enemy {
         this.frame = 'throw1';
         if (!this.thrown) {
           this.thrown = true;
+          const isEasy = world.difficulty && world.difficulty.key === 'easy';
           if (this.variant === 'frost') {
-            for (let i = 0; i < 2; i++) {
+            const count = isEasy ? 1 : 2;
+            for (let i = 0; i < count; i++) {
               const s = new Projectile('iceshard', this.x + this.facing * 12, this.y - 44 - i * 8, this.facing, 'enemy');
               s.vx = this.facing * (275 + i * 50);
               s.vy = -45 - i * 65;
@@ -179,7 +181,7 @@ export class Skeleton extends Enemy {
             const pr = new Projectile(this.projectile, this.x + this.facing * 10, this.y - 46, this.facing, 'enemy');
             if (this.projectile === 'axe') { pr.vx = this.facing * 185; pr.vy = -420; pr.damage = 4; }
             world.spawnProjectile(pr);
-            if (this.variant === 'blood') {
+            if (this.variant === 'blood' && !isEasy) {
               const pr2 = new Projectile('bone', this.x + this.facing * 14, this.y - 38, this.facing, 'enemy');
               pr2.vx = this.facing * 275; pr2.vy = -250;
               world.spawnProjectile(pr2);
@@ -206,7 +208,7 @@ export class Skeleton extends Enemy {
       }
       world.sfx('enemy_die');
       world.particles.shards(this.x, this.y, 10, '#e8b0a0', this.y);
-      this.pileT = 3.4;
+      this.pileT = world.difficulty && world.difficulty.key === 'easy' ? 4.8 : 3.4;
       this.frame = 'walk0';
       return;
     }
@@ -454,9 +456,11 @@ export class Catoblepas extends Brute {
   fire(world) {
     const g = new Projectile('gas', this.x + this.facing * 44, this.y - 20, this.facing, 'enemy');
     world.spawnProjectile(g);
-    const g2 = new Projectile('gas', this.x + this.facing * 38, this.y - 34, this.facing, 'enemy');
-    g2.vx *= 1.3; g2.vy = -12;
-    world.spawnProjectile(g2);
+    if (!world.difficulty || world.difficulty.key !== 'easy') {
+      const g2 = new Projectile('gas', this.x + this.facing * 38, this.y - 34, this.facing, 'enemy');
+      g2.vx *= 1.3; g2.vy = -12;
+      world.spawnProjectile(g2);
+    }
     enemySfx(world, this, 'petrify_gas');
   }
   kill(world) {
@@ -1198,7 +1202,8 @@ export class CinderImp extends Enemy {
         this.facing = dx >= 0 ? 1 : -1;
         const sx = this.x + this.facing * 16, sy = this.y - 14;
         const baseAng = Math.atan2((p.y - 28) - sy, p.x - sx);
-        for (const off of [-0.08, 0.08]) {
+        const offsets = world.difficulty && world.difficulty.key === 'easy' ? [0] : [-0.08, 0.08];
+        for (const off of offsets) {
           const fb = new Projectile('fireball', sx, sy, this.facing, 'enemy');
           const ang = baseAng + off;
           fb.vx = Math.cos(ang) * 210; fb.vy = Math.sin(ang) * 210; fb.damage = 3;
@@ -1494,7 +1499,8 @@ export class PlagueAlchemist extends Enemy {
         this.fired = true;
         this.facing = dx >= 0 ? 1 : -1;
         const dist = Math.min(285, Math.max(75, Math.abs(dx)));
-        for (let i = 0; i < 2; i++) {
+        const count = world.difficulty && world.difficulty.key === 'easy' ? 1 : 2;
+        for (let i = 0; i < count; i++) {
           const fl = new Projectile('alchflask', this.x + this.facing * 14, this.y - 44, this.facing, 'enemy');
           fl.vx = this.facing * (95 + dist * (0.44 + i * 0.16));
           fl.vy = -325 - i * 48;
@@ -1537,13 +1543,20 @@ export class PhantomDuelist extends Enemy {
     const frontal = (fromX - this.x) * this.facing > 0;
     const piercing = !!(opts && opts.armorPiercing) || !!(world && world._hitArmorPiercing);
     if (this.state === 'parry' && frontal && !piercing) {
-      // Clean rapier parry -> immediate high-speed riposte lunge!
-      world.sfx('block');
-      world.particles.sparks(this.x + this.facing * 16, this.y - 38, 10, '#fff2b2');
-      this.state = 'lunge';
-      this.stateT = 0;
-      this.vx = this.facing * 285;
-      return false;
+      if (world && world.difficulty && world.difficulty.key === 'easy') {
+        // On Easy, parry deflects half the blow with sparks instead of full immunity + instant riposte.
+        dmg = Math.max(1, Math.floor(dmg * 0.5));
+        world.sfx('block');
+        world.particles.sparks(this.x + this.facing * 16, this.y - 38, 6, '#fff2b2');
+      } else {
+        // Clean rapier parry -> immediate high-speed riposte lunge!
+        world.sfx('block');
+        world.particles.sparks(this.x + this.facing * 16, this.y - 38, 10, '#fff2b2');
+        this.state = 'lunge';
+        this.stateT = 0;
+        this.vx = this.facing * 285;
+        return false;
+      }
     }
     const died = super.takeHit(dmg, fromX, world);
     this.knock = 0;
@@ -1783,7 +1796,8 @@ export class AbyssalMerman extends Enemy {
         this.facing = dx >= 0 ? 1 : -1;
         const sx = this.x + this.facing * 16, sy = this.y - 38;
         const baseAng = Math.atan2((p.y - 30) - sy, p.x - sx);
-        for (const off of [-0.09, 0.09]) {
+        const offsets = world.difficulty && world.difficulty.key === 'easy' ? [0] : [-0.09, 0.09];
+        for (const off of offsets) {
           const wb = new Projectile('waterbolt', sx, sy, this.facing, 'enemy');
           const ang = baseAng + off;
           wb.vx = Math.cos(ang) * 295; wb.vy = Math.sin(ang) * 295; wb.gravity = 0;
@@ -1948,7 +1962,8 @@ export class CryptNecromancer extends Enemy {
       this.frame = Math.floor(this.t * 4.5) % 2 ? 'float1' : 'float0';
       if (near && this.actCd <= 0 && Math.abs(dx) < 325) {
         this.cycle++;
-        this.state = (this.cycle % 2 === 0 && this.minions.length < 2) ? 'chant' : 'cast';
+        const maxMinions = world.difficulty && world.difficulty.key === 'easy' ? 1 : 2;
+        this.state = (this.cycle % 2 === 0 && this.minions.length < maxMinions) ? 'chant' : 'cast';
         this.stateT = 0;
         this.fired = false;
       }
@@ -1961,10 +1976,12 @@ export class CryptNecromancer extends Enemy {
         const sx = this.x + this.facing * 16, sy = this.y - 36;
         const sk = new Projectile('skull', sx, sy - 8, this.facing, 'enemy');
         world.spawnProjectile(sk);
-        const hf = new Projectile('hellfire', sx, sy + 4, this.facing, 'enemy');
-        const ang = Math.atan2((p.y - 28) - (sy + 4), p.x - sx);
-        hf.vx = Math.cos(ang) * 235; hf.vy = Math.sin(ang) * 235; hf.dir = hf.vx >= 0 ? 1 : -1;
-        world.spawnProjectile(hf);
+        if (!world.difficulty || world.difficulty.key !== 'easy') {
+          const hf = new Projectile('hellfire', sx, sy + 4, this.facing, 'enemy');
+          const ang = Math.atan2((p.y - 28) - (sy + 4), p.x - sx);
+          hf.vx = Math.cos(ang) * 235; hf.vy = Math.sin(ang) * 235; hf.dir = hf.vx >= 0 ? 1 : -1;
+          world.spawnProjectile(hf);
+        }
         world.particles.sparks(sx, sy, 8, '#c88cff');
         enemySfx(world, this, 'ghost_moan');
       }
@@ -1983,9 +2000,12 @@ export class CryptNecromancer extends Enemy {
         const row = level.surfaceRow(tx, Math.max(0, Math.floor(this.y / TILE)));
         if (row > 0 && level.isSolid(tx, row)) {
           const mx = tx * TILE + TILE / 2, my = row * TILE;
-          const m = this.cycle % 4 === 0
-            ? new Skeleton(mx, my, (tx - 5) * TILE, (tx + 6) * TILE, 'red')
-            : new Zombie(mx, my, this.facing, 'ghoul', false);
+          const isEasy = world.difficulty && world.difficulty.key === 'easy';
+          const m = isEasy
+            ? new Zombie(mx, my, this.facing, 'normal', false)
+            : (this.cycle % 4 === 0
+              ? new Skeleton(mx, my, (tx - 5) * TILE, (tx + 6) * TILE, 'red')
+              : new Zombie(mx, my, this.facing, 'ghoul', false));
           m.active = true;
           world.spawnEnemy(m);
           this.minions.push(m);

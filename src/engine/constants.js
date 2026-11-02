@@ -9,7 +9,7 @@ export const DT = 1 / 60;        // fixed simulation step
 
 // Tile ids
 /** Bumped whenever assets/ change so browsers never pair a stale atlas with new code. */
-export const ASSET_VERSION = '20261102g';
+export const ASSET_VERSION = '20261102k';
 
 export const T_EMPTY = 0;
 export const T_GROUND = 1;       // graveyard earth (strip "ground")
@@ -69,9 +69,9 @@ export const isSolidTile = (t) =>
 
 // Gameplay tuning
 export const PLAYER = {
-  speed: 94,
-  accel: 1320,
-  airAccel: 720,
+  speed: 108,
+  accel: 1480,
+  airAccel: 820,
   jump: 545,
   jumpCut: 0.45,
   coyote: 0.09,
@@ -102,11 +102,12 @@ export const SCORE = {
 export const DIFFICULTIES = {
   easy: {
     key: 'easy', name: 'EASY', tagline: 'A GENTLE NIGHT',
-    desc: '7 LIVES · GENTLE HITS · 1600 SEC · PITS FORGIVE · STRONG WHIP',
+    desc: '7 LIVES · 1 DMG HITS · 1600 SEC · PITS FORGIVE · CALM FIENDS',
     lives: 7, hearts: 15, time: 1600,
-    damageTaken: 0.45, enemyHp: 0.65, spawnInterval: 2.0, maxAlive: 2,
-    throwCooldown: 1.8, bossTempo: 1.45, bossPhase2: 0.38, scoreMult: 0.5,
-    playerDamage: 1.45, invulnMul: 1.65, pitForgiving: true, knockbackMul: 0.6,
+    damageTaken: 0.28, enemyHp: 0.45, spawnInterval: 2.8, maxAlive: 1,
+    throwCooldown: 2.35, bossTempo: 1.7, bossPhase2: 0.28, scoreMult: 0.5,
+    playerDamage: 1.65, invulnMul: 1.85, pitForgiving: true, knockbackMul: 0.5,
+    enemyTimeScale: 0.78, bossTimeScale: 0.88, projTimeScale: 0.78, rankScale: 0.35,
   },
   normal: {
     key: 'normal', name: 'NORMAL', tagline: 'THE CLASSIC HUNT',

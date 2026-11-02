@@ -44,6 +44,7 @@ export class TurtleAlly extends Entity {
     this.vx = 0;
     this.vy = 0;
     this.riding = null;
+    this.onStair = null;
     this.state = 'follow';
     this.stateT = 0;
     this.warpFlash = 0.35;
@@ -110,16 +111,31 @@ export class TurtleAlly extends Entity {
         if (Math.abs(this.vx) < 4) { this.vx = 0; this.facing = p.facing; }
       }
 
-      // Navigate steps, ledges, and gaps autonomously
+      // Navigate stairs, steps, ledges, and gaps autonomously
+      if (this.onGround && !this.onStair && Math.abs(this.vx) > 4) {
+        if (p.y < this.y - 16 && level.findBottomStair) {
+          const bs = level.findBottomStair(this.x, this.y, 28, 16);
+          if (bs && this.facing === bs.ascDir && (this.x + this.vx * dt - bs.botX) * bs.ascDir > 0) {
+            this.onStair = bs;
+          }
+        } else if (p.y > this.y + 16 && level.findTopStair) {
+          const ts = level.findTopStair(this.x, this.y, 28, 14);
+          if (ts && this.facing === -ts.ascDir && (this.x + this.vx * dt - ts.topX) * (-ts.ascDir) > 0) {
+            this.onStair = ts;
+          }
+        }
+      }
       if (this.onGround) {
+        const onOrNearStair = !!(this.onStair || (level.solidStairNear && level.solidStairNear(this.x + this.facing * 20, this.y, 22)));
         const aheadTx = Math.floor((this.x + this.facing * 20) / TILE);
         const feetTy = Math.floor((this.y + 2) / TILE);
-        const stepWall = level.isSolid(aheadTx, feetTy - 1);
-        const gapAhead = Math.abs(dx) > 28 && !this.riding && !level.isStandable(aheadTx, feetTy) && !level.isStandable(aheadTx, feetTy + 1);
-        const playerHigher = p.y < this.y - 36 && Math.abs(p.x - this.x) < 120;
+        const stepWall = !onOrNearStair && level.isSolid(aheadTx, feetTy - 1);
+        const gapAhead = !onOrNearStair && Math.abs(dx) > 28 && !this.riding && !level.isStandable(aheadTx, feetTy) && !level.isStandable(aheadTx, feetTy + 1);
+        const playerHigher = !onOrNearStair && p.y < this.y - 36 && Math.abs(p.x - this.x) < 120;
         if (this.hitWall || stepWall || gapAhead || playerHigher) {
           this.vy = -510;
           this.onGround = false;
+          this.onStair = null;
         }
       }
 

@@ -302,11 +302,11 @@ export function composeGridStage(spec) {
   const addHanging = (kind, tx, row, phase = 0) => {
     if (!kind) return;
     if (kind === 'chandelier') {
-      rawDecor.push({ type: 'chandelier', x: px(tx), y: py(row) - 148, len: 46, r: 24, phase });
+      rawDecor.push({ type: 'chandelier', x: px(tx), y: py(row) - 260, len: 56, r: 24, phase, _tx: tx, _row: row });
     } else if (kind === 'pendulum') {
-      rawDecor.push({ type: 'pendulum', x: px(tx), y: py(row) - 150, len: 92, r: 18, period: 2.8, phase });
+      rawDecor.push({ type: 'pendulum', x: px(tx), y: py(row) - 250, len: 96, r: 18, period: 2.8, phase, _tx: tx, _row: row });
     } else if (kind === 'cage') {
-      rawDecor.push({ type: 'cage', x: px(tx), y: py(row) - 144, len: 48, phase });
+      rawDecor.push({ type: 'cage', x: px(tx), y: py(row) - 240, len: 52, phase, _tx: tx, _row: row });
     }
   };
   const addWaterBasin = (x0Tile, x1Tile, floorRow, alpha = 0.78) => {
@@ -429,25 +429,17 @@ export function composeGridStage(spec) {
       const asc = st.dir === 'asc';
       colArchetype = ROOM_ARCHETYPES.SHAFT_VERTICAL;
 
-      op((lv) => {
-        // 4-tile landings at both ends + four 3-tile monumental masonry steps (1-tile risers!)
-        const stepRowAt = (off) => {
-          if (off <= 3) return asc ? floorBot : floorTop;
-          if (off <= 6) return asc ? floorBot - 1 : floorTop + 1;
-          if (off <= 9) return asc ? floorBot - 2 : floorTop + 2;
-          if (off <= 12) return asc ? floorBot - 3 : floorTop + 3;
-          if (off <= 15) return asc ? floorBot - 4 : floorTop + 4;
-          return asc ? floorTop : floorBot;
-        };
-        for (let off = 0; off < GRID_CELL_W; off++) {
-          const sr = stepRowAt(off);
-          lv.clear(x0 + off, x0 + off, 0, sr - 1);
-          lv.ground(x0 + off, x0 + off, sr, mat);
-        }
-      });
-
       const leftLandR = asc ? floorBot : floorTop;
       const rightLandR = asc ? floorTop : floorBot;
+      op((lv) => {
+        // 5-tile flat landings at both ends (`0..4` and `15..19`) + 10-tile walkable Grand Staircase (`5..15`)
+        lv.clear(x0, x0 + 4, 0, leftLandR - 1);
+        lv.ground(x0, x0 + 4, leftLandR, mat);
+        lv.clear(x0 + 15, x0 + 19, 0, rightLandR - 1);
+        lv.ground(x0 + 15, x0 + 19, rightLandR, mat);
+        lv.stair(x0 + 5, leftLandR, x0 + 15, rightLandR, { passThrough: false, mat, railing: true });
+      });
+
       // Newel-post monuments on both landings
       addDeco(props.tall[0], props.tall[1], x0 + 2, leftLandR);
       addDeco(props.altTall[0], props.altTall[1], x0 + 17, rightLandR);
@@ -456,18 +448,18 @@ export function composeGridStage(spec) {
         addDeco('arch', 'gate', x0 + 18, rightLandR);
       }
       if (props.sconce) {
-        addDeco(props.sconce[0], props.sconce[1], x0 + 6, asc ? floorBot - 1 : floorTop + 1, 0, -44);
-        addDeco(props.sconce[0], props.sconce[1], x0 + 13, asc ? floorBot - 4 : floorTop + 4, 0, -44);
+        addDeco(props.sconce[0], props.sconce[1], x0 + 7, Math.round(leftLandR + (rightLandR - leftLandR) * 0.25), 0, -44);
+        addDeco(props.sconce[0], props.sconce[1], x0 + 13, Math.round(leftLandR + (rightLandR - leftLandR) * 0.75), 0, -44);
       }
       addCandle(x0 + 3, leftLandR);
       addCandle(x0 + 16, rightLandR, 'heart_big');
 
-      // Layered grand-stairway defenders: lower/upper landing guards + soaring aerial sentry
+      // Layered grand-stairway defenders: full-flight stair patrol + upper landing sniper + aerial sentry
       const [gStair, gStairVar] = pickGround(mc);
       const [sStair, sStairVar] = pickSniper(mc + 1);
       const [aType, aVar] = pickAerial(mc + 2);
-      addEnemy({ type: gStair, variant: gStairVar, off: 2, minOff: 1, maxOff: 3, row: leftLandR }, x0, x1, floorBot);
-      addEnemy({ type: sStair, variant: sStairVar, off: 17, minOff: 16, maxOff: 18, row: rightLandR }, x0, x1, floorBot);
+      addEnemy({ type: gStair, variant: gStairVar, off: 3, minOff: 1, maxOff: 17, row: leftLandR }, x0, x1, floorBot);
+      addEnemy({ type: sStair, variant: sStairVar, off: 17, minOff: 15, maxOff: 18, row: rightLandR }, x0, x1, floorBot);
       addEnemy({ type: aType, variant: aVar, off: 10, minOff: 3, maxOff: 16, row: Math.min(leftLandR, rightLandR), h: 3 }, x0, x1, floorBot);
 
       roomSchema.push(createRoomSchemaEntry({
@@ -589,13 +581,11 @@ export function composeGridStage(spec) {
           lv.fill(x0, x1, floorR, floorR, mat);
         }
 
-        // Stairwell aperture in `[mc, mr]`'s floor connecting down to `[mc, mr + 1]`
+        // Pass-through stairwell cover in `[mc, mr]`'s floor connecting down to `[mc, mr + 1]`
         if (stairDown === 'west') {
-          lv.fill(x0 + 2, x0 + 3, floorR, floorR, T_EMPTY);
-          lv.platform(x0 + 4, x0 + 6, floorR);
+          lv.platform(x0 + 2, x0 + 6, floorR);
         } else if (stairDown === 'east') {
-          lv.platform(x0 + 13, x0 + 15, floorR);
-          lv.fill(x0 + 16, x0 + 17, floorR, floorR, T_EMPTY);
+          lv.platform(x0 + 13, x0 + 17, floorR);
         }
 
         // Breakable 4-tile hatch in `[mc, mr]`'s floor above a Sunken Secret Vault `[mc, mr + 1]`
@@ -603,13 +593,11 @@ export function composeGridStage(spec) {
           lv.fill(x0 + 7, x0 + 10, floorR, floorR, T_BLOCK);
         }
 
-        // Switchback stairwell steps inside `[mc, mr]` climbing up to `[mc, mr - 1]`
+        // Full walkable inter-story staircase inside `[mc, mr]` climbing up to `[mc, mr - 1]`
         if (stairUp === 'west') {
-          lv.platform(x0 + 5, x0 + 6, floorR - 2);
-          lv.platform(x0 + 3, x0 + 4, floorR - 4);
+          lv.stair(x0 + 2, floorR, x0 + 7, floorR - 5, { passThrough: true, mat, railing: true });
         } else if (stairUp === 'east') {
-          lv.platform(x0 + 13, x0 + 14, floorR - 2);
-          lv.platform(x0 + 15, x0 + 16, floorR - 4);
+          lv.stair(x0 + 13, floorR - 5, x0 + 18, floorR, { passThrough: true, mat, railing: true });
         }
 
         // Continuous non-climbable perimeter curtain walls at non-connected cell edges
@@ -621,9 +609,9 @@ export function composeGridStage(spec) {
       // 2C. Sunken Secret Vault Interior (`isSecretVault`)
       if (isSecretVault(mc, mr)) {
         op((lv) => {
-          // 2-step climb-out staircase aligned cleanly beneath the `7..10` ceiling hatch
-          lv.platform(x0 + 7, x0 + 8, floorR - 2);
-          lv.platform(x0 + 9, x0 + 10, floorR - 4);
+          // Walkable staircase climbing up to a landing right beneath the `7..10` ceiling hatch
+          lv.stair(x0 + 4, floorR, x0 + 7, floorR - 3, { passThrough: true, mat, railing: true });
+          lv.platform(x0 + 7, x0 + 10, floorR - 3);
         });
         const tells = [
           VISUAL_TELLS.SPRITE_VARIANT_CRACKED,
@@ -666,9 +654,12 @@ export function composeGridStage(spec) {
         checkpoints.push(px(x0 + 4));
         checkpointRows.push(floorR);
 
-        // Raised central rest altar with hidden Wall-Meat block
+        // Raised central rest altar with flanking stairs & hidden Wall-Meat block
         op((lv) => {
+          const daisOpts = { passThrough: false, mat, railing: false, clearAbove: false, fillBottom: isBotInCol ? undefined : floorR };
           lv.fill(x0 + 8, x0 + 12, floorR - 1, floorR - 1, mat);
+          lv.stair(x0 + 7, floorR, x0 + 8, floorR - 1, daisOpts);
+          lv.stair(x0 + 13, floorR - 1, x0 + 14, floorR, daisOpts);
           lv.set(x0 + 10, floorR - 1, T_BLOCK);
         });
         blockDrops[`${x0 + 10},${floorR - 1}`] = 'meat';
@@ -759,9 +750,12 @@ export function composeGridStage(spec) {
         colPacing = PACING_ZONES.MASTERY_REWARD;
         const pCol = x0 + 10;
         const pRow = floorR - 1;
-        // 9-tile raised 1-step stone dais (`[6..14]`) so `[pCol-4..pCol+4]` is 100% flat solid stone
+        // 9-tile raised 1-step stone dais (`[6..14]`) with smooth flanking stairs
         op((lv) => {
+          const daisOpts = { passThrough: false, mat, railing: false, clearAbove: false, fillBottom: isBotInCol ? undefined : floorR };
           lv.fill(x0 + 6, x0 + 14, pRow, floorR, mat);
+          lv.stair(x0 + 5, floorR, x0 + 6, pRow, daisOpts);
+          lv.stair(x0 + 15, pRow, x0 + 16, floorR, daisOpts);
         });
         pedestalAnchor = { col: pCol, row: pRow };
 
@@ -910,10 +904,13 @@ export function composeGridStage(spec) {
       }
 
       if (tpl === 'COLONNADE_NAVE') {
-        // Symmetric Pillar Nave with a raised 6-tile central altar dais (`floorR - 1`)
+        // Symmetric Pillar Nave with a raised 6-tile central altar dais (`floorR - 1`) & flanking stone stairs
         colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
         op((lv) => {
+          const daisOpts = { passThrough: false, mat, railing: false, clearAbove: false, fillBottom: isBotInCol ? undefined : floorR };
           lv.fill(x0 + 7, x0 + 12, floorR - 1, floorR - 1, mat);
+          lv.stair(x0 + 5, floorR, x0 + 7, floorR - 1, daisOpts);
+          lv.stair(x0 + 13, floorR - 1, x0 + 15, floorR, daisOpts);
         });
         addDeco(props.tall[0], props.tall[1], x0 + 3, floorR);
         addDeco(props.focal[0], props.focal[1], x0 + 9, floorR - 1);
@@ -930,9 +927,9 @@ export function composeGridStage(spec) {
         const [sType, sVar] = pickSniper(mc + 1);
         const [hType, hVar] = colPacing === PACING_ZONES.INTRO_SAFE ? pickGround(mc + 2) : pickHeavy(mc + 2);
         const [aType, aVar] = pickAerial(mc + 3);
-        addEnemy({ type: gType, variant: gVar, off: 4, minOff: 2, maxOff: 6 }, x0, x1, floorR);
+        addEnemy({ type: gType, variant: gVar, off: 4, minOff: 2, maxOff: 17 }, x0, x1, floorR);
         addEnemy({ type: sType, variant: sVar, off: 10, minOff: 7, maxOff: 12, row: floorR - 1 }, x0, x1, floorR);
-        addEnemy({ type: hType, variant: hVar, off: 15, minOff: 13, maxOff: 17 }, x0, x1, floorR);
+        addEnemy({ type: hType, variant: hVar, off: 16, minOff: 14, maxOff: 18 }, x0, x1, floorR);
         addEnemy({ type: aType, variant: aVar, off: 12, minOff: 4, maxOff: 16, row: floorR - 1, h: 3 }, x0, x1, floorR);
         if (colPacing === PACING_ZONES.PRE_BOSS_ACCORDION || colPacing === PACING_ZONES.TWIST_COMBINATION) {
           const [gExtra, gExtraVar] = pickGround(mc + 4);
@@ -942,11 +939,13 @@ export function composeGridStage(spec) {
           spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
         }
       } else if (tpl === 'TWIN_BALCONY_AMPHITHEATER') {
-        // Set-piece combat hall: flat stone floor + twin symmetric `floorR - 2` balconies (`3..6` & `13..16`)
+        // Set-piece combat hall: flat stone floor + twin symmetric `floorR - 2` balconies with mezzanine stairs
         colArchetype = ROOM_ARCHETYPES.ARENA_COMBAT;
         op((lv) => {
           lv.platform(x0 + 3, x0 + 6, floorR - 2);
           lv.platform(x0 + 13, x0 + 16, floorR - 2);
+          lv.stair(x0 + 7, floorR - 2, x0 + 9, floorR, { passThrough: true, mat, railing: true });
+          lv.stair(x0 + 11, floorR, x0 + 13, floorR - 2, { passThrough: true, mat, railing: true });
         });
         addDeco(props.focal[0], props.focal[1], x0 + 10, floorR);
         addDeco(props.low[0], props.low[1], x0 + 2, floorR);
@@ -1062,6 +1061,9 @@ export function composeGridStage(spec) {
         colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
         op((lv) => {
           lv.platform(x0 + 8, x0 + 11, floorR - 2);
+          if ((mc & 1) === 0) {
+            lv.stair(x0 + 6, floorR, x0 + 8, floorR - 2, { passThrough: true, mat, railing: true });
+          }
         });
         addDeco(props.altTall[0], props.altTall[1], x0 + 3, floorR);
         addDeco(props.focal[0], props.focal[1], x0 + 9, floorR);
@@ -1220,6 +1222,29 @@ export function composeGridStage(spec) {
     },
     clear(x0_, x1_, y0_ = 0, y1_ = rows - 1) { this.fill(x0_, x1_, y0_, y1_, T_EMPTY); },
     platform(x0_, x1_, r) { this.fill(x0_, x1_, r, r, T_PLATFORM); },
+    stair(col0, row0, col1, row1, opts = {}) {
+      if (opts.passThrough) return;
+      const cStart = Math.min(col0, col1);
+      const cEnd = Math.max(col0, col1);
+      if (cEnd <= cStart || row0 === row1) return;
+      const x0s = cStart * TILE;
+      const x1s = cEnd * TILE;
+      const y0s = (col0 < col1 ? row0 : row1) * TILE;
+      const y1s = (col0 < col1 ? row1 : row0) * TILE;
+      const sY = (wx) => {
+        if (wx <= x0s) return y0s;
+        if (wx >= x1s) return y1s;
+        return y0s + ((wx - x0s) / (x1s - x0s)) * (y1s - y0s);
+      };
+      const clearTop = opts.clearTop == null ? 0 : opts.clearTop;
+      const fillBottom = opts.fillBottom == null ? (rows - 1) : Math.min(rows - 1, opts.fillBottom);
+      const m = opts.mat || T_GROUND;
+      for (let tx = cStart; tx < cEnd; tx++) {
+        const fillRow = Math.min(rows - 1, Math.ceil(Math.max(sY(tx * TILE - 16), sY((tx + 1) * TILE + 16)) / TILE));
+        if (opts.clearAbove !== false && fillRow > clearTop) this.fill(tx, tx, clearTop, fillRow - 1, T_EMPTY);
+        if (fillBottom >= fillRow) this.fill(tx, tx, fillRow, fillBottom, m);
+      }
+    },
   };
   for (const fn of ops) fn(scratchLv);
   const sTile = (x, y) => (x < 0 || y < 0 || x >= cols || y >= rows ? T_EMPTY : scratchTiles[y * cols + x]);

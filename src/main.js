@@ -547,8 +547,13 @@ class Game {
           if (row < 0) row = lvl.surfaceRow(at + d);
         }
       }
-      this.world.player.x = at * 32 + 16;
-      this.world.player.y = (row >= 0 ? row : 12) * 32;
+      const wx = at * 32 + 16;
+      let wy = (row >= 0 ? row : 12) * 32;
+      const stNear = lvl.solidStairNear && lvl.solidStairNear(wx, wy, 36);
+      if (stNear) wy = lvl.stairY(stNear, wx);
+      this.world.player.x = wx;
+      this.world.player.y = wy;
+      if (stNear) this.world.player.onStair = stNear;
       this.world.camera.snapTo(this.world.player.x, this.world.player.y);
       this.world.recordExploration();
     }

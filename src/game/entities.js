@@ -10,6 +10,8 @@ export class Entity {
     this.facing = 1;
     this.onGround = false;
     this.riding = null;              // MovingPlatform currently supporting feet
+    this.onStair = null;             // Active inclined staircase (`level.stairs[i]`)
+    this.wantStairCatch = false;     // True when holding Up to catch pass-through stairs mid-air
     this.hitWall = false;
     this.dead = false;
     this.gravityScale = 1;
@@ -31,17 +33,123 @@ export class Entity {
     return this.left < o.right && this.right > o.left && this.top < o.bottom && this.bottom > o.top;
   }
 
-  /** Integrates gravity and resolves collisions against the level grid. */
+  /** Integrates gravity and resolves collisions against the level grid & walkable stairs. */
   physics(level, dt, { collide = true, oneWay = true } = {}) {
     this.time += dt;
-    this.vy = Math.min(MAX_FALL, this.vy + GRAVITY * this.gravityScale * dt);
     this.hitWall = false;
-    if (!collide) { this.riding = null; this.x += this.vx * dt; this.y += this.vy * dt; return; }
+    if (!collide) {
+      this.vy = Math.min(MAX_FALL, this.vy + GRAVITY * this.gravityScale * dt);
+      this.riding = null;
+      this.onStair = null;
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      return;
+    }
+
+    const prevX = this.x;
+    const prevY = this.y;
+    const wasGround = this.onGround;
+
+    // 1. Smooth diagonal traversal while latched onto `this.onStair`
+    if (this.onStair && this.vy >= 0 && !this.dropThrough) {
+      const s = this.onStair;
+      this.riding = null;
+      this.moveXOnStair(level, this.vx * dt, s);
+
+      if ((s.ascDir > 0 && this.x >= s.topX) || (s.ascDir < 0 && this.x <= s.topX)) {
+        this.y = s.topY;
+        this.vy = 0;
+        this.onGround = true;
+        this.onStair = null;
+        return;
+      }
+      if ((s.ascDir > 0 && this.x <= s.botX) || (s.ascDir < 0 && this.x >= s.botX)) {
+        this.y = s.botY;
+        this.vy = 0;
+        this.onGround = true;
+        this.onStair = null;
+        return;
+      }
+
+      const targetY = level.stairY(s, this.x);
+      const nextY = (prevY - targetY > 5) ? Math.max(targetY, prevY - 260 * dt) : targetY;
+      if (nextY < prevY) {
+        const tyHead = Math.floor((nextY - this.h) / TILE);
+        const tx0 = Math.floor(this.left / TILE), tx1 = Math.floor((this.right - 0.01) / TILE);
+        for (let tx = tx0; tx <= tx1; tx++) {
+          if (level.isSolid(tx, tyHead)) {
+            this.x = prevX;
+            this.vx = 0;
+            this.y = Math.max(targetY, prevY);
+            this.vy = 0;
+            this.onGround = true;
+            return;
+          }
+        }
+      }
+      this.y = nextY;
+      this.vy = 0;
+      this.onGround = true;
+      return;
+    }
+
+    if (this.vy < 0 || this.dropThrough) this.onStair = null;
+
+    // 2. Grounded auto-entry onto solid (`!passThrough`) stairs from either landing
+    if (wasGround && !this.riding && !this.dropThrough && this.vy >= 0 && this.vx !== 0 && level.stairs && level.stairs.length) {
+      const probeX = this.x + this.vx * dt;
+      for (let i = 0; i < level.stairs.length; i++) {
+        const s = level.stairs[i];
+        if (s.passThrough) continue;
+        const inSpan = probeX > s.minX && probeX < s.maxX;
+        const crossed = (prevX <= s.minX && probeX > s.minX) || (prevX >= s.maxX && probeX < s.maxX) || inSpan;
+        if (!crossed) continue;
+        if (Math.abs(prevY - level.stairY(s, prevX)) <= 12) {
+          this.onStair = s;
+          this.moveXOnStair(level, this.vx * dt, s);
+          if ((s.ascDir > 0 && this.x >= s.topX) || (s.ascDir < 0 && this.x <= s.topX)) {
+            this.y = s.topY;
+            this.onStair = null;
+          } else if ((s.ascDir > 0 && this.x <= s.botX) || (s.ascDir < 0 && this.x >= s.botX)) {
+            this.y = s.botY;
+            this.onStair = null;
+          } else {
+            this.y = level.stairY(s, this.x);
+          }
+          this.vy = 0;
+          this.onGround = true;
+          return;
+        }
+      }
+    }
+
+    this.vy = Math.min(MAX_FALL, this.vy + GRAVITY * this.gravityScale * dt);
     const wasRiding = this.riding;
     this.moveX(level, this.vx * dt);
     this.onGround = false;
     this.riding = null;
-    this.moveY(level, this.vy * dt, oneWay, wasRiding);
+    this.moveY(level, this.vy * dt, oneWay, wasRiding, prevX);
+  }
+
+  /** Horizontal sweep while on `stair`, clearing the top landing's floor lip under the uphill foot. */
+  moveXOnStair(level, dx, stair) {
+    if (dx === 0) return;
+    this.x += dx;
+    const lipClear = Math.ceil(this.w * 0.55 * stair.slope) + 6;
+    const ty0 = Math.floor(this.top / TILE), ty1 = Math.floor((this.bottom - 0.01) / TILE);
+    if (dx > 0) {
+      const tx = Math.floor((this.right - 0.01) / TILE);
+      for (let ty = ty0; ty <= ty1; ty++) {
+        if (ty * TILE >= stair.topY && ty * TILE >= this.bottom - lipClear) continue;
+        if (level.isSolid(tx, ty)) { this.x = tx * TILE - this.w / 2; this.vx = 0; this.hitWall = true; return; }
+      }
+    } else {
+      const tx = Math.floor(this.left / TILE);
+      for (let ty = ty0; ty <= ty1; ty++) {
+        if (ty * TILE >= stair.topY && ty * TILE >= this.bottom - lipClear) continue;
+        if (level.isSolid(tx, ty)) { this.x = (tx + 1) * TILE + this.w / 2; this.vx = 0; this.hitWall = true; return; }
+      }
+    }
   }
 
   moveX(level, dx) {
@@ -61,7 +169,7 @@ export class Entity {
     }
   }
 
-  moveY(level, dy, oneWay = true, wasRiding = null) {
+  moveY(level, dy, oneWay = true, wasRiding = null, prevX = this.x) {
     if (dy === 0) {
       // Resting check so onGround stays true while standing still (including rising movers).
       this.onGround = this.groundBelow(level, oneWay);
@@ -104,6 +212,30 @@ export class Entity {
     }
 
     if (dy > 0) {
+      // Catch solid staircases (or Up-engaged pass-through staircases) cleanly during descent
+      if (level.stairs && level.stairs.length) {
+        let bestS = null;
+        let bestSy = Infinity;
+        for (let i = 0; i < level.stairs.length; i++) {
+          const s = level.stairs[i];
+          if (s.passThrough && !(oneWay && this.wantStairCatch && !this.dropThrough)) continue;
+          if (this.x <= s.minX || this.x >= s.maxX) continue;
+          const sy = level.stairY(s, this.x);
+          const syPrev = level.stairY(s, prevX);
+          if (prevBottom <= Math.max(sy, syPrev) + 6 && this.bottom >= sy - 1 && sy < bestSy) {
+            bestSy = sy;
+            bestS = s;
+          }
+        }
+        if (bestS) {
+          this.y = bestSy;
+          this.vy = 0;
+          this.onGround = true;
+          this.onStair = bestS;
+          return;
+        }
+      }
+
       const ty = Math.floor((this.bottom - 0.01) / TILE);
       for (let tx = tx0; tx <= tx1; tx++) {
         const solid = level.isSolid(tx, ty);
@@ -120,6 +252,7 @@ export class Entity {
   }
 
   groundBelow(level, oneWay = true) {
+    if (this.onStair && !this.dropThrough) return true;
     if (oneWay && level.movers) {
       for (const m of level.movers) {
         if (this.dropThrough && (this.dropFromY == null || Math.abs(m.y - this.dropFromY) <= 12)) continue;
@@ -128,6 +261,13 @@ export class Entity {
           this.riding = m;
           return true;
         }
+      }
+    }
+    if (level.solidStairNear) {
+      const st = level.solidStairNear(this.x, this.bottom, 2.0);
+      if (st && this.x > st.minX && this.x < st.maxX) {
+        this.onStair = st;
+        return true;
       }
     }
     const ty = Math.floor((this.bottom + 0.5) / TILE);
@@ -143,8 +283,15 @@ export class Entity {
   blockedAhead(level) {
     const aheadX = this.x + this.facing * (this.w / 2 + 2);
     const tx = Math.floor(aheadX / TILE);
-    const tyFeet = Math.floor((this.bottom + 2) / TILE);
     const tyBody = Math.floor((this.bottom - this.h / 2) / TILE);
+    const activeStair = this.onStair || (level.solidStairNear && level.solidStairNear(aheadX, this.bottom, 18));
+    if (activeStair) {
+      if (level.isSolid(tx, tyBody) && tyBody * TILE < activeStair.topY) return true;
+      if (aheadX > activeStair.minX && aheadX < activeStair.maxX) return false;
+      const landRow = Math.round(level.stairY(activeStair, aheadX) / TILE);
+      return !level.isStandable(tx, landRow);
+    }
+    const tyFeet = Math.floor((this.bottom + 2) / TILE);
     if (level.isSolid(tx, tyBody)) return true;
     return !level.isStandable(tx, tyFeet);
   }

@@ -363,9 +363,9 @@ export class StageBuilder {
         lv.ground(mid - 1, mid, row, this.mat);
       }
 
-      // Symmetric 2-tile entry/exit ramps on BOTH ends -> fast continuous upper speedway (`row - 4`)
-      lv.platform(x0 + 2, x0 + 3, row - 2);
-      lv.platform(x1 - 3, x1 - 2, row - 2);
+      // Symmetric walkable mezzanine stairs on BOTH ends -> fast continuous upper speedway (`row - 4`)
+      lv.stair(x0 + 1, row, x0 + 5, uRow, { passThrough: true, mat: this.mat, railing: true });
+      lv.stair(x1 - 4, uRow, x1, row, { passThrough: true, mat: this.mat, railing: true });
       lv.platform(x0 + 5, mid - 2, uRow);
       lv.platform(mid + 1, x1 - 5, uRow);
     });
@@ -569,8 +569,8 @@ export class StageBuilder {
     this.op((lv) => {
       if (o.vista) lv.bridge(x0, x1, row, this.mat);
       else lv.ground(x0, x1, row, this.mat);
-      lv.platform(x0 + 2, x0 + 3, row - 2);
-      lv.platform(x1 - 3, x1 - 2, row - 2);
+      lv.stair(x0 + 1, row, x0 + 5, uRow, { passThrough: true, mat: this.mat, railing: true });
+      lv.stair(x1 - 4, uRow, x1, row, { passThrough: true, mat: this.mat, railing: true });
       lv.platform(x0 + 5, x1 - 5, uRow);
     });
     this.landmarkProp(x0 + 4, row, 0);
@@ -605,9 +605,9 @@ export class StageBuilder {
       lv.ground(x1 - 2, x1, row, this.mat);
       lv.ground(x0 + 3, x1 - 3, sRow, this.mat);
       lv.fill(x0 + 3, x1 - 3, row + 1, sRow - 1, 0);
-      lv.platform(x0 + 3, x0 + 4, row + 2);
-      lv.platform(x1 - 4, x1 - 3, row + 2);
-      lv.platform(x0 + 6, x1 - 6, row);
+      lv.platform(x0 + 3, x1 - 3, row);
+      lv.stair(x0 + 3, row, x0 + 7, sRow, { passThrough: true, mat: this.mat, railing: true });
+      lv.stair(x1 - 6, sRow, x1 - 2, row, { passThrough: true, mat: this.mat, railing: true });
     });
     this.landmarkProp(gateCol - 4, sRow, 0);
     this.landmarkProp(gateCol + 4, sRow, 1);
@@ -980,62 +980,73 @@ export class StageBuilder {
     const stepW = o.stepW || 3;
     const midIdx = steps >= 4 ? Math.floor(steps / 2) : -1;
     const midW = midIdx > 0 ? 4 : 0;
+    const totalW = steps * stepW + midW;
     const x0 = this.x;
-    let curX = x0;
-    let curRow = this.row;
-    const stepSpans = [];
-    for (let i = 1; i <= steps; i++) {
-      curRow -= dir;
-      const sx0 = curX, sx1 = curX + stepW - 1, sr = curRow;
-      this.op((lv) => lv.ground(sx0, sx1, sr, this.mat));
-      stepSpans.push([sx0, sx1, sr]);
-      if (i % 2 === 1) this.candle(sx0 + 1, sr, i === steps && o.reward ? o.reward : null);
-      if (i % 2 === 0) {
-        if (this.theme.outdoor) this.deco('props', 'tombstone', sx0 + 1, sr);
-        else {
-          this.deco('arch', 'column', sx0 + 1, sr);
-          this.deco('props', 'torch', sx0 + stepW - 1, sr, 0, -46);
-        }
+    const x1 = x0 + totalW - 1;
+    const startRow = this.row;
+    const endRow = startRow - dir * steps;
+
+    if (midIdx > 0) {
+      const midRow = startRow - dir * midIdx;
+      const mx0 = x0 + midIdx * stepW;
+      const mx1 = mx0 + midW - 1;
+      const f1Start = x0 + 2;
+      const f1End = mx0;
+      const f2Start = mx1 + 1;
+      const f2End = x1 - 1;
+      this.op((lv) => {
+        lv.ground(x0, f1Start - 1, startRow, this.mat);
+        lv.stair(f1Start, startRow, f1End, midRow, { passThrough: false, mat: this.mat, railing: true });
+        lv.ground(mx0, mx1, midRow, this.mat);
+        if (midRow - 3 >= 2) lv.platform(mx0 + 1, mx1 - 1, midRow - 3);
+        lv.stair(f2Start, midRow, f2End, endRow, { passThrough: false, mat: this.mat, railing: true });
+        lv.ground(f2End, x1, endRow, this.mat);
+      });
+      this.candle(x0 + 1, startRow);
+      this.candle(x1, endRow, o.reward || null);
+      if (midRow - 3 >= 2) this.candle(mx0 + 2, midRow - 3, o.balconyDrop || 'heart_big');
+      this.autoDecor(mx0, mx1, midRow, 0.85);
+      if (!this.theme.outdoor) {
+        this.deco('props', 'torch', Math.floor((f1Start + f1End) * 0.5), Math.round((startRow + midRow) * 0.5), 0, -46);
+        this.deco('props', 'torch', Math.floor((f2Start + f2End) * 0.5), Math.round((midRow + endRow) * 0.5), 0, -46);
       }
-      curX += stepW;
-      if (i === midIdx) {
-        const mx0 = curX, mx1 = curX + midW - 1, mr = curRow;
-        this.op((lv) => {
-          lv.ground(mx0, mx1, mr, this.mat);
-          if (mr - 3 >= 2) lv.platform(mx0 + 1, mx1 - 1, mr - 3);
-        });
-        if (mr - 3 >= 2) this.candle(mx0 + 2, mr - 3, o.balconyDrop || 'heart_big');
-        this.autoDecor(mx0, mx1, mr, 0.85);
-        this.placeEnemies(o.midEnemies || [['skeleton', 2, { min: mx0, max: mx1 }]], mx0, mx1, mr);
-        curX += midW;
-      }
+      this.placeEnemies(o.midEnemies || [['skeleton', 1, { min: x0, max: x1 }]], mx0, mx1, midRow);
+    } else {
+      const fStart = x0 + 1;
+      const fEnd = Math.max(fStart + 1, x1);
+      this.op((lv) => {
+        lv.ground(x0, x0, startRow, this.mat);
+        lv.stair(fStart, startRow, fEnd, endRow, { passThrough: false, mat: this.mat, railing: true });
+        lv.ground(fEnd, x1, endRow, this.mat);
+      });
+      this.candle(x0, startRow);
+      this.candle(x1, endRow, o.reward || null);
     }
-    const x1 = curX - 1;
-    if (o.enemies) this.placeEnemies(o.enemies, x0, x1, curRow);
-    else if (stepSpans.length >= 2) {
-      const [lx0, lx1, lr] = stepSpans[stepSpans.length - 1];
-      this.placeEnemies([['bat', Math.max(2, Math.floor((x1 - x0) * 0.65)), { h: 4 }]], x0, x1, lr);
-      if (stepW >= 3) this.placeEnemies([['zombie', 1, { min: lx0, max: lx1 }]], lx0, lx1, lr);
+
+    if (o.enemies) this.placeEnemies(o.enemies, x0, x1, endRow);
+    else {
+      this.placeEnemies([['bat', Math.max(2, Math.floor((x1 - x0) * 0.65)), { h: 4 }]], x0, x1, endRow);
+      this.placeEnemies([['zombie', Math.max(1, totalW - 2), { min: x0 + 1, max: x1 }]], x0, x1, endRow);
     }
     if (o.spawn) this.spawners.push({ type: o.spawn, x0, x1, variant: o.spawnVariant || 'normal' });
-    this.x = curX;
-    this.row = curRow;
+    this.x = x1 + 1;
+    this.row = endRow;
     return this;
   }
 
   /**
    * Full two-story castle gallery (`row` lower hall + `row - 4` upper promenade
-   * linked by `row - 2` step landings at both ends and a central atrium well).
+   * linked by walkable mezzanine staircases at both ends and a central atrium well).
    */
   doubleDeck(len = 18, o = {}) {
     const x0 = this.x, x1 = this.x + len - 1, row = this.row;
-    const ux0 = x0 + 3, ux1 = x1 - 3, uRow = row - 4;
+    const ux0 = x0 + 4, ux1 = x1 - 4, uRow = row - 4;
     const mid = Math.floor((x0 + x1) * 0.5);
     this.op((lv) => {
       if (o.vista) lv.bridge(x0, x1, row, this.mat);
       else lv.ground(x0, x1, row, this.mat);
-      lv.platform(x0 + 1, x0 + 2, row - 2);
-      lv.platform(x1 - 2, x1 - 1, row - 2);
+      lv.stair(x0 + 1, row, ux0, uRow, { passThrough: true, mat: this.mat, railing: true });
+      lv.stair(ux1 + 1, uRow, x1, row, { passThrough: true, mat: this.mat, railing: true });
       lv.platform(mid - 1, mid, row - 2);
       if (o.solidDeck) {
         lv.platform(ux0, ux1, uRow);
@@ -1217,11 +1228,13 @@ export class StageBuilder {
       // Sunken basement floor across the full interior span
       lv.ground(x0 + 2, x1 - 2, uRow, this.mat);
       lv.fill(x0 + 2, x1 - 2, row + 1, uRow - 1, 0);
-      // Arched upper ceiling/road slab over the central vault (open 3-tile stairwells on both flanks!)
-      lv.fill(x0 + 5, x1 - 5, row, row, this.mat);
-      // 2-tile-step stair landings under open sky at both stairwell hatches
-      lv.platform(x0 + 2, x0 + 3, row + 2);
-      lv.platform(x1 - 3, x1 - 2, row + 2);
+      // Arched upper ceiling/road slab over the central vault + pass-through stairwell hatches
+      if (x1 - 6 >= x0 + 6) lv.fill(x0 + 6, x1 - 6, row, row, this.mat);
+      lv.platform(x0 + 2, Math.min(x1 - 2, x0 + 5), row);
+      lv.platform(Math.max(x0 + 2, x1 - 5), x1 - 2, row);
+      // Walkable staircases descending into the sunken undercroft at both hatches
+      lv.stair(x0 + 2, row, x0 + 6, uRow, { passThrough: true, mat: this.mat, railing: true });
+      lv.stair(x1 - 5, uRow, x1 - 1, row, { passThrough: true, mat: this.mat, railing: true });
     });
     this.candle(x0 + 6, row);
     this.candle(x1 - 6, row);
@@ -1487,25 +1500,25 @@ export class StageBuilder {
     return this;
   }
 
-  /** Staircase up: n steps, each 2 tiles wide and 1 tile tall. */
+  /** Walkable staircase up: rises `n` rows across `2 * n` tiles. */
   stepUp(n) {
-    for (let i = 1; i <= n; i++) {
-      const x0 = this.x, r = this.row - i;
-      this.op((lv) => lv.ground(x0, x0 + 1, r, this.mat));
-      this.x += 2;
-    }
-    this.row -= n;
+    if (n <= 0) return this;
+    const x0 = this.x, startRow = this.row, endRow = this.row - n;
+    const span = 2 * n;
+    this.op((lv) => lv.stair(x0, startRow, x0 + span, endRow, { passThrough: false, mat: this.mat, railing: n >= 2 }));
+    this.x += span;
+    this.row = endRow;
     return this;
   }
 
-  /** Staircase down: n steps, each 2 tiles wide. */
+  /** Walkable staircase down: descends `n` rows across `2 * n` tiles. */
   stepDown(n) {
-    for (let i = 1; i <= n; i++) {
-      const x0 = this.x, r = this.row + i;
-      this.op((lv) => lv.ground(x0, x0 + 1, r, this.mat));
-      this.x += 2;
-    }
-    this.row += n;
+    if (n <= 0) return this;
+    const x0 = this.x, startRow = this.row, endRow = this.row + n;
+    const span = 2 * n;
+    this.op((lv) => lv.stair(x0, startRow, x0 + span, endRow, { passThrough: false, mat: this.mat, railing: n >= 2 }));
+    this.x += span;
+    this.row = endRow;
     return this;
   }
 

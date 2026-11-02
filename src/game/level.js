@@ -23,7 +23,7 @@ export class Level {
     this.height = this.rows * TILE;
     this.tiles = new Uint8Array(this.cols * this.rows);
     this.depth = new Uint8Array(this.cols * this.rows);
-    this.decor = data.decor || [];
+    this.decor = [];
     this.rooms = data.rooms || [];
     this.blockDrops = data.blockDrops || {};
     this.checkpoints = data.checkpoints || [];
@@ -33,11 +33,137 @@ export class Level {
     this.lavaRuns = [];
     this.waterRuns = [];
     this.waterBasins = (data.waterBasins || []).map((b) => Object.assign({}, b));
+    this.stairs = [];
     this.crumbles = [];
     this.crumbleMap = new Map();
     this.movers = (data.movers || []).map((m) => makeMover(m));
+    if (Array.isArray(data.stairs)) {
+      for (const s of data.stairs) this.stair(s.col0, s.row0, s.col1, s.row1, s);
+    }
     data.build(this);
     this.recompute();
+    this._anchorHangingDecor(data.decor || []);
+  }
+
+  /**
+   * Anchors all ceiling-mounted props (`chandelier`, `cage`, `pendulum`) directly
+   * to the overhead solid ceiling soffit or enclosing 3D room vault ceiling, and
+   * proportions chain length + scale so they always hang high near the ceiling
+   * and never drop near floors, mezzanine platforms, or walkable staircases.
+   */
+  _anchorHangingDecor(rawList) {
+    const out = [];
+    for (let i = 0; i < rawList.length; i++) {
+      const src = rawList[i];
+      if (!src) continue;
+      if (src.type !== 'chandelier' && src.type !== 'cage' && src.type !== 'pendulum') {
+        out.push(src);
+        continue;
+      }
+      const d = Object.assign({}, src);
+      let tx = d._tx != null ? d._tx : Math.floor(d.x / TILE);
+      tx = Math.max(1, Math.min(this.cols - 2, tx));
+
+      let refRow = d._row;
+      if (refRow == null) {
+        const probeStart = Math.max(1, Math.min(this.rows - 1, Math.floor((d.y + 48) / TILE)));
+        refRow = -1;
+        for (let r = probeStart; r < this.rows; r++) {
+          if (this.isStandable(tx, r)) { refRow = r; break; }
+        }
+        if (refRow < 0) refRow = Math.min(this.rows - 1, Math.round((d.y + 240) / TILE));
+      }
+      if (refRow < 3 || refRow >= this.rows) continue;
+
+      // Ensure at least 3 clear air tiles above the floor at tx (allow ±2 tile nudge away from solid steps/stairs)
+      let openTx = -1;
+      for (const off of [0, -1, 1, -2, 2]) {
+        const cx = tx + off;
+        if (cx <= 0 || cx >= this.cols - 1) continue;
+        if (!this.isSolid(cx, refRow - 1) && !this.isSolid(cx, refRow - 2) && !this.isSolid(cx, refRow - 3)) {
+          openTx = cx;
+          break;
+        }
+      }
+      if (openTx < 0) continue;
+      if (openTx !== tx) {
+        d.x = openTx * TILE + TILE * 0.5;
+        tx = openTx;
+      }
+
+      // Raycast straight UP from `refRow - 1` to find the physical overhead solid ceiling tile
+      let ceilTile = -1;
+      for (let r = refRow - 1; r >= 0; r--) {
+        if (this.isSolid(tx, r)) { ceilTile = r; break; }
+      }
+
+      let ceilY = null;
+      if (ceilTile >= 0) {
+        ceilY = (ceilTile + 1) * TILE;
+      } else {
+        // Open hall reaching up to a 3D vaulted ceiling: match Stage3D's vault springline
+        let matchRoom = null;
+        for (const rm of this.rooms) {
+          if (tx >= rm.x0 && tx <= rm.x1 && refRow >= rm.y0 && refRow <= rm.y1) {
+            matchRoom = rm;
+            break;
+          }
+        }
+        if (!matchRoom) continue; // Outdoor open sky: never float a chandelier in thin air!
+        if (matchRoom._hallBounds && matchRoom._hallBounds.ceilY != null) {
+          ceilY = matchRoom._hallBounds.ceilY + 18;
+        } else {
+          let minSurf = matchRoom.floorRow || refRow;
+          const c0 = Math.max(2, matchRoom.x0 + 1), c1 = Math.min(this.cols - 3, matchRoom.x1 - 1);
+          for (let c = c0; c <= c1; c++) {
+            const sr = this.surfaceRow(c);
+            if (sr > 0 && sr < minSurf) minSurf = sr;
+          }
+          const fY = Math.max(matchRoom.floorRow || 11, refRow) * TILE;
+          ceilY = Math.min(Math.max(matchRoom.y0 * TILE + 36, (minSurf - 6) * TILE), fY - 268) + 18;
+        }
+      }
+
+      // Effective floor directly under `ceilY`: account for any upper balcony platform or staircase below `ceilY`!
+      let effFloorY = refRow * TILE;
+      const startScanR = Math.max(0, Math.ceil((ceilY + 8) / TILE));
+      for (let r = startScanR; r < refRow; r++) {
+        if (this.isOneWay(tx, r) || this.isOneWay(tx - 1, r) || this.isOneWay(tx + 1, r)) {
+          effFloorY = Math.min(effFloorY, r * TILE);
+          break;
+        }
+      }
+      for (const s of this.stairs) {
+        if (d.x >= s.minX - 28 && d.x <= s.maxX + 28) {
+          const sy = this.stairY(s, Math.max(s.minX, Math.min(s.maxX, d.x)));
+          if (sy > ceilY + 16) effFloorY = Math.min(effFloorY, sy);
+        }
+      }
+
+      const headroom = effFloorY - ceilY;
+      if (headroom < 120) continue; // Too low for a ceiling-suspended fixture
+
+      d.y = Math.round(ceilY);
+      const maxDrop = Math.min(headroom - 72, Math.round(headroom * 0.45));
+      if (d.type === 'chandelier') {
+        // chandelier frame `a` is 77x96; scale cleanly so body + chain sits strictly in the upper ceiling zone
+        const r = headroom < 168 ? 14 : (headroom < 240 ? 20 : 27);
+        const sc = Math.max(0.46, Math.min(1.08, (r * 2.7) / 77));
+        const bodyH = 96 * sc;
+        d.r = r;
+        d.len = Math.max(6, Math.min(78, Math.round(maxDrop - bodyH)));
+      } else if (d.type === 'cage') {
+        const cageH = headroom < 168 ? 30 : 44;
+        d.cageH = cageH;
+        d.len = Math.max(8, Math.min(68, Math.round(maxDrop - cageH)));
+      } else if (d.type === 'pendulum') {
+        const r = headroom < 180 ? 13 : 20;
+        d.r = r;
+        d.len = Math.max(28, Math.min(136, Math.round(Math.min(headroom - 72, headroom * 0.48) - r)));
+      }
+      out.push(d);
+    }
+    this.decor = out;
   }
 
   // ------------------------------------------------------------ building
@@ -70,6 +196,60 @@ export class Level {
   water(x0, x1, y0, y1) { this.fill(x0, x1, y0, y1, T_WATER); }
   platform(x0, x1, row) { this.fill(x0, x1, row, row, T_PLATFORM); }
   set(x, y, t) { if (x >= 0 && y >= 0 && x < this.cols && y < this.rows) this.tiles[y * this.cols + x] = t; }
+
+  /**
+   * Registers an inclined walkable staircase between tile-boundary coordinates
+   * `(col0, row0)` and `(col1, row1)` (`wx = col * TILE`, `wy = row * TILE`).
+   * - `passThrough: false` — solid ground-backed masonry/earth flight (auto-walked on contact).
+   * - `passThrough: true`  — mezzanine/stairwell flight (walk past on lower floor, or engage with Up/Down).
+   */
+  stair(col0, row0, col1, row1, opts = {}) {
+    const cStart = Math.min(col0, col1);
+    const cEnd = Math.max(col0, col1);
+    if (cEnd <= cStart || row0 === row1) return null;
+    const x0 = cStart * TILE;
+    const x1 = cEnd * TILE;
+    const y0 = (col0 < col1 ? row0 : row1) * TILE;
+    const y1 = (col0 < col1 ? row1 : row0) * TILE;
+    const ascDir = y1 < y0 ? 1 : -1;
+    const topX = ascDir > 0 ? x1 : x0;
+    const topY = Math.min(y0, y1);
+    const botX = ascDir > 0 ? x0 : x1;
+    const botY = Math.max(y0, y1);
+    const passThrough = !!opts.passThrough;
+    const mat = opts.mat || T_STONE;
+    const risePx = botY - topY;
+    const slope = risePx / (x1 - x0);
+    const steps = Math.max(2, Math.round(risePx / 8));
+    const railing = opts.railing == null ? (risePx >= 48) : !!opts.railing;
+    const rec = {
+      col0, row0, col1, row1,
+      x0, y0, x1, y1,
+      minX: x0, maxX: x1,
+      topX, topY, botX, botY,
+      ascDir, slope, steps,
+      passThrough, mat, railing,
+      fillRows: [],
+    };
+    if (!passThrough) {
+      const clearTop = opts.clearTop == null ? 0 : opts.clearTop;
+      const fillBottom = opts.fillBottom == null ? (this.rows - 1) : Math.min(this.rows - 1, opts.fillBottom);
+      for (let tx = cStart; tx < cEnd; tx++) {
+        const ya = this.stairY(rec, tx * TILE - 16);
+        const yb = this.stairY(rec, (tx + 1) * TILE + 16);
+        const fillRow = Math.min(this.rows - 1, Math.ceil(Math.max(ya, yb) / TILE));
+        if (opts.clearAbove !== false && fillRow > clearTop) {
+          this.fill(tx, tx, clearTop, fillRow - 1, T_EMPTY);
+        }
+        if (fillBottom >= fillRow) {
+          this.fill(tx, tx, fillRow, fillBottom, mat);
+        }
+        rec.fillRows.push(fillRow);
+      }
+    }
+    this.stairs.push(rec);
+    return rec;
+  }
 
   recompute() {
     // Depth below the surface for same-material solid tiles (texture rows).
@@ -154,6 +334,56 @@ export class Level {
   isLava(tx, ty) { return this.tile(tx, ty) === T_LAVA; }
   isWater(tx, ty) { return this.tile(tx, ty) === T_WATER; }
   isStandable(tx, ty) { const t = this.tile(tx, ty); return isSolidTile(t) || t === T_PLATFORM || t === T_CRUMBLE; }
+
+  /** World-space surface Y of staircase `s` at `wx` (clamped cleanly to `[s.topY, s.botY]`). */
+  stairY(s, wx) {
+    if (wx <= s.x0) return s.y0;
+    if (wx >= s.x1) return s.y1;
+    return s.y0 + ((wx - s.x0) / (s.x1 - s.x0)) * (s.y1 - s.y0);
+  }
+
+  /** Returns a solid (`!passThrough`) stair at `(wx, wy)` within vertical tolerance `tol`, or `null`. */
+  solidStairNear(wx, wy, tol = 18) {
+    let best = null;
+    let bestD = tol + 0.001;
+    for (let i = 0; i < this.stairs.length; i++) {
+      const s = this.stairs[i];
+      if (s.passThrough) continue;
+      if (wx < s.minX - 2 || wx > s.maxX + 2) continue;
+      const d = Math.abs(wy - this.stairY(s, wx));
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best;
+  }
+
+  /** Finds a staircase whose bottom foot `(botX, botY)` is within reach of `(wx, wy)`. */
+  findBottomStair(wx, wy, tolX = 24, tolY = 16) {
+    let best = null;
+    let bestD = Infinity;
+    for (let i = 0; i < this.stairs.length; i++) {
+      const s = this.stairs[i];
+      if (Math.abs(wy - s.botY) > tolY) continue;
+      const rel = (wx - s.botX) * s.ascDir;
+      if (rel < -tolX || rel > tolX + 8) continue;
+      const d = Math.abs(wx - s.botX) + Math.abs(wy - s.botY);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best;
+  }
+
+  /** Finds a staircase whose top lip `(topX, topY)` is within reach of `(wx, wy)`. */
+  findTopStair(wx, wy, tolX = 24, tolY = 14) {
+    let best = null;
+    let bestD = Infinity;
+    for (let i = 0; i < this.stairs.length; i++) {
+      const s = this.stairs[i];
+      if (Math.abs(wy - s.topY) > tolY) continue;
+      if (Math.abs(wx - s.topX) > tolX) continue;
+      const d = Math.abs(wx - s.topX) + Math.abs(wy - s.topY);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best;
+  }
 
   /**
    * Returns `{ x0, x1, surfaceY, bottomY, depth }` when world point `(wx, wy)` is
@@ -471,30 +701,40 @@ export class Level {
   }
 
   /** Hanging wrought-iron chandelier: bitmap sprite swinging on a textured chain,
-   *  with flickering candle frames, an additive glow and dripping ember motes. */
+   *  with ceiling mounting canopy, flickering candle frames, and additive glow. */
   drawChandelier(ctx, x, y, d, time) {
     const assets = this._assets;
-    const sway = Math.sin(time * 1.1 + (d.phase || 0)) * 0.08;
-    const chainLen = d.len || 90;
+    const sway = Math.sin(time * 1.1 + (d.phase || 0)) * 0.07;
+    const chainLen = d.len != null ? d.len : 64;
     const cx = x + Math.sin(sway) * chainLen, cy = y + Math.cos(sway) * chainLen;
     const f = assets && assets.frame('chandelier', 'a');
     if (!f) return;
-    const sc = Math.max(0.7, Math.min(1.15, ((d.r || 30) * 2.7) / f.w));
-    // Chain: repeated arch 'chain' link sprite along the swing, falling back to lines
+    const sc = Math.max(0.46, Math.min(1.10, ((d.r || 27) * 2.7) / f.w));
+    const hoist = assets && assets.frame('hanging_props', 'hoist_wheel');
+    const hangImg = assets && assets.darkened('hanging_props', 0.28);
+    // Chain: repeated arch 'chain' link sprite along the swing, plus ceiling bracket at (x, y)
     ctx.save();
     const link = assets.frame('arch', 'chain');
     const linkImg = assets.darkened('arch', 0.28);
     const ang = Math.atan2(cx - x, cy - y);
-    if (link && linkImg) {
+    if (link && linkImg && chainLen > 4) {
       ctx.translate(x, y); ctx.rotate(-ang);
       const step = 10;
-      for (let k = 0; k < chainLen - 4; k += step) {
-        ctx.drawImage(linkImg, link.x, link.y, link.w, Math.min(step, link.h), -3, k, 6, step);
+      for (let k = 0; k < chainLen - 2; k += step) {
+        ctx.drawImage(linkImg, link.x, link.y, link.w, Math.min(step, link.h), -3, k, 6, Math.min(step, chainLen - k));
       }
       ctx.rotate(ang); ctx.translate(-x, -y);
-    } else {
+    } else if (chainLen > 2) {
       ctx.strokeStyle = '#221e33'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(cx, cy); ctx.stroke();
+    }
+    if (hoist && hangImg) {
+      const hs = (14 * Math.max(0.75, sc)) / Math.max(16, hoist.w);
+      ctx.drawImage(
+        hangImg, hoist.x, hoist.y, hoist.w, Math.round(hoist.h * 0.55),
+        Math.round(x - hoist.w * hs * 0.5), Math.round(y - 2),
+        Math.round(hoist.w * hs), Math.max(5, Math.round(hoist.h * 0.55 * hs)),
+      );
     }
     // Body: pivot at the top of the sprite's own chain stub
     const flick = Math.sin(time * 9 + (d.phase || 0) * 3) + Math.sin(time * 13.7 + (d.phase || 0));
@@ -503,12 +743,12 @@ export class Level {
     ctx.rotate(sway * 0.6);
     ctx.scale(sc, sc);
     const fr = assets.frame('chandelier', name);
-    ctx.drawImage(assets.darkened('chandelier', 0.26), fr.x, fr.y, fr.w, fr.h, Math.round(-fr.ax), 0, fr.w, fr.h);
+    ctx.drawImage(assets.darkened('chandelier', 0.22), fr.x, fr.y, fr.w, fr.h, Math.round(-fr.ax), 0, fr.w, fr.h);
     ctx.restore();
-    // Candle glow sits at the ring (upper third of the sprite), swaying with it
+    // Candle glow sits at the ring (middle of the sprite), swaying with it
     const ringY = cy + f.h * sc * 0.52;
-    drawFlameGlow(ctx, cx, ringY, time + (d.phase || 0), 30 + 22 * sc, 0.46);
-    drawFlameGlow(ctx, cx, ringY - 6, time * 1.3 + (d.phase || 0), 16 * sc, 0.38);
+    drawFlameGlow(ctx, cx, ringY, time + (d.phase || 0), 22 + 22 * sc, 0.46);
+    drawFlameGlow(ctx, cx, ringY - 5 * sc, time * 1.3 + (d.phase || 0), 15 * sc, 0.38);
     const fxl = getFxLayers();
     if (fxl) for (let k = -2; k <= 2; k++) fxl.addFlame(cx + k * 14 * sc, ringY - 8 * sc + Math.abs(k) * 2, 5 * sc, 11 * sc, [1.0, 0.62, 0.2], (d.phase || 0) + k * 0.37);
   }
@@ -517,7 +757,7 @@ export class Level {
   drawCage(ctx, x, y, d, time) {
     const assets = this._assets;
     const sway = Math.sin(time * 0.8 + (d.phase || 0)) * 0.12;
-    const len = d.len || 70, w = 22, h = 40;
+    const len = d.len != null ? d.len : 64, w = 22, h = d.cageH || 40;
     const cx = x + Math.sin(sway) * len, cy = y + Math.cos(sway) * len;
     const cage = assets && assets.frame('hanging_props', 'gibbet_cage');
     const hoist = assets && assets.frame('hanging_props', 'hoist_wheel');
@@ -546,7 +786,7 @@ export class Level {
         );
       }
       const squeeze = 0.86 + 0.14 * Math.cos(sway * 4);
-      const sc = 46 / Math.max(24, cage.h);
+      const sc = (d.cageH || 44) / Math.max(24, cage.h);
       ctx.translate(cx, cy);
       ctx.rotate(sway);
       ctx.scale(sc * squeeze, sc);
@@ -782,6 +1022,11 @@ export class Level {
         else sx = TILE + ((tx - r.x0 - 1) % ((plat.w - 2 * TILE) / TILE)) * TILE;
         ctx.drawImage(pImg, sx, 0, TILE, plat.h, x, y, TILE, plat.h);
       }
+    }
+
+    // 4b. Walkable 2.5D/3D Gothic staircases (solid stone/earth flights & mezzanine stringer stairs).
+    if (this.stairs.length) {
+      this.drawStairs3D(ctx, camX, camY, tx0, tx1, assets, bank, pImg, plat, platTex, wood);
     }
   }
 
@@ -1223,14 +1468,237 @@ export class Level {
   }
 
   /**
+   * Renders 2.5D/3D Gothic staircases: back-plane balustrade & newel posts,
+   * solid masonry spandrels or open timber/iron stringer carriages, 3D riser
+   * side-returns, perspective receding treads, and crisp `z = 0` step nosings.
+   */
+  drawStairs3D(ctx, camX, camY, tx0, tx1, assets, bank, pImg, plat, platTex, wood) {
+    const viewX0 = tx0 * TILE - 48;
+    const viewX1 = (tx1 + 1) * TILE + 48;
+
+    for (let si = 0; si < this.stairs.length; si++) {
+      const s = this.stairs[si];
+      if (s.maxX < viewX0 || s.minX > viewX1) continue;
+
+      const isPass = s.passThrough;
+      const zDepth = isPass ? 26 : DECK_Z;
+      const topTex = isPass ? platTex : (bank ? bank.matTop(s.mat) : null);
+      const sideTex = isPass
+        ? (bank ? bank.get(wood ? 'wood_plank' : 'iron_rivet') : null)
+        : (bank ? bank.matSide(s.mat) : null);
+      const isSnow = !isPass && s.mat === T_SNOW;
+      const spanX = s.x1 - s.x0;
+      const risePx = s.botY - s.topY;
+      const stepW = spanX / s.steps;
+      const stepH = risePx / s.steps;
+
+      // 1. Back-plane Gothic handrail, balusters & carved newel posts (z = zDepth - 4)
+      if (s.railing) {
+        const zRail = Math.max(16, zDepth - 4);
+        const railH = 26;
+        const postDark = wood ? '#1d140f' : '#161826';
+        const postMid = wood ? '#5a3f28' : '#4a526e';
+        const railHi = wood ? '#b88854' : '#9aa8c8';
+        const bCount = Math.max(2, Math.round(spanX / 32));
+        ctx.save();
+        for (let bi = 0; bi <= bCount; bi++) {
+          const u = bi / bCount;
+          const bx = s.x0 + spanX * u;
+          const by = s.y0 + (s.y1 - s.y0) * u;
+          const pBot = project3D(bx, by + 2, zRail, camX, camY);
+          const pTop = project3D(bx, by - railH, zRail, camX, camY);
+          const isNewel = bi === 0 || bi === bCount;
+          const pw = isNewel ? 5 : 2;
+          ctx.fillStyle = postDark;
+          ctx.fillRect(Math.round(pTop.x - pw * 0.5) - 1, Math.round(pTop.y - (isNewel ? 4 : 0)), pw + 2, Math.max(4, Math.round(pBot.y - pTop.y + (isNewel ? 4 : 0))));
+          ctx.fillStyle = postMid;
+          ctx.fillRect(Math.round(pTop.x - pw * 0.5), Math.round(pTop.y - (isNewel ? 3 : 0)), pw, Math.max(3, Math.round(pBot.y - pTop.y + (isNewel ? 3 : 0))));
+          if (isNewel) {
+            ctx.fillStyle = railHi;
+            ctx.fillRect(Math.round(pTop.x - 3), Math.round(pTop.y - 5), 6, 2);
+          }
+        }
+        const rA = project3D(s.x0, s.y0 - railH, zRail, camX, camY);
+        const rB = project3D(s.x1, s.y1 - railH, zRail, camX, camY);
+        const mA = project3D(s.x0, s.y0 - railH * 0.42, zRail, camX, camY);
+        const mB = project3D(s.x1, s.y1 - railH * 0.42, zRail, camX, camY);
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = postDark;
+        ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(rA.x, rA.y); ctx.lineTo(rB.x, rB.y); ctx.stroke();
+        ctx.strokeStyle = postMid;
+        ctx.lineWidth = 2.6;
+        ctx.beginPath(); ctx.moveTo(rA.x, rA.y); ctx.lineTo(rB.x, rB.y); ctx.stroke();
+        ctx.strokeStyle = railHi;
+        ctx.lineWidth = 1.1;
+        ctx.beginPath(); ctx.moveTo(rA.x, rA.y - 1); ctx.lineTo(rB.x, rB.y - 1); ctx.stroke();
+        ctx.strokeStyle = postDark;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(mA.x, mA.y); ctx.lineTo(mB.x, mB.y); ctx.stroke();
+        ctx.restore();
+      }
+
+      // 2. Supporting diagonal stringer carriage (passThrough) OR solid terrain spandrel (!passThrough)
+      if (isPass) {
+        const beamDrop = 15;
+        const fA0 = { x: s.x0 - camX, y: s.y0 + 3 - camY };
+        const fB0 = { x: s.x1 - camX, y: s.y1 + 3 - camY };
+        const fA1 = { x: s.x0 - camX, y: s.y0 + beamDrop - camY };
+        const fB1 = { x: s.x1 - camX, y: s.y1 + beamDrop - camY };
+        const bA1 = project3D(s.x0, s.y0 + beamDrop, zDepth, camX, camY);
+        const bB1 = project3D(s.x1, s.y1 + beamDrop, zDepth, camX, camY);
+
+        // 3D underside soffit of the diagonal stringer when above eye height
+        if ((bA1.y > fA1.y + 0.5 || bB1.y > fB1.y + 0.5) && sideTex) {
+          texQuad(ctx, sideTex, fA1, fB1, bB1, bA1,
+            0, 0, spanX, 0, spanX, zDepth, 0, zDepth,
+            shadeOverlay32([0, 0.9, -0.3], DECK_FOG, 0.46, 0.62));
+        }
+        if (sideTex) {
+          texQuad(ctx, sideTex, fA0, fB0, fB1, fA1,
+            0, 0, spanX, 0, spanX, 16, 0, 16,
+            shadeOverlay32([0, 0.2, -0.95], DECK_FOG, 0.24, 0.86));
+        } else {
+          ctx.fillStyle = wood ? '#3d2a1b' : '#262b3f';
+          ctx.beginPath();
+          ctx.moveTo(fA0.x, fA0.y); ctx.lineTo(fB0.x, fB0.y);
+          ctx.lineTo(fB1.x, fB1.y); ctx.lineTo(fA1.x, fA1.y);
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.save();
+        ctx.strokeStyle = '#12101c';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(fA1.x, fA1.y); ctx.lineTo(fB1.x, fB1.y); ctx.stroke();
+        // Rivet / peg studs along the stringer carriage
+        ctx.fillStyle = wood ? '#caa06a' : '#9aa8c7';
+        const studs = Math.max(2, Math.round(spanX / 32));
+        for (let k = 1; k < studs; k++) {
+          const u = k / studs;
+          const rx = Math.round(fA0.x + (fB0.x - fA0.x) * u);
+          const ry = Math.round(fA0.y + (fB0.y - fA0.y) * u + 5);
+          ctx.fillRect(rx - 1, ry - 1, 2, 2);
+        }
+        ctx.restore();
+      } else {
+        // Solid masonry / earth spandrel filling cleanly from each step tread down to `fillRow * TILE`
+        let stripName = MATERIAL_STRIP[s.mat] || 'floor';
+        const info = assets.info(stripName);
+        const img = assets.img(stripName);
+        const cStart = Math.min(s.col0, s.col1);
+        for (let i = 0; i < s.steps; i++) {
+          const sx0 = s.x0 + i * stepW;
+          const sx1 = sx0 + stepW;
+          const tyStep = s.ascDir > 0
+            ? s.botY - ((i + 1) / s.steps) * risePx
+            : s.topY + (i / s.steps) * risePx;
+          const colIdx = Math.max(0, Math.min(s.fillRows.length - 1, Math.floor((sx0 + stepW * 0.5) / TILE) - cStart));
+          const fillRow = s.fillRows.length ? s.fillRows[colIdx] : Math.ceil(s.botY / TILE);
+          const baseY = Math.min(this.rows * TILE, (fillRow + 1) * TILE);
+          const x = Math.round(sx0 - camX);
+          const w = Math.max(1, Math.round(sx1 - camX) - x);
+          const yTop = Math.round(tyStep - camY);
+          const fillH = Math.max(stepH + 2, Math.round(baseY - camY) - yTop);
+          if (info && img) {
+            const srcX = Math.floor(((sx0 % info.w) + info.w) % info.w);
+            const srcW = Math.min(w, info.w - srcX);
+            let drawnY = 0;
+            while (drawnY < fillH) {
+              const chunkH = Math.min(TILE, fillH - drawnY);
+              const depthBand = drawnY === 0 ? 1 : 2;
+              ctx.drawImage(
+                img,
+                srcX, info.overhang + TILE * depthBand, Math.max(1, srcW), chunkH,
+                x, yTop + drawnY, w, chunkH,
+              );
+              drawnY += chunkH;
+            }
+          } else {
+            ctx.fillStyle = '#242234';
+            ctx.fillRect(x, yTop, w, fillH);
+          }
+        }
+      }
+
+      // 3. Individual 3D receding treads, downhill riser returns & crisp z = 0 step nosings
+      const stripName = !isPass ? (MATERIAL_STRIP[s.mat] || 'floor') : null;
+      const mInfo = stripName ? assets.info(stripName) : null;
+      const mImg = stripName ? assets.img(stripName) : null;
+      const riserDir = -s.ascDir; // downhill normal direction (-1 left-facing riser, +1 right-facing riser)
+      const riserShade = sideTex
+        ? shadeOverlay32([riserDir * 0.9, 0.1, -0.4], DECK_FOG, 0.34, isSnow ? 0.86 : 0.88)
+        : null;
+
+      for (let i = 0; i < s.steps; i++) {
+        const sx0 = s.x0 + i * stepW;
+        const sx1 = sx0 + stepW;
+        const tyStep = s.ascDir > 0
+          ? s.botY - ((i + 1) / s.steps) * risePx
+          : s.topY + (i / s.steps) * risePx;
+
+        // 3a. 3D downhill vertical riser side-return
+        const rxEdge = s.ascDir > 0 ? sx0 : sx1;
+        if (sideTex) {
+          const rfTop = { x: rxEdge - camX, y: tyStep - camY };
+          const rfBot = { x: rxEdge - camX, y: tyStep + stepH + 1 - camY };
+          const rbTop = project3D(rxEdge, tyStep, zDepth, camX, camY);
+          const rbBot = project3D(rxEdge, tyStep + stepH + 1, zDepth, camX, camY);
+          const vis = riserDir < 0 ? (rbTop.x < rfTop.x - 0.5) : (rbTop.x > rfTop.x + 0.5);
+          if (vis) {
+            if (riserDir < 0) {
+              texQuad(ctx, sideTex, rbTop, rfTop, rfBot, rbBot, 0, 0, zDepth, 0, zDepth, stepH, 0, stepH, riserShade);
+            } else {
+              texQuad(ctx, sideTex, rfTop, rbTop, rbBot, rfBot, 0, 0, zDepth, 0, zDepth, stepH, 0, stepH, riserShade);
+            }
+          }
+        }
+
+        // 3b. 3D receding horizontal tread top
+        if (tyStep > camY + EYE_Y + 3 && topTex) {
+          this.drawTopDeck3D(ctx, camX, camY, sx0, tyStep, stepW + 0.4, zDepth, topTex, isSnow ? 0.56 : 0.72);
+        }
+
+        // 3c. Crisp z = 0 front tread nosing cap & riser shadow line
+        const x = Math.round(sx0 - camX);
+        const w = Math.max(1, Math.round(sx1 - camX) - x);
+        const y = Math.round(tyStep - camY);
+        if (isPass) {
+          const capH = Math.min(8, plat ? plat.h : 8);
+          if (pImg && plat) {
+            const srcX = TILE + (Math.abs(Math.floor(sx0)) % Math.max(1, TILE));
+            ctx.drawImage(pImg, Math.min(plat.w - w, srcX), 0, Math.min(w, plat.w), capH, x, y - 1, w, capH);
+          } else {
+            ctx.fillStyle = wood ? '#785638' : '#58627e';
+            ctx.fillRect(x, y, w, 6);
+          }
+          ctx.fillStyle = wood ? 'rgba(235, 198, 142, 0.35)' : 'rgba(220, 230, 255, 0.30)';
+          ctx.fillRect(x, y - 1, w, 1);
+        } else if (mInfo && mImg) {
+          const srcX = Math.floor(((sx0 % mInfo.w) + mInfo.w) % mInfo.w);
+          const capH = mInfo.overhang + Math.min(10, Math.ceil(stepH) + 2);
+          ctx.drawImage(
+            mImg,
+            srcX, 0, Math.min(w, mInfo.w - srcX), capH,
+            x, y - mInfo.overhang, w, capH,
+          );
+          ctx.fillStyle = isSnow ? 'rgba(235, 245, 255, 0.32)' : 'rgba(235, 228, 205, 0.24)';
+          ctx.fillRect(x, y, w, 1);
+          // Crisp riser shadow line on downhill edge so individual steps always read clearly
+          ctx.fillStyle = 'rgba(6, 5, 16, 0.46)';
+          ctx.fillRect(s.ascDir > 0 ? x : (x + w - 1), y, 1, Math.ceil(stepH) + 1);
+        }
+      }
+    }
+  }
+
+  /**
    * Grounds 2D sprites onto the 3D floor by casting soft dark contact ellipses
    * on the nearest standable surface directly below (also aids jump accuracy!).
    */
   drawContactShadows(ctx, cam, player, enemies, candles, ally = null) {
     const camX = cam.rx, camY = cam.ry;
-    const cast = (wx, wy, baseRx, alpha = 0.42) => {
+    const cast = (wx, wy, baseRx, alpha = 0.42, onStair = null) => {
       if (wx - camX < -40 || wx - camX > W + 40) return;
-      const groundY = this.findDropSurfaceY(wx, wy, 108);
+      const groundY = onStair ? this.stairY(onStair, wx) : this.findDropSurfaceY(wx, wy, 108);
       if (groundY == null) return;
       const drop = Math.max(0, groundY - wy);
       const k = 1 - drop / 112;
@@ -1244,14 +1712,14 @@ export class Level {
     };
 
     ctx.save();
-    if (player && player.alive) cast(player.x, player.y, 13, 0.48);
-    if (ally && ally.alive) cast(ally.x, ally.y, 13, 0.44);
+    if (player && player.alive) cast(player.x, player.y, 13, 0.48, player.onStair);
+    if (ally && ally.alive) cast(ally.x, ally.y, 13, 0.44, ally.onStair);
     for (const e of enemies) {
       if (!e.alive || e.flies) continue;
-      cast(e.x, e.y, Math.min(22, Math.max(10, e.w * 0.55)), 0.40);
+      cast(e.x, e.y, Math.min(22, Math.max(10, e.w * 0.55)), 0.40, e.onStair);
     }
     for (const c of candles) {
-      if (!c.dead) cast(c.x, c.y, 8, 0.30);
+      if (!c.dead) cast(c.x, c.y, 8, 0.30, null);
     }
     ctx.restore();
   }
@@ -1261,6 +1729,14 @@ export class Level {
     for (const m of this.movers) {
       if (wx >= m.left && wx <= m.right && m.y >= wy - 2 && m.y - wy <= maxDrop) {
         if (m.y < best) best = m.y;
+      }
+    }
+    for (let i = 0; i < this.stairs.length; i++) {
+      const s = this.stairs[i];
+      if (s.passThrough) continue;
+      if (wx >= s.minX && wx <= s.maxX) {
+        const sy = this.stairY(s, wx);
+        if (sy >= wy - 2 && sy - wy <= maxDrop && sy < best) best = sy;
       }
     }
     const tx = Math.floor(wx / TILE);

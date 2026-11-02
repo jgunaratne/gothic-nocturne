@@ -1121,17 +1121,57 @@ export class InputBuffer {
 // ---------------------------------------------------------------------------
 
 const ICON_CACHE = new Map();
+let _weaponSheetImg = null;
+let _weaponSheetFrames = null;
 
 /**
- * Generates and caches a crisp 20×20 pixel-art sprite for `weaponId` (with dark
- * outline, metallic shading, and elemental highlight) for HUD, Pedestals, Drops,
- * and in-hand rendering. Returns `null` in non-DOM environments.
+ * Binds the loaded `weapons.png` pixel-art sprite atlas so HUD sockets, Armory
+ * panels, floating WeaponPedestals, world drops, boomerangs, and melee swings
+ * render rich generated 32-bit pixel art (with procedural fallback for headless tests).
  */
-export function getWeaponIconCanvas(weaponId) {
+export function registerWeaponSprites(assets) {
+  if (!assets || !assets.atlas) return;
+  const info = assets.info('weapons');
+  const img = assets.img('weapons');
+  if (info && info.frames && img) {
+    _weaponSheetImg = img;
+    _weaponSheetFrames = info.frames;
+    ICON_CACHE.clear();
+    BLADE_CACHE.clear();
+  }
+}
+
+/**
+ * Generates and caches a crisp pixel-art sprite canvas for `weaponId`:
+ * - `variant = 'compact'` (default): `20×20` sprite (`hud_<id>`) for HUD & list rows.
+ * - `variant = 'relic'`: `32×32` high-detail sprite (`<id>`) for Armory showcase,
+ *   WeaponPedestals, world drops, boomerangs, shields, gauntlets & catalysts.
+ * Returns `null` in non-DOM environments.
+ */
+export function getWeaponIconCanvas(weaponId, variant = 'compact') {
   const w = WEAPONS[weaponId];
   if (!w || typeof document === 'undefined') return null;
-  const cached = ICON_CACHE.get(weaponId);
+  const cacheKey = `${weaponId}|${variant}`;
+  const cached = ICON_CACHE.get(cacheKey);
   if (cached) return cached;
+
+  if (_weaponSheetImg && _weaponSheetFrames) {
+    const fName = variant === 'relic' ? weaponId : (`hud_${weaponId}`);
+    const fr = _weaponSheetFrames[fName] || _weaponSheetFrames[weaponId];
+    if (fr) {
+      const box = variant === 'relic' ? 32 : 20;
+      const c = document.createElement('canvas');
+      c.width = Math.max(box, fr.w);
+      c.height = Math.max(box, fr.h);
+      const g = c.getContext('2d');
+      g.imageSmoothingEnabled = false;
+      const dx = Math.floor((c.width - fr.w) * 0.5);
+      const dy = Math.floor((c.height - fr.h) * 0.5);
+      g.drawImage(_weaponSheetImg, fr.x, fr.y, fr.w, fr.h, dx, dy, fr.w, fr.h);
+      ICON_CACHE.set(cacheKey, c);
+      return c;
+    }
+  }
 
   const c = document.createElement('canvas');
   c.width = 20;
@@ -1294,7 +1334,7 @@ export function getWeaponIconCanvas(weaponId) {
     void out;
   }
 
-  ICON_CACHE.set(weaponId, c);
+  ICON_CACHE.set(cacheKey, c);
   return c;
 }
 
@@ -1332,6 +1372,25 @@ export function getWeaponBladeCanvas(weaponId) {
 
   const w = WEAPONS[weaponId];
   if (!w) return null;
+
+  if (_weaponSheetImg && _weaponSheetFrames && _weaponSheetFrames[`blade_${weaponId}`]) {
+    const fr = _weaponSheetFrames[`blade_${weaponId}`];
+    const c = document.createElement('canvas');
+    c.width = fr.w;
+    c.height = fr.h;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(_weaponSheetImg, fr.x, fr.y, fr.w, fr.h, 0, 0, fr.w, fr.h);
+    const out = {
+      canvas: c,
+      gx: typeof fr.ax === 'number' ? fr.ax : Math.round(fr.w * 0.2),
+      gy: typeof fr.ay === 'number' ? fr.ay : Math.round(fr.h * 0.5),
+      w: fr.w,
+      h: fr.h,
+    };
+    BLADE_CACHE.set(weaponId, out);
+    return out;
+  }
 
   let cw = 46, ch = 15, gx = 8, gy = 7;
   if (w.shape === 'rapier' || w.shape === 'katana') {
@@ -1596,7 +1655,7 @@ export function drawWeaponAction(ctx, slotExec, sx, sy, facing, crouch, fxLayers
   const rimRgb = elem ? elem.rim : (w.physical === 'blunt' ? [0.95, 0.72, 0.34] : [0.58, 0.76, 1.0]);
   const accentHex = elem ? elem.color : (w.bladeColor || '#dce8ff');
   const rimHex = elem ? elem.color : (w.physical === 'blunt' ? '#e8a852' : '#78a8e8');
-  const icon = getWeaponIconCanvas(w.id);
+  const icon = getWeaponIconCanvas(w.id, 'relic');
   const blade = getWeaponBladeCanvas(w.id);
 
   ctx.save();
@@ -1608,7 +1667,7 @@ export function drawWeaponAction(ctx, slotExec, sx, sy, facing, crouch, fxLayers
     if (icon) {
       ctx.translate(gx, gy);
       if (facing < 0) ctx.scale(-1, 1);
-      ctx.drawImage(icon, -11, -11, 22, 22);
+      ctx.drawImage(icon, -13, -13, 26, 26);
     }
     ctx.restore();
     if (fxLayers && fxLayers.enabled) {
@@ -1808,8 +1867,16 @@ export function drawWeaponAction(ctx, slotExec, sx, sy, facing, crouch, fxLayers
     }
 
     case 'brawler': {
-      // Rapid multi-hit horizontal punch/claw streaks from martial fist
+      // Rapid multi-hit horizontal punch/claw streaks + armored gauntlet sprite
       const reach = slotExec.reach || w.reach;
+      const jab = Math.sin(((k * 2) % 1) * Math.PI) * Math.min(18, reach * 0.48);
+      if (icon) {
+        ctx.save();
+        ctx.translate(Math.round(handX + facing * (6 + jab)), Math.round(handY + 1));
+        if (facing < 0) ctx.scale(-1, 1);
+        ctx.drawImage(icon, -11, -11, 22, 22);
+        ctx.restore();
+      }
       for (let i = 0; i < 3; i++) {
         const phase = ((k * 3 + i * 0.33) % 1);
         const px0 = handX + facing * (2 + phase * Math.max(18, reach * 0.75));
@@ -1834,14 +1901,14 @@ export function drawWeaponAction(ctx, slotExec, sx, sy, facing, crouch, fxLayers
       if (icon) {
         ctx.translate(gx, gy);
         if (facing < 0) ctx.scale(-1, 1);
-        ctx.drawImage(icon, -11, -11, 22, 22);
+        ctx.drawImage(icon, -13, -13, 26, 26);
       }
       break;
     }
 
     case 'catalyst': {
       // Raised glowing tome / focus orb at extended cast hand
-      const gx = Math.round(handX + facing * 4);
+      const gx = Math.round(handX + facing * 5);
       const gy = Math.round(handY - Math.sin(k * Math.PI) * 4);
       if (fxLayers && fxLayers.enabled) {
         fxLayers.addAttack({
@@ -1852,7 +1919,7 @@ export function drawWeaponAction(ctx, slotExec, sx, sy, facing, crouch, fxLayers
       if (icon) {
         ctx.translate(gx, gy);
         if (facing < 0) ctx.scale(-1, 1);
-        ctx.drawImage(icon, -10, -10);
+        ctx.drawImage(icon, -12, -12, 24, 24);
       }
       break;
     }

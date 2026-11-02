@@ -78,9 +78,9 @@ export class WeaponPedestal {
         });
       }
 
-      const icon = getWeaponIconCanvas(w.id);
+      const icon = getWeaponIconCanvas(w.id, 'relic');
       if (icon) {
-        ctx.drawImage(icon, sx - 10, cy - 10);
+        ctx.drawImage(icon, Math.round(sx - icon.width * 0.5), Math.round(cy - icon.height * 0.5));
       } else {
         ctx.fillStyle = accent;
         ctx.fillRect(sx - 5, cy - 5, 10, 10);
@@ -398,13 +398,18 @@ export class ArmoryScreen {
     ctx.strokeStyle = '#6e5838';
     ctx.strokeRect(ix + 0.5, iy + 0.5, iw - 1, ih - 1);
 
-    // Big 2x pixel icon box
+    // High-detail pixel-art relic weapon showcase box
     ctx.fillStyle = '#080612';
     ctx.fillRect(ix + 12, iy + 10, 44, 44);
     ctx.strokeStyle = sw.element && ELEMENT_META[sw.element] ? ELEMENT_META[sw.element].color : '#8a9ab5';
     ctx.strokeRect(ix + 12.5, iy + 10.5, 43, 43);
-    const bigIcon = getWeaponIconCanvas(sw.id);
-    if (bigIcon) ctx.drawImage(bigIcon, ix + 14, iy + 12, 40, 40);
+    const bigIcon = getWeaponIconCanvas(sw.id, 'relic');
+    if (bigIcon) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(bigIcon, ix + 16, iy + 14, 36, 36);
+      ctx.restore();
+    }
 
     f.draw(ctx, sw.name, ix + 64, iy + 12, {
       scale: 2, gothic: false, color: '#f6f0de', shadow,

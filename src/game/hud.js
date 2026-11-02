@@ -43,7 +43,7 @@ export function drawHud(ctx, font, assets, world) {
   drawBar(ctx, 60, 31, bossHp, bossMax, '#8a6cff', '#d7c8ff');
 
   // Hearts (sub-weapon ammo)
-  assets.draw(ctx, 'items', 'heart_small', 214, 36);
+  assets.draw(ctx, 'items', 'heart_small', 213, 36);
   font.draw(ctx, String(world.hearts).padStart(2, '0'), 224, 25, { color: ivory, shadow, scale: 1 });
 
   // Sub-weapon frame (`↑ + L-Hand`)
@@ -54,7 +54,12 @@ export function drawHud(ctx, font, assets, world) {
   ctx.strokeRect(bx + 0.5, by + 0.5, 27, 25);
   ctx.fillStyle = '#8a9ab5';
   ctx.fillRect(bx + 1, by + 1, 26, 1);
-  if (p.subWeapon) assets.draw(ctx, 'items', p.subWeapon, bx + 14, by + 23);
+  if (p.subWeapon) {
+    const sf = assets.frame('items', p.subWeapon);
+    const ssc = sf ? Math.min(1, 21 / Math.max(sf.w, sf.h)) : 1;
+    const syBot = Math.round(by + 13 + (sf ? sf.h * ssc * 0.5 : 9));
+    assets.draw(ctx, 'items', p.subWeapon, bx + 14, syBot, false, 1, ssc);
+  }
 
   // Ambidextrous Dual-Hand Equipment Matrix Sockets (`L` = 284..308, `R` = 311..335)
   const game = world.game;

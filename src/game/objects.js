@@ -106,9 +106,10 @@ export class Item extends Entity {
       g.addColorStop(1, 'rgba(10, 8, 22, 0)');
       ctx.fillStyle = g;
       ctx.fillRect(sx - 20, sy - 20, 40, 40);
-      const icon = getWeaponIconCanvas(this.weaponId);
+      const icon = getWeaponIconCanvas(this.weaponId, 'relic');
       if (icon) {
-        ctx.drawImage(icon, sx - 10, sy - 10);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(icon, sx - 14, sy - 14, 28, 28);
       } else {
         ctx.fillStyle = elem ? elem.color : '#ffd27a';
         ctx.fillRect(sx - 5, sy - 5, 10, 10);
@@ -202,8 +203,10 @@ export class Projectile {
   get box() { return { x: this.x - this.w / 2, y: this.y - this.h / 2, w: this.w, h: this.h }; }
 
   update(dt, level, world) {
-    // CHRONO PENDULUM relic slows enemy projectiles by 20%
-    const stepDt = (this.owner === 'enemy' && world && world.hasRelic && world.hasRelic('clocktower')) ? dt * 0.8 : dt;
+    // CHRONO PENDULUM relic & Easy-mode pace soften enemy projectile speed along the same arc
+    const relicSlow = (this.owner === 'enemy' && world && world.hasRelic && world.hasRelic('clocktower')) ? 0.8 : 1;
+    const diffSlow = (this.owner === 'enemy' && world && world.difficulty && world.difficulty.projTimeScale) ? world.difficulty.projTimeScale : 1;
+    const stepDt = dt * relicSlow * diffSlow;
     this.time += stepDt;
     this.life -= stepDt;
     if (this.life <= 0) { this.dead = true; return; }
@@ -682,9 +685,10 @@ export class Projectile {
           });
         }
         ctx.rotate(this.spin * 1.5);
-        const icon = this.weaponId ? getWeaponIconCanvas(this.weaponId) : null;
+        const icon = this.weaponId ? getWeaponIconCanvas(this.weaponId, 'relic') : null;
         if (icon) {
-          ctx.drawImage(icon, -10, -10);
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(icon, -14, -14, 28, 28);
         } else {
           ctx.strokeStyle = elem ? elem.color : '#ffe89e';
           ctx.lineWidth = 3;

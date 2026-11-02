@@ -57,7 +57,8 @@ export const VOICES = {
   narrator_ending: 'assets/voice/narrator_ending.mp3',
 };
 const FALLBACK_TRACK = 'graveyard';
-const MAX_DECODED = 3;   // full-length tracks decode to ~50 MB of PCM each
+const MAX_DECODED = 4;   // keep stage + boss + clear + title decoded in LRU without evicting prefetched boss
+const VOICE_DUCK_RATIO = 0.36; // keep background boss music clearly audible beneath boss speech, swelling to 1.0 after
 
 /** Registers a generated music track (Castle Forge) under `name`. */
 export function registerTrack(name, url) { TRACKS[name] = url; }
@@ -80,6 +81,7 @@ export class AudioSys {
     this.voiceSpace = 'hall';
     this.buffers = new Map();       // name -> AudioBuffer (LRU, bounded)
     this.loading = new Map();       // name -> Promise<AudioBuffer|null>
+    this.musicRaw = new Map();      // name -> Promise<ArrayBuffer|null> (prefetched even before unlock)
     this.voiceRaw = new Map();      // key -> Promise<ArrayBuffer|null>
     this.voiceBuffers = new Map();  // key -> AudioBuffer
     this.activeVoice = null;
@@ -119,14 +121,17 @@ export class AudioSys {
     this.sfxBus.gain.value = this.sfxVolume;
     this.sfxBus.connect(this.master);
     this.musicBus = this.ctx.createGain();
-    this.musicBus.gain.value = this.voiceDucking ? this.musicVolume * 0.24 : this.musicVolume;
+    this.musicBus.gain.value = this.voiceDucking ? this.musicVolume * VOICE_DUCK_RATIO : this.musicVolume;
     this.musicBus.connect(this.master);
     this.voiceBus = this.ctx.createGain();
     this.voiceBus.gain.value = 1.0;
     this._initVoiceRoom();
-    if (this.pendingTrack) { const t = this.pendingTrack; this.pendingTrack = null; this.playMusic(t.name, t.loop); }
     if (this.pendingVoice) { const v = this.pendingVoice; this.pendingVoice = null; this.playVoice(v.key, v.onDuration, v.opts); }
+    if (this.pendingTrack) { const t = this.pendingTrack; this.pendingTrack = null; this.playMusic(t.name, t.loop); }
     if (this.pendingAmbient) { const a = this.pendingAmbient; this.pendingAmbient = null; this.ambient = null; this.playAmbient(a.url, a.volume); }
+    for (const name of this.musicRaw.keys()) {
+      if (!this.buffers.has(name)) this.ensureBuffer(name);
+    }
     for (const n of [
       'whip', 'jump', 'land', 'hit', 'hurt', 'candle', 'heart', 'pickup', 'throw',
       'enemy_die', 'bone', 'block', 'boss_hit', 'boss_roar', 'gate', 'select', 'fire',
@@ -292,9 +297,15 @@ export class AudioSys {
     if (!url) return Promise.resolve(null);
     const p = (async () => {
       try {
-        const res = await fetch(withAssetVersion(url));
-        const data = await res.arrayBuffer();
-        const buf = await this.ctx.decodeAudioData(data);
+        let data = this.musicRaw.has(name) ? await this.musicRaw.get(name) : null;
+        if (!data) {
+          const res = await fetch(withAssetVersion(url));
+          if (!res.ok) return null;
+          data = await res.arrayBuffer();
+        } else {
+          this.musicRaw.delete(name);
+        }
+        const buf = await this.ctx.decodeAudioData(data.slice(0));
         this.buffers.set(name, buf);
         while (this.buffers.size > MAX_DECODED) {
           const oldest = this.buffers.keys().next().value;
@@ -313,8 +324,21 @@ export class AudioSys {
     return p;
   }
 
-  /** Warms the cache for an upcoming track (e.g. the boss theme). */
-  prefetch(name) { if (this.ctx && !this.buffers.has(name)) this.ensureBuffer(name); }
+  /** Warms the cache for an upcoming track (e.g. the boss theme), even before WebAudio unlocks. */
+  prefetch(name) {
+    const url = TRACKS[name];
+    if (!url || this.buffers.has(name)) return;
+    if (this.ctx) {
+      this.ensureBuffer(name);
+      return;
+    }
+    if (!this.musicRaw.has(name) && typeof fetch !== 'undefined') {
+      const p = fetch(withAssetVersion(url))
+        .then((r) => (r.ok ? r.arrayBuffer() : null))
+        .catch(() => null);
+      this.musicRaw.set(name, p);
+    }
+  }
 
   /** Pre-fetches raw Daikon boss voice bytes so playback on approach has zero lag. */
   prefetchVoice(key) {
@@ -361,14 +385,36 @@ export class AudioSys {
     const cb = typeof onDuration === 'function' ? onDuration : null;
 
     if (!VOICES[key]) {
-      // Offline forged wing fallback: speak subtitle via Web Speech API if available so no boss stays mute
+      // Offline forged wing fallback: speak subtitle via Web Speech API if available while ducking boss music
       if (opts && opts.speechText && !this.muted && typeof window !== 'undefined' && window.speechSynthesis) {
         try {
           window.speechSynthesis.cancel();
+          this._voiceSeq = (this._voiceSeq || 0) + 1;
+          const mySeq = this._voiceSeq;
+          if (this.duckTimer) { clearTimeout(this.duckTimer); this.duckTimer = null; }
+          this.voiceDucking = true;
+          if (this.musicBus && this.ctx) {
+            const now0 = this.ctx.currentTime;
+            this.musicBus.gain.cancelScheduledValues(now0);
+            this.musicBus.gain.setTargetAtTime(this.musicVolume * VOICE_DUCK_RATIO, now0, 0.06);
+          }
+          const restoreSpeech = () => {
+            if (this._voiceSeq !== mySeq) return;
+            this.voiceDucking = false;
+            if (this.musicBus && this.ctx) {
+              this.musicBus.gain.setTargetAtTime(this.musicVolume, this.ctx.currentTime, 0.34);
+            }
+          };
           const u = new SpeechSynthesisUtterance(String(opts.speechText));
           u.pitch = 0.62;
           u.rate = 0.86;
           u.volume = 1.0;
+          u.onend = () => {
+            if (this.duckTimer) clearTimeout(this.duckTimer);
+            this.duckTimer = setTimeout(restoreSpeech, 280);
+          };
+          u.onerror = restoreSpeech;
+          this.duckTimer = setTimeout(restoreSpeech, 5200);
           window.speechSynthesis.speak(u);
           this.lastVoicePlayed = key;
         } catch (e) { /* ignore speechSynthesis quirks */ }
@@ -379,23 +425,28 @@ export class AudioSys {
     if (opts && opts.space) this.setVoiceSpace(opts.space);
     this.lastVoicePlayed = key;
     if (!this.ctx) {
+      this.voiceDucking = true;
       this.pendingVoice = { key, onDuration: cb, opts };
       return;
     }
     if (this.ctx.state !== 'running') {
       this.ctx.resume().catch(() => {});
     }
+    this._voiceSeq = (this._voiceSeq || 0) + 1;
+    const mySeq = this._voiceSeq;
     if (this.activeVoice) {
-      try { this.activeVoice.stop(); } catch (e) { /* already ended */ }
+      const prev = this.activeVoice;
       this.activeVoice = null;
+      prev.onended = null;
+      try { prev.stop(); } catch (e) { /* already ended */ }
     }
     if (this.duckTimer) { clearTimeout(this.duckTimer); this.duckTimer = null; }
-    // Duck musicBus immediately so background boss music starting alongside the voice never blasts over speech.
+    // Duck musicBus to VOICE_DUCK_RATIO so background boss music plays clearly behind speech without overpowering it.
     this.voiceDucking = true;
     if (this.musicBus) {
       const now0 = this.ctx.currentTime;
       this.musicBus.gain.cancelScheduledValues(now0);
-      this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.20, now0, 0.05);
+      this.musicBus.gain.setTargetAtTime(this.musicVolume * VOICE_DUCK_RATIO, now0, 0.05);
     }
 
     (async () => {
@@ -403,6 +454,7 @@ export class AudioSys {
         try { await this.ctx.resume(); } catch (e) { /* ignore */ }
       }
       const buf = await this.ensureVoiceBuffer(key);
+      if (this._voiceSeq !== mySeq) return;
       if (!buf || !this.ctx) {
         this.voiceDucking = false;
         if (this.musicBus && this.ctx) {
@@ -410,17 +462,10 @@ export class AudioSys {
         }
         return;
       }
-      if (cb) {
-        try {
-          cb(buf.duration);
-        } catch (err) {
-          console.warn('voice onDuration callback error', key, err);
-        }
-      }
       const now = this.ctx.currentTime;
       if (this.musicBus) {
         this.musicBus.gain.cancelScheduledValues(now);
-        this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.20, now, 0.06);
+        this.musicBus.gain.setTargetAtTime(this.musicVolume * VOICE_DUCK_RATIO, now, 0.06);
       }
       const src = this.ctx.createBufferSource();
       src.buffer = buf;
@@ -430,7 +475,7 @@ export class AudioSys {
       this.activeVoice = src;
       let restored = false;
       const restore = () => {
-        if (restored) return;
+        if (restored || this._voiceSeq !== mySeq) return;
         restored = true;
         if (this.activeVoice === src) this.activeVoice = null;
         this.voiceDucking = false;
@@ -439,12 +484,20 @@ export class AudioSys {
         }
       };
       src.onended = () => {
+        if (this._voiceSeq !== mySeq) return;
         // Hold ducking briefly while the stone-hall echo & reverb tail rings out
         if (this.duckTimer) clearTimeout(this.duckTimer);
         this.duckTimer = setTimeout(restore, 420);
       };
       this.duckTimer = setTimeout(restore, Math.ceil(buf.duration * 1000) + 600);
       src.start(now + 0.02);
+      if (cb) {
+        try {
+          cb(buf.duration);
+        } catch (err) {
+          console.warn('voice onDuration callback error', key, err);
+        }
+      }
     })();
   }
 

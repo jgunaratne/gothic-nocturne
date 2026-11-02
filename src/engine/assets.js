@@ -3,6 +3,7 @@
 import { ASSET_VERSION } from './constants.js';
 import { registerDarkwoodAssets } from '../game/forest_assets.js';
 import { registerCastleWingAssets } from '../game/castle_wings_assets.js';
+import { registerWeaponSprites } from '../game/weapons.js';
 
 export class Assets {
   constructor() {
@@ -25,6 +26,7 @@ export class Assets {
     }));
     registerDarkwoodAssets(this);
     registerCastleWingAssets(this);
+    registerWeaponSprites(this);
   }
 
   /** Frame record {x,y,w,h,ax,ay} for a sheet, or null. */

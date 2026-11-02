@@ -137,8 +137,13 @@ export class World {
       : this.theme.weather === 'embers' ? makeFlakes(44, 'embers')
       : (this.theme.weather === 'leaves' || this.fxTheme === 'forest' ? makeFlakes(36, 'leaves') : null);
     this.spawnAll();
-    if (this.audio.prefetch) this.audio.prefetch('boss');
+    if (this.audio.prefetch) this.audio.prefetch(this.bossMusicKey());
     if (data.boss && this.audio.prefetchVoice) this.audio.prefetchVoice(data.boss.voice || data.boss.type);
+  }
+
+  bossMusicKey() {
+    const b = this.data && this.data.boss;
+    return (b && b.music) ? b.music : 'boss';
   }
 
   hasRelic(key) { return this.relics ? this.relics.has(key) : false; }
@@ -278,25 +283,27 @@ export class World {
   /** Registers an enemy, scaling health, contact force & boss tempo by stage rank and difficulty. */
   spawnEnemy(e) {
     const rank = stageRankFor(this.stage);
+    const rankScale = this.difficulty.rankScale != null ? this.difficulty.rankScale : 1;
+    const effRank = Math.max(0, rank - 1) * rankScale;
     const isBoss = e === this.boss || !!(e && e.arena);
     if (isBoss) {
       // Ensure late-game Castle Wings & forged bosses scale with castle depth rather than early-stage base HP
-      const rankFloorHp = Math.round(38 + rank * 7.6);
+      const rankFloorHp = Math.round(38 + (1 + effRank) * 7.6);
       if (e.hp < rankFloorHp) e.hp = rankFloorHp;
       e.hp = Math.max(12, Math.round(e.hp * this.difficulty.enemyHp));
       e.maxHp = e.hp;
-      e.touchDamage = Math.max(3, Math.round((e.touchDamage || 3) * (1 + Math.max(0, rank - 1) * 0.042)));
-      e.swingDamage = Math.max(4, Math.round((e.swingDamage || 5) * (1 + Math.max(0, rank - 1) * 0.048)));
-      if (e.tempo && rank >= 9) {
+      e.touchDamage = Math.max(3, Math.round((e.touchDamage || 3) * (1 + effRank * 0.042)));
+      e.swingDamage = Math.max(4, Math.round((e.swingDamage || 5) * (1 + effRank * 0.048)));
+      if (e.tempo && rank >= 9 && rankScale >= 1) {
         e.tempo *= Math.max(0.76, 1 - (rank - 8) * 0.015);
       }
     } else {
-      const rankHpMult = 1 + Math.max(0, rank - 1) * 0.088;
-      if (e.hp > 1 || rank >= 4) {
+      const rankHpMult = 1 + effRank * 0.088;
+      if (e.hp > 1 || (rank >= 4 && rankScale >= 1)) {
         e.hp = Math.max(1, Math.round(e.hp * rankHpMult * this.difficulty.enemyHp));
         if (e.maxHp != null) e.maxHp = e.hp;
       }
-      e.touchDamage = Math.max(2, Math.round((e.touchDamage || 2) * (1 + Math.max(0, rank - 1) * 0.042)));
+      e.touchDamage = Math.max(2, Math.round((e.touchDamage || 2) * (1 + effRank * 0.042)));
     }
     this.enemies.push(e);
   }
@@ -640,10 +647,14 @@ export class World {
     // Enemies
     for (const s of this.spawners) s.update(dt, this);
     const camL = this.camera.x - 160, camR = this.camera.x + W + 160;
+    const enemyTimeScale = this.difficulty.enemyTimeScale || 1;
+    const bossTimeScale = this.difficulty.bossTimeScale || 1;
     for (const e of this.enemies) {
       if (e === this.boss || e.active || (e.x > camL && e.x < camR)) {
         e.active = true;
-        e.update(dt, lvl, this);
+        const eDt = e.deathT >= 0 ? dt
+          : (e === this.boss ? (e.state === 'enter' ? dt : dt * bossTimeScale) : dt * enemyTimeScale);
+        e.update(eDt, lvl, this);
       }
     }
     for (const pr of this.projectiles) pr.update(dt, lvl, this);
@@ -889,7 +900,8 @@ export class World {
       if (rectsOverlap(e.box(e.flies ? -4 : -2), pb)) p.hurt(e.touchDamage, e.x, this);
     }
     const shSlot = p.activeShieldSlot ? p.activeShieldSlot() : null;
-    const rankProjScale = 1 + Math.max(0, stageRankFor(this.stage) - 1) * 0.04;
+    const rankScale = this.difficulty.rankScale != null ? this.difficulty.rankScale : 1;
+    const rankProjScale = 1 + Math.max(0, stageRankFor(this.stage) - 1) * 0.04 * rankScale;
     for (const pr of this.projectiles) {
       if (pr.owner === 'enemy' && !pr.dead && rectsOverlap(pr.box, pb)) {
         // Active Shield Socket blocks frontal enemy projectiles with a metallic clang!
@@ -996,7 +1008,10 @@ export class World {
       this.enemies = this.enemies.filter((e) => e.x > b.camX - 100);
       this.sfx('gate');
       this.camera.shake(4, 0.5);
-      this.audio.stopMusic(0.8);
+      // Crossfade straight into the boss battle theme as the gate slams so its
+      // atmospheric opening swells behind the banner and continues playing in the
+      // background (ducked via AudioSys.VOICE_DUCK_RATIO) throughout the boss's speech!
+      this.audio.playMusic(this.bossMusicKey());
       this.showMessage(b.name, 'DEFEAT IT TO CLAIM THE ORB', 3.2);
       // The boss materialises on its dais now, so it is on screen while it speaks.
       this.boss = createBoss(b.type || 'reaper', b.spawn.x, b.spawn.y, b.arena, this.difficulty);
@@ -1096,7 +1111,7 @@ export class World {
           },
         });
       }
-      this.audio.playMusic('boss');
+      this.audio.playMusic(this.bossMusicKey());
     }
   }
 
@@ -1258,7 +1273,7 @@ export class World {
       this.showMessage(b.name, 'DEFEAT IT TO CLAIM THE ORB', 3);
       this.triggerBossVoice();
     } else {
-      this.audio.playMusic('boss');
+      this.audio.playMusic(this.bossMusicKey());
     }
     setTimeout(() => { this.sfx('boss_roar'); this.onBossRoar(); }, 900);
   }

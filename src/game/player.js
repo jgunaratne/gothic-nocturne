@@ -194,6 +194,7 @@ export class Player extends Entity {
 
   update(dt, input, level, world) {
     if (this.state === 'dead') {
+      this.wantStairCatch = false;
       this.deadT += dt;
       this.vx *= 0.9;
       this.physics(level, dt);
@@ -201,6 +202,7 @@ export class Player extends Entity {
     }
     if (this.petrified > 0) {
       // Stone: no control; each button press chips away at the spell.
+      this.wantStairCatch = false;
       this.petrified -= dt;
       if (input.anyPressed) { this.petrified -= 0.12; world.particles.dust(this.x, this.y - 30, 1, '#b8b8c4'); }
       this.invuln = Math.max(0, this.invuln - dt);
@@ -223,6 +225,7 @@ export class Player extends Entity {
 
     const ctl = this.hurtT <= 0;
     const axis = ctl ? input.axis : 0;
+    this.wantStairCatch = !!(ctl && input.down.up && !input.down.down);
     this.invuln = Math.max(0, this.invuln - dt);
     this.hurtT = Math.max(0, this.hurtT - dt);
     this.saluteT = Math.max(0, (this.saluteT || 0) - dt);
@@ -252,9 +255,58 @@ export class Player extends Entity {
     // - Shield slows walk slightly while held in active guard
     const isRootingSlot = (s) => s.active && s.weapon && (s.weapon.category === 'heavy_blade' || s.weapon.category === 'whip');
     const anyBlockingCrouch = this.attacking || this.slots.some((s) => s.active && !s.guarding && s.weapon && s.weapon.category === 'heavy_blade');
+    const guardSlot = this.activeShieldSlot();
+    const speedScale = guardSlot ? 0.72 : 1.0;
+    const relicSpeedMul = Math.min(
+      1.16,
+      (hasRelic('ramparts') ? 1.08 : 1) * (1 + (world && world.relicBonus ? world.relicBonus('speed') : 0)),
+    );
+    const moveSpeed = PLAYER.speed * speedScale * relicSpeedMul;
+    const rooted = this.onGround && (this.throwing || isRootingSlot(this.slots[0]) || isRootingSlot(this.slots[1]));
 
-    // Crouch (ground only), with head-room check when standing up.
-    const wantCrouch = ctl && input.down.down && this.onGround && !anyBlockingCrouch;
+    // -----------------------------------------------------------------------
+    // Walkable Staircase Engagement (Bottom `Up` climb & Top `Down` / open-balcony descent)
+    // -----------------------------------------------------------------------
+    let stairIntentAxis = 0;
+    let suppressCrouchForStair = false;
+    if (ctl && !rooted && this.onGround && !this.onStair && !this.dropThrough && level) {
+      if (input.down.up && !input.down.down && level.findBottomStair) {
+        const bs = level.findBottomStair(this.x, this.y, 26, 16);
+        if (bs && (axis === 0 || axis === bs.ascDir)) {
+          stairIntentAxis = bs.ascDir;
+          if ((this.x + bs.ascDir * moveSpeed * dt - bs.botX) * bs.ascDir > 0) {
+            this.onStair = bs;
+            this.riding = null;
+          }
+        }
+      }
+      if (!this.onStair && level.findTopStair) {
+        const ts = level.findTopStair(this.x, this.y, 26, 14);
+        if (ts) {
+          const downDir = -ts.ascDir;
+          if (input.down.down && !input.down.up && (axis === 0 || axis === downDir)) {
+            suppressCrouchForStair = true;
+            stairIntentAxis = downDir;
+            if ((this.x + downDir * moveSpeed * dt - ts.topX) * downDir > 0) {
+              this.onStair = ts;
+              this.riding = null;
+            }
+          } else if (ts.passThrough && axis === downDir && !input.down.up) {
+            const beyondCol = ts.ascDir > 0
+              ? Math.floor((ts.topX - 4) / TILE)
+              : Math.floor((ts.topX + 4) / TILE);
+            const topRow = Math.round(ts.topY / TILE);
+            if (!level.isStandable(beyondCol, topRow) && (this.x + downDir * moveSpeed * dt - ts.topX) * downDir > 0) {
+              this.onStair = ts;
+              this.riding = null;
+            }
+          }
+        }
+      }
+    }
+
+    // Crouch (ground only, suppressed on stairs), with head-room check when standing up.
+    const wantCrouch = ctl && input.down.down && this.onGround && !this.onStair && !suppressCrouchForStair && !anyBlockingCrouch;
     if (wantCrouch && !this.crouching) { this.crouching = true; this.h = PLAYER.crouchHeight; this.crouchBlendT = CROUCH_BLEND; }
     else if (!wantCrouch && this.crouching) {
       this.h = PLAYER.height;
@@ -264,15 +316,15 @@ export class Player extends Entity {
     this.crouchBlendT = Math.max(0, this.crouchBlendT - dt);
     this.turnT = Math.max(0, this.turnT - dt);
 
-    const guardSlot = this.activeShieldSlot();
-    const speedScale = guardSlot ? 0.72 : 1.0;
-    const relicSpeedMul = Math.min(
-      1.16,
-      (hasRelic('ramparts') ? 1.08 : 1) * (1 + (world && world.relicBonus ? world.relicBonus('speed') : 0)),
-    );
-    const moveSpeed = PLAYER.speed * speedScale * relicSpeedMul;
-    const rooted = this.onGround && (this.throwing || isRootingSlot(this.slots[0]) || isRootingSlot(this.slots[1]));
-    const target = rooted || this.crouching ? 0 : axis * moveSpeed;
+    let driveAxis = axis !== 0 ? axis : stairIntentAxis;
+    if (this.onStair) {
+      if (axis !== 0) driveAxis = axis;
+      else if (ctl && input.down.up && !input.down.down) driveAxis = this.onStair.ascDir;
+      else if (ctl && input.down.down && !input.down.up) driveAxis = -this.onStair.ascDir;
+      else driveAxis = 0;
+    }
+    const stairSpeedMul = this.onStair ? (1 / Math.hypot(1, this.onStair.slope * 0.65)) : 1;
+    const target = rooted || this.crouching ? 0 : driveAxis * moveSpeed * stairSpeedMul;
     const accel = this.onGround ? PLAYER.accel : PLAYER.airAccel;
     if (this.hurtT > 0) {
       // Knockback: keep the launch velocity, only friction on the ground.
@@ -281,10 +333,10 @@ export class Player extends Entity {
     else if (this.vx > target) this.vx = Math.max(target, this.vx - accel * dt);
 
     const lockFacing = this.attacking || this.slots.some((s) => s.active && !s.guarding && s.weapon && s.weapon.category !== 'light_blade' && s.weapon.category !== 'boomerang' && s.weapon.category !== 'catalyst');
-    if (axis !== 0 && !rooted && !lockFacing) {
+    if (driveAxis !== 0 && !rooted && !lockFacing) {
       // Direction change at speed on the ground: a few ticks of skid frame.
-      if (axis !== this.facing && this.onGround && Math.abs(this.vx) > 32) this.turnT = TURN_TIME;
-      this.facing = axis;
+      if (driveAxis !== this.facing && this.onGround && Math.abs(this.vx) > 32) this.turnT = TURN_TIME;
+      this.facing = driveAxis;
     }
     // Weight shift: lean into acceleration, back into a stop (skid); snaps in, eases out.
     const wantLean = this.onGround && this.hurtT <= 0 && !this.attacking
@@ -293,9 +345,22 @@ export class Player extends Entity {
 
     // Jump (coyote + buffer), variable height; Heavy Blade roots feet on ground during active cleave!
     const jumpRooted = this.onGround && this.slots.some((s) => s.active && s.weapon && s.weapon.category === 'heavy_blade' && s.timer < s.win1);
-    if (ctl && !jumpRooted && this.jumpBuffer > 0 && this.coyote > 0 && !this.crouching) {
+    const stairDropJump = !!(
+      ctl && !jumpRooted && this.onStair && this.onStair.passThrough
+      && input.down.down && input.pressed.jump
+      && level && level.findDropSurfaceY(this.x, this.y + 4, 220) != null
+    );
+    if (stairDropJump) {
+      this.dropThrough = true; this.dropFromY = this.y;
+      this.onStair = null; this.onGround = false; this.riding = null;
+      this.y += 2; this.vy = Math.max(this.vy, 45);
+      this.jumpBuffer = 0; this.coyote = 0;
+    } else if (ctl && !jumpRooted && this.jumpBuffer > 0 && this.coyote > 0 && !this.crouching) {
+      if (this.onStair && Math.abs(this.x - this.onStair.topX) < this.w * 0.5 + 2 && this.y > this.onStair.topY) {
+        this.y = this.onStair.topY;
+      }
       this.vy = -PLAYER.jump; this.coyote = 0; this.jumpBuffer = 0;
-      this.onGround = false; this.riding = null;
+      this.onGround = false; this.riding = null; this.onStair = null;
       this.airJumpsLeft = hasRelic('graveyard') ? 1 : 0;
       this.launchT = LAUNCH_TIME; this.landT = 0;
       world.sfx('jump');
@@ -565,9 +630,13 @@ export class Player extends Entity {
       this.vx = 0;
     }
     if (isSkill && weapon.skill.popVy) {
+      if (this.onStair && Math.abs(this.x - this.onStair.topX) < this.w * 0.5 + 2 && this.y > this.onStair.topY) {
+        this.y = this.onStair.topY;
+      }
       this.vy = weapon.skill.popVy;
       this.onGround = false;
       this.riding = null;
+      this.onStair = null;
     }
 
     // Whip category also drives the hunter's Omni whip clip + procedural lash
@@ -749,6 +818,7 @@ export class Player extends Entity {
     this.vx = dir * 150 * kb;
     this.vy = guarded ? -95 * kb : -230 * kb;
     this.onGround = false;
+    this.onStair = null;
     return true;
   }
 
@@ -759,6 +829,7 @@ export class Player extends Entity {
     this._clearSlots();
     this.vx = -this.facing * 60;
     this.vy = -320;
+    this.onStair = null;
     this.h = PLAYER.height;
     world.onPlayerDeath();
   }
