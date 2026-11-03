@@ -19,19 +19,23 @@ export class WeaponPedestal {
     this.weaponId = weaponId;
     this.x = x;
     this.y = y;
+    this.near = false;
   }
 
   get weapon() { return WEAPONS[this.weaponId] || null; }
-  get box() { return { x: this.x - 16, y: this.y - 54, w: 32, h: 54 }; }
+  get box() { return { x: this.x - 18, y: this.y - 68, w: 36, h: 68 }; }
 
   isCollected(world) {
     return !!(world && world.game && world.game.hasWeapon && world.game.hasWeapon(this.weaponId));
   }
 
   update(player, world) {
-    if (!this.weapon || this.isCollected(world)) return;
-    if (rectsOverlap(this.box, player.box())) {
-      world.onWeaponCollected(this.weaponId, this.x, this.y - 28, true);
+    if (!this.weapon || !player) return;
+    const dx = Math.abs(player.x - this.x);
+    const dy = Math.abs(player.y - this.y);
+    this.near = dx < 54 && dy < 56;
+    if (!this.isCollected(world) && rectsOverlap(this.box, player.box())) {
+      world.onWeaponCollected(this.weaponId, this.x, this.y - 44, true);
     }
   }
 
@@ -40,81 +44,124 @@ export class WeaponPedestal {
     if (!w) return;
     const sx = Math.round(this.x - cam.rx);
     const sy = Math.round(this.y - cam.ry);
-    if (sx < -48 || sx > W + 48 || sy < -30 || sy > H + 70) return;
+    if (sx < -64 || sx > W + 64 || sy < -40 || sy > H + 84) return;
 
     const taken = this.isCollected(world);
     const pulse = 0.5 + 0.5 * Math.sin(time * 4.2 + this.x * 0.02);
     const elem = w.element ? ELEMENT_META[w.element] : null;
     const accent = elem ? elem.color : (w.trimColor || '#ffd27a');
+    const assets = world && world.assets;
+    const hasShrineSprite = !!(assets && assets.frame && assets.frame('shrines', 'vessel_empty'));
+    const plinthTopY = hasShrineSprite ? (sy - 46) : (sy - 28);
 
     ctx.save();
-    // Carved gothic reliquary plinth
-    ctx.fillStyle = 'rgba(4, 3, 10, 0.5)';
-    ctx.fillRect(sx - 16, sy - 2, 32, 4);
-    ctx.fillStyle = '#242038';
-    ctx.fillRect(sx - 13, sy - 14, 26, 14);
-    ctx.fillStyle = '#3a3456';
-    ctx.fillRect(sx - 15, sy - 16, 30, 4);
-    ctx.fillRect(sx - 15, sy - 4, 30, 4);
-    ctx.fillStyle = taken ? '#4e4868' : accent;
-    ctx.fillRect(sx - 9, sy - 10, 18, 2);
 
-    if (!taken) {
-      const bob = Math.round(Math.sin(time * 3.6) * 3);
-      const cy = sy - 32 + bob;
-      const g = ctx.createRadialGradient(sx, cy, 2, sx, cy, 28);
-      g.addColorStop(0, elem ? `${elem.color}66` : `rgba(255, 218, 128, ${(0.36 + 0.16 * pulse).toFixed(3)})`);
-      g.addColorStop(1, 'rgba(12, 10, 24, 0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(sx - 30, cy - 30, 60, 60);
+    // 1. Floor contact shadow & stepped stone sub-plinth
+    ctx.fillStyle = 'rgba(4, 3, 10, 0.58)';
+    ctx.fillRect(sx - 24, sy - 2, 48, 4);
+    ctx.fillStyle = '#1b1826';
+    ctx.fillRect(sx - 22, sy - 4, 44, 4);
+    ctx.fillStyle = '#342e46';
+    ctx.fillRect(sx - 20, sy - 5, 40, 1);
 
-      const fxl = getFxLayers();
-      if (fxl && fxl.enabled) {
-        fxl.addAttack({
-          x: sx, y: cy, rx: 13, ry: 16, dirX: 0, dirY: -1, mode: 0, seed: this.x * 0.013,
-          core: elem ? elem.core : [1.0, 0.96, 0.80],
-          rim: elem ? elem.rim : [0.92, 0.72, 0.30],
-          alpha: 0.48 + 0.18 * pulse,
-        });
-      }
-
-      const icon = getWeaponIconCanvas(w.id, 'relic');
-      if (icon) {
-        ctx.drawImage(icon, Math.round(sx - icon.width * 0.5), Math.round(cy - icon.height * 0.5));
-      } else {
-        ctx.fillStyle = accent;
-        ctx.fillRect(sx - 5, cy - 5, 10, 10);
-      }
+    // 2. Ornate carved Gothic stone & crimson-velvet altar (`shrines.vessel_empty` sprite)
+    if (hasShrineSprite) {
+      assets.draw(ctx, 'shrines', 'vessel_empty', sx, sy);
     } else {
-      const fxl = getFxLayers();
-      if (fxl && fxl.enabled) {
-        fxl.addFlame(sx, sy - 17, 6, 9, [0.55, 0.78, 1.0], this.x * 0.02);
-      }
+      // Detailed fallback stone pedestal if sprite sheet is not loaded
+      ctx.fillStyle = '#262238';
+      ctx.fillRect(sx - 16, sy - 28, 32, 26);
+      ctx.fillStyle = '#3e3856';
+      ctx.fillRect(sx - 18, sy - 30, 36, 4);
+      ctx.fillRect(sx - 18, sy - 6, 36, 4);
+      ctx.fillStyle = '#6e1d30';
+      ctx.fillRect(sx - 8, sy - 26, 16, 18);
     }
+
+    // 3. Gilded reliquary crest & wrought-iron weapon cradle horns atop the altar
+    ctx.fillStyle = '#181424';
+    ctx.fillRect(sx - 15, plinthTopY - 3, 30, 3);
+    ctx.fillStyle = taken ? '#7a6848' : '#d8b25c';
+    ctx.fillRect(sx - 13, plinthTopY - 2, 26, 1);
+    // Left & right forged iron cradle arms holding the weapon aloft
+    ctx.fillStyle = '#2d293e';
+    ctx.fillRect(sx - 14, plinthTopY - 9, 3, 7);
+    ctx.fillRect(sx + 11, plinthTopY - 9, 3, 7);
+    ctx.fillRect(sx - 16, plinthTopY - 11, 3, 3);
+    ctx.fillRect(sx + 13, plinthTopY - 11, 3, 3);
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = taken ? 0.55 : (0.75 + 0.25 * pulse);
+    ctx.fillRect(sx - 15, plinthTopY - 11, 2, 2);
+    ctx.fillRect(sx + 13, plinthTopY - 11, 2, 2);
+    ctx.fillRect(sx - 4, sy - 24, 8, 2);
+    ctx.globalAlpha = 1;
+
+    // 4. Twin miniature votive candles on the outer corners of the altar cornice
+    for (const cxOff of [-17, 16]) {
+      ctx.fillStyle = '#e8dcc0';
+      ctx.fillRect(sx + cxOff, plinthTopY - 5, 2, 4);
+      ctx.fillStyle = '#ffd27a';
+      ctx.fillRect(sx + cxOff, plinthTopY - 7, 2, 2);
+    }
+
+    // 5. Floating signature weapon icon above the reliquary cradle (full radiance when unclaimed;
+    //    consecrated spectral projection when already in the hunter's Armory so the altar always reads clearly!)
+    const bob = Math.round(Math.sin(time * 3.4) * (taken ? 1.5 : 3));
+    const cy = plinthTopY - 20 + bob;
+    const g = ctx.createRadialGradient(sx, cy, 2, sx, cy, taken ? 22 : 32);
+    g.addColorStop(0, elem ? `${elem.color}${taken ? '38' : '77'}` : `rgba(255, 218, 128, ${(taken ? 0.18 : (0.38 + 0.16 * pulse)).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(12, 10, 24, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(sx - 34, cy - 34, 68, 68);
+
+    const fxl = getFxLayers();
+    if (fxl && fxl.enabled) {
+      fxl.addAttack({
+        x: sx, y: cy, rx: taken ? 10 : 15, ry: taken ? 12 : 18,
+        dirX: 0, dirY: -1, mode: 0, seed: this.x * 0.013,
+        core: elem ? elem.core : [1.0, 0.96, 0.80],
+        rim: elem ? elem.rim : [0.92, 0.72, 0.30],
+        alpha: taken ? (0.24 + 0.08 * pulse) : (0.54 + 0.18 * pulse),
+      });
+      fxl.addFlame(sx - 16, plinthTopY - 6, 4, 7, [1.0, 0.68, 0.22], this.x * 0.019);
+      fxl.addFlame(sx + 17, plinthTopY - 6, 4, 7, [1.0, 0.68, 0.22], this.x * 0.019 + 1.3);
+    }
+
+    const icon = getWeaponIconCanvas(w.id, 'relic');
+    if (icon) {
+      ctx.save();
+      ctx.globalAlpha = taken ? (0.62 + 0.14 * pulse) : 1.0;
+      ctx.drawImage(icon, Math.round(sx - icon.width * 0.5), Math.round(cy - icon.height * 0.5));
+      ctx.restore();
+    } else {
+      ctx.fillStyle = accent;
+      ctx.fillRect(sx - 5, cy - 5, 10, 10);
+    }
+
     ctx.restore();
   }
 
   drawPrompt(ctx, cam, font, world, time = 0) {
     const w = this.weapon;
-    if (!w || this.isCollected(world)) return;
-    if (!world || !world.player || Math.abs(world.player.x - this.x) >= 68 || Math.abs(world.player.y - this.y) >= 58) return;
+    if (!w || !this.near) return;
     const sx = Math.round(this.x - cam.rx);
     const sy = Math.round(this.y - cam.ry);
-    if (sx < -48 || sx > W + 48 || sy < -30 || sy > H + 70) return;
+    if (sx < -64 || sx > W + 64 || sy < -40 || sy > H + 84) return;
+    const taken = this.isCollected(world);
     const elem = w.element ? ELEMENT_META[w.element] : null;
     const accent = elem ? elem.color : (w.trimColor || '#ffd27a');
-    const bob = Math.round(Math.sin(time * 3.6) * 3);
-    const cy = sy - 32 + bob;
-    const tag = w.name;
-    const lw = font.width(tag, 1, 1, false) + 10;
+    const bob = Math.round(Math.sin(time * 3.4) * (taken ? 1.5 : 3));
+    const cy = sy - 66 + bob;
+    const tag = taken ? `${w.name} · PRESS E FOR ARMORY` : `CLAIM ${w.name}`;
+    const lw = font.width(tag, 1, 1, false) + 12;
     const lx = Math.max(6, Math.min(W - lw - 6, Math.round(sx - lw * 0.5)));
-    const ly = Math.max(48, cy - 26);
+    const ly = Math.max(46, cy - 26);
     ctx.save();
-    ctx.fillStyle = 'rgba(6, 5, 16, 0.92)';
-    ctx.fillRect(lx, ly, lw, 12);
+    ctx.fillStyle = 'rgba(6, 5, 16, 0.94)';
+    ctx.fillRect(lx, ly, lw, 13);
     ctx.strokeStyle = accent;
-    ctx.strokeRect(lx + 0.5, ly + 0.5, lw - 1, 11);
-    font.draw(ctx, tag, lx + Math.round(lw * 0.5), ly + 2, {
+    ctx.strokeRect(lx + 0.5, ly + 0.5, lw - 1, 12);
+    font.draw(ctx, tag, lx + Math.round(lw * 0.5), ly + 3, {
       align: 'center', color: '#f6f0de', shadow: '#05040a', gothic: false,
     });
     ctx.restore();

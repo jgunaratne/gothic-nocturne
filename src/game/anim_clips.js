@@ -17,7 +17,13 @@
 const FAMILY_ALIASES = {
   medusa: { a: 'wave', b: 'wave' },
   gorgon: { a: 'idle', b: 'idle' },
-  vampire: { lunge0: 'lunge', lunge1: 'lunge' },
+  vampire: {
+    lunge0: 'lunge',
+    lunge1: 'lunge',
+    fly: 'fly',
+    cape: (e) => (e._flying ? 'fly' : 'cape'),
+    idle: (e) => (e._flying ? 'fly' : 'idle'),
+  },
   pumpkin: { flame0: 'flame', flame1: 'flame' },      // hop0 / hop1 are poses, not a cycle
   greatjack: { flame0: 'flame', flame1: 'flame' },
   ice: { golem0: 'golem', golem1: 'golem' },

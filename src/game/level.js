@@ -1069,10 +1069,16 @@ export class Level {
   }
 
   /**
-   * Stage 1 castle-moat DRAWBRIDGE: lowered oak plank deck with iron strapping and
-   * end rollers, a texture-mapped stone pier rising out of the moat, 3D timber
-   * soffit, and twin hoist chains climbing from the deck's outer end to the
-   * Barbican Gatehouse tower winch above the portal.
+   * Stage 1 Grand Castle-Moat DRAWBRIDGE & Barbican Gatehouse:
+   * Every architectural & mechanical element renders from dedicated 32-bit pixel-art
+   * graphic asset sheets (`drawbridge_deck`, `drawbridge_support`, `drawbridge_gatehouse`):
+   * - Twin cut-stone moat piers (`pier_shaft` + `pier_cap`) with diagonal oak `knee_brace` struts
+   * - Outer barbican bridgehead `watch_pier` with live brazier flame
+   * - Heavy iron-shod oak truss deck tiles (`deck_tile_a`, `deck_tile_b`), geared `hinge_drum`s,
+   *   wrought-iron Gothic lancet balustrade (`rail_tile`), and gilded fleur-de-lis `newel_post`s
+   * - Towering Barbican `gatehouse_bastion` with raised `portcullis_grille`, crimson-and-gold
+   *   `royal_banner`s, spoked iron `windlass_wheel`s, forged `chain_shackle`s, and interlocking
+   *   pixel-art `chain_link` hoist chains.
    */
   drawDrawbridge(ctx, camX, camY, bank, assets, time = 0) {
     const d = this.drawbridge;
@@ -1081,134 +1087,284 @@ export class Level {
     const wy = d.row * TILE;
     const sx0 = Math.round(wx0 - camX), sx1 = Math.round(wx1 - camX);
     const sy = Math.round(wy - camY);
-    if (sx1 < -80 || sx0 > W + 80) return;
+    if (sx1 < -160 || sx0 > W + 160) return;
+
     const woodTex = bank ? bank.get('plat_wood') : null;
     const plankTex = bank ? bank.get('wood_plank') : null;
     const stoneTex = bank ? bank.get('wall') : null;
-    const trimTex = bank ? bank.get('stone_trim') : null;
-    const deckH = 14;
+    const deckImg = assets && assets.img ? assets.img('drawbridge_deck') : null;
+    const supImg = assets && assets.img ? assets.img('drawbridge_support') : null;
+    const gateImg = assets && assets.img ? assets.img('drawbridge_gatehouse') : null;
 
-    // 1. Central stone pier from the moat floor up to the deck underside (z = 8..40)
+    const deckA = assets && assets.frame ? assets.frame('drawbridge_deck', 'deck_tile_a') : null;
+    const deckB = assets && assets.frame ? assets.frame('drawbridge_deck', 'deck_tile_b') : null;
+    const railFr = assets && assets.frame ? assets.frame('drawbridge_deck', 'rail_tile') : null;
+    const newelFr = assets && assets.frame ? assets.frame('drawbridge_deck', 'newel_post') : null;
+    const drumFr = assets && assets.frame ? assets.frame('drawbridge_deck', 'hinge_drum') : null;
+
+    const pierCapFr = assets && assets.frame ? assets.frame('drawbridge_support', 'pier_cap') : null;
+    const pierShaftFr = assets && assets.frame ? assets.frame('drawbridge_support', 'pier_shaft') : null;
+    const braceFr = assets && assets.frame ? assets.frame('drawbridge_support', 'knee_brace') : null;
+    const wheelFr = assets && assets.frame ? assets.frame('drawbridge_support', 'windlass_wheel') : null;
+    const shackleFr = assets && assets.frame ? assets.frame('drawbridge_support', 'chain_shackle') : null;
+    const linkFr = assets && assets.frame ? assets.frame('drawbridge_support', 'chain_link') : null;
+
+    const watchFr = assets && assets.frame ? assets.frame('drawbridge_gatehouse', 'watch_pier') : null;
+    const bastionFr = assets && assets.frame ? assets.frame('drawbridge_gatehouse', 'gatehouse_bastion') : null;
+    const portcullisFr = assets && assets.frame ? assets.frame('drawbridge_gatehouse', 'portcullis_grille') : null;
+    const bannerFr = assets && assets.frame ? assets.frame('drawbridge_gatehouse', 'royal_banner') : null;
+
+    const deckH = deckA ? deckA.h - 2 : 26;
+    const spanW = sx1 - sx0;
+    const fx = getFxLayers();
+
+    // 1. Twin cut-stone Gothic moat piers (`pier_shaft` + `pier_cap`) & diagonal oak `knee_brace` sprites
     const floorWy = d.floorRow * TILE;
-    const pierCx = (wx0 + wx1) * 0.5, pw = 22;
-    if (stoneTex) {
-      const fTL = project3D(pierCx - pw / 2, wy + deckH, 8, camX, camY);
-      const fTR = project3D(pierCx + pw / 2, wy + deckH, 8, camX, camY);
-      const fBL = project3D(pierCx - pw / 2 - 5, floorWy + 6, 8, camX, camY);
-      const fBR = project3D(pierCx + pw / 2 + 5, floorWy + 6, 8, camX, camY);
-      const bTL = project3D(pierCx - pw / 2, wy + deckH, 40, camX, camY);
-      const bTR = project3D(pierCx + pw / 2, wy + deckH, 40, camX, camY);
-      const bBL = project3D(pierCx - pw / 2 - 5, floorWy + 6, 40, camX, camY);
-      const bBR = project3D(pierCx + pw / 2 + 5, floorWy + 6, 40, camX, camY);
-      if (bTL.x < fTL.x - 0.4) {
-        texQuad(ctx, stoneTex, bTL, fTL, fBL, bBL, 0, wy, 32, wy, 32, floorWy, 0, floorWy, shadeOverlay32([-1, 0, -0.2], DECK_FOG, 0.40));
-      } else if (bTR.x > fTR.x + 0.4) {
-        texQuad(ctx, stoneTex, fTR, bTR, bBR, fBR, 0, wy, 32, wy, 32, floorWy, 0, floorWy, shadeOverlay32([1, 0, -0.2], DECK_FOG, 0.40));
+    const floorSy = Math.round(floorWy - camY);
+    const pierPositions = [wx0 + (wx1 - wx0) * 0.34, wx0 + (wx1 - wx0) * 0.68];
+    const pw = pierShaftFr ? pierShaftFr.w - 4 : 26;
+    for (const pierCx of pierPositions) {
+      if (stoneTex) {
+        // Subtle 3D side-depth return behind the graphic stone pier when viewed off-axis
+        const fTL = project3D(pierCx - pw / 2, wy + deckH, 8, camX, camY);
+        const fTR = project3D(pierCx + pw / 2, wy + deckH, 8, camX, camY);
+        const fBL = project3D(pierCx - pw / 2 - 4, floorWy + 6, 8, camX, camY);
+        const fBR = project3D(pierCx + pw / 2 + 4, floorWy + 6, 8, camX, camY);
+        const bTL = project3D(pierCx - pw / 2, wy + deckH, 36, camX, camY);
+        const bTR = project3D(pierCx + pw / 2, wy + deckH, 36, camX, camY);
+        const bBL = project3D(pierCx - pw / 2 - 4, floorWy + 6, 36, camX, camY);
+        const bBR = project3D(pierCx + pw / 2 + 4, floorWy + 6, 36, camX, camY);
+        if (bTL.x < fTL.x - 0.4) {
+          texQuad(ctx, stoneTex, bTL, fTL, fBL, bBL, 0, wy, 32, wy, 32, floorWy, 0, floorWy, shadeOverlay32([-1, 0, -0.2], DECK_FOG, 0.44));
+        } else if (bTR.x > fTR.x + 0.4) {
+          texQuad(ctx, stoneTex, fTR, bTR, bBR, fBR, 0, wy, 32, wy, 32, floorWy, 0, floorWy, shadeOverlay32([1, 0, -0.2], DECK_FOG, 0.44));
+        }
       }
-      texQuad(ctx, stoneTex, fTL, fTR, fBR, fBL, pierCx - 11, wy, pierCx + 11, wy, pierCx + 16, floorWy, pierCx - 16, floorWy, shadeOverlay32([0, -0.1, -1], DECK_FOG, 0.24));
-      if (trimTex) {
-        texQuad(ctx, trimTex,
-          { x: fTL.x - 4, y: fTL.y }, { x: fTR.x + 4, y: fTR.y }, { x: fTR.x + 4, y: fTR.y + 6 }, { x: fTL.x - 4, y: fTL.y + 6 },
-          0, 0, 32, 0, 32, 8, 0, 8, shadeOverlay32([0, -0.3, -0.9], DECK_FOG, 0.18));
+      const psx = Math.round(pierCx - camX);
+      if (supImg && pierShaftFr && pierCapFr) {
+        const capTop = sy + deckH - 8;
+        const shaftStart = capTop + pierCapFr.h - 10;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(psx - 32, capTop, 64, Math.max(24, floorSy - capTop + 8));
+        ctx.clip();
+        for (let py = floorSy + 6 - pierShaftFr.h; py + pierShaftFr.h > shaftStart; py -= (pierShaftFr.h - 8)) {
+          ctx.drawImage(
+            supImg,
+            pierShaftFr.x, pierShaftFr.y, pierShaftFr.w, pierShaftFr.h,
+            Math.round(psx - pierShaftFr.w * 0.5), Math.round(py), pierShaftFr.w, pierShaftFr.h,
+          );
+        }
+        ctx.drawImage(
+          supImg,
+          pierCapFr.x, pierCapFr.y, pierCapFr.w, pierCapFr.h,
+          Math.round(psx - pierCapFr.w * 0.5), capTop, pierCapFr.w, pierCapFr.h,
+        );
+        ctx.restore();
+      }
+      if (supImg && braceFr) {
+        const braceY = sy + deckH - 3;
+        // Right diagonal oak knee-brace (`/`, socketed firmly into the stone pier shaft)
+        ctx.drawImage(
+          supImg,
+          braceFr.x, braceFr.y, braceFr.w, braceFr.h,
+          psx + 5, braceY, braceFr.w, braceFr.h,
+        );
+        // Left diagonal oak knee-brace (`\`, mirrored horizontally into the stone pier shaft)
+        ctx.save();
+        ctx.translate(psx - 5, braceY);
+        ctx.scale(-1, 1);
+        ctx.drawImage(
+          supImg,
+          braceFr.x, braceFr.y, braceFr.w, braceFr.h,
+          0, 0, braceFr.w, braceFr.h,
+        );
+        ctx.restore();
       }
     }
 
     // 2. Receding plank top deck (behind the play plane) + 3D timber soffit under the span
     if (woodTex) {
-      if (wy > camY + EYE_Y + 4) this.drawTopDeck3D(ctx, camX, camY, wx0, wy, wx1 - wx0, 26, woodTex, 0.70);
+      if (wy > camY + EYE_Y + 4) this.drawTopDeck3D(ctx, camX, camY, wx0, wy, wx1 - wx0, 30, woodTex, 0.68);
       const fL = project3D(wx0, wy + deckH, 2, camX, camY);
       const fR = project3D(wx1, wy + deckH, 2, camX, camY);
-      const bR = project3D(wx1, wy + deckH + 6, 30, camX, camY);
-      const bL = project3D(wx0, wy + deckH + 6, 30, camX, camY);
+      const bR = project3D(wx1, wy + deckH + 7, 32, camX, camY);
+      const bL = project3D(wx0, wy + deckH + 7, 32, camX, camY);
       texQuad(ctx, plankTex || woodTex, fL, fR, bR, bL, wx0, 0, wx1, 0, wx1, 24, wx0, 24, shadeOverlay32([0, 0.8, -0.5], DECK_FOG, 0.34, 0.80));
     }
 
-    // 3. Crisp z = 0 plank deck face: long oak boards, bolted iron straps, end rollers
-    const spanW = sx1 - sx0;
-    ctx.fillStyle = '#4a311d';
-    ctx.fillRect(sx0, sy - 2, spanW, deckH + 2);
-    const boards = ['#7a5330', '#6c4828', '#86603a', '#6f4b2a'];
-    for (let i = 0; i < 3; i++) {
-      ctx.fillStyle = boards[i % boards.length];
-      ctx.fillRect(sx0, sy - 2 + i * 4, spanW, 3);
-    }
-    ctx.fillStyle = '#2b1a0e';
-    ctx.fillRect(sx0, sy + 10, spanW, 2);
-    ctx.fillStyle = '#a07a4c';
-    ctx.fillRect(sx0, sy - 2, spanW, 1);
-    // Board seams
-    ctx.fillStyle = 'rgba(30, 18, 8, 0.75)';
-    for (let x = sx0 + 24; x < sx1 - 6; x += 48) ctx.fillRect(x + ((x >> 4) & 1) * 11, sy - 1, 1, 10);
-    // Iron straps with bolt heads every tile
-    for (let x = sx0 + 6; x < sx1 - 4; x += 32) {
-      ctx.fillStyle = '#3c3f4c';
-      ctx.fillRect(x, sy - 3, 5, deckH + 1);
-      ctx.fillStyle = '#8b90a4';
-      ctx.fillRect(x + 1, sy - 3, 2, 1);
-      ctx.fillRect(x + 1, sy + 2, 2, 1);
-      ctx.fillRect(x + 1, sy + 7, 2, 1);
-    }
-    // Iron end rollers / hinge drums at both abutments
-    for (const ex of [sx0 - 2, sx1 - 8]) {
-      ctx.fillStyle = '#2a2c36';
-      ctx.fillRect(ex, sy - 5, 10, 18);
-      ctx.fillStyle = '#5a5e70';
-      ctx.fillRect(ex + 1, sy - 4, 8, 2);
-      ctx.fillRect(ex + 1, sy + 5, 8, 2);
-      ctx.fillStyle = '#9ca1b8';
-      ctx.fillRect(ex + 4, sy + 1, 2, 2);
-    }
-
-    // 4. Twin hoist chains of interlocking links: from the outer deck end up to the gatehouse tower winch (z = 40 face)
-    const gx = this.rooms.length ? this.rooms[0].x0 * TILE : wx1;
-    const showChains = camX < gx + 96;
-    if (showChains) {
-      const anchor = project3D(gx - 44, wy - 202, 40, camX, camY);
-      const sway = Math.sin(time * 1.6) * 0.6;
+    // 3. Wrought-Iron Gothic Lancet Balustrade (`rail_tile`) & Gilded Finial `newel_post` Sprites
+    if (deckImg && railFr) {
       ctx.save();
-      ctx.lineCap = 'round';
-      for (let c = 0; c < 2; c++) {
-        const ax = sx0 + 4 + c * 5, ay = sy - 3 + c;
-        const bx = anchor.x + c * 4 + sway, by = anchor.y + c * 2;
-        const len = Math.hypot(bx - ax, by - ay);
-        const ux = (bx - ax) / len, uy = (by - ay) / len;
-        const nx = -uy, ny = ux;
-        const linkL = 6, n = Math.floor(len / linkL);
-        const dark = c === 0 ? '#2b2e3a' : '#1c1e27';
-        const mid = c === 0 ? '#6e7488' : '#474c5c';
-        const hi = c === 0 ? '#b4bacd' : '#7d8396';
-        for (let i = 0; i < n; i++) {
-          const px0 = ax + ux * (i * linkL + 0.5), py0 = ay + uy * (i * linkL + 0.5);
-          const px1 = ax + ux * ((i + 1) * linkL - 0.8), py1 = ay + uy * ((i + 1) * linkL - 0.8);
-          if (i % 2 === 0) {
-            // Flat (face-on) oval link: dark outline ring with a hollow centre
-            ctx.strokeStyle = dark; ctx.lineWidth = 3.6;
-            ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px1, py1); ctx.stroke();
-            ctx.strokeStyle = mid; ctx.lineWidth = 2.0;
-            ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px1, py1); ctx.stroke();
-            ctx.strokeStyle = dark; ctx.lineWidth = 0.9;
-            ctx.beginPath(); ctx.moveTo(px0 + ux * 1.2, py0 + uy * 1.2); ctx.lineTo(px1 - ux * 1.2, py1 - uy * 1.2); ctx.stroke();
-            ctx.strokeStyle = hi; ctx.lineWidth = 0.8;
-            ctx.beginPath(); ctx.moveTo(px0 + nx * 1.1, py0 + ny * 1.1); ctx.lineTo(px1 + nx * 1.1, py1 + ny * 1.1); ctx.stroke();
-          } else {
-            // Edge-on link: narrow bar threading through the neighbours
-            ctx.strokeStyle = dark; ctx.lineWidth = 2.2;
-            ctx.beginPath(); ctx.moveTo(px0 - ux, py0 - uy); ctx.lineTo(px1 + ux, py1 + uy); ctx.stroke();
-            ctx.strokeStyle = hi; ctx.lineWidth = 0.9;
-            ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px1, py1); ctx.stroke();
-          }
-        }
-        // Shackle pin where the chain bolts into the deck end
-        ctx.fillStyle = '#9ca1b8';
-        ctx.fillRect(Math.round(ax) - 2, Math.round(ay) - 1, 4, 3);
+      ctx.beginPath();
+      ctx.rect(sx0 + 6, sy - railFr.h - 4, Math.max(0, spanW - 12), railFr.h + 6);
+      ctx.clip();
+      for (let rx = sx0 + 6; rx < sx1 - 6; rx += railFr.w) {
+        ctx.drawImage(
+          deckImg,
+          railFr.x, railFr.y, railFr.w, railFr.h,
+          rx, sy - railFr.h + 1, railFr.w, railFr.h,
+        );
       }
       ctx.restore();
-      // Winch drum bracket on the tower face
-      ctx.fillStyle = '#2a2c36';
-      ctx.fillRect(Math.round(anchor.x - 4), Math.round(anchor.y - 5), 12, 10);
-      ctx.fillStyle = '#6a6f84';
-      ctx.fillRect(Math.round(anchor.x - 2), Math.round(anchor.y - 3), 8, 2);
-      ctx.fillRect(Math.round(anchor.x - 2), Math.round(anchor.y + 1), 8, 2);
+    }
+    if (deckImg && newelFr) {
+      for (let nx = sx0 + 8; nx <= sx1 - 8; nx += 64) {
+        ctx.drawImage(
+          deckImg,
+          newelFr.x, newelFr.y, newelFr.w, newelFr.h,
+          Math.round(nx - newelFr.w * 0.5), sy - newelFr.h + 3, newelFr.w, newelFr.h,
+        );
+      }
+    }
+
+    // 4. Outer Barbican Bridgehead Watch-Pier & Blazing Brazier (`watch_pier` sprite)
+    const watchCx = sx0 - 11;
+    if (gateImg && watchFr) {
+      const watchBottom = sy + deckH - 2;
+      const watchTop = watchBottom - watchFr.h;
+      ctx.drawImage(
+        gateImg,
+        watchFr.x, watchFr.y, watchFr.w, watchFr.h,
+        Math.round(watchCx - watchFr.w * 0.5), watchTop, watchFr.w, watchFr.h,
+      );
+      drawFlameGlow(ctx, watchCx, watchTop + 3, time + 0.4, 30, 0.55);
+      if (fx) fx.addFlame(watchCx, watchTop + 6, 10, 16, [1.0, 0.58, 0.18], 0.37);
+    }
+
+    // 5. Monumental Barbican Gatehouse Bastion, Raised Portcullis Grille & Royal Banners
+    const gateCx = sx1 + 24;
+    if (gateImg && bastionFr) {
+      const bastionBottom = sy + 6;
+      const bastionTop = bastionBottom - bastionFr.h;
+      ctx.drawImage(
+        gateImg,
+        bastionFr.x, bastionFr.y, bastionFr.w, bastionFr.h,
+        Math.round(gateCx - bastionFr.w * 0.5), bastionTop, bastionFr.w, bastionFr.h,
+      );
+      // Raised spiked wrought-iron portcullis grille gleaming inside the pointed gateway arch
+      if (portcullisFr) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(Math.round(gateCx - portcullisFr.w * 0.5), sy - 50, portcullisFr.w, 50);
+        ctx.clip();
+        ctx.drawImage(
+          gateImg,
+          portcullisFr.x, portcullisFr.y, portcullisFr.w, portcullisFr.h,
+          Math.round(gateCx - portcullisFr.w * 0.5), sy - 54, portcullisFr.w, portcullisFr.h,
+        );
+        ctx.restore();
+      }
+      // Twin royal crimson-and-gold heraldic banners flanking the gatehouse portal turrets
+      if (bannerFr) {
+        for (const turretOff of [-35, 35]) {
+          const swayX = Math.round(Math.sin(time * 2.1 + turretOff * 0.1) * 0.8);
+          ctx.drawImage(
+            gateImg,
+            bannerFr.x, bannerFr.y, bannerFr.w, bannerFr.h,
+            Math.round(gateCx + turretOff - bannerFr.w * 0.5) + swayX, sy - 118, bannerFr.w, bannerFr.h,
+          );
+        }
+      }
+      // Blazing gatehouse turret wall-sconce braziers
+      drawFlameGlow(ctx, gateCx - 35, sy - 42, time + 1.1, 28, 0.54);
+      drawFlameGlow(ctx, gateCx + 35, sy - 42, time + 2.3, 28, 0.54);
+      if (fx) {
+        fx.addFlame(gateCx - 35, sy - 38, 8, 14, [1.0, 0.58, 0.18], 1.13);
+        fx.addFlame(gateCx + 35, sy - 38, 8, 14, [1.0, 0.58, 0.18], 2.41);
+      }
+    }
+
+    // 6. Heavy Oak-and-Iron Drawbridge Deck Graphic Tiles (`deck_tile_a`, `deck_tile_b`) & `hinge_drum`s
+    if (deckImg && deckA && deckB) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(sx0, sy - 3, spanW, deckA.h + 4);
+      ctx.clip();
+      let dx = sx0;
+      let idx = 0;
+      while (dx < sx1) {
+        const tileFr = (idx & 1) === 0 ? deckA : deckB;
+        ctx.drawImage(
+          deckImg,
+          tileFr.x, tileFr.y, tileFr.w, tileFr.h,
+          dx, sy - 2, tileFr.w, tileFr.h,
+        );
+        dx += tileFr.w;
+        idx++;
+      }
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#5e3d20';
+      ctx.fillRect(sx0, sy - 2, spanW, 20);
+    }
+    if (deckImg && drumFr) {
+      for (const drumCx of [sx0 + 2, sx1 - 2]) {
+        ctx.drawImage(
+          deckImg,
+          drumFr.x, drumFr.y, drumFr.w, drumFr.h,
+          Math.round(drumCx - drumFr.w * 0.5), sy - 3, drumFr.w, drumFr.h,
+        );
+      }
+    }
+
+    // 7. Dual Heavy Hoist Chain Assemblies (`windlass_wheel`, `chain_shackle`, & `chain_link` sprites)
+    const gx = this.rooms.length ? this.rooms[0].x0 * TILE : wx1;
+    const showChains = camX < gx + 140;
+    if (showChains && supImg && wheelFr && linkFr && shackleFr) {
+      const hoistAssemblies = [
+        { deckOff: 18, anchorWx: wx1 - 6, anchorWy: wy - 150 },
+        { deckOff: 92, anchorWx: wx1 + 22, anchorWy: wy - 104 },
+      ];
+      const sway = Math.sin(time * 1.6) * 0.6;
+      ctx.save();
+      for (let hIdx = 0; hIdx < hoistAssemblies.length; hIdx++) {
+        const ha = hoistAssemblies[hIdx];
+        const anchor = project3D(ha.anchorWx, ha.anchorWy, 24, camX, camY);
+        const wxScreen = Math.round(anchor.x);
+        const wyScreen = Math.round(anchor.y);
+
+        // Spoked forged-iron windlass hoist wheel mounted on the gatehouse bastion
+        ctx.drawImage(
+          supImg,
+          wheelFr.x, wheelFr.y, wheelFr.w, wheelFr.h,
+          Math.round(wxScreen - wheelFr.w * 0.5), Math.round(wyScreen - wheelFr.h * 0.56), wheelFr.w, wheelFr.h,
+        );
+
+        // Rear (`c = 1`) and foreground (`c = 0`) taut hoist chains made of graphic `chain_link` tiles
+        for (let c = 1; c >= 0; c--) {
+          const ax = sx0 + ha.deckOff + c * 6;
+          const ay = sy - 3 + c;
+          const bx = anchor.x + c * 4 + sway;
+          const by = anchor.y + 4 + c * 2;
+          const len = Math.hypot(bx - ax, by - ay);
+          if (len < 10) continue;
+          const ang = Math.atan2(by - ay, bx - ax);
+          const ux = (bx - ax) / len;
+          const uy = (by - ay) / len;
+          const step = 15; // two-link sprite (22x7) interlocks seamlessly every 15px
+          ctx.globalAlpha = c === 0 ? 1.0 : 0.72;
+          for (let dist = 4; dist < len - 6; dist += step) {
+            ctx.save();
+            ctx.translate(ax + ux * dist, ay + uy * dist);
+            ctx.rotate(ang);
+            ctx.drawImage(
+              supImg,
+              linkFr.x, linkFr.y, linkFr.w, linkFr.h,
+              -Math.round(linkFr.w * 0.5), -Math.round(linkFr.h * 0.5), linkFr.w, linkFr.h,
+            );
+            ctx.restore();
+          }
+          ctx.globalAlpha = 1.0;
+          // Forged-iron deck shackle bracket anchoring the chain into the drawbridge beam
+          ctx.drawImage(
+            supImg,
+            shackleFr.x, shackleFr.y, shackleFr.w, shackleFr.h,
+            Math.round(ax - shackleFr.w * 0.5), Math.round(ay - shackleFr.h * 0.55), shackleFr.w, shackleFr.h,
+          );
+        }
+      }
+      ctx.restore();
     }
   }
 

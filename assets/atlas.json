@@ -1616,34 +1616,50 @@
  "boss_gates": {
   "file": "boss_gates.png",
   "frames": {
-   "entry_gate": {
-    "ax": 13.0,
-    "ay": 360,
-    "h": 360,
-    "w": 26,
+   "entry_bottom": {
+    "ax": 13.5,
+    "ay": 116,
+    "h": 116,
+    "w": 27,
     "x": 1,
     "y": 1
    },
-   "exit_gate": {
-    "ax": 17.0,
-    "ay": 362,
-    "h": 362,
-    "w": 34,
-    "x": 28,
+   "entry_span": {
+    "ax": 13.5,
+    "ay": 90,
+    "h": 90,
+    "w": 27,
+    "x": 29,
     "y": 1
    },
-   "side_jamb": {
-    "ax": 37.5,
-    "ay": 364,
-    "h": 364,
-    "w": 75,
-    "x": 63,
+   "jamb_base": {
+    "ax": 18.0,
+    "ay": 42,
+    "h": 42,
+    "w": 36,
+    "x": 57,
+    "y": 1
+   },
+   "jamb_cap": {
+    "ax": 26.0,
+    "ay": 37,
+    "h": 37,
+    "w": 52,
+    "x": 122,
+    "y": 1
+   },
+   "jamb_shaft": {
+    "ax": 13.5,
+    "ay": 104,
+    "h": 104,
+    "w": 27,
+    "x": 94,
     "y": 1
    }
   },
-  "h": 366,
+  "h": 118,
   "type": "sheet",
-  "w": 139
+  "w": 175
  },
  "boss_idle": {
   "file": "boss_idle.png",
@@ -2856,6 +2872,150 @@
   "type": "sheet",
   "w": 332
  },
+ "drawbridge_deck": {
+  "file": "drawbridge_deck.png",
+  "frames": {
+   "deck_tile_a": {
+    "ax": 12.0,
+    "ay": 30,
+    "h": 30,
+    "w": 24,
+    "x": 1,
+    "y": 1
+   },
+   "deck_tile_b": {
+    "ax": 11.0,
+    "ay": 30,
+    "h": 30,
+    "w": 22,
+    "x": 26,
+    "y": 1
+   },
+   "hinge_drum": {
+    "ax": 15.0,
+    "ay": 31,
+    "h": 31,
+    "w": 30,
+    "x": 83,
+    "y": 1
+   },
+   "newel_post": {
+    "ax": 4.0,
+    "ay": 36,
+    "h": 36,
+    "w": 8,
+    "x": 74,
+    "y": 1
+   },
+   "rail_tile": {
+    "ax": 12.0,
+    "ay": 24,
+    "h": 24,
+    "w": 24,
+    "x": 49,
+    "y": 1
+   }
+  },
+  "h": 38,
+  "type": "sheet",
+  "w": 114
+ },
+ "drawbridge_gatehouse": {
+  "file": "drawbridge_gatehouse.png",
+  "frames": {
+   "gatehouse_bastion": {
+    "ax": 57.0,
+    "ay": 180,
+    "h": 180,
+    "w": 114,
+    "x": 28,
+    "y": 1
+   },
+   "portcullis_grille": {
+    "ax": 12.0,
+    "ay": 36,
+    "h": 36,
+    "w": 24,
+    "x": 143,
+    "y": 1
+   },
+   "royal_banner": {
+    "ax": 13.0,
+    "ay": 44,
+    "h": 44,
+    "w": 26,
+    "x": 168,
+    "y": 1
+   },
+   "watch_pier": {
+    "ax": 13.0,
+    "ay": 84,
+    "h": 84,
+    "w": 26,
+    "x": 1,
+    "y": 1
+   }
+  },
+  "h": 182,
+  "type": "sheet",
+  "w": 195
+ },
+ "drawbridge_support": {
+  "file": "drawbridge_support.png",
+  "frames": {
+   "chain_link": {
+    "ax": 11.0,
+    "ay": 7,
+    "h": 7,
+    "w": 22,
+    "x": 150,
+    "y": 1
+   },
+   "chain_shackle": {
+    "ax": 7.0,
+    "ay": 16,
+    "h": 16,
+    "w": 14,
+    "x": 135,
+    "y": 1
+   },
+   "knee_brace": {
+    "ax": 14.0,
+    "ay": 36,
+    "h": 36,
+    "w": 28,
+    "x": 77,
+    "y": 1
+   },
+   "pier_cap": {
+    "ax": 21.0,
+    "ay": 36,
+    "h": 36,
+    "w": 42,
+    "x": 1,
+    "y": 1
+   },
+   "pier_shaft": {
+    "ax": 16.0,
+    "ay": 52,
+    "h": 52,
+    "w": 32,
+    "x": 44,
+    "y": 1
+   },
+   "windlass_wheel": {
+    "ax": 14.0,
+    "ay": 35,
+    "h": 35,
+    "w": 28,
+    "x": 106,
+    "y": 1
+   }
+  },
+  "h": 54,
+  "type": "sheet",
+  "w": 173
+ },
  "duelist": {
   "file": "duelist.png",
   "frames": {
@@ -2898,33 +3058,33 @@
  },
  "ending_1": {
   "file": "ending_1.png",
-  "h": 360,
+  "h": 720,
   "type": "texture",
-  "w": 640
+  "w": 1280
  },
  "ending_2": {
   "file": "ending_2.png",
-  "h": 360,
+  "h": 720,
   "type": "texture",
-  "w": 640
+  "w": 1280
  },
  "ending_3": {
   "file": "ending_3.png",
-  "h": 360,
+  "h": 720,
   "type": "texture",
-  "w": 640
+  "w": 1280
  },
  "ending_4": {
   "file": "ending_4.png",
-  "h": 360,
+  "h": 720,
   "type": "texture",
-  "w": 640
+  "w": 1280
  },
  "ending_5": {
   "file": "ending_5.png",
-  "h": 360,
+  "h": 720,
   "type": "texture",
-  "w": 640
+  "w": 1280
  },
  "ending_omni": {
   "file": "ending_omni.png",
@@ -7487,6 +7647,63 @@
   "h": 91,
   "type": "sheet",
   "w": 340
+ },
+ "vampire_fly": {
+  "file": "vampire_fly.png",
+  "frames": {
+   "fly0": {
+    "ax": 68.0,
+    "ay": 84.0,
+    "h": 90,
+    "w": 147,
+    "x": 1,
+    "y": 1
+   },
+   "fly1": {
+    "ax": 78.5,
+    "ay": 102.0,
+    "h": 111,
+    "w": 157,
+    "x": 149,
+    "y": 1
+   },
+   "fly2": {
+    "ax": 75.5,
+    "ay": 109.0,
+    "h": 118,
+    "w": 152,
+    "x": 307,
+    "y": 1
+   },
+   "fly3": {
+    "ax": 85.5,
+    "ay": 85.0,
+    "h": 90,
+    "w": 172,
+    "x": 460,
+    "y": 1
+   },
+   "fly4": {
+    "ax": 53.5,
+    "ay": 88.0,
+    "h": 89,
+    "w": 119,
+    "x": 633,
+    "y": 1
+   },
+   "fly5": {
+    "ax": 50.0,
+    "ay": 85.0,
+    "h": 89,
+    "w": 101,
+    "x": 753,
+    "y": 1
+   }
+  },
+  "h": 120,
+  "loop": true,
+  "type": "sheet",
+  "w": 855
  },
  "vampire_idle": {
   "file": "vampire_idle.png",

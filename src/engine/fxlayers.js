@@ -542,6 +542,100 @@ void main() {
 }
 `;
 
+// Viscous cascading molten magma shader for volcanic caldera sluices & magmafalls:
+// parabolic Poiseuille flow lobes, cooling obsidian/basalt crust rafts, branching
+// incandescent magma veins, dripping outer tendrils, radiant heat bloom, and churning plunge boil.
+const MAGMAFALL_FRAG = `
+${SHADER_PREC}
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform vec2 uCam;
+uniform vec4 uRect;      // x, y, w, h in scene px
+uniform float uSpeed;
+uniform float uAlpha;
+uniform float uSeed;
+uniform float uSoftTop;
+${NOISE}
+void main() {
+  vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
+  if (px.x < uRect.x || px.x > uRect.x + uRect.z || px.y < uRect.y || px.y > uRect.y + uRect.w) discard;
+
+  float u = (px.x - uRect.x) / max(1.0, uRect.z);
+  float v = (px.y - uRect.y) / max(1.0, uRect.w);
+  float t = uTime * uSpeed;
+  float seed = uSeed;
+
+  // Meandering viscous centerline + surging molten globs & flaring plunge apron
+  float sway = (fbm(vec2(seed * 7.3, v * 3.4 - t * 0.58)) - 0.5) * 0.16;
+  float dx = (u - 0.5 - sway) * 2.0;
+  float lobe = fbm(vec2(seed * 3.1 + 2.4, v * 5.6 - t * 1.08));
+  float crag = vnoise(vec2(dx * 2.5 + seed * 11.7, v * 13.5 - t * 1.62));
+  float topFlare = (1.0 - smoothstep(0.0, 0.11, v)) * 0.10;
+  float botFlare = smoothstep(0.80, 1.0, v) * 0.34;
+  float halfW = 0.48 + (lobe - 0.5) * 0.22 + (crag - 0.5) * 0.13 + topFlare + botFlare;
+  float r = abs(dx) / max(0.16, halfW);
+
+  // Parabolic velocity profile: liquid core descends faster than cooling outer crust margins
+  float radialDrag = clamp(r * r, 0.0, 1.35) * 0.62;
+  float flowY = v * 6.8 - t * 1.48 + radialDrag;
+
+  // Domain-warped convective magma coordinates + branching incandescent fissure ridges
+  float warpX = (fbm(vec2(dx * 2.1 + seed * 5.7, flowY * 0.82)) - 0.5) * 0.58;
+  float warpY = (fbm(vec2(dx * 2.5 - seed * 4.1 + 9.2, flowY * 0.88 + 4.3)) - 0.5) * 0.68;
+  vec2 mp = vec2(dx * 2.7 + warpX + seed * 13.0, flowY + warpY);
+
+  float nBroad = fbm(mp);
+  float ridgeA = 1.0 - abs(vnoise(mp * 2.1 + vec2(3.1, -t * 0.42)) * 2.0 - 1.0);
+  float ridgeB = 1.0 - abs(vnoise(mp * 3.9 + vec2(-6.4, -t * 0.72)) * 2.0 - 1.0);
+  float veins = pow(clamp(ridgeA * 0.68 + ridgeB * 0.44, 0.0, 1.0), 2.0);
+
+  // Spillover lip glare at top + violent churning magma plunge boil at base
+  float lipHeat = (1.0 - smoothstep(0.0, 0.12, v)) * (0.52 + 0.48 * vnoise(vec2(dx * 4.8 + seed, t * 2.4)));
+  float boilN = fbm(vec2(dx * 3.2 + seed * 2.3, (v - 0.82) * 10.5 - t * 2.3));
+  float plungeHeat = smoothstep(0.78, 0.99, v) * (0.36 + 0.78 * boilN);
+
+  float coreBias = 1.0 - smoothstep(0.14, 0.96, r);
+  float crustRim = smoothstep(0.56, 0.98, r);
+  float crustSlab = smoothstep(0.46, 0.22, nBroad) * (1.0 - veins * 0.85) * (0.45 + 0.55 * crustRim);
+
+  float heat = nBroad * 0.56 + veins * 0.54 + coreBias * 0.36 + lipHeat * 0.38 + plungeHeat * 0.58 - crustRim * 0.40 - crustSlab * 0.46;
+  heat = clamp(heat, 0.0, 1.32);
+
+  // 5-stop volcanic blackbody ramp: cooling obsidian -> garnet slag -> crimson magma -> amber -> white-hot core
+  vec3 cObsidian = vec3(0.11, 0.024, 0.024);
+  vec3 cGarnet   = vec3(0.46, 0.065, 0.018);
+  vec3 cMagma    = vec3(0.92, 0.22,  0.025);
+  vec3 cAmber    = vec3(1.00, 0.60,  0.085);
+  vec3 cWhiteHot = vec3(1.00, 0.95,  0.58);
+
+  vec3 magmaCol = mix(cObsidian, cGarnet, smoothstep(0.06, 0.30, heat));
+  magmaCol = mix(magmaCol, cMagma, smoothstep(0.28, 0.58, heat));
+  magmaCol = mix(magmaCol, cAmber, smoothstep(0.56, 0.86, heat));
+  magmaCol = mix(magmaCol, cWhiteHot, smoothstep(0.84, 1.18, heat));
+
+  // Falling molten droplets clinging/detaching along the ragged outer crust edge
+  float dripField = vnoise(vec2(dx * 7.2 + seed * 19.3, v * 17.5 - t * 3.0));
+  float drips = smoothstep(0.80, 0.93, dripField) * smoothstep(1.30, 0.96, r) * step(0.94, r);
+
+  float body = clamp((1.0 - smoothstep(0.88, 1.03, r)) + drips * 0.92, 0.0, 1.0);
+  float halo = exp(-max(0.0, r - 0.86) * 3.8) * 0.34 * (0.60 + 0.40 * coreBias + plungeHeat * 0.55);
+
+  float topFade = mix(smoothstep(0.0, 0.02, v), smoothstep(0.0, 0.09, v), uSoftTop);
+  float botFade = 1.0 - smoothstep(0.94, 1.0, v) * 0.35;
+  float endMask = topFade * botFade;
+
+  float a = clamp(max(body * 0.96, halo) * endMask * uAlpha, 0.0, 0.98);
+  if (a <= 0.018) discard;
+
+  vec3 glowCol = mix(vec3(0.76, 0.14, 0.02), vec3(1.0, 0.48, 0.08), clamp(plungeHeat, 0.0, 1.0));
+  vec3 col = mix(glowCol, magmaCol, clamp(body * 1.12, 0.0, 1.0));
+  col = floor(col * 20.0) / 20.0;
+  a = floor(a * 14.0) / 14.0;
+  gl_FragColor = vec4(col * a, a);
+}
+`;
+
 // Flowing Arctic Aurora Borealis curtains for Frozen Yule sky
 const AURORA_FRAG = `
 ${SHADER_PREC}
@@ -761,6 +855,65 @@ void main() {
   vec3 hot = min(vec3(1.0), uColor * 1.35 + vec3(0.28, 0.24, 0.20));
   vec3 col = mix(uColor, hot, smoothstep(0.68, 0.98, crest) * uAlpha);
   gl_FragColor = vec4(col * a, a);
+}
+`;
+
+// Swirling dimensional portal vortex shader for Boss Arena exits
+const VORTEX_FRAG = `
+${SHADER_PREC}
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform vec4 uCenter;   // cx, cy, rx, ry (scene px)
+uniform vec3 uCoreCol;
+uniform vec3 uRimCol;
+uniform vec3 uMeta;     // x=open(0..1), y=seed, z=alpha
+${NOISE}
+void main() {
+  // Snap to integer scene pixel grid for authentic 32-bit pixel-art crispness
+  vec2 px = floor(vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y)) + 0.5;
+  float openK = clamp(uMeta.x, 0.05, 1.0);
+  float seed = uMeta.y;
+  float alpha = uMeta.z;
+  vec2 radii = max(vec2(3.0), uCenter.zw * openK);
+  vec2 q = (px - uCenter.xy) / radii;
+  float r = length(q);
+  if (r > 1.28) discard;
+
+  float ang = atan(q.y, q.x);
+  // Logarithmic inward-pulling spiral arms + counter-rotating harmonic
+  float logR = log(max(0.06, r));
+  float spiralA = sin(ang * 3.0 - logR * 6.8 - uTime * 4.2 + seed);
+  float spiralB = cos(ang * 2.0 + logR * 4.5 + uTime * 2.6 - seed * 0.7);
+  float turb = fbm(vec2(r * 3.4 - uTime * 1.35 + seed, ang * 1.27 + uTime * 0.45));
+  float arms = smoothstep(-0.25, 0.85, spiralA * 0.62 + spiralB * 0.38 + (turb - 0.5) * 0.85);
+
+  // Orbiting arcane astrolabe rune ring near the outer boundary
+  float runeRing = exp(-abs(r - 0.80) * 24.0)
+    * smoothstep(0.15, 0.75, 0.5 + 0.5 * cos(ang * 12.0 + uTime * 2.2));
+  // Bright inner event-horizon photon ring around the dark singularity
+  float horizonRing = exp(-abs(r - 0.25) * 20.0) * (0.85 + 0.25 * sin(ang * 5.0 - uTime * 6.0));
+  // Outer dimensional corona
+  float outerFade = 1.0 - smoothstep(0.76, 1.18 + 0.08 * turb, r);
+  float innerVoid = smoothstep(0.05, 0.24, r);
+
+  float energy = clamp((arms * 0.82 * innerVoid + runeRing * 0.78 + horizonRing * 1.15) * outerFade, 0.0, 1.25);
+  float voidMask = (1.0 - innerVoid) * outerFade;
+  float totalA = clamp(max(energy, voidMask * 0.92) * alpha, 0.0, 1.0);
+  if (totalA <= 0.03) discard;
+
+  // Quantize into 6 stepped retro palette tiers
+  float qE = floor(clamp(energy, 0.0, 1.0) * 6.0) / 6.0;
+  float qA = floor(totalA * 6.0) / 6.0;
+  if (qA <= 0.02) discard;
+
+  vec3 voidCol = vec3(0.04, 0.02, 0.10);
+  vec3 midCol = mix(uRimCol, uCoreCol, clamp(qE * 0.85 + horizonRing * 0.5, 0.0, 1.0));
+  vec3 hotCol = min(vec3(1.0), uCoreCol * 1.25 + vec3(0.28, 0.25, 0.22));
+  vec3 finalCol = mix(midCol, hotCol, smoothstep(0.68, 1.05, energy));
+  finalCol = mix(voidCol, finalCol, clamp(innerVoid + horizonRing * 0.9, 0.0, 1.0));
+
+  gl_FragColor = vec4(finalCol * qA, qA);
 }
 `;
 
@@ -985,10 +1138,12 @@ export class FxLayers {
     this.pFire = this.program(VERT, FIRE_FRAG);
     this.pLightning = this.program(VERT, LIGHTNING_FRAG);
     this.pLava = this.program(VERT, LAVA_FRAG);
+    this.pMagmafall = this.program(VERT, MAGMAFALL_FRAG);
     this.pAurora = this.program(VERT, AURORA_FRAG);
     this.pGodRays = this.program(VERT, GODRAYS_FRAG);
     this.pAttack = this.program(VERT, ATTACK_FRAG);
     this.pShockRing = this.program(VERT, SHOCKRING_FRAG);
+    this.pVortex = this.program(VERT, VORTEX_FRAG);
     this.pRetroBg = this.program(VERT, RETRO_BG_FRAG);
     this.pSpark = this.program(SPARK_VERT, SPARK_FRAG);
     this.pSpark.aLocal = gl.getAttribLocation(this.pSpark.p, 'aLocal');
@@ -1101,6 +1256,25 @@ export class FxLayers {
       gl.uniform1f(u.uScroll, camX);
       gl.uniform4f(u.uPool, rect.x, rect.y, rect.w, rect.h);
     });
+  }
+
+  /** Renders a viscous vertical molten magma cascade with basalt crust rafts & plunge boil. */
+  magmafall(ctx, rect, {
+    camX = 0, camY = 0,
+    speed = 1.0,
+    alpha = 0.96,
+    seed = 0.0,
+    softTop = 0.0,
+  } = {}) {
+    if (!this.enabled) return;
+    this.run(ctx, this.pMagmafall, rect, (gl, u) => {
+      gl.uniform2f(u.uCam, camX, camY);
+      gl.uniform4f(u.uRect, rect.x, rect.y, rect.w, rect.h);
+      gl.uniform1f(u.uSpeed, speed);
+      gl.uniform1f(u.uAlpha, alpha);
+      gl.uniform1f(u.uSeed, seed);
+      gl.uniform1f(u.uSoftTop, softTop);
+    }, 'source-over');
   }
 
   fog(ctx, camX, floorY, color = [0.62, 0.66, 0.82], amount = 0.42, camY = 0) {
@@ -1317,6 +1491,26 @@ export class FxLayers {
     const pad = radius + thickness * 2 + 4;
     if (x + pad < 0 || x - pad > W || y + pad < 0 || y - pad > H) return;
     this.rings.push({ x, y, radius, thickness, color, alpha, pad });
+  }
+
+  /**
+   * Immediately renders an animated swirling dimensional portal vortex at `(x, y)` in scene px.
+   */
+  vortex(ctx, {
+    x, y, rx = 34, ry = 52, open = 1.0, seed = 0,
+    core = [1.0, 0.92, 0.68], rim = [0.58, 0.36, 0.98], alpha = 0.96,
+  } = {}) {
+    if (!this.enabled || open <= 0.02 || alpha <= 0.02) return;
+    const padX = Math.ceil(rx * 1.35) + 6;
+    const padY = Math.ceil(ry * 1.35) + 6;
+    if (x + padX < 0 || x - padX > W || y + padY < 0 || y - padY > H) return;
+    const box = { x: x - padX, y: y - padY, w: padX * 2, h: padY * 2 };
+    this.run(ctx, this.pVortex, box, (gl, u) => {
+      gl.uniform4f(u.uCenter, x, y, rx, ry);
+      gl.uniform3f(u.uCoreCol, core[0], core[1], core[2]);
+      gl.uniform3f(u.uRimCol, rim[0], rim[1], rim[2]);
+      gl.uniform3f(u.uMeta, open, seed, alpha);
+    }, 'source-over');
   }
 
   /** Flushes all queued enemy/boss shader attacks and shockwave rings. */

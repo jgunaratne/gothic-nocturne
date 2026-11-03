@@ -87,6 +87,7 @@ export class AudioSys {
     this.activeVoice = null;
     this.duckTimer = null;
     this.current = null;            // {name, sources: [], timer}
+    this.musicPaused = false;
     this.muted = false;
     this.musicVolume = 0.55;
     this.sfxVolume = 0.6;
@@ -126,7 +127,14 @@ export class AudioSys {
     this.voiceBus = this.ctx.createGain();
     this.voiceBus.gain.value = 1.0;
     this._initVoiceRoom();
-    if (this.pendingVoice) { const v = this.pendingVoice; this.pendingVoice = null; this.playVoice(v.key, v.onDuration, v.opts); }
+    if (this.pendingVoice) {
+      const v = this.pendingVoice;
+      this.pendingVoice = null;
+      const extraOffset = v.requestedAtMs ? Math.max(0, (performance.now() - v.requestedAtMs) / 1000) : 0;
+      const baseOffset = (v.opts && v.opts.offset) || 0;
+      const opts = Object.assign({}, v.opts, { offset: baseOffset + (extraOffset > 0.25 ? extraOffset : 0) });
+      this.playVoice(v.key, v.onDuration, opts);
+    }
     if (this.pendingTrack) { const t = this.pendingTrack; this.pendingTrack = null; this.playMusic(t.name, t.loop); }
     if (this.pendingAmbient) { const a = this.pendingAmbient; this.pendingAmbient = null; this.ambient = null; this.playAmbient(a.url, a.volume); }
     for (const name of this.musicRaw.keys()) {
@@ -424,9 +432,10 @@ export class AudioSys {
 
     if (opts && opts.space) this.setVoiceSpace(opts.space);
     this.lastVoicePlayed = key;
+    const requestedAtMs = performance.now();
     if (!this.ctx) {
       this.voiceDucking = true;
-      this.pendingVoice = { key, onDuration: cb, opts };
+      this.pendingVoice = { key, onDuration: cb, opts, requestedAtMs };
       return;
     }
     if (this.ctx.state !== 'running') {
@@ -463,6 +472,20 @@ export class AudioSys {
         return;
       }
       const now = this.ctx.currentTime;
+      const baseOffset = Math.max(0, Number((opts && opts.offset) || 0));
+      const asyncWaitSec = Math.max(0, (performance.now() - requestedAtMs) / 1000);
+      const rawOffset = baseOffset + (asyncWaitSec > 0.25 ? asyncWaitSec : 0);
+      if (rawOffset >= buf.duration - 0.05) {
+        this.activeVoiceKey = key;
+        this.activeVoiceStartCtxTime = now + 0.02 - rawOffset;
+        this.activeVoiceDuration = buf.duration;
+        this.activeVoiceEnded = true;
+        this.voiceDucking = false;
+        if (this.musicBus && this.ctx) {
+          this.musicBus.gain.setTargetAtTime(this.musicVolume, now, 0.22);
+        }
+        return;
+      }
       if (this.musicBus) {
         this.musicBus.gain.cancelScheduledValues(now);
         this.musicBus.gain.setTargetAtTime(this.musicVolume * VOICE_DUCK_RATIO, now, 0.06);
@@ -473,11 +496,16 @@ export class AudioSys {
       g.gain.value = 1.42;
       src.connect(g).connect(this.voiceBus || this.master);
       this.activeVoice = src;
+      this.activeVoiceKey = key;
+      this.activeVoiceStartCtxTime = now + 0.02 - rawOffset;
+      this.activeVoiceDuration = buf.duration;
+      this.activeVoiceEnded = false;
       let restored = false;
       const restore = () => {
         if (restored || this._voiceSeq !== mySeq) return;
         restored = true;
         if (this.activeVoice === src) this.activeVoice = null;
+        this.activeVoiceEnded = true;
         this.voiceDucking = false;
         if (this.musicBus && this.ctx) {
           this.musicBus.gain.setTargetAtTime(this.musicVolume, this.ctx.currentTime, 0.34);
@@ -485,12 +513,14 @@ export class AudioSys {
       };
       src.onended = () => {
         if (this._voiceSeq !== mySeq) return;
+        this.activeVoiceEnded = true;
         // Hold ducking briefly while the stone-hall echo & reverb tail rings out
         if (this.duckTimer) clearTimeout(this.duckTimer);
         this.duckTimer = setTimeout(restore, 420);
       };
-      this.duckTimer = setTimeout(restore, Math.ceil(buf.duration * 1000) + 600);
-      src.start(now + 0.02);
+      const remMs = Math.max(0, (buf.duration - rawOffset) * 1000);
+      this.duckTimer = setTimeout(restore, Math.ceil(remMs) + 600);
+      src.start(now + 0.02, rawOffset);
       if (cb) {
         try {
           cb(buf.duration);
@@ -499,6 +529,42 @@ export class AudioSys {
         }
       }
     })();
+  }
+
+  /**
+   * Returns the exact elapsed hardware playback time (in seconds) for `key`
+   * once it has started on a running AudioContext, or null if not active/running.
+   */
+  getVoicePlaybackTime(key) {
+    if (
+      this.activeVoiceKey !== key ||
+      !this.ctx ||
+      this.ctx.state !== 'running' ||
+      this.activeVoiceStartCtxTime == null
+    ) {
+      return null;
+    }
+    return Math.max(0, this.ctx.currentTime - this.activeVoiceStartCtxTime);
+  }
+
+  stopVoice() {
+    this._voiceSeq = (this._voiceSeq || 0) + 1;
+    this.pendingVoice = null;
+    this.activeVoiceKey = null;
+    this.activeVoiceStartCtxTime = null;
+    this.activeVoiceDuration = null;
+    this.activeVoiceEnded = false;
+    if (this.activeVoice) {
+      const prev = this.activeVoice;
+      this.activeVoice = null;
+      prev.onended = null;
+      try { prev.stop(); } catch (e) { /* already ended */ }
+    }
+    if (this.duckTimer) { clearTimeout(this.duckTimer); this.duckTimer = null; }
+    this.voiceDucking = false;
+    if (this.musicBus && this.ctx) {
+      this.musicBus.gain.setTargetAtTime(this.musicVolume, this.ctx.currentTime, 0.2);
+    }
   }
 
   get musicKey() {
@@ -519,47 +585,135 @@ export class AudioSys {
   playMusic(name, loop = true) {
     if (!TRACKS[name]) { console.warn('unknown track', name, '-> fallback'); name = FALLBACK_TRACK; }
     if (!this.ctx) { this.pendingTrack = { name, loop }; return; }
-    if (this.current && this.current.name === name) return;
+    if (this.current && this.current.name === name) {
+      if (this.musicPaused) this.resumeMusic();
+      return;
+    }
+    const startPaused = this.musicPaused;
     this.stopMusic(0.6);
-    const entry = { name, sources: [], gain: null, stopped: false, timer: null };
+    this.musicPaused = startPaused;
+    const entry = {
+      name,
+      loop,
+      sources: [],
+      gain: null,
+      stopped: false,
+      paused: startPaused,
+      pausedOffset: 0,
+      segStartCtxTime: 0,
+      segStartOffset: 0,
+      buf: null,
+      trim: null,
+      scheduleFrom: null,
+      timer: null,
+    };
     this.current = entry;
     (async () => {
       const buf = await this.ensureBuffer(name);
       if (entry.stopped) return;  // superseded while the buffer was loading
       if (!buf) { if (this.current === entry) this.current = null; return; }  // allow a retry later
-      entry.gain = this.ctx.createGain();
-      entry.gain.gain.value = 1;
-      entry.gain.connect(this.musicBus);
+      entry.buf = buf;
       const xfade = 0.35;
       const trim = trimPoints(buf);
-      const dur = trim.end - trim.start;
-      const schedule = (when) => {
-        if (entry.stopped) return;
+      entry.trim = trim;
+      const fullDur = Math.max(0.1, trim.end - trim.start);
+      const schedule = (when, relOffset = 0) => {
+        if (entry.stopped || entry.paused || !entry.gain) return;
+        const clampedRel = Math.max(0, Math.min(Math.max(0, fullDur - 0.08), relOffset));
+        const remDur = Math.max(0.08, fullDur - clampedRel);
         const src = this.ctx.createBufferSource();
         src.buffer = buf;
         const g = this.ctx.createGain();
+        const fadeIn = Math.min(clampedRel > 0.02 ? 0.05 : xfade, remDur * 0.4);
+        const fadeOut = Math.min(xfade, remDur * 0.4);
         g.gain.setValueAtTime(0, when);
-        g.gain.linearRampToValueAtTime(1, when + xfade);
-        g.gain.setValueAtTime(1, when + dur - xfade);
-        g.gain.linearRampToValueAtTime(0, when + dur);
+        g.gain.linearRampToValueAtTime(1, when + fadeIn);
+        g.gain.setValueAtTime(1, Math.max(when + fadeIn, when + remDur - fadeOut));
+        g.gain.linearRampToValueAtTime(0, when + remDur);
         src.connect(g).connect(entry.gain);
-        src.start(when, trim.start, dur);
+        src.start(when, trim.start + clampedRel, remDur);
+        entry.segStartCtxTime = when;
+        entry.segStartOffset = clampedRel;
         entry.sources.push(src);
         src.onended = () => { entry.sources = entry.sources.filter((s) => s !== src); };
         if (loop) {
-          const next = when + dur - xfade;
+          const next = when + remDur - fadeOut;
           const ms = Math.max(50, (next - this.ctx.currentTime - 1.0) * 1000);
-          entry.timer = setTimeout(() => schedule(next), ms);
+          entry.timer = setTimeout(() => schedule(next, 0), ms);
         }
       };
-      schedule(this.ctx.currentTime + 0.05);
+      entry.scheduleFrom = schedule;
+      if (!entry.paused) {
+        entry.gain = this.ctx.createGain();
+        entry.gain.gain.value = 1;
+        entry.gain.connect(this.musicBus);
+        schedule(this.ctx.currentTime + 0.05, entry.pausedOffset || 0);
+      }
     })();
   }
 
+  /** Smoothly pauses the active music track and ambient bed, preserving exact playback offset. */
+  pauseMusic() {
+    this.musicPaused = true;
+    const cur = this.current;
+    if (cur && !cur.stopped && !cur.paused) {
+      cur.paused = true;
+      if (cur.timer) { clearTimeout(cur.timer); cur.timer = null; }
+      if (cur.trim && this.ctx && cur.segStartCtxTime > 0) {
+        const fullDur = Math.max(0.1, cur.trim.end - cur.trim.start);
+        const elapsed = Math.max(0, this.ctx.currentTime - cur.segStartCtxTime);
+        const rawOff = (cur.segStartOffset || 0) + elapsed;
+        cur.pausedOffset = cur.loop ? (rawOff % fullDur) : Math.min(fullDur, rawOff);
+      }
+      if (cur.gain && this.ctx) {
+        const oldGain = cur.gain;
+        const srcs = cur.sources.slice();
+        cur.gain = null;
+        cur.sources = [];
+        const t = this.ctx.currentTime;
+        oldGain.gain.cancelScheduledValues(t);
+        oldGain.gain.setValueAtTime(oldGain.gain.value, t);
+        oldGain.gain.linearRampToValueAtTime(0, t + 0.03);
+        setTimeout(() => {
+          srcs.forEach((s) => { try { s.stop(); } catch (e) { /* already stopped */ } });
+          try { oldGain.disconnect(); } catch (e) { /* ignore */ }
+        }, 45);
+      }
+    }
+    if (this.ambient && !this.ambient.stopped && this.ambient.gain && this.ctx) {
+      const t = this.ctx.currentTime;
+      this.ambient.gain.gain.cancelScheduledValues(t);
+      this.ambient.gain.gain.setTargetAtTime(0, t, 0.02);
+    }
+  }
+
+  /** Resumes the paused music track from its saved playback offset and restores the ambient bed. */
+  resumeMusic() {
+    if (!this.musicPaused) return;
+    this.musicPaused = false;
+    const cur = this.current;
+    if (cur && !cur.stopped && cur.paused) {
+      cur.paused = false;
+      if (cur.scheduleFrom && this.ctx) {
+        cur.gain = this.ctx.createGain();
+        cur.gain.gain.value = 1;
+        cur.gain.connect(this.musicBus);
+        cur.scheduleFrom(this.ctx.currentTime + 0.02, cur.pausedOffset || 0);
+      }
+    }
+    if (this.ambient && !this.ambient.stopped && this.ambient.gain && this.ctx) {
+      const t = this.ctx.currentTime;
+      this.ambient.gain.gain.cancelScheduledValues(t);
+      this.ambient.gain.gain.setTargetAtTime(this.ambient.targetVolume || 0.22, t, 0.08);
+    }
+  }
+
   stopMusic(fade = 0.5) {
+    this.musicPaused = false;
     const cur = this.current;
     if (!cur) return;
     cur.stopped = true;
+    cur.paused = false;
     if (cur.timer) clearTimeout(cur.timer);
     if (cur.gain) {
       const t = this.ctx.currentTime;
@@ -581,7 +735,7 @@ export class AudioSys {
     if (this.ambient && this.ambient.url === url) return;
     this.stopAmbient();
     if (!url) return;
-    const entry = { url, src: null, gain: null, stopped: false };
+    const entry = { url, targetVolume: volume, src: null, gain: null, stopped: false };
     this.ambient = entry;
     if (!this.ctx) { this.pendingAmbient = { url, volume }; return; }
     (async () => {
@@ -592,7 +746,9 @@ export class AudioSys {
         if (entry.stopped) return;
         const g = this.ctx.createGain();
         g.gain.value = 0;
-        g.gain.setTargetAtTime(volume, this.ctx.currentTime, 1.2);
+        if (!this.musicPaused) {
+          g.gain.setTargetAtTime(volume, this.ctx.currentTime, 1.2);
+        }
         g.connect(this.musicBus);
         const src = this.ctx.createBufferSource();
         src.buffer = buf; src.loop = true;
@@ -664,7 +820,10 @@ export class AudioSys {
   ensureSfx(name) {
     if (!this.sfxBuffers) {
       this.sfxBuffers = new Map();
-      this.sfxMissing = new Set(['step', 'crack', 'level_up', 'sword_thrust', 'sword_slash', 'sword_heavy', 'water_step', 'water_splash']);
+      this.sfxMissing = new Set([
+        'step', 'crack', 'level_up', 'sword_thrust', 'sword_slash', 'sword_heavy',
+        'water_step', 'water_splash', 'game_pause', 'game_unpause',
+      ]);
     }
     if (this.sfxBuffers.has(name)) return Promise.resolve(this.sfxBuffers.get(name));
     if (this.sfxMissing.has(name)) return Promise.resolve(null);
@@ -707,11 +866,17 @@ export class AudioSys {
         ? 0.88 + Math.random() * 0.16
         : isEnemyCue
           ? 0.95 + Math.random() * 0.10
-          : 0.97 + Math.random() * 0.06;
+          : name === 'pause'
+            ? 1.0
+            : 0.97 + Math.random() * 0.06;
       this.playSample(this.sfxBuffers.get(name), vol, rate);
       if (name === 'thunder') {
         // Layer a deep sub-bass thunder roll underneath the sampled thunderclap
         this._noise(1.35, 0.24, 140, 'lowpass', 0.04);
+      } else if (name === 'pause') {
+        // Reinforce faint pause.mp3 with a crisp two-note Gothic bell/harpsichord cadence
+        this._osc('triangle', 587.33, 587.33, 0.08, 0.15);
+        this._osc('square', 880, 880, 0.10, 0.08, 0.06);
       }
       return;
     }
@@ -819,7 +984,32 @@ export class AudioSys {
         this._osc('square', 90, 50, 0.5, 0.2);
         break;
       case 'select': this._osc('square', 660, 990, 0.08, 0.12); break;
-      case 'pause': this._osc('square', 440, 440, 0.06, 0.1); this._osc('square', 660, 660, 0.08, 0.1, 0.07); break;
+      case 'pause': this._osc('square', 440, 440, 0.06, 0.12); this._osc('square', 660, 660, 0.08, 0.12, 0.07); break;
+      case 'game_pause':
+        // Crisp Castlevania-inspired 3-note Gothic harpsichord/bell pause chime (E5 -> B4 -> E6)
+        if (this.sfxBuffers && this.sfxBuffers.has('pause')) {
+          this.playSample(this.sfxBuffers.get('pause'), 0.85, 1.0);
+        }
+        [
+          [659.25, 0.00, 0.10],
+          [493.88, 0.065, 0.10],
+          [1318.51, 0.13, 0.24],
+        ].forEach(([f, delay, dur]) => {
+          this._osc('square', f, f, dur * 0.75, 0.15, delay);
+          this._osc('triangle', f, f, dur, 0.22, delay);
+          this._osc('sine', f * 2, f * 2, dur * 0.65, 0.07, delay + 0.005);
+        });
+        break;
+      case 'game_unpause':
+        // Snappy ascending 2-note Gothic resume chime (B4 -> E5)
+        [
+          [493.88, 0.00, 0.08],
+          [659.25, 0.06, 0.16],
+        ].forEach(([f, delay, dur]) => {
+          this._osc('square', f, f, dur * 0.7, 0.13, delay);
+          this._osc('triangle', f, f, dur, 0.19, delay);
+        });
+        break;
       case 'fire': this._noise(0.4, 0.15, 1500, 'bandpass'); break;
       case 'orb':
         [523, 659, 784, 1047].forEach((f, i) => this._osc('triangle', f, f, 0.25, 0.14, i * 0.09));

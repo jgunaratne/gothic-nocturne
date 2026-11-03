@@ -406,6 +406,11 @@
       "src": "clips/vampire_lunge_sheet.png",
       "frames": "clips/vampire_lunge_frames.json"
     },
+    "vampire_fly": {
+      "type": "clip",
+      "src": "clips/vampire_fly_sheet.png",
+      "frames": "clips/vampire_fly_frames.json"
+    },
     "catoblepas": {
       "type": "sheet",
       "src": "catoblepas_sheet.png",
@@ -1338,46 +1343,51 @@
       "type": "texture",
       "src": "ending_1.png",
       "size": [
-        640,
-        360
+        1280,
+        720
       ],
-      "colors": 48
+      "prefilter": 1.45,
+      "colors": 0
     },
     "ending_2": {
       "type": "texture",
       "src": "ending_2.png",
       "size": [
-        640,
-        360
+        1280,
+        720
       ],
-      "colors": 48
+      "prefilter": 1.45,
+      "colors": 0
     },
     "ending_3": {
       "type": "texture",
       "src": "ending_3.png",
       "size": [
-        640,
-        360
+        1280,
+        720
       ],
-      "colors": 48
+      "prefilter": 1.45,
+      "colors": 0
     },
     "ending_4": {
       "type": "texture",
       "src": "ending_4.png",
       "size": [
-        640,
-        360
+        1280,
+        720
       ],
-      "colors": 48
+      "prefilter": 1.45,
+      "colors": 0
     },
     "ending_5": {
       "type": "texture",
       "src": "ending_5.png",
       "size": [
-        640,
-        360
+        1280,
+        720
       ],
-      "colors": 48
+      "prefilter": 1.45,
+      "colors": 0
     },
     "ending_omni": {
       "type": "clip",
@@ -1387,16 +1397,132 @@
     "boss_gates": {
       "type": "sheet",
       "src": "boss_gates_sheet.png",
-      "height": 360,
-      "ref": "entry_gate",
-      "colors": 36,
+      "height": 116,
+      "ref": "entry_bottom",
+      "colors": 0,
       "rows": [
         [
-          "entry_gate",
-          "exit_gate",
-          "side_jamb"
+          "entry_bottom",
+          "entry_span",
+          "jamb_base",
+          "jamb_shaft",
+          "jamb_cap"
         ]
       ]
+    },
+    "drawbridge_deck": {
+      "type": "sheet",
+      "src": "drawbridge_deck_sheet.png",
+      "height": 30,
+      "ref": "deck_tile_a",
+      "colors": 64,
+      "rows": [
+        [
+          "deck_tile_a",
+          "deck_tile_b",
+          "rail_tile",
+          "newel_post",
+          "hinge_drum"
+        ]
+      ],
+      "fit": {
+        "deck_tile_a": [
+          24,
+          30
+        ],
+        "deck_tile_b": [
+          22,
+          30
+        ],
+        "rail_tile": [
+          24,
+          24
+        ],
+        "newel_post": [
+          8,
+          36
+        ],
+        "hinge_drum": [
+          30,
+          31
+        ]
+      }
+    },
+    "drawbridge_support": {
+      "type": "sheet",
+      "src": "drawbridge_support_sheet.png",
+      "height": 52,
+      "ref": "pier_shaft",
+      "colors": 64,
+      "rows": [
+        [
+          "pier_cap",
+          "pier_shaft",
+          "knee_brace",
+          "windlass_wheel",
+          "chain_shackle",
+          "chain_link"
+        ]
+      ],
+      "fit": {
+        "pier_cap": [
+          42,
+          36
+        ],
+        "pier_shaft": [
+          32,
+          52
+        ],
+        "knee_brace": [
+          28,
+          36
+        ],
+        "windlass_wheel": [
+          28,
+          35
+        ],
+        "chain_shackle": [
+          14,
+          16
+        ],
+        "chain_link": [
+          22,
+          7
+        ]
+      }
+    },
+    "drawbridge_gatehouse": {
+      "type": "sheet",
+      "src": "drawbridge_gatehouse_sheet.png",
+      "height": 180,
+      "ref": "gatehouse_bastion",
+      "colors": 0,
+      "rows": [
+        [
+          "watch_pier",
+          "gatehouse_bastion",
+          "portcullis_grille",
+          "royal_banner"
+        ]
+      ],
+      "fit": {
+        "watch_pier": [
+          26,
+          84
+        ],
+        "gatehouse_bastion": [
+          114,
+          180
+        ],
+        "portcullis_grille": [
+          24,
+          36
+        ],
+        "royal_banner": [
+          26,
+          44
+        ]
+      }
     },
     "boss_door_props": {
       "type": "sheet",

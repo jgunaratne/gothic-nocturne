@@ -218,7 +218,20 @@ class Game {
       this.forgeUI.refreshPreview();
       this.forgeUI.submit();
     }
-    // Testing aids: ?skip=N pre-simulates N fixed steps before the first draw.
+    // Testing aids: ?bossdead=1 opens the defeated-boss exit vortex; ?skip=N pre-simulates N fixed steps.
+    if (this.params.get('bossdead') === '1' && this.world) {
+      this.world.bossCleared = true;
+      this.world.enemies = [];
+      if (this.world.bossExitDoor) {
+        this.world.bossExitDoor.openNow(this.world);
+        if (!this.params.has('at')) {
+          this.world.player.x = this.world.bossExitDoor.x - 44;
+          this.world.player.y = this.world.bossExitDoor.y;
+          this.world.camera.snapTo(this.world.player.x, this.world.player.y);
+          this.world.syncBossGateToPlayer();
+        }
+      }
+    }
     const skip = parseInt(this.params.get('skip') || '0', 10);
     for (let i = 0; i < skip; i++) { this.input.update(DT); this.update(DT); }
     this.fit();
@@ -230,6 +243,17 @@ class Game {
     const prev = this.state;
     this.state = s;
     this.stateT = 0;
+    if (s === 'pause' && prev !== 'pause') {
+      if (prev === 'play') {
+        this.audio.sfx('game_pause');
+      }
+      this.audio.pauseMusic();
+    } else if (s === 'play' && this.audio.musicPaused) {
+      if (prev === 'pause') {
+        this.audio.sfx('game_unpause');
+      }
+      this.audio.resumeMusic();
+    }
     if (this.touch && this.touch.active) {
       this.touch.onStateChange(prev, s);
     }
@@ -893,7 +917,7 @@ class Game {
       case 'play':
         if (inp.pressed.armory) { this.openArmory('play'); break; }
         if (inp.pressed.map) { this.openMap(); break; }
-        if (inp.pressed.start && this.world.phase === 'play') { this.setState('pause'); this.audio.sfx('pause'); break; }
+        if (inp.pressed.start && this.world.phase === 'play') { this.setState('pause'); break; }
         this.world.update(dt, inp);
         break;
       case 'armory':
@@ -931,15 +955,27 @@ class Game {
       case 'pause':
         if (inp.pressed.armory) { this.openArmory('pause'); break; }
         if (inp.pressed.map) { this.openMap(); break; }
-        if (inp.pressed.start || inp.pressed.escape) { this.setState('play'); this.audio.sfx('pause'); }
+        if (inp.pressed.start || inp.pressed.escape) { this.setState('play'); }
         break;
       case 'clear':
         this.world.update(dt, inp);
         if (this.stateT > 2 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) this.advance();
         break;
       case 'ending':
-        if (this.stateT > 6 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) { this.setState('title'); this.audio.stopMusic(); this.endingNarrated = false; }
-        if (this.state === 'ending' && !this.endingNarrated && this.stateT > 2.4) { this.endingNarrated = true; this.audio.playVoice('narrator_ending', { space: 'cathedral' }); }
+        if (this.stateT > 6 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) {
+          this.setState('title');
+          this.audio.stopMusic();
+          if (this.audio.stopVoice) this.audio.stopVoice();
+          this.endingNarrated = false;
+        }
+        if (this.state === 'ending' && !this.endingNarrated && this.stateT >= 1.2) {
+          this.endingNarrated = true;
+          const startOffset = Math.max(0, this.stateT - 1.2);
+          this.audio.playVoice('narrator_ending', {
+            space: 'cathedral',
+            offset: startOffset > 0.25 ? startOffset : 0,
+          });
+        }
         break;
       case 'gameover':
         if (this.stateT > 1.5 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) { this.setState('title'); this.audio.stopMusic(); }
@@ -1172,7 +1208,7 @@ class Game {
       // Game author attribution on the home screen
       ctx.fillStyle = '#3a2e22';
       ctx.fillRect(W / 2 - 140, 323, 280, 1);
-      f.draw(ctx, 'CREATED BY JUNIUS GUNARATNE', W / 2, 328, {
+      f.draw(ctx, 'CREATED BY JUNIUS AND ALEX GUNARATNE', W / 2, 328, {
         align: 'center',
         color: '#d9b36a',
         shadow: '#120f1c',
@@ -1274,7 +1310,7 @@ class Game {
     f.draw(ctx, 'EXPLORATION, CASTLE FORGE & TOUCH', W / 2, py + 128, { align: 'center', color: '#ffd27a', shadow: '#05040a', gothic: false });
 
     const expLines = [
-      ['↑ AT DOORWAY / SHRINE', 'ENTER PASSAGE, BOSS EXIT DOOR, OR SANCTUARY FAST TRAVEL'],
+      ['↑ AT DOORWAY / VORTEX', 'ENTER PASSAGE, BOSS EXIT VORTEX, OR SANCTUARY FAST TRAVEL'],
       ['E  ARMORY     M  CASTLE MAP     P  CASTLE FORGE     G  SALUTE     C  CALLSIGN', ''],
       ['N  MUTE AUDIO     F  TOGGLE CRT / POST-FX SHADERS     ENTER / ESC  PAUSE', ''],
       ['TOUCH & GAMEPAD', '8-WAY D-PAD + ACTION CLUSTER · TAP MINI-MAP, ARMORY SOCKETS OR DOORS'],
@@ -1293,7 +1329,7 @@ class Game {
     if (pulse > 0.25) {
       f.draw(ctx, prompt, W / 2, 306, { align: 'center', color: '#ffd27a', shadow: '#120f1c' });
     }
-    f.draw(ctx, 'CREATED BY JUNIUS GUNARATNE', W / 2, 326, { align: 'center', color: '#8a9ab5', shadow: '#120f1c' });
+    f.draw(ctx, 'CREATED BY JUNIUS AND ALEX GUNARATNE', W / 2, 326, { align: 'center', color: '#8a9ab5', shadow: '#120f1c' });
   }
 
   // ------------------------------------------------------------ Settings screen
@@ -1589,13 +1625,19 @@ class Game {
   beginEnding() {
     this.setState('ending');
     this.endingNarrated = false;
+    if (this.audio.stopVoice) this.audio.stopVoice();
     this.audio.playMusic('ending', false);
     this.audio.stopAmbient();
     if (this.audio.prefetchVoice) this.audio.prefetchVoice('narrator_ending');
   }
 
   drawEnding(ctx) {
-    const t = this.stateT;
+    const VOICE_START_T = 1.2;
+    const hwVoiceT = (this.audio && this.audio.getVoicePlaybackTime)
+      ? this.audio.getVoicePlaybackTime('narrator_ending')
+      : null;
+    const t = hwVoiceT !== null ? (VOICE_START_T + hwVoiceT) : this.stateT;
+    const vT = t - VOICE_START_T;
     const f = this.font;
     const w = this.world;
     const A = this.assets;
@@ -1606,33 +1648,39 @@ class Game {
     const p5 = A.img('ending_5');
     const omniImg = A.img('ending_omni');
 
-    // Timeline (seconds):
-    //   0.0 -  6.8  Act I:   The Shattering of the Sovereign Keep (ending_1 + quake, lightning, falling debris, bats)
-    //   6.8 - 13.6  Act II:  The Breaking of the Blood Curse (ending_4 + dawn rays & rising guardian relic soul motes)
-    //  13.6 - 20.4  Act III: The Sanctuary Vigil — Gemini Omni (`omni_1p5`) 12-frame animated cutscene (`ending_omni`)
-    //  20.4 - 27.2  Act IV:  The Graveyard Road at First Light (ending_2 + lifting silver mist & soul wisps)
-    //  27.2 - 34.0  Act V:   Sunrise Over the Freed Valley (ending_3 + golden sunbeams & wheeling dawn birds)
-    //  34.0+        Act VI:  Grand Epilogue & Credits Roll (Junius & Alex Gunaratne attribution + hunt chronicle)
+    // Timeline locked to `narrator_ending.mp3` (38.67s spoken voice starting at t = 1.2s):
+    //   0.0 - 14.1  Act I:   The Shattering of the Sovereign Keep (ending_1 + quake, lightning, falling debris, bats)
+    //  14.1 - 24.2  Act II:  The Breaking of the Blood Curse (ending_4 + dawn rays & rising guardian relic soul motes)
+    //  24.2 - 27.6  Act III: The Sanctuary Vigil — Gemini Omni (`omni_1p5`) 12-frame animated cutscene (`ending_omni`)
+    //  27.6 - 32.3  Act IV:  The Graveyard Road at First Light (ending_2 + lifting silver mist & soul wisps)
+    //  32.3 - 40.3  Act V:   Sunrise Over the Freed Valley (ending_3 + golden sunbeams & wheeling dawn birds)
+    //  40.3+        Act VI:  Grand Epilogue & Credits Roll (Junius & Alex Gunaratne attribution + hunt chronicle)
     const drawPanel = (img, from, to, zoomFrom, zoomTo, panX, panY = 0) => {
       if (!img) return;
       const k = Math.max(0, Math.min(1, (t - from) / Math.max(0.01, to - from)));
-      const z = zoomFrom + (zoomTo - zoomFrom) * k;
+      // Smooth cosine ease + gentle zoom on 2x (1280x720) supersampled panels with
+      // high-quality bilinear filtering and subpixel float coordinates to avoid
+      // nearest-neighbor row/column beat interference (moiré) when zooming.
+      const ease = 0.5 - 0.5 * Math.cos(k * Math.PI);
+      const z = zoomFrom + (zoomTo - zoomFrom) * ease;
       const dw = W * z, dh = H * z;
-      const dx = (W - dw) / 2 + panX * k, dy = (H - dh) / 2 + panY * k;
-      ctx.drawImage(img, Math.round(dx), Math.round(dy), Math.round(dw), Math.round(dh));
+      const dx = (W - dw) * 0.5 + panX * ease;
+      const dy = (H - dh) * 0.5 + panY * ease;
+      const prevSmooth = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.imageSmoothingEnabled = prevSmooth;
     };
-    const drawOmniClip = (from, to, zoomFrom, zoomTo, panX) => {
-      const k = Math.max(0, Math.min(1, (t - from) / Math.max(0.01, to - from)));
-      const z = zoomFrom + (zoomTo - zoomFrom) * k;
-      const dw = W * z, dh = H * z;
-      const dx = Math.round((W - dw) / 2 + panX * k);
-      const dy = Math.round((H - dh) / 2);
+    const drawOmniClip = (from) => {
       const fi = Math.max(0, Math.floor((t - from) * 6)) % 12;
       const fr = A.frame('ending_omni', `f${fi}`);
       if (omniImg && fr) {
-        ctx.drawImage(omniImg, fr.x, fr.y, fr.w, fr.h, dx, dy, Math.round(dw), Math.round(dh));
+        // Exact 2x integer scale (320x180 -> 640x360) with no fractional zoom
+        // so the 32-bit pixel-art Omni animation renders without moiré.
+        ctx.drawImage(omniImg, fr.x, fr.y, fr.w, fr.h, 0, 0, W, H);
       } else if (p5) {
-        ctx.drawImage(p5, dx, dy, Math.round(dw), Math.round(dh));
+        drawPanel(p5, 24.2, 27.6, 1.0, 1.03, -4);
       }
     };
     const fadeBetween = (a, b) => Math.max(0, Math.min(1, (t - a) / Math.max(0.01, b - a)));
@@ -1649,7 +1697,7 @@ class Game {
     ctx.fillStyle = '#05040a';
     ctx.fillRect(0, 0, W, H);
 
-    if (t < 6.8) {
+    if (t < 14.1) {
       // Act I: The Shattering of the Sovereign Keep
       const quake = t < 5.6 ? Math.max(0, 1 - t / 5.6) * 5 : 0;
       ctx.save();
@@ -1657,10 +1705,10 @@ class Game {
         Math.round(Math.sin(t * 43) * quake),
         Math.round(Math.cos(t * 37) * quake),
       );
-      drawPanel(p1, 0, 6.8, 1.0, 1.12, -16);
+      drawPanel(p1, 0, 14.1, 1.0, 1.035, -8);
       ctx.restore();
 
-      const flash = Math.max(0, Math.sin(t * 7.3) * Math.sin(t * 3.1)) * Math.max(0, 1 - t / 5.8);
+      const flash = Math.max(0, Math.sin(t * 7.3) * Math.sin(t * 3.1)) * Math.max(0, 1 - t / 7.5);
       if (flash > 0.52) {
         ctx.fillStyle = `rgba(255, 86, 62, ${(flash - 0.52) * 0.52})`;
         ctx.fillRect(0, 0, W, H);
@@ -1676,7 +1724,7 @@ class Game {
       // Escaping belfry bats wheeling across the moon
       for (let b = 0; b < 9; b++) {
         const bx = ((280 + b * 24 + t * (36 + b * 5)) % (W + 60)) - 30;
-        const by = 118 - t * (12 + (b % 3) * 4) + Math.sin(t * 6 + b) * 8;
+        const by = 118 - (t % 7.0) * (12 + (b % 3) * 4) + Math.sin(t * 6 + b) * 8;
         if (by > 24 && by < H - 70) {
           const wing = Math.sin(t * 18 + b * 1.7) > 0 ? -2 : 2;
           ctx.fillStyle = '#120a1c';
@@ -1685,15 +1733,15 @@ class Game {
           ctx.fillRect(Math.round(bx + 2), Math.round(by + wing), 3, 1);
         }
       }
-      if (t > 0.5 && t < 6.3) {
+      if (t > 0.5 && t < 5.0) {
         ctx.save();
-        ctx.globalAlpha = Math.max(0, Math.min(1, (t - 0.5) / 0.35, (6.3 - t) / 0.5));
+        ctx.globalAlpha = Math.max(0, Math.min(1, (t - 0.5) / 0.35, (5.0 - t) / 0.5));
         this.banner(['THE NIGHT IS OVER'], 32, { scale: 3, color: '#ffd27a', band: true });
         ctx.restore();
       }
-    } else if (t < 13.6) {
+    } else if (t < 24.2) {
       // Act II: The Breaking of the Blood Curse in the Sovereign Throne Hall (`ending_4`)
-      drawPanel(p4 || p1, 6.8, 13.6, 1.09, 1.0, 12, -4);
+      drawPanel(p4 || p1, 14.1, 24.2, 1.035, 1.0, 6, -2);
       // Streaming dawn sunbeams through the shattered rose window
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -1712,20 +1760,20 @@ class Game {
       for (let i = 0; i < 36; i++) {
         const e = this._embers[i];
         const sx = W * 0.22 + ((e.x * 0.62 + Math.sin(t * 1.4 + i) * 18) % (W * 0.56));
-        const sy = H - 64 - (((t - 6.8) * (22 + (i % 5) * 6) + i * 19) % (H - 96));
+        const sy = H - 64 - (((t - 14.1) * (22 + (i % 5) * 6) + i * 19) % (H - 96));
         ctx.fillStyle = i % 3 === 0 ? '#62f2c2' : (i % 2 === 0 ? '#ffd27a' : '#ff9ad5');
         ctx.fillRect(Math.round(sx), Math.round(sy), i % 4 === 0 ? 3 : 2, i % 4 === 0 ? 3 : 2);
       }
       ctx.restore();
-      if (t > 7.2 && t < 10.2) {
+      if (t > 14.5 && t < 17.5) {
         ctx.save();
-        ctx.globalAlpha = Math.max(0, Math.min(1, (t - 7.2) / 0.35, (10.2 - t) / 0.45));
+        ctx.globalAlpha = Math.max(0, Math.min(1, (t - 14.5) / 0.35, (17.5 - t) / 0.45));
         this.banner(['THE BLOOD CURSE UNBOUND'], 32, { scale: 2, color: '#62f2c2', band: true });
         ctx.restore();
       }
-    } else if (t < 20.4) {
+    } else if (t < 27.6) {
       // Act III: The Sanctuary Vigil — Gemini Omni (`omni_1p5`) animated video scene (`ending_omni`)
-      drawOmniClip(13.6, 20.4, 1.0, 1.06, -8);
+      drawOmniClip(24.2);
       // Warm watchfire flicker & drifting fireflies
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -1738,27 +1786,27 @@ class Game {
       for (let i = 0; i < 28; i++) {
         const e = this._embers[i];
         const fx = (e.x + Math.sin(t * 1.6 + e.p) * 20) % W;
-        const fy = (e.y - (t - 13.6) * 18 * e.s) % (H - 60);
+        const fy = (e.y - (t - 24.2) * 18 * e.s) % (H - 60);
         const yy = fy < 24 ? fy + (H - 84) : fy;
         ctx.fillStyle = i % 3 === 0 ? '#ffd27a' : '#ff9a3c';
         ctx.fillRect(Math.round(fx), Math.round(yy), 2, 2);
       }
       ctx.restore();
-      if (t > 14.0 && t < 17.0) {
+      if (t > 24.5 && t < 27.2) {
         ctx.save();
-        ctx.globalAlpha = Math.max(0, Math.min(1, (t - 14.0) / 0.35, (17.0 - t) / 0.45));
+        ctx.globalAlpha = Math.max(0, Math.min(1, (t - 24.5) / 0.35, (27.2 - t) / 0.40));
         this.banner(['THE SANCTUARY VIGIL'], 32, { scale: 2, color: '#ffd27a', band: true });
         ctx.restore();
       }
-    } else if (t < 27.2) {
+    } else if (t < 32.3) {
       // Act IV: The Graveyard Road at First Light (`ending_2`)
-      drawPanel(p2, 20.4, 27.2, 1.10, 1.0, 14);
+      drawPanel(p2, 27.6, 32.3, 1.035, 1.0, 6);
       // Drifting silver morning mist ribbons lifting off the road
       ctx.save();
       ctx.globalAlpha = 0.16;
       for (let m = 0; m < 3; m++) {
-        const my = 198 + m * 28 - (t - 20.4) * 2.2;
-        const mx = (((t - 20.4) * (14 + m * 6) + m * 140) % (W + 260)) - 260;
+        const my = 198 + m * 28 - (t - 27.6) * 2.2;
+        const mx = (((t - 27.6) * (14 + m * 6) + m * 140) % (W + 260)) - 260;
         const mg = ctx.createLinearGradient(mx, 0, mx + 260, 0);
         mg.addColorStop(0, 'rgba(210, 220, 245, 0)');
         mg.addColorStop(0.5, 'rgba(210, 220, 245, 1)');
@@ -1767,10 +1815,10 @@ class Game {
         ctx.fillRect(mx, my, 260, 16);
       }
       ctx.restore();
-    } else if (t < 34.0) {
+    } else if (t < 40.3) {
       // Act V: Sunrise Over the Freed Valley (`ending_3`)
-      drawPanel(p3, 27.2, 34.0, 1.0, 1.10, -10);
-      const kd = fadeBetween(27.2, 33.2);
+      drawPanel(p3, 32.3, 40.3, 1.0, 1.035, -6);
+      const kd = fadeBetween(32.3, 39.5);
       const g = ctx.createLinearGradient(0, 0, 0, H);
       g.addColorStop(0, `rgba(255, 198, 118, ${0.06 + 0.16 * kd})`);
       g.addColorStop(1, 'rgba(255, 190, 110, 0)');
@@ -1778,8 +1826,8 @@ class Game {
       ctx.fillRect(0, 0, W, H);
       // Wheeling white dawn birds rising into the golden sky
       for (let b = 0; b < 7; b++) {
-        const bx = ((120 + b * 48 + (t - 27.2) * (24 + b * 3)) % (W - 80)) + 40;
-        const by = 148 - (t - 27.2) * (7 + (b % 3) * 2) + Math.sin(t * 4 + b) * 5;
+        const bx = ((120 + b * 48 + (t - 32.3) * (24 + b * 3)) % (W - 80)) + 40;
+        const by = 148 - (t - 32.3) * (7 + (b % 3) * 2) + Math.sin(t * 4 + b) * 5;
         if (by > 28 && by < 220) {
           const wing = Math.sin(t * 12 + b * 1.4) > 0 ? -1 : 1;
           ctx.fillStyle = '#fff4dc';
@@ -1789,8 +1837,8 @@ class Game {
         }
       }
     } else {
-      // Act VI: Grand Epilogue & Credits Roll (34.0s+)
-      drawPanel(p3, 34, 60, 1.1, 1.18, -6);
+      // Act VI: Grand Epilogue & Credits Roll (40.3s+)
+      drawPanel(p3, 40.3, 66.0, 1.035, 1.06, -4);
       ctx.fillStyle = 'rgba(6, 4, 14, 0.76)';
       ctx.fillRect(0, 0, W, H);
       // Gentle golden dust motes over the epilogue
@@ -1804,21 +1852,25 @@ class Game {
       }
       const logo = A.img('title_logo');
       if (logo) {
-        const lw = 252, lh = Math.round(logo.height * (lw / logo.width));
-        const lx = Math.round((W - lw) / 2), ly = 6;
-        const lg = ctx.createRadialGradient(W / 2, ly + lh * 0.5, 20, W / 2, ly + lh * 0.5, 195);
+        const lw = 224, lh = Math.round(logo.height * (lw / logo.width));
+        const lx = Math.round((W - lw) / 2), ly = 4;
+        const lg = ctx.createRadialGradient(W / 2, ly + lh * 0.5, 20, W / 2, ly + lh * 0.5, 180);
         lg.addColorStop(0, 'rgba(4, 3, 10, 0.72)');
         lg.addColorStop(1, 'rgba(4, 3, 10, 0)');
         ctx.fillStyle = lg;
-        ctx.fillRect(0, 0, W, ly + lh + 18);
+        ctx.fillRect(0, 0, W, ly + lh + 14);
+        const prevSmooth = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(logo, lx, ly, lw, lh);
+        ctx.imageSmoothingEnabled = prevSmooth;
       }
-      const cardFade = Math.max(0, Math.min(1, (t - 34.0) / 0.6));
+      const cardFade = Math.max(0, Math.min(1, (t - 40.3) / 0.6));
       if (cardFade > 0.01) {
         ctx.save();
         ctx.globalAlpha = cardFade;
-        const cx = W / 2 - 244, cy = 166, cw = 488, ch = 184;
-        ctx.fillStyle = 'rgba(5, 4, 12, 0.92)';
+        const cx = W / 2 - 252, cy = 142, cw = 504, ch = 186;
+        ctx.fillStyle = 'rgba(5, 4, 12, 0.90)';
         ctx.fillRect(cx, cy, cw, ch);
         ctx.strokeStyle = '#8a6a3a';
         ctx.lineWidth = 1;
@@ -1827,60 +1879,81 @@ class Game {
         ctx.strokeRect(cx + 2.5, cy + 2.5, cw - 5, ch - 5);
 
         const gp = this.guardianProgress();
-        if (w) {
-          f.draw(ctx, `FINAL SCORE ${String(w.score).padStart(7, '0')}`, W / 2, 176, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
-          f.draw(
-            ctx,
-            `${w.difficulty.name} · LV ${String(this.charLevel).padStart(2, '0')} · GUARDIANS ${gp.felled}/${gp.total} · VESSELS ${this.getVesselCount()}/${STAGES.length}`,
-            W / 2,
-            197,
-            { gothic: false, align: 'center', color: '#e8e2c8', shadow: '#05040a' },
-          );
-        }
-        ctx.fillStyle = '#5a462c';
-        ctx.fillRect(W / 2 - 180, 211, 360, 1);
+        const scoreLine = w
+          ? `FINAL SCORE ${String(w.score).padStart(7, '0')} · ${w.difficulty.name} · LV ${String(this.charLevel).padStart(2, '0')}`
+          : `GUARDIANS FELLED ${gp.felled}/${gp.total} · ANCIENT VESSELS ${this.getVesselCount()}/${STAGES.length}`;
 
-        // End Credits: credit both Junius and Alex Gunaratne
-        f.draw(ctx, 'END CREDITS', W / 2, 218, { gothic: false, align: 'center', color: '#a89a74', shadow: '#05040a' });
-        f.draw(ctx, 'JUNIUS GUNARATNE  &  ALEX GUNARATNE', W / 2, 232, {
+        // Vertically scrolling End Credits roll inside the clipped frame
+        const creditRows = [
+          { dy: 0, text: '- CHRONICLE OF THE DAWN -', scale: 2, color: '#ffd27a' },
+          { dy: 20, text: scoreLine, scale: 1, color: '#e8e2c8' },
+          { dy: 44, text: 'CREATED BY', scale: 1, color: '#a89a74' },
+          { dy: 60, text: 'JUNIUS GUNARATNE  &  ALEX GUNARATNE', scale: 2, color: '#ffd27a' },
+          { dy: 90, text: 'EXECUTIVE PRODUCER & LEAD ARCHITECT', scale: 1, color: '#a89a74' },
+          { dy: 105, text: 'JUNIUS GUNARATNE', scale: 2, color: '#f6f0de' },
+          { dy: 135, text: 'CREATIVE DIRECTOR, LEVEL & COMBAT DESIGN', scale: 1, color: '#a89a74' },
+          { dy: 150, text: 'ALEX GUNARATNE', scale: 2, color: '#f6f0de' },
+          { dy: 180, text: 'STORY, LORE & WORLD BUILDING', scale: 1, color: '#a89a74' },
+          { dy: 195, text: 'JUNIUS GUNARATNE  &  ALEX GUNARATNE', scale: 2, color: '#ffd27a' },
+          { dy: 225, text: '2.5D RENDERING ENGINE & WEBGL SHADERS', scale: 1, color: '#a89a74' },
+          { dy: 240, text: 'JUNIUS & ALEX GUNARATNE', scale: 1, color: '#e8e2c8' },
+          { dy: 266, text: 'PIXEL ART, SPRITES & ANIMATED CUTSCENES', scale: 1, color: '#a89a74' },
+          { dy: 281, text: 'GEMINI  ·  GEMINI OMNI (OMNI_1P5)  ·  GEMPIX', scale: 1, color: '#b8c4dc' },
+          { dy: 307, text: 'SYMPHONIC GOTHIC SCORE & BOSS THEMES', scale: 1, color: '#a89a74' },
+          { dy: 322, text: 'LYRIA 3 GENERATIVE AUDIO', scale: 1, color: '#b8c4dc' },
+          { dy: 348, text: 'VOICE ACTING & NARRATION', scale: 1, color: '#a89a74' },
+          { dy: 363, text: 'DAIKON SPEECH SYNTHESIS', scale: 1, color: '#b8c4dc' },
+          { dy: 395, text: 'CREATED BY JUNIUS AND ALEX GUNARATNE', scale: 2, color: '#ffd27a' },
+          { dy: 420, text: 'THANK YOU FOR PLAYING GOTHIC NOCTURNE', scale: 2, color: '#62f2c2' },
+          { dy: 444, text: 'PEACE HAS RETURNED TO TRANSYLVANIA · 2026', scale: 1, color: '#e8e2c8' },
+        ];
+
+        const rollElapsed = Math.max(0, t - 40.5);
+        const scrollSpeed = 24; // px per second upward scroll
+        const startBaseY = cy + ch - 26;
+        const finalLockScroll = 395 + 26 - 64; // settles with final attribution & thank-you centered in frame
+        const scrollOffset = Math.min(finalLockScroll, rollElapsed * scrollSpeed);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(cx + 4, cy + 6, cw - 8, ch - 12);
+        ctx.clip();
+
+        for (const item of creditRows) {
+          const ry = Math.round(startBaseY + item.dy - scrollOffset);
+          if (ry < cy - 18 || ry > cy + ch + 18) continue;
+          // Smooth fade near top and bottom edges of the scroll window
+          const distTop = ry - (cy + 8);
+          const distBot = (cy + ch - 14) - ry;
+          const edgeAlpha = Math.max(0, Math.min(1, distTop / 18, distBot / 18));
+          ctx.globalAlpha = cardFade * edgeAlpha;
+          f.draw(ctx, item.text, W / 2, ry, {
+            scale: item.scale || 1,
+            gothic: false,
+            align: 'center',
+            color: item.color,
+            shadow: '#05040a',
+          });
+        }
+        ctx.restore();
+
+        const pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
+        ctx.save();
+        ctx.globalAlpha = cardFade * pulse;
+        f.draw(ctx, (this.touch && this.touch.active) ? 'TAP OR PRESS START' : 'PRESS ENTER TO RETURN TO TITLE', W / 2, 336, {
           scale: 2,
           gothic: false,
           align: 'center',
           color: '#ffd27a',
           shadow: '#05040a',
         });
-        f.draw(ctx, 'GAME DESIGN, DIRECTION, STORY & ENGINEERING · JUNIUS & ALEX GUNARATNE', W / 2, 254, {
-          gothic: false,
-          align: 'center',
-          color: '#f6f0de',
-          shadow: '#05040a',
-        });
-        f.draw(ctx, 'ART & CUTSCENES · GEMINI & OMNI     MUSIC · LYRIA 3     VOICE · DAIKON', W / 2, 270, {
-          gothic: false,
-          align: 'center',
-          color: '#b8c4dc',
-          shadow: '#05040a',
-        });
-        ctx.fillStyle = '#3a2e4c';
-        ctx.fillRect(W / 2 - 150, 285, 300, 1);
-        f.draw(ctx, 'THANK YOU FOR PLAYING GOTHIC NOCTURNE', W / 2, 293, {
-          scale: 2,
-          gothic: false,
-          align: 'center',
-          color: '#62f2c2',
-          shadow: '#05040a',
-        });
-        const pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
-        ctx.save();
-        ctx.globalAlpha = cardFade * pulse;
-        f.draw(ctx, (this.touch && this.touch.active) ? 'TAP OR PRESS START' : 'PRESS ENTER', W / 2, 322, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
         ctx.restore();
         ctx.restore();
       }
     }
 
-    // Crossfades between all 6 acts
-    for (const [a, b] of [[6.3, 7.3], [13.1, 14.1], [19.9, 20.9], [26.7, 27.7], [33.5, 34.5]]) {
+    // Crossfades between all 6 acts (placed inside natural breath pauses of narrator_ending.mp3)
+    for (const [a, b] of [[13.7, 14.5], [23.7, 24.7], [27.2, 27.9], [31.9, 32.7], [39.8, 40.8]]) {
       if (t > a && t < b) {
         const k = 1 - Math.abs((t - (a + b) / 2) / ((b - a) / 2));
         ctx.fillStyle = `rgba(5, 4, 10, ${k})`;
@@ -1888,14 +1961,14 @@ class Game {
       }
     }
 
-    // Letterbox + high-legibility timed captions during the 5 story acts (0..34s)
-    if (t < 34) {
+    // Letterbox + high-legibility timed captions synced to narrator_ending.mp3 (0..40.3s)
+    if (t < 40.3) {
       ctx.fillStyle = '#05040a';
       ctx.fillRect(0, 0, W, 22);
       ctx.fillStyle = '#5a462c';
       ctx.fillRect(0, 22, W, 1);
       // Scene progress chapter indicator in the top letterbox bar
-      const actIdx = t < 6.8 ? 1 : t < 13.6 ? 2 : t < 20.4 ? 3 : t < 27.2 ? 4 : 5;
+      const actIdx = t < 14.1 ? 1 : t < 24.2 ? 2 : t < 27.6 ? 3 : t < 32.3 ? 4 : 5;
       const actTitle = [
         '',
         'ACT I · THE FALL OF CASTLE NOCTURNE',
@@ -1911,21 +1984,22 @@ class Game {
       ctx.fillRect(0, barY, W, barH);
       ctx.fillStyle = '#7a603a';
       ctx.fillRect(0, barY, W, 1);
-      const caps = [
-        [0.8, 3.8, 'WITH THE FINAL STRIKE OF THE VAMPIRE KILLER, COUNT VLADIMIR\'S COVENANT SHATTERED INTO ASH.'],
-        [3.9, 6.5, 'ACROSS EVERY WING OF CASTLE NOCTURNE, ANCIENT GEARS LOCKED AND CURSED STONE TUMBLED INTO THE ABYSS.'],
-        [7.1, 10.2, 'WITHIN THE SOVEREIGN THRONE HALL, GOLDEN DAWN PIERCED THE ROSE WINDOW AND BANISHED THE CRIMSON MIST.'],
-        [10.3, 13.3, 'ONE BY ONE, THE SIXTEEN GUARDIAN RELICS DISSOLVED INTO STARLIGHT, RETURNING PEACE TO THE FALLEN.'],
-        [13.9, 17.0, 'AT THE HILLTOP SANCTUARY SHRINE, THE WEARY HUNTER LAID HIS CONSECRATED WHIP BESIDE THE WATCHFIRE.'],
-        [17.1, 20.1, 'THROUGH THE QUIET ASH OF REMEMBRANCE, HE KEPT VIGIL FOR THOSE LOST TO THE LONG CENTURY OF NIGHT.'],
-        [20.7, 23.8, 'WHEN THE BELLS OF THE VALLEY CHAPEL RANG OUT UNBROKEN, HE ROSE AND WALKED THE GRAVEYARD ROAD.'],
-        [23.9, 26.9, 'THE IRON GATES STOOD OPEN, AND THE SILVER FOG PARTED BEFORE HIS BOOTS LIKE A FADING DREAM.'],
-        [27.5, 30.6, 'BELOW THE CRAGS, LANTERNS FLICKERED AWAKE IN EVERY VILLAGE WINDOW AS WARMTH RETURNED TO THE REALM.'],
-        [30.7, 33.6, 'THE HUNTER DID NOT LOOK BACK—FOR THE FIRST TIME IN HIS LIFE, HE WALKED INTO THE RISING SUN.'],
+
+      // Exact phrase timestamps synced to assets/voice/narrator_ending.mp3 (vT = seconds from voice start)
+      const voiceCaps = [
+        [-0.05,  3.95, 'AND SO THE COUNT WAS DUST,'],
+        [ 4.15,  7.40, 'AND HIS KEEP FELL SILENT.'],
+        [ 7.75, 12.75, 'THE BELLS OF MIDNIGHT CRACKED AND TUMBLED FROM THE BELFRY,'],
+        [13.20, 17.80, 'AND THE DARKNESS THAT HAD FED ON THE VALLEY FOR A HUNDRED YEARS'],
+        [17.95, 22.65, 'DRAINED AWAY LIKE WATER FROM A BROKEN CUP.'],
+        [23.55, 26.20, 'THE HUNTER DID NOT LOOK BACK.'],
+        [26.55, 30.95, 'HE WALKED THE GRAVEYARD ROAD AS THE MIST LIFTED,'],
+        [31.35, 34.35, 'AND FOR THE FIRST TIME IN HIS LIFE...'],
+        [34.65, 38.55, '...HE WALKED IT TOWARD THE SUNRISE.'],
       ];
-      for (const [a, b, text] of caps) {
-        if (t < a || t > b) continue;
-        const k = Math.min(1, (t - a) / 0.30, (b - t) / 0.30);
+      for (const [a, b, text] of voiceCaps) {
+        if (vT < a || vT > b) continue;
+        const k = Math.min(1, (vT - a) / 0.24, (b - vT) / 0.24);
         ctx.save();
         ctx.globalAlpha = Math.max(0, k);
         const lines = f.wrap(text, W - 32, 2, 1, false);

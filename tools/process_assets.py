@@ -23,7 +23,7 @@ import os
 import sys
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW = os.path.join(ROOT, "art", "raw")
@@ -81,6 +81,8 @@ def harden_alpha(px, threshold=0.5):
 
 def quantize(px, colors):
     """Median-cut palette on opaque pixels, nearest-colour remap, no dither."""
+    if not colors or colors <= 0:
+        return px
     opaque = px[..., 3] > 0
     if opaque.sum() == 0:
         return px
@@ -261,10 +263,19 @@ def process_texture(name, spec, report):
     tw, th = spec["size"]
     if th is None:
         th = int(round(px.shape[0] * tw / px.shape[1]))
-    px = resize_premultiplied(px, (tw, th))
+    prefilter = float(spec.get("prefilter", 0.0) or 0.0)
+    if prefilter > 0.0:
+        im_pf = Image.fromarray(np.clip(px, 0, 255).astype(np.uint8), "RGBA")
+        im_pf = im_pf.filter(ImageFilter.GaussianBlur(radius=prefilter))
+        im_pf = im_pf.resize((tw, th), Image.Resampling.LANCZOS)
+        px = np.asarray(im_pf).astype(np.float32)
+    else:
+        px = resize_premultiplied(px, (tw, th))
     if spec.get("key"):
         px = harden_alpha(px)
-    px = quantize(px, spec.get("colors", 48))
+    colors = spec.get("colors", 48)
+    if colors:
+        px = quantize(px, colors)
     seam = spec.get("seamless")
     if seam == "blend":
         px = wrap_blend(px)

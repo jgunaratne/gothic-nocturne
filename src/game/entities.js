@@ -72,7 +72,8 @@ export class Entity {
       }
 
       const targetY = level.stairY(s, this.x);
-      const nextY = (prevY - targetY > 5) ? Math.max(targetY, prevY - 260 * dt) : targetY;
+      const maxClimbStep = Math.max(380, Math.abs(this.vx) * (s.slope || 1) + 180) * dt;
+      const nextY = (prevY - targetY > 5) ? Math.max(targetY, prevY - maxClimbStep) : targetY;
       if (nextY < prevY) {
         const tyHead = Math.floor((nextY - this.h) / TILE);
         const tx0 = Math.floor(this.left / TILE), tx1 = Math.floor((this.right - 0.01) / TILE);
@@ -135,18 +136,19 @@ export class Entity {
   moveXOnStair(level, dx, stair) {
     if (dx === 0) return;
     this.x += dx;
-    const lipClear = Math.ceil(this.w * 0.55 * stair.slope) + 6;
-    const ty0 = Math.floor(this.top / TILE), ty1 = Math.floor((this.bottom - 0.01) / TILE);
+    const stairBottom = Math.min(this.bottom, level.stairY(stair, this.x));
+    const lipClear = Math.ceil((this.w * 0.65 + Math.abs(dx)) * stair.slope) + 10;
+    const ty0 = Math.floor((stairBottom - this.h) / TILE), ty1 = Math.floor((stairBottom - 0.01) / TILE);
     if (dx > 0) {
       const tx = Math.floor((this.right - 0.01) / TILE);
       for (let ty = ty0; ty <= ty1; ty++) {
-        if (ty * TILE >= stair.topY && ty * TILE >= this.bottom - lipClear) continue;
+        if (ty * TILE >= stair.topY && ty * TILE >= stairBottom - lipClear) continue;
         if (level.isSolid(tx, ty)) { this.x = tx * TILE - this.w / 2; this.vx = 0; this.hitWall = true; return; }
       }
     } else {
       const tx = Math.floor(this.left / TILE);
       for (let ty = ty0; ty <= ty1; ty++) {
-        if (ty * TILE >= stair.topY && ty * TILE >= this.bottom - lipClear) continue;
+        if (ty * TILE >= stair.topY && ty * TILE >= stairBottom - lipClear) continue;
         if (level.isSolid(tx, ty)) { this.x = (tx + 1) * TILE + this.w / 2; this.vx = 0; this.hitWall = true; return; }
       }
     }

@@ -511,14 +511,13 @@ export class AncientVessel {
 }
 
 /**
- * Shared renderer for the castle's tall **vertical boss doors**: an iron
- * Shared renderer for the castle's tall **vertical boss doors**: a narrow
- * side-profile iron portcullis (`boss_gates` `entry_gate` or `exit_gate`)
- * spanning continuously from the top of the screen (`y = 0`) down to `floorSy`
- * as a single top-to-bottom sprite (never stacked), sliding straight up into
- * the ceiling channel (`side_jamb`) when it opens and slamming down when it
- * seals, flanked on the floor beside the door by gothic guardian statues,
- * wrought-iron braziers, and carved ward steles (`boss_door_props`).
+ * Shared renderer for the castle's tall **vertical boss doors**: a crisp,
+ * non-stretched side-profile iron portcullis (`boss_gates`: `entry_bottom` +
+ * vertically repeating `entry_span`) sliding inside a carved Gothic stone
+ * gate-channel column (`jamb_base` + vertically repeating `jamb_shaft` +
+ * gargoyle lintel `jamb_cap`) at exact 1:1 native pixel resolution, flanked on
+ * the floor beside the door by gothic guardian statues, wrought-iron braziers,
+ * and carved ward steles (`boss_door_props`).
  */
 export function drawVerticalDoor(ctx, assets, sx, floorSy, {
   rise = 0,
@@ -539,9 +538,11 @@ export function drawVerticalDoor(ctx, assets, sx, floorSy, {
 
   const isExit = kind === 'exit';
   const gatesImg = assets && assets.img ? assets.img('boss_gates') : null;
-  const gateFrameName = isExit ? 'exit_gate' : 'entry_gate';
-  const gateFrame = assets && assets.frame ? assets.frame('boss_gates', gateFrameName) : null;
-  const jambFrame = assets && assets.frame ? assets.frame('boss_gates', 'side_jamb') : null;
+  const botFrame = assets && assets.frame ? assets.frame('boss_gates', 'entry_bottom') : null;
+  const spanFrame = assets && assets.frame ? assets.frame('boss_gates', 'entry_span') : null;
+  const jambBase = assets && assets.frame ? assets.frame('boss_gates', 'jamb_base') : null;
+  const jambShaft = assets && assets.frame ? assets.frame('boss_gates', 'jamb_shaft') : null;
+  const jambCap = assets && assets.frame ? assets.frame('boss_gates', 'jamb_cap') : null;
   const propsImg = assets && assets.img ? assets.img('boss_door_props') : null;
 
   ctx.save();
@@ -564,9 +565,9 @@ export function drawVerticalDoor(ctx, assets, sx, floorSy, {
   //    - Wrought-iron brazier (`iron_brazier`) with live coals & flame right beside the gate
   //    - Carved stone ward stele (`ward_stele`) on the opposite threshold side
   const statueName = isExit ? 'exit_guardian' : 'entry_guardian';
-  const statueX = sx - 42;
-  const brazierX = sx - 18;
-  const steleX = sx + 22;
+  const statueX = sx - 44;
+  const brazierX = sx - 20;
+  const steleX = sx + 24;
   if (propsImg && assets.frame('boss_door_props', statueName)) {
     ctx.fillStyle = 'rgba(4, 3, 10, 0.52)';
     ctx.fillRect(statueX - 18, floorSy - 2, 36, 4);
@@ -584,19 +585,41 @@ export function drawVerticalDoor(ctx, assets, sx, floorSy, {
     ctx.fillRect(brazierX - 7, floorSy - 36, 14, 36);
   }
 
-  // 3. Narrow side-cutaway stone gate slot column (`side_jamb` spanning top-to-bottom)
-  const jambW = 22;
-  const slotX = Math.round(sx - jambW * 0.5);
-  if (gatesImg && jambFrame) {
+  // 3. Modular Gothic stone gate-channel column rendered at exact 1:1 native pixels (zero stretch!)
+  if (gatesImg && jambShaft && jambBase) {
     ctx.save();
-    ctx.globalAlpha = 0.92;
+    ctx.globalAlpha = 0.96;
+    ctx.beginPath();
+    ctx.rect(sx - 44, topSy - 2, 88, floorSy - topSy + 5);
+    ctx.clip();
+    const shaftX = Math.round(sx - jambShaft.w * 0.5);
+    const shaftStopY = floorSy - jambBase.h + 6;
+    for (let y = shaftStopY - jambShaft.h; y + jambShaft.h > topSy - 2; y -= jambShaft.h) {
+      ctx.drawImage(
+        gatesImg,
+        jambShaft.x, jambShaft.y, jambShaft.w, jambShaft.h,
+        shaftX, Math.round(y), jambShaft.w, jambShaft.h,
+      );
+    }
     ctx.drawImage(
       gatesImg,
-      jambFrame.x, jambFrame.y, jambFrame.w, jambFrame.h,
-      slotX - 4, topSy, jambW + 8, fullH,
+      jambBase.x, jambBase.y, jambBase.w, jambBase.h,
+      Math.round(sx - jambBase.w * 0.5), Math.round(floorSy - jambBase.h + 2), jambBase.w, jambBase.h,
     );
+    if (jambCap) {
+      const capY = Math.max(topSy + 8, floorSy - 188);
+      // Anchor the carved stone gargoyle corbel (left 19px of jamb_cap) flush against jamb_shaft's left face
+      const gargW = Math.min(19, jambCap.w);
+      ctx.drawImage(
+        gatesImg,
+        jambCap.x, jambCap.y, gargW, jambCap.h,
+        Math.round(sx - jambShaft.w * 0.5 - gargW + 3), Math.round(capY), gargW, jambCap.h,
+      );
+    }
     ctx.restore();
   } else {
+    const jambW = 22;
+    const slotX = Math.round(sx - jambW * 0.5);
     const pierGrad = ctx.createLinearGradient(0, topSy, 0, floorSy);
     pierGrad.addColorStop(0, '#1b1826');
     pierGrad.addColorStop(0.55, '#302b40');
@@ -607,27 +630,34 @@ export function drawVerticalDoor(ctx, assets, sx, floorSy, {
     ctx.fillRect(sx - 4, topSy, 8, fullH);
   }
 
-  // 4. Single continuous top-to-bottom side-profile iron gate (`entry_gate` or `exit_gate`),
-  //    narrow (`18 px` wide) and viewed from the side edge so spikes/crests face the hunter!
+  // 4. Modular side-profile forged iron portcullis rendered at exact 1:1 native pixel aspect ratio!
+  //    `entry_bottom` forms the tapered iron spearhead shoe & lower spikes, and `entry_span` tiles
+  //    seamlessly upward into the ceiling slot without any vertical or horizontal stretching.
   const lift = Math.round(rise * fullH);
   const bottom = floorSy - lift;
-  const gateDrawW = 18;
   ctx.save();
   ctx.beginPath();
-  ctx.rect(sx - 16, topSy - 2, 32, fullH + 4);
+  ctx.rect(sx - 28, topSy - 2, 48, fullH + 4);
   ctx.clip();
   if (bottom > topSy) {
-    if (gatesImg && gateFrame) {
-      // Flip horizontally so the side-profile spikes/skulls (entry) or sun-crests/scrolls (exit)
-      // face LEFT toward the approaching hunter in 2D side view, drawn as ONE single top-to-bottom sprite!
+    if (gatesImg && botFrame && spanFrame) {
       ctx.save();
-      ctx.translate(sx, bottom);
-      ctx.scale(-1, 1);
+      ctx.translate(Math.round(sx), 0);
+      ctx.scale(-1, 1); // spikes & bronze skulls face LEFT toward the approaching hunter
+      const beamOffset = -6; // centers the 11px vertical iron beam inside the stone guide slot at sx
+      const botTop = Math.round(bottom - botFrame.h);
       ctx.drawImage(
         gatesImg,
-        gateFrame.x, gateFrame.y, gateFrame.w, gateFrame.h,
-        -Math.round(gateDrawW * 0.5), -fullH, gateDrawW, fullH,
+        botFrame.x, botFrame.y, botFrame.w, botFrame.h,
+        beamOffset, botTop, botFrame.w, botFrame.h,
       );
+      for (let y = botTop - spanFrame.h; y + spanFrame.h > topSy - 4; y -= spanFrame.h) {
+        ctx.drawImage(
+          gatesImg,
+          spanFrame.x, spanFrame.y, spanFrame.w, spanFrame.h,
+          beamOffset, Math.round(y), spanFrame.w, spanFrame.h,
+        );
+      }
       ctx.restore();
     } else {
       ctx.fillStyle = isExit ? '#6a5332' : '#3a3448';
@@ -856,12 +886,22 @@ export class BossGateDoor {
   }
 }
 
+function hexToRgb01(hex, fallback = [0.68, 0.42, 0.98]) {
+  if (!hex || typeof hex !== 'string') return fallback;
+  const h = hex.replace('#', '').trim();
+  if (h.length === 6) {
+    const n = parseInt(h, 16);
+    if (!Number.isNaN(n)) return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  }
+  return fallback;
+}
+
 /**
- * Right-side **Boss Exit Door**: a matching vertical portcullis sealing the far
- * wall of every boss arena during combat. It rises with a golden-amber
- * shockwave once the guardian falls, and walking (or pressing `↑`) into the
- * open doorway steps directly into the next adjacent connected castle level
- * without returning to the Castle Map.
+ * Right-side **Boss Exit Vortex (`BossExitDoor`)**: an otherworldly animated
+ * WebGL shader vortex that materializes above an arcane floor dais once the
+ * stage's guardian is defeated. Walking into (or pressing `↑` inside) the
+ * swirling rift transports the hunter directly to the next adjacent uncompleted
+ * castle area.
  */
 export class BossExitDoor {
   constructor(x, y, bossData = null, level = null) {
@@ -873,32 +913,25 @@ export class BossExitDoor {
     this.near = false;
     this.openedWithPlayerInside = false;
     this.lastBlockT = -9;
-    // Full top-to-bottom screen height, matching the Boss Gate Door on the other side of the arena
-    let height = 360;
-    if (bossData && level) {
-      const col = Math.floor(x / TILE);
-      const floorRow = bossData.gateRows[1] + 1;
-      let top = floorRow - 1;
-      while (top > 0 && !isMaterialTile(level.tile(col, top - 1))) top--;
-      height = Math.max(360, (floorRow - top) * TILE);
-    }
-    this.height = height;
+    this.height = 360;
+    void bossData;
+    void level;
   }
 
   openNow(world) {
     if (this.open) return;
     this.open = true;
     this.openT = 0;
-    this.openedWithPlayerInside = !!(world && world.player && Math.abs(world.player.x - this.x) < 22);
+    this.openedWithPlayerInside = !!(world && world.player && Math.abs(world.player.x - this.x) < 28);
     if (world) {
-      world.sfx('gate');
-      world.particles.sparks(this.x, this.y - 48, 24, '#ffd27a');
+      world.sfx('orb');
+      world.particles.sparks(this.x, this.y - 54, 28, '#ffd27a');
       world.particles.dust(this.x, this.y, 10, '#d8c59e');
-      world.emitShockwave(this.x, this.y - 52, {
-        maxR: 142,
-        dur: 0.54,
-        strength: 0.78,
-        color: [1.0, 0.84, 0.38],
+      world.emitShockwave(this.x, this.y - 56, {
+        maxR: 152,
+        dur: 0.58,
+        strength: 0.85,
+        color: [0.74, 0.52, 1.0],
       });
     }
   }
@@ -917,30 +950,43 @@ export class BossExitDoor {
   update(dt, player, input, world) {
     if (this.open) {
       this.openT += dt;
-      this.rise = Math.min(1, this.rise + dt / 0.6);
+      this.rise = Math.min(1, this.rise + dt / 0.65);
+      // Emit inward-spiraling dimensional motes toward the vortex singularity
+      if (world && world.particles && Math.random() < 0.45) {
+        const ang = Math.random() * Math.PI * 2;
+        const dist = 28 + Math.random() * 22;
+        const px = this.x + Math.cos(ang) * dist * 0.72;
+        const py = (this.y - 56) + Math.sin(ang) * dist;
+        world.particles.emit({
+          x: px,
+          y: py,
+          vx: (this.x - px) * 1.9 - Math.sin(ang) * 28,
+          vy: ((this.y - 56) - py) * 1.9 + Math.cos(ang) * 28,
+          life: 0.42 + Math.random() * 0.25,
+          color: Math.random() < 0.5 ? '#ffd27a' : '#b98cff',
+          size: Math.random() < 0.35 ? 2 : 1,
+          gravity: 0,
+          fade: true,
+        });
+      }
     }
     const dx = Math.abs(player.x - this.x);
     const dy = Math.abs(player.y - this.y);
-    this.near = this.open && dx < 46 && dy < 44;
-    if (this.openedWithPlayerInside && player.x < this.x - 22) {
+    this.near = this.open && dx < 48 && dy < 48;
+    if (this.openedWithPlayerInside && player.x < this.x - 26) {
       this.openedWithPlayerInside = false;
     }
-    // Closed: the iron sill bars the hunter (player-only, so the boss AI is never snagged)
-    if (!this.open && player.x > this.x - 18) {
-      player.x = this.x - 18;
+    // While boss is alive, keep the hunter inside the right edge of the arena
+    if (!this.open && player.x > this.x + 8) {
+      player.x = this.x + 8;
       if (player.vx > 0) player.vx = 0;
-      if (player.alive && world.time - this.lastBlockT > 1.8 && input && input.down && input.down.right) {
-        this.lastBlockT = world.time;
-        world.sfx('block');
-        world.particles.sparks(this.x - 14, this.y - 48, 8, '#ff5a78');
-      }
       return;
     }
-    if (!this.open || this.rise < 0.6 || player.hurtT > 0 || dy >= 44) return;
+    if (!this.open || this.rise < 0.55 || player.hurtT > 0 || dy >= 48) return;
 
-    const walkedIntoPortal = player.x >= this.x - 10
-      && (!this.openedWithPlayerInside || (input && input.down && input.down.right) || player.vx > 8);
-    const pressedEnterDoor = dx < 40
+    const walkedIntoPortal = dx <= 16
+      && (!this.openedWithPlayerInside || (input && input.down && (input.down.right || input.down.left)) || Math.abs(player.vx) > 8);
+    const pressedEnterDoor = dx < 42
       && player.onGround
       && input && input.pressed && input.pressed.up
       && !(input.down && input.down.attack);
@@ -953,22 +999,109 @@ export class BossExitDoor {
   draw(ctx, cam, font, world, time) {
     const sx = Math.round(this.x - cam.rx);
     const sy = Math.round(this.y - cam.ry);
-    if (sx < -100 || sx > W + 100) return;
-    const nextKey = this.open ? this.resolveNextKey(world) : null;
+    if (sx < -120 || sx > W + 120) return;
+
+    const assets = world && world.assets;
+    const propsImg = assets && assets.img ? assets.img('boss_door_props') : null;
+    const leftProp = assets && assets.frame ? assets.frame('boss_door_props', 'exit_left') : null;
+    const rightProp = assets && assets.frame ? assets.frame('boss_door_props', 'exit_right') : null;
+
+    ctx.save();
+    // 1. Carved stone ritual dais & dormant arcane floor seal
+    ctx.fillStyle = '#1b1726';
+    ctx.fillRect(sx - 34, sy - 4, 68, 5);
+    ctx.fillStyle = '#3a3250';
+    ctx.fillRect(sx - 30, sy - 6, 60, 2);
+    ctx.fillStyle = this.open ? '#ffd27a' : '#58486e';
+    ctx.fillRect(sx - 20, sy - 6, 40, 1);
+
+    // 2. Flanking guardian ritual steles / braziers
+    if (propsImg && leftProp && rightProp) {
+      const pScale = 0.48;
+      const lw = Math.round(leftProp.w * pScale), lh = Math.round(leftProp.h * pScale);
+      const rw = Math.round(rightProp.w * pScale), rh = Math.round(rightProp.h * pScale);
+      ctx.globalAlpha = this.open ? 0.96 : 0.68;
+      ctx.drawImage(propsImg, leftProp.x, leftProp.y, leftProp.w, leftProp.h, sx - 38 - Math.round(lw * 0.5), sy - lh + 2, lw, lh);
+      ctx.drawImage(propsImg, rightProp.x, rightProp.y, rightProp.w, rightProp.h, sx + 38 - Math.round(rw * 0.5), sy - rh + 2, rw, rh);
+      ctx.globalAlpha = 1;
+    }
+
+    if (!this.open || this.rise <= 0.01) {
+      ctx.restore();
+      return;
+    }
+
+    const nextKey = this.resolveNextKey(world);
     const destIdx = nextKey ? stageIndexOf(nextKey) : -1;
     const destStage = destIdx >= 0 ? STAGES[destIdx] : null;
     const destTheme = destStage ? (THEMES[destStage.theme] || THEMES.graveyard) : THEMES.throne;
-    drawVerticalDoor(ctx, world.assets, sx, sy, {
-      rise: this.rise,
-      height: this.height,
-      time,
-      sealed: !this.open,
-      lockColor: '#ff5a78',
-      glowColor: destTheme.accent || '#ffd27a',
-      open: this.open,
-      fxSeed: this.x * 0.05 + 0.7,
-      kind: 'exit',
-    });
+    const rimRgb = hexToRgb01(destTheme.accent || '#9c6bff', [0.62, 0.38, 0.98]);
+    const coreRgb = [1.0, 0.91, 0.64];
+    const openEase = 1 - Math.pow(1 - Math.min(1, this.rise), 3);
+    const bob = Math.sin(time * 2.6) * 2.5;
+    const vx = sx;
+    const vy = Math.round(sy - 56 + bob);
+    const rx = 34;
+    const ry = 50;
+
+    // 3. Soft additive halo behind the dimensional rift
+    const glow = getGlowCanvas('violet') || getGlowCanvas('amber');
+    if (glow) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = (0.34 + 0.10 * Math.sin(time * 4.2)) * openEase;
+      ctx.drawImage(glow, vx - 56, vy - 72, 112, 144);
+      ctx.restore();
+    }
+
+    // 4. Primary Animated WebGL Shader Vortex (with 2D multi-spiral fallback when shaders are off)
+    const fxl = getFxLayers();
+    if (fxl && fxl.enabled && fxl.vortex) {
+      fxl.vortex(ctx, {
+        x: vx,
+        y: vy,
+        rx,
+        ry,
+        open: openEase,
+        seed: (this.x * 0.017) % 6.28,
+        core: coreRgb,
+        rim: rimRgb,
+        alpha: 0.96,
+      });
+      fxl.addFlame(sx - 38, sy - 50, 7, 12, rimRgb, this.x * 0.03);
+      fxl.addFlame(sx + 38, sy - 50, 7, 12, rimRgb, this.x * 0.03 + 1.7);
+    } else {
+      // 2D Canvas Swirling Vortex Fallback
+      for (let ring = 5; ring >= 0; ring--) {
+        const frac = (ring + 1) / 6;
+        const rrx = rx * openEase * frac;
+        const rry = ry * openEase * frac;
+        ctx.fillStyle = ring === 0
+          ? '#090414'
+          : ring === 1
+            ? '#fff4cc'
+            : ring % 2 === 0
+              ? (destTheme.accent || '#9c6bff')
+              : '#562898';
+        ctx.globalAlpha = ring === 0 ? 0.95 : (0.35 + 0.12 * (5 - ring)) * openEase;
+        ctx.beginPath();
+        ctx.ellipse(vx, vy, Math.max(2, rrx), Math.max(3, rry), Math.sin(time * 2 + ring) * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // 5. Orbiting pixel-art energy runes & event-horizon sparkles around the vortex
+    for (let i = 0; i < 8; i++) {
+      const ang = time * 2.4 + i * (Math.PI / 4);
+      const orbitR = (0.78 + 0.14 * Math.sin(time * 3.1 + i * 1.7)) * openEase;
+      const mx = Math.round(vx + Math.cos(ang) * rx * orbitR);
+      const my = Math.round(vy + Math.sin(ang) * ry * orbitR);
+      ctx.fillStyle = i % 2 === 0 ? '#fff6d6' : (destTheme.accent || '#b98cff');
+      ctx.globalAlpha = (0.65 + 0.35 * Math.sin(time * 6 + i)) * openEase;
+      ctx.fillRect(mx - 1, my - 1, 2, 2);
+    }
+    ctx.restore();
   }
 
   drawPrompt(ctx, cam, font, world) {
@@ -980,10 +1113,10 @@ export class BossExitDoor {
     const sx = Math.round(this.x - cam.rx);
     const sy = Math.round(this.y - cam.ry);
     if (sx < -60 || sx > W + 60) return;
-    const topLine = this.near ? `→ ENTER ${shortDest}` : `→ ${shortDest}`;
-    drawDoorPrompt(ctx, font, sx, Math.max(46, sy - 150), topLine, {
+    const topLine = this.near ? `→ ENTER VORTEX: ${shortDest}` : `VORTEX → ${shortDest}`;
+    drawDoorPrompt(ctx, font, sx, Math.max(46, sy - 132), topLine, {
       color: this.near ? '#fff4cc' : '#ffd27a',
-      border: this.near ? '#ffe8a4' : '#ffd27a',
+      border: this.near ? '#ffe8a4' : '#b98cff',
       alpha: Math.min(1, this.openT / 0.35),
     });
   }

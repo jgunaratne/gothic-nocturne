@@ -134,6 +134,7 @@ CAST = [
     ]),
     ("vampire", "vampire Count in a high-collared cape", [
         ("idle", "idle_creature", LOOP, 6, "idle", "cape stirring"),
+        ("fly", "fly", LOOP, 6, "cape", "levitating airborne with boots dangling loosely and flapping his vast bat-wing cape"),
         ("cape", "cape", SHOT, 4, "idle", ""),
         ("cast", "cast", SHOT, 4, "idle", ""),
         ("lunge", "lunge", SHOT, 4, "idle", "a sweeping clawed lunge"),

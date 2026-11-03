@@ -261,9 +261,7 @@ export class Player extends Entity {
     if (ctl) {
       const tap = input.pressed.right ? 1 : input.pressed.left ? -1 : 0;
       if (tap !== 0) {
-        const canRun = this.runT <= 0 && this.onGround && !this.onStair
-          && !this.attacking && !this.throwing && this.hurtT <= 0 && !this.crouching
-          && !this.slots.some((s) => s.active && !s.guarding);
+        const canRun = this.runT <= 0 && this.onGround && this.hurtT <= 0 && !this.crouching;
         if (tap === this.dashTapDir && this.dashTapT > 0 && canRun) {
           this.runT = 0.0001;
           this.runDir = tap;
@@ -282,8 +280,7 @@ export class Player extends Entity {
     }
     if (this.runT > 0) {
       const holding = ctl && ((this.runDir > 0 && input.down.right && !input.down.left) || (this.runDir < 0 && input.down.left && !input.down.right));
-      const blocked = this.hurtT > 0 || this.crouching || this.onStair || this.attacking || this.throwing
-        || this.slots.some((s) => s.active && !s.guarding && s.weapon && s.weapon.category !== 'light_blade');
+      const blocked = this.hurtT > 0 || this.crouching;
       if (!holding || blocked) this.runT = 0;
       else this.runT += dt;
     }
@@ -313,32 +310,37 @@ export class Player extends Entity {
       (hasRelic('ramparts') ? 1.08 : 1) * (1 + (world && world.relicBonus ? world.relicBonus('speed') : 0)),
     );
     const moveSpeed = PLAYER.speed * speedScale * relicSpeedMul;
-    const rooted = this.onGround && (this.throwing || isRootingSlot(this.slots[0]) || isRootingSlot(this.slots[1]));
+    const stepSpeed = running ? Math.max(moveSpeed, Math.abs(this.vx), PLAYER.runSpeed * relicSpeedMul) : moveSpeed;
+    const rooted = !running && this.onGround && (this.throwing || isRootingSlot(this.slots[0]) || isRootingSlot(this.slots[1]));
 
     // -----------------------------------------------------------------------
-    // Walkable Staircase Engagement (Bottom `Up` climb & Top `Down` / open-balcony descent)
+    // Walkable Staircase Engagement (Bottom `Up` / sprint climb & Top `Down` / open-balcony descent)
     // -----------------------------------------------------------------------
     let stairIntentAxis = 0;
     let suppressCrouchForStair = false;
     if (ctl && !rooted && this.onGround && !this.onStair && !this.dropThrough && level) {
-      if (input.down.up && !input.down.down && level.findBottomStair) {
-        const bs = level.findBottomStair(this.x, this.y, 26, 16);
-        if (bs && (axis === 0 || axis === bs.ascDir)) {
+      if (!input.down.down && level.findBottomStair) {
+        const bs = level.findBottomStair(this.x, this.y, running ? 32 : 26, 16);
+        const wantClimb = bs && (
+          (input.down.up && (axis === 0 || axis === bs.ascDir))
+          || (running && this.runDir === bs.ascDir && (!bs.passThrough || input.down.up || this.blockedAhead(level)))
+        );
+        if (wantClimb) {
           stairIntentAxis = bs.ascDir;
-          if ((this.x + bs.ascDir * moveSpeed * dt - bs.botX) * bs.ascDir > 0) {
+          if ((this.x + bs.ascDir * stepSpeed * dt - bs.botX) * bs.ascDir > 0) {
             this.onStair = bs;
             this.riding = null;
           }
         }
       }
       if (!this.onStair && level.findTopStair) {
-        const ts = level.findTopStair(this.x, this.y, 26, 14);
+        const ts = level.findTopStair(this.x, this.y, running ? 32 : 26, 14);
         if (ts) {
           const downDir = -ts.ascDir;
           if (input.down.down && !input.down.up && (axis === 0 || axis === downDir)) {
             suppressCrouchForStair = true;
             stairIntentAxis = downDir;
-            if ((this.x + downDir * moveSpeed * dt - ts.topX) * downDir > 0) {
+            if ((this.x + downDir * stepSpeed * dt - ts.topX) * downDir > 0) {
               this.onStair = ts;
               this.riding = null;
             }
@@ -347,7 +349,7 @@ export class Player extends Entity {
               ? Math.floor((ts.topX - 4) / TILE)
               : Math.floor((ts.topX + 4) / TILE);
             const topRow = Math.round(ts.topY / TILE);
-            if (!level.isStandable(beyondCol, topRow) && (this.x + downDir * moveSpeed * dt - ts.topX) * downDir > 0) {
+            if (!level.isStandable(beyondCol, topRow) && (this.x + downDir * stepSpeed * dt - ts.topX) * downDir > 0) {
               this.onStair = ts;
               this.riding = null;
             }
@@ -402,8 +404,8 @@ export class Player extends Entity {
         ? Math.max(-1, Math.min(1, (target - this.vx) / Math.max(1, moveSpeed))) * 0.10 : 0;
     this.lean += (wantLean - this.lean) * Math.min(1, (Math.abs(wantLean) > Math.abs(this.lean) ? 40 : 8) * dt);
 
-    // Jump (coyote + buffer), variable height; Heavy Blade roots feet on ground during active cleave!
-    const jumpRooted = this.onGround && this.slots.some((s) => s.active && s.weapon && s.weapon.category === 'heavy_blade' && s.timer < s.win1);
+    // Jump (coyote + buffer), variable height; Heavy Blade roots feet on ground during active cleave unless running!
+    const jumpRooted = !running && this.onGround && this.slots.some((s) => s.active && s.weapon && s.weapon.category === 'heavy_blade' && s.timer < s.win1);
     const stairDropJump = !!(
       ctl && !jumpRooted && this.onStair && this.onStair.passThrough
       && input.down.down && input.pressed.jump
@@ -601,7 +603,7 @@ export class Player extends Entity {
     else if (this.crouching) this.state = 'crouch';
     else if (Math.abs(this.vx) > 10) this.state = 'walk';
     else this.state = 'idle';
-    if (this.state === 'run') {
+    if (this.state === 'run' || (this.runT > 0 && this.onGround && Math.abs(this.vx) > 10)) {
       // Sprint cycle advanced by distance (one frame per ~11 px); contact frames kick up dust + footfalls.
       this.runDist += Math.abs(this.vx) * dt;
       const frame = Math.floor(this.runDist / RUN_PX_PER_FRAME) % 8;
@@ -687,16 +689,16 @@ export class Player extends Entity {
     };
     this.slots[slot] = s;
 
-    // Category & Skill movement impulses
+    // Category & Skill movement impulses (never slow down an active run!)
     if (isSkill && weapon.skill.dashVx) {
-      this.vx = this.facing * weapon.skill.dashVx;
+      this.vx = this.facing * Math.max(Math.abs(this.vx), weapon.skill.dashVx);
     } else if (weapon.category === 'brawler' && weapon.lungeVx) {
-      this.vx = this.facing * weapon.lungeVx;
-    } else if (weapon.category === 'standard_blade' && this.onGround && !this.crouching && weapon.stepVx) {
+      this.vx = this.facing * Math.max(Math.abs(this.vx), weapon.lungeVx);
+    } else if (weapon.category === 'standard_blade' && this.onGround && !this.crouching && weapon.stepVx && this.runT <= 0) {
       if (input.axis === 0 || input.axis === this.facing) {
         this.vx = this.facing * weapon.stepVx;
       }
-    } else if (weapon.category === 'heavy_blade' && this.onGround) {
+    } else if (weapon.category === 'heavy_blade' && this.onGround && this.runT <= 0) {
       this.vx = 0;
     }
     if (isSkill && weapon.skill.popVy) {

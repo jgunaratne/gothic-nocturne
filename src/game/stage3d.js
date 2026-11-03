@@ -4006,32 +4006,131 @@ export class Stage3D {
     this.drawBox3D(ctx, camX, camY, cx + 64, floorY - 184, 108, 102, 18, 32, 'marble');
   }
 
-  /** Dark Cave Boss Centerpiece: Obsidian Caldera Arch & Glowing Magma Cascades! */
+  /** Dark Cave Boss Centerpiece: Obsidian Caldera Arch & Molten Shader Magmafalls! */
   drawVolcanicCaldera3D(ctx, camX, camY, cx, floorY, time) {
-    this.drawArchSpan3D(ctx, camX, camY, cx - 146, cx + 146, floorY - 148, floorY - 216, 114, 46, 'cavernwall');
+    const fxLayers = getFxLayers();
+    const useGl = !!(fxLayers && fxLayers.enabled && fxLayers.magmafall);
     const glow = getGlowCanvas('amber');
+
+    const drawMagmaStream = (wx, topY, botY, z, worldW, seed, speed, alpha, softTop = 0) => {
+      const mTop = project3D(wx, topY, z, camX, camY);
+      const mBot = project3D(wx, botY, z, camX, camY);
+      const rw = Math.max(12, Math.round(worldW * mTop.s));
+      const rx = Math.round((mTop.x + mBot.x) * 0.5 - rw * 0.5);
+      const ry = Math.round(mTop.y);
+      const rh = Math.max(12, Math.round(mBot.y - mTop.y));
+      if (rx + rw < -16 || rx > W + 16 || rh <= 4) return { mTop, mBot, rw };
+
+      if (useGl) {
+        fxLayers.magmafall(ctx, { x: rx, y: ry, w: rw, h: rh }, {
+          camX, camY, speed, alpha, seed, softTop,
+        });
+      } else {
+        // Non-WebGL fallback: organic undulating viscous magma stream (never blocky rectangles)
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        const steps = 18;
+        const coreW = rw * 0.54;
+        ctx.fillStyle = '#260706';
+        ctx.beginPath();
+        for (let i = 0; i <= steps; i++) {
+          const k = i / steps;
+          const sy = ry + rh * k;
+          const sway = Math.sin(k * 7.5 - time * 2.1 + seed * 4.0) * (rw * 0.08);
+          const hw = coreW * (0.52 + 0.12 * Math.sin(k * 11.0 - time * 3.2 + seed) + (k > 0.8 ? (k - 0.8) * 1.1 : 0));
+          const sx = rx + rw * 0.5 + sway - hw;
+          if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+        }
+        for (let i = steps; i >= 0; i--) {
+          const k = i / steps;
+          const sy = ry + rh * k;
+          const sway = Math.sin(k * 7.5 - time * 2.1 + seed * 4.0) * (rw * 0.08);
+          const hw = coreW * (0.52 + 0.12 * Math.cos(k * 10.3 - time * 2.9 + seed * 2.0) + (k > 0.8 ? (k - 0.8) * 1.1 : 0));
+          ctx.lineTo(rx + rw * 0.5 + sway + hw, sy);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        const grad = ctx.createLinearGradient(rx + rw * 0.25, ry, rx + rw * 0.75, ry);
+        grad.addColorStop(0, '#781406');
+        grad.addColorStop(0.28, '#e43b08');
+        grad.addColorStop(0.5, '#ffca52');
+        grad.addColorStop(0.72, '#e43b08');
+        grad.addColorStop(1, '#781406');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        for (let i = 0; i <= steps; i++) {
+          const k = i / steps;
+          const sy = ry + rh * k;
+          const sway = Math.sin(k * 7.5 - time * 2.1 + seed * 4.0) * (rw * 0.08);
+          const hw = coreW * (0.36 + 0.10 * Math.sin(k * 13.0 - time * 3.8 + seed));
+          const sx = rx + rw * 0.5 + sway - hw;
+          if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+        }
+        for (let i = steps; i >= 0; i--) {
+          const k = i / steps;
+          const sy = ry + rh * k;
+          const sway = Math.sin(k * 7.5 - time * 2.1 + seed * 4.0) * (rw * 0.08);
+          const hw = coreW * (0.36 + 0.10 * Math.cos(k * 12.2 - time * 3.5 + seed * 1.7));
+          ctx.lineTo(rx + rw * 0.5 + sway + hw, sy);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      return { mTop, mBot, rw };
+    };
+
+    // 1. Distant outer magmafalls plunging into the subterranean magma sea on both flanks
+    for (const side of [-1, 1]) {
+      const distStream = drawMagmaStream(
+        cx + side * 208, floorY - 336, floorY + 34, 198, 34,
+        side < 0 ? 4.17 : 9.63, 0.76, 0.72, 1.0,
+      );
+      if (glow && distStream) {
+        const gr = 32 * distStream.mBot.s;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.28 + 0.08 * Math.sin(time * 3.1 + side * 2.0);
+        ctx.drawImage(glow, distStream.mBot.x - gr, distStream.mBot.y - gr * 0.8, gr * 2, gr * 1.6);
+        ctx.restore();
+      }
+    }
+
+    // 2. Recessed basalt back-troughs + primary twin molten magmafalls pouring down from the upper caldera ceiling
+    for (const side of [-1, 1]) {
+      const mx = cx + side * 84;
+      this.drawBox3D(ctx, camX, camY, mx - 24, floorY - 340, 162, 48, 356, 18, 'crypt_stone');
+      const mainStream = drawMagmaStream(
+        mx, floorY - 338, floorY + 28, 152, 44,
+        side < 0 ? 1.37 : 6.83, 0.96, 0.98, 0.0,
+      );
+      // Carved upper volcanic sluice cheeks & lintel framing the magma pouring from above the arch
+      this.drawBox3D(ctx, camX, camY, mx - 30, floorY - 340, 142, 13, 128, 22, 'cavernwall');
+      this.drawBox3D(ctx, camX, camY, mx + 17, floorY - 340, 142, 13, 128, 22, 'cavernwall');
+      this.drawBox3D(ctx, camX, camY, mx - 32, floorY - 344, 136, 64, 18, 28, 'cavernwall');
+
+      if (glow && mainStream) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        // Plunge boil radiance at the base of the cascade
+        const grBot = 52 * mainStream.mBot.s;
+        ctx.globalAlpha = 0.56 + 0.14 * Math.sin(time * 4.2 + side);
+        ctx.drawImage(glow, mainStream.mBot.x - grBot, mainStream.mBot.y - grBot * 0.85, grBot * 2, grBot * 1.65);
+        // Warm molten backlight illuminating the caldera arch opening
+        const midP = project3D(mx, floorY - 156, 146, camX, camY);
+        const grMid = 44 * midP.s;
+        ctx.globalAlpha = 0.28 + 0.08 * Math.cos(time * 3.4 - side);
+        ctx.drawImage(glow, midP.x - grMid, midP.y - grMid, grMid * 2, grMid * 2);
+        ctx.restore();
+      }
+    }
+
+    // 3. Foreground 3D Obsidian Caldera Arch & Flanking Piers crossing IN FRONT OF the falling magma streams
+    this.drawArchSpan3D(ctx, camX, camY, cx - 146, cx + 146, floorY - 148, floorY - 216, 114, 46, 'cavernwall');
     for (const side of [-1, 1]) {
       const px = cx + side * 146;
       this.drawBox3D(ctx, camX, camY, px - 22, floorY - 178, 108, 44, 178, 42, 'cavernwall');
-      // Glowing vertical magma cascade channel behind the arena
-      const mTop = project3D(cx + side * 88, floorY - 170, 146, camX, camY);
-      const mBot = project3D(cx + side * 88, floorY + 24, 146, camX, camY);
-      const mw = Math.max(4, Math.round(14 * mTop.s));
-      ctx.fillStyle = '#a82608';
-      ctx.fillRect(Math.round(mTop.x - mw / 2), Math.round(mTop.y), mw, Math.round(mBot.y - mTop.y));
-      const pulse = Math.round(((time * 42) % 16) * mTop.s);
-      ctx.fillStyle = '#ffb438';
-      for (let y = Math.round(mTop.y) + pulse; y < mBot.y - 6; y += Math.max(6, Math.round(16 * mTop.s))) {
-        ctx.fillRect(Math.round(mTop.x - mw * 0.28), y, Math.max(2, Math.round(mw * 0.56)), Math.max(3, Math.round(8 * mTop.s)));
-      }
-      if (glow) {
-        const gr = 38 * mBot.s;
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = 0.52 + 0.14 * Math.sin(time * 4 + side);
-        ctx.drawImage(glow, mBot.x - gr, mBot.y - gr, gr * 2, gr * 2);
-        ctx.restore();
-      }
     }
   }
 

@@ -474,31 +474,44 @@ export class Count extends Boss {
     this.sheet = 'vampire'; this.frame = 'idle'; this.w = 30; this.h = 80;
     this.hp = 215; this.maxHp = 215; this.facing = -1;
     this.actions = 0;
+    this._flying = false;
+    this._wingSfxT = 0;
     this.aura = 'rgba(220, 40, 60, 0.2)';
   }
 
   update(dt, level, world) {
     this.t += dt; this.stateT += dt; this.flash = Math.max(0, this.flash - dt);
     const isMasquerade = this.sheet === 'masquerade';
-    if (this.deathT >= 0) { this.frame = this.sheet === 'vampire' ? 'hurt' : 'cape'; this.updateDeath(dt, world); return; }
+    const flyFrame = this.sheet === 'vampire' ? 'fly' : 'cape';
+    if (this.deathT >= 0) {
+      this._flying = false;
+      this.frame = this.sheet === 'vampire' ? 'hurt' : 'cape';
+      this.updateDeath(dt, world, 95);
+      return;
+    }
     this.checkPhase2(world);
     const p = world.player, a = this.arena;
     const dx = p.x - this.x;
+    const inAir = this.state === 'hover' || (!this.onGround && this.y < a.floorY - 4);
+    this._flying = inAir;
     this.gravityScale = this.state === 'hover' ? 0 : 1;
     switch (this.state) {
       case 'enter':
         this.alpha = Math.min(1, this.stateT / 1.4);
-        this.frame = this.stateT < 0.85 ? 'cape' : 'idle';
         this.physics(level, dt);
+        this._flying = !this.onGround && this.y < a.floorY - 4;
+        this.frame = this._flying ? flyFrame : (this.stateT < 0.85 ? 'cape' : 'idle');
         if (this.stateT > 1.65) this.setState('idle');
         break;
       case 'idle': {
-        this.alpha = 1; this.faceP(p); this.vx = 0; this.frame = 'idle';
+        this.alpha = 1; this.faceP(p); this.vx = 0;
         this.physics(level, dt);
+        this._flying = !this.onGround && this.y < a.floorY - 4;
+        this.frame = this._flying ? flyFrame : 'idle';
         if (this.stateT > (this.phase2 ? 0.42 : 0.68) * this.tempo) {
           this.actions++;
           const r = Math.random();
-          if (this.phase2 && this.actions % 4 === 0) this.setState('hover');
+          if (this.actions % (this.phase2 ? 3 : 5) === 0) this.setState('hover');
           else if (Math.abs(dx) < 120) this.setState('lunge');
           else if (r < 0.38) this.setState('cast');
           else if (r < 0.56) this.setState('summon');
@@ -508,7 +521,9 @@ export class Count extends Boss {
         break;
       }
       case 'cast': {
-        this.frame = 'cast'; this.vx = 0; this.physics(level, dt);
+        this.vx = 0; this.physics(level, dt);
+        this._flying = !this.onGround && this.y < a.floorY - 4;
+        this.frame = 'cast';
         if (this.stateT > 0.36 && !this.fired) {
           this.fired = true;
           const n = this.phase2 ? 6 : 4, spread = this.phase2 ? 0.78 : 0.52;
@@ -542,7 +557,9 @@ export class Count extends Boss {
         if (this.stateT > 0.82) this.setState('idle');
         break;
       case 'summon':
-        this.frame = 'cape'; this.vx = 0; this.physics(level, dt);
+        this.vx = 0; this.physics(level, dt);
+        this._flying = !this.onGround && this.y < a.floorY - 4;
+        this.frame = this._flying ? flyFrame : 'cape';
         if (this.stateT > 0.42 && !this.fired) {
           this.fired = true;
           const adds = world.enemies.filter((e) => e !== this && e.alive).length;
@@ -569,27 +586,51 @@ export class Count extends Boss {
       case 'blink': {
         const half = 0.32;
         this.vx = 0; this.physics(level, dt);
-        if (this.stateT < half) { this.alpha = 1 - this.stateT / half; this.frame = 'cape'; }
+        this._flying = !this.onGround && this.y < a.floorY - 4;
+        if (this.stateT < half) { this.alpha = 1 - this.stateT / half; this.frame = this._flying ? flyFrame : 'cape'; }
         else if (!this.fired) {
           this.fired = true;
           this.x = clamp(p.x - p.facing * 115, a.x0 + 40, a.x1 - 40);
           this.faceP(p);
           world.particles.smoke(this.x, this.y - 40, 10, 'rgba(200,40,60,0.45)');
           world.sfx('fire');
-        } else { this.alpha = Math.min(1, (this.stateT - half) / half); this.frame = 'idle'; }
+        } else { this.alpha = Math.min(1, (this.stateT - half) / half); this.frame = this._flying ? flyFrame : 'idle'; }
         if (this.stateT > 0.72) this.setState(Math.random() < 0.65 ? 'lunge' : 'cast');
         break;
       }
       case 'hover': {
-        // Rise on bat wings, sweep across the hall raining hellfire, land.
-        this.frame = 'cape';
+        // Rise on flapping bat-wing cape, sweep across the hall raining hellfire, then glide down to land.
+        this._flying = true;
+        this.frame = flyFrame;
+        this._wingSfxT -= dt;
+        if (this._wingSfxT <= 0) {
+          this._wingSfxT = 0.48;
+          world.sfx('bat_flutter');
+        }
+        if (Math.random() < 0.45) {
+          world.particles.emit({
+            x: this.x + (Math.random() - 0.5) * 44,
+            y: this.y - 36 + (Math.random() - 0.5) * 24,
+            vx: -(this.vx || 0) * 0.12 + (Math.random() - 0.5) * 18,
+            vy: 12 + Math.random() * 18,
+            life: 0.42,
+            color: isMasquerade ? 'rgba(245, 95, 195, 0.42)' : 'rgba(195, 28, 52, 0.44)',
+            size: 2,
+            gravity: 0,
+            fade: true,
+          });
+        }
         const topY = a.floorY - 150;
         if (this.stateT < 0.55) {
+          const prevY = this.y;
           this.y += (topY - this.y) * Math.min(1, dt * 6);
+          this.vy = dt > 0 ? (this.y - prevY) / dt : -140;
           this.faceP(p); this.vx = 0;
         } else if (this.stateT < 3.0) {
-          this.y = topY + Math.sin(this.t * 3.5) * 8;
-          this.x += this.facing * 185 * dt;
+          this.y = topY + Math.sin(this.t * 5.2) * 9;
+          this.vx = this.facing * 185;
+          this.vy = Math.cos(this.t * 5.2) * 46;
+          this.x += this.vx * dt;
           if (this.x < a.x0 + 40 || this.x > a.x1 - 40) { this.clampX(40); this.facing = -this.facing; }
           this.rainT = (this.rainT || 0) - dt;
           if (this.rainT <= 0) {
@@ -599,13 +640,38 @@ export class Count extends Boss {
             world.spawnProjectile(pr);
           }
         } else {
-          this.gravityScale = 1; this.physics(level, dt);
-          if (this.onGround) { this.setState('idle'); world.camera.shake(4, 0.25); }
+          // Controlled winged glide descent back to the throne floor
+          this.vx *= Math.max(0, 1 - dt * 5);
+          this.gravityScale = 0.38;
+          this.physics(level, dt);
+          if (this.onGround) {
+            this._flying = false;
+            this.vx = 0;
+            this.setState('idle');
+            world.camera.shake(4, 0.25);
+          }
         }
         break;
       }
       default: this.setState('idle');
     }
+  }
+
+  draw(ctx, assets, camX, camY) {
+    if (this.alpha <= 0) return;
+    this.drawAura(ctx, this.x - camX, this.y - camY - this.h / 2, this.h);
+    let xf = null;
+    if (this._flying && this.deathT < 0) {
+      // Forward aerodynamic flight pitch + wingbeat pulse for non-clip sheets
+      const speedLean = clamp((this.vx || 0) / 220, -1, 1) * 0.11 * (this.facing < 0 ? -1 : 1);
+      if (this.sheet !== 'vampire') {
+        const beat = Math.sin(this.t * 11.0);
+        xf = { sx: 1 + beat * 0.08, sy: 1 - beat * 0.05, skew: speedLean };
+      } else if (Math.abs(speedLean) > 0.005) {
+        xf = { sx: 1, sy: 1, skew: speedLean };
+      }
+    }
+    this.drawSprite(ctx, assets, camX, camY, this.facing < 0, this.alpha, xf);
   }
 
   swingBox() {

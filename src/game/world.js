@@ -1572,8 +1572,8 @@ export class World {
     if (!silentBanner) {
       const relic = BOSS_RELICS[this.stage.key];
       const sub = relic
-        ? `${relic.name} UNLOCKED · ENTER THE OPEN DOOR →`
-        : 'ENTER THE OPEN DOOR ON THE RIGHT →';
+        ? `${relic.name} UNLOCKED · ENTER THE EXIT VORTEX →`
+        : 'ENTER THE EXIT VORTEX ON THE RIGHT →';
       this.showMessage('STAGE CLEAR!', sub, 3.6);
     }
   }

@@ -445,49 +445,53 @@ export function composeGridStage(spec) {
         });
       }
 
-      // Newel-post monuments on both landings
-      addDeco(props.tall[0], props.tall[1], isGateBridge ? x0 + 1 : x0 + 2, leftLandR);
-      if (!isGateBridge) addDeco(props.altTall[0], props.altTall[1], x0 + 17, rightLandR);
+      // Newel-post monuments on both landings (kept clear of the flat Stage 1 drawbridge approach)
+      if (!isGateBridge) {
+        addDeco(props.tall[0], props.tall[1], x0 + 2, leftLandR);
+        addDeco(props.altTall[0], props.altTall[1], x0 + 17, rightLandR);
+      }
       if (isGateBridge) {
         // Stage 1 castle approach, left -> right across the cell:
-        //   `0..1`   flat outdoor forecourt at the low moor level (`leftLandR`)
-        //   `2..9`   lowered wooden DRAWBRIDGE (8 tiles) over the moat (one-way plank deck, no drop-through,
-        //            open air + water below, stone abutments, chains hoisted to the gatehouse towers)
-        //   `10`     gatehouse threshold inside the castle (`rooms[0]` starts here)
-        //   `11..19` the Great Stairway now climbs INSIDE the entrance foyer up to the hall floor (`rightLandR`)
-        const bx0 = x0 + 2, bx1 = x0 + 9;
+        //   `0`      flat outdoor stone bridgehead continuing seamlessly from `mc = 7` (`leftLandR`)
+        //   `1..10`  grand 10-tile (320px) lowered wooden & iron DRAWBRIDGE over the deep castle moat
+        //   `11`     monumental Barbican Gatehouse threshold (`rooms[0]` starts here)
+        //   `12..20` the Great Stairway climbing INSIDE the castle Entrance Foyer up to the hall floor (`rightLandR`)
+        const bx0 = x0 + 1, bx1 = x0 + 10;
         drawbridge = { x0: bx0, x1: bx1, row: leftLandR, waterRow: leftLandR + 2, floorRow: leftLandR + 4 };
-        gateFoyer = { x0: x0 + 10, x1: x0 + 19, floorRow: leftLandR, hallRow: rightLandR };
+        gateFoyer = { x0: x0 + 11, x1: x0 + 19, floorRow: leftLandR, hallRow: rightLandR };
         op((lv) => {
-          lv.clear(x0, x0 + 1, 0, leftLandR - 1);
-          lv.ground(x0, x0 + 1, leftLandR, mat);
+          lv.clear(x0, x0, 0, leftLandR - 1);
+          lv.ground(x0, x0, leftLandR, mat);
           lv.clear(bx0, bx1, 0, leftLandR + 3);
           lv.ground(bx0, bx1, leftLandR + 4, mat);
           lv.fill(bx0, bx1, leftLandR + 2, leftLandR + 3, T_WATER);
           lv.platform(bx0, bx1, leftLandR);
-          lv.clear(x0 + 10, x0 + 19, 0, leftLandR - 1);
-          lv.ground(x0 + 10, x0 + 19, leftLandR, mat);
-          lv.stair(x0 + 11, leftLandR, x0 + 20, rightLandR, { passThrough: false, mat, railing: true });
+          lv.clear(x0 + 11, x0 + 19, 0, leftLandR - 1);
+          lv.ground(x0 + 11, x0 + 19, leftLandR, mat);
+          lv.stair(x0 + 12, leftLandR, x0 + 20, rightLandR, { passThrough: false, mat, railing: true });
         });
         // Iconic Barbican Gatehouse archway right at the castle threshold (end of the drawbridge)
-        addDeco('arch', 'gate', x0 + 10, leftLandR, 14, 0);
+        addDeco('arch', 'gate', x0 + 11, leftLandR, 14, 0);
       }
       if (props.sconce) {
-        const sc0 = isGateBridge ? x0 + 13 : x0 + 7, sc1 = isGateBridge ? x0 + 18 : x0 + 13;
+        const sc0 = isGateBridge ? x0 + 14 : x0 + 7, sc1 = isGateBridge ? x0 + 18 : x0 + 13;
         addDeco(props.sconce[0], props.sconce[1], sc0, Math.round(leftLandR + (rightLandR - leftLandR) * 0.25), 0, -44);
         addDeco(props.sconce[0], props.sconce[1], sc1, Math.round(leftLandR + (rightLandR - leftLandR) * 0.75), 0, -44);
       }
-      addCandle(isGateBridge ? x0 + 4 : x0 + 3, leftLandR);
-      if (isGateBridge) addCandle(x0 + 8, leftLandR, 'heart_big');
-      else addCandle(x0 + 16, rightLandR, 'heart_big');
-
-      // Layered grand-stairway defenders: full-flight stair patrol + upper landing sniper + aerial sentry
-      const [gStair, gStairVar] = pickGround(mc);
-      const [sStair, sStairVar] = pickSniper(mc + 1);
-      const [aType, aVar] = pickAerial(mc + 2);
-      addEnemy({ type: gStair, variant: gStairVar, off: 3, minOff: 1, maxOff: 17, row: leftLandR }, x0, x1, floorBot);
-      addEnemy({ type: sStair, variant: sStairVar, off: 17, minOff: 15, maxOff: 18, row: isGateBridge ? leftLandR : rightLandR }, x0, x1, floorBot);
-      addEnemy({ type: aType, variant: aVar, off: 10, minOff: 3, maxOff: 16, row: Math.min(leftLandR, rightLandR), h: 3 }, x0, x1, floorBot);
+      if (!isGateBridge) {
+        addCandle(x0 + 3, leftLandR);
+        addCandle(x0 + 16, rightLandR, 'heart_big');
+        // Layered grand-stairway defenders: full-flight stair patrol + upper landing sniper + aerial sentry
+        const [gStair, gStairVar] = pickGround(mc);
+        const [sStair, sStairVar] = pickSniper(mc + 1);
+        const [aType, aVar] = pickAerial(mc + 2);
+        addEnemy({ type: gStair, variant: gStairVar, off: 3, minOff: 1, maxOff: 17, row: leftLandR }, x0, x1, floorBot);
+        addEnemy({ type: sStair, variant: sStairVar, off: 17, minOff: 15, maxOff: 18, row: rightLandR }, x0, x1, floorBot);
+        addEnemy({ type: aType, variant: aVar, off: 10, minOff: 3, maxOff: 16, row: Math.min(leftLandR, rightLandR), h: 3 }, x0, x1, floorBot);
+      } else {
+        // Keep the grand drawbridge deck obstacle-free for a dramatic castle entrance!
+        addCandle(x0 + 11, leftLandR, 'heart_big');
+      }
 
       roomSchema.push(createRoomSchemaEntry({
         room_id: `${key}_c${mc}`,
@@ -911,6 +915,24 @@ export function composeGridStage(spec) {
         continue;
       }
 
+      // 2J-bis. Stage 1 Ceremonial Castle Gate Approach (`key === 'graveyard' && mc === 7`):
+      // Flat, obstacle-free stone causeway with 3D viaduct arches underneath and zero pits/spikes/enemies,
+      // building dramatic anticipation right before the hunter steps onto the grand Castle Drawbridge (`mc === 8`).
+      if (key === 'graveyard' && mc === 7) {
+        colArchetype = ROOM_ARCHETYPES.BUFFER_TRANSITION;
+        colPacing = PACING_ZONES.INTRO_SAFE;
+        addDeco('arch', 'column', x0 + 3, floorR);
+        addDeco('arch', 'column', x0 + 9, floorR);
+        addDeco('arch', 'column', x0 + 15, floorR);
+        addDeco('props', 'torch', x0 + 6, floorR, 0, -44);
+        addDeco('props', 'torch', x0 + 12, floorR, 0, -44);
+        addDeco('props', 'torch', x0 + 18, floorR, 0, -44);
+        addCandle(x0 + 6, floorR, 'heart_big');
+        addCandle(x0 + 12, floorR);
+        addCandle(x0 + 18, floorR, 'heart_big');
+        continue;
+      }
+
       // 2K. Pre-Boss Accordion Gauntlet (`mc === maxC - 5, maxC - 4, maxC - 3`)
       const isAccordion1 = mc === maxC - 5;
       const isAccordion2 = mc === maxC - 4;
@@ -934,114 +956,125 @@ export function composeGridStage(spec) {
         colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
         const spikedNave = ((mc + mr) & 1) === 1;
         if (spikedNave) {
-          // Spiked Nave Chasm with stepped floating platforms (`floorR - 1` and `floorR - 2`)
+          // Wide 14-tile Spiked Nave Chasm (`x0 + 3 .. x0 + 16`) with 3 spaced 2-tile floating platforms
+          // separated by 3-tile open air gaps (`96px`) over the spikes so the player must jump platform-to-platform!
           const openCenterHole = isBotInCol && (mc % 3 === 0);
           op((lv) => {
-            lv.clear(x0 + 5, x0 + 14, floorR, floorR + 1);
-            lv.ground(x0 + 5, x0 + 14, floorR + 2, mat);
-            lv.fill(x0 + 5, x0 + 14, floorR + 1, floorR + 1, T_SPIKES);
+            lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
+            lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
+            lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
             if (openCenterHole) {
               lv.clear(x0 + 8, x0 + 11, floorR, rows - 1);
             }
-            lv.platform(x0 + 5, x0 + 7, floorR - 1);
-            lv.platform(x0 + 8, x0 + 11, floorR - 2);
-            lv.platform(x0 + 12, x0 + 14, floorR - 1);
+            lv.platform(x0 + 4, x0 + 5, floorR - 1);
+            lv.platform(x0 + 9, x0 + 10, floorR - 2);
+            lv.platform(x0 + 14, x0 + 15, floorR - 1);
           });
-          addDeco(props.tall[0], props.tall[1], x0 + 3, floorR);
-          addDeco(props.tall[0], props.tall[1], x0 + 16, floorR);
+          addDeco(props.tall[0], props.tall[1], x0 + 1, floorR);
+          addDeco(props.tall[0], props.tall[1], x0 + 18, floorR);
           if (props.sconce) {
-            addDeco(props.sconce[0], props.sconce[1], x0 + 4, floorR, 0, -46);
-            addDeco(props.sconce[0], props.sconce[1], x0 + 15, floorR, 0, -46);
+            addDeco(props.sconce[0], props.sconce[1], x0 + 2, floorR, 0, -46);
+            addDeco(props.sconce[0], props.sconce[1], x0 + 17, floorR, 0, -46);
           }
           addHanging(props.hanging, x0 + 10, floorR, (mc * 0.9) % 6.28);
-          addCandle(x0 + 6, floorR - 1, 'heart_big');
+          addCandle(x0 + 5, floorR - 1, 'heart_big');
           addCandle(x0 + 10, floorR - 2, rng() < 0.35 ? subDrops[(mc + id) % subDrops.length] : 'money');
-          addCandle(x0 + 13, floorR - 1);
+          addCandle(x0 + 15, floorR - 1);
 
           const [gType, gVar] = pickGround(mc);
           const [sType, sVar] = pickSniper(mc + 1);
           const [hType, hVar] = colPacing === PACING_ZONES.INTRO_SAFE ? pickGround(mc + 2) : pickHeavy(mc + 2);
           const [aType, aVar] = pickAerial(mc + 3);
-          addEnemy({ type: gType, variant: gVar, off: 3, minOff: 1, maxOff: 4 }, x0, x1, floorR);
-          addEnemy({ type: sType, variant: sVar, off: 10, minOff: 8, maxOff: 11, row: floorR - 2 }, x0, x1, floorR);
-          addEnemy({ type: hType, variant: hVar, off: 17, minOff: 15, maxOff: 18 }, x0, x1, floorR);
+          addEnemy({ type: gType, variant: gVar, off: 2, minOff: 1, maxOff: 2 }, x0, x1, floorR);
+          addEnemy({ type: sType, variant: sVar, off: 10, minOff: 9, maxOff: 10, row: floorR - 2 }, x0, x1, floorR);
+          addEnemy({ type: hType, variant: hVar, off: 18, minOff: 17, maxOff: 18 }, x0, x1, floorR);
           addEnemy({ type: aType, variant: aVar, off: 12, minOff: 4, maxOff: 16, row: floorR - 1, h: 3 }, x0, x1, floorR);
         } else {
-          // Symmetric Pillar Nave with a raised 6-tile central altar dais (`floorR - 1`) & flanking spike trenches + floating ledges
+          // Twin 5-tile flanking spike trenches (`x0 + 3..7` and `x0 + 12..16`) around a central island pillar (`x0 + 8..11`),
+          // with spaced 2-tile floating platforms (`x0 + 4..5` and `x0 + 14..15`) required to clear each spike moat!
           op((lv) => {
-            const daisOpts = { passThrough: false, mat, railing: false, clearAbove: false, fillBottom: isBotInCol ? undefined : floorR };
-            lv.fill(x0 + 7, x0 + 12, floorR - 1, floorR - 1, mat);
-            lv.stair(x0 + 5, floorR, x0 + 7, floorR - 1, daisOpts);
-            lv.stair(x0 + 13, floorR - 1, x0 + 15, floorR, daisOpts);
-            lv.platform(x0 + 8, x0 + 11, floorR - 3);
+            lv.clear(x0 + 3, x0 + 7, floorR, floorR + 1);
+            lv.ground(x0 + 3, x0 + 7, floorR + 2, mat);
+            lv.fill(x0 + 3, x0 + 7, floorR + 1, floorR + 1, T_SPIKES);
+            lv.clear(x0 + 12, x0 + 16, floorR, floorR + 1);
+            lv.ground(x0 + 12, x0 + 16, floorR + 2, mat);
+            lv.fill(x0 + 12, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
+            lv.platform(x0 + 4, x0 + 5, floorR - 1);
+            lv.platform(x0 + 9, x0 + 10, floorR - 2);
+            lv.platform(x0 + 14, x0 + 15, floorR - 1);
           });
-          addDeco(props.tall[0], props.tall[1], x0 + 3, floorR);
-          addDeco(props.focal[0], props.focal[1], x0 + 9, floorR - 1);
-          addDeco(props.tall[0], props.tall[1], x0 + 16, floorR);
+          addDeco(props.tall[0], props.tall[1], x0 + 1, floorR);
+          addDeco(props.focal[0], props.focal[1], x0 + 9, floorR);
+          addDeco(props.tall[0], props.tall[1], x0 + 18, floorR);
           if (props.sconce) {
-            addDeco(props.sconce[0], props.sconce[1], x0 + 5, floorR, 0, -46);
-            addDeco(props.sconce[0], props.sconce[1], x0 + 14, floorR, 0, -46);
+            addDeco(props.sconce[0], props.sconce[1], x0 + 2, floorR, 0, -46);
+            addDeco(props.sconce[0], props.sconce[1], x0 + 17, floorR, 0, -46);
           }
           addHanging(props.hanging, x0 + 10, floorR, (mc * 0.9) % 6.28);
-          addCandle(x0 + 7, floorR - 1, 'heart_big');
-          addCandle(x0 + 10, floorR - 3, rng() < 0.35 ? subDrops[(mc + id) % subDrops.length] : 'money');
+          addCandle(x0 + 5, floorR - 1, 'heart_big');
+          addCandle(x0 + 10, floorR - 2, rng() < 0.35 ? subDrops[(mc + id) % subDrops.length] : 'money');
 
           const [gType, gVar] = pickGround(mc);
           const [sType, sVar] = pickSniper(mc + 1);
           const [hType, hVar] = colPacing === PACING_ZONES.INTRO_SAFE ? pickGround(mc + 2) : pickHeavy(mc + 2);
           const [aType, aVar] = pickAerial(mc + 3);
-          addEnemy({ type: gType, variant: gVar, off: 4, minOff: 2, maxOff: 17 }, x0, x1, floorR);
-          addEnemy({ type: sType, variant: sVar, off: 10, minOff: 7, maxOff: 12, row: floorR - 1 }, x0, x1, floorR);
-          addEnemy({ type: hType, variant: hVar, off: 16, minOff: 14, maxOff: 18 }, x0, x1, floorR);
+          addEnemy({ type: gType, variant: gVar, off: 9, minOff: 8, maxOff: 11 }, x0, x1, floorR);
+          addEnemy({ type: sType, variant: sVar, off: 10, minOff: 9, maxOff: 10, row: floorR - 2 }, x0, x1, floorR);
+          addEnemy({ type: hType, variant: hVar, off: 18, minOff: 17, maxOff: 18 }, x0, x1, floorR);
           addEnemy({ type: aType, variant: aVar, off: 12, minOff: 4, maxOff: 16, row: floorR - 1, h: 3 }, x0, x1, floorR);
-          if (colPacing === PACING_ZONES.PRE_BOSS_ACCORDION || colPacing === PACING_ZONES.TWIST_COMBINATION) {
-            const [gExtra, gExtraVar] = pickGround(mc + 4);
-            addEnemy({ type: gExtra, variant: gExtraVar, off: 8, minOff: 7, maxOff: 12, row: floorR - 1 }, x0, x1, floorR);
-          }
         }
         if (roster.spawner && (mc % 2 === 0)) {
           spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
         }
       } else if (tpl === 'TWIN_BALCONY_AMPHITHEATER') {
-        // Set-piece combat hall: central spike pit / chasm hole spanned by tiered floating platforms
+        // Set-piece combat hall: wide 14-tile spike & chasm pit (`x0 + 3 .. x0 + 16`) spanned by two spaced
+        // outer floating platforms (`x0 + 4..5`, `x0 + 14..15`) and a central moving platform (`x0 + 7..12`)!
         colArchetype = ROOM_ARCHETYPES.ARENA_COMBAT;
         const openPitHole = isBotInCol && ((mc + id) % 2 === 0);
         op((lv) => {
-          lv.clear(x0 + 6, x0 + 13, floorR, floorR + 1);
-          lv.ground(x0 + 6, x0 + 13, floorR + 2, mat);
-          lv.fill(x0 + 6, x0 + 13, floorR + 1, floorR + 1, T_SPIKES);
+          lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
+          lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
+          lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
           if (openPitHole) {
             lv.clear(x0 + 8, x0 + 11, floorR, rows - 1);
           }
-          // Tiered floating platforms across the spikes & chasm hole
-          lv.platform(x0 + 4, x0 + 6, floorR - 1);
-          lv.platform(x0 + 8, x0 + 11, floorR - 2);
-          lv.platform(x0 + 13, x0 + 15, floorR - 1);
-          lv.platform(x0 + 2, x0 + 4, floorR - 3);
-          lv.platform(x0 + 15, x0 + 17, floorR - 3);
+          // Spaced entry/exit floating platforms + high side balconies
+          lv.platform(x0 + 4, x0 + 5, floorR - 1);
+          lv.platform(x0 + 14, x0 + 15, floorR - 1);
+          lv.platform(x0 + 1, x0 + 3, floorR - 3);
+          lv.platform(x0 + 16, x0 + 18, floorR - 3);
         });
-        addDeco(props.low[0], props.low[1], x0 + 2, floorR);
-        addDeco(props.low[0], props.low[1], x0 + 17, floorR);
+        movers.push({
+          kind: 'linear',
+          tiles: 2,
+          x0: (x0 + 7) * TILE + 16,
+          y0: py(floorR - 2),
+          x1: (x0 + 12) * TILE + 16,
+          y1: py(floorR - 2),
+          period: 3.8,
+          phase: (mc * 0.29) % 1,
+          dwell: 0.12,
+        });
+        addDeco(props.low[0], props.low[1], x0 + 1, floorR);
+        addDeco(props.low[0], props.low[1], x0 + 18, floorR);
         if (key === 'cathedral') {
           addDeco('stained_glass', ['rose', 'hunter', 'moon'][mc % 3], x0 + 10, floorR, 0, -72);
         }
         if (props.sconce) {
-          addDeco(props.sconce[0], props.sconce[1], x0 + 5, floorR, 0, -46);
-          addDeco(props.sconce[0], props.sconce[1], x0 + 14, floorR, 0, -46);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 2, floorR, 0, -46);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 17, floorR, 0, -46);
         }
         addHanging(props.hanging, x0 + 10, floorR, 1.4);
         addCandle(x0 + 5, floorR - 1, 'heart_big');
-        addCandle(x0 + 9, floorR - 2, isAccordion3 ? 'meat' : 'money');
-        addCandle(x0 + 14, floorR - 1);
+        addCandle(x0 + 14, floorR - 1, isAccordion3 ? 'meat' : 'money');
+        addCandle(x0 + 2, floorR - 3);
 
         const [sLeft, sLeftVar] = pickSniper(mc);
         const [hType, hVar] = pickHeavy(mc + 1);
-        const [sType, sVar] = pickSniper(mc + 2);
         const [gRight, gRightVar] = pickGround(mc + 3);
-        addEnemy({ type: sLeft, variant: sLeftVar, off: 5, minOff: 4, maxOff: 6, row: floorR - 1 }, x0, x1, floorR);
-        addEnemy({ type: hType, variant: hVar, off: 3, minOff: 1, maxOff: 5 }, x0, x1, floorR);
-        addEnemy({ type: sType, variant: sVar, off: 9, minOff: 8, maxOff: 11, row: floorR - 2 }, x0, x1, floorR);
-        addEnemy({ type: gRight, variant: gRightVar, off: 16, minOff: 14, maxOff: 18 }, x0, x1, floorR);
+        addEnemy({ type: sLeft, variant: sLeftVar, off: 5, minOff: 4, maxOff: 5, row: floorR - 1 }, x0, x1, floorR);
+        addEnemy({ type: hType, variant: hVar, off: 2, minOff: 1, maxOff: 2 }, x0, x1, floorR);
+        addEnemy({ type: gRight, variant: gRightVar, off: 18, minOff: 17, maxOff: 18 }, x0, x1, floorR);
         if (colPacing !== PACING_ZONES.INTRO_SAFE) {
           const [aAmp, aAmpVar] = pickAerial(mc + 4);
           addEnemy({ type: aAmp, variant: aAmpVar, off: 10, minOff: 4, maxOff: 16, h: 4 }, x0, x1, floorR);
@@ -1050,138 +1083,149 @@ export function composeGridStage(spec) {
           spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
         }
       } else if (tpl === 'SUNKEN_HAZARD_COURT') {
-        // Framed central hazard court (`offset = 5..14`) with spikes, holes, and floating platforms
+        // Wide 14-tile Sunken Hazard Court (`x0 + 3 .. x0 + 16`) with spikes, holes, and spaced floating & moving platforms
         colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
         const useLava = key === 'darkcave';
         const useWater = key === 'aqueduct' || key === 'ossuary';
-        const useFerry = isAccordion2 || key === 'skykeep' || key === 'ramparts' || key === 'yule' || key === 'clocktower';
+        const useFerry = isAccordion2 || ((mc & 1) === 0) || key === 'skykeep' || key === 'ramparts' || key === 'yule' || key === 'clocktower';
 
         if (useLava) {
           op((lv) => {
-            lv.clear(x0 + 6, x0 + 13, floorR, floorR);
-            lv.ground(x0 + 6, x0 + 13, floorR + 2, mat);
-            lv.fill(x0 + 6, x0 + 13, floorR + 1, floorR + 1, T_LAVA);
-            lv.platform(x0 + 6, x0 + 8, floorR - 1);
-            lv.platform(x0 + 9, x0 + 11, floorR - 2);
-            lv.platform(x0 + 11, x0 + 13, floorR - 1);
+            lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
+            lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
+            lv.fill(x0 + 3, x0 + 6, floorR + 1, floorR + 1, T_SPIKES);
+            lv.fill(x0 + 7, x0 + 12, floorR + 1, floorR + 1, T_LAVA);
+            lv.fill(x0 + 13, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
+            lv.platform(x0 + 4, x0 + 5, floorR - 1);
+            lv.platform(x0 + 9, x0 + 10, floorR - 2);
+            lv.platform(x0 + 14, x0 + 15, floorR - 1);
           });
           addCandle(x0 + 10, floorR - 2, 'heart_big');
         } else if (useWater) {
           op((lv) => {
-            lv.clear(x0 + 6, x0 + 13, floorR, floorR);
-            lv.ground(x0 + 6, x0 + 13, floorR + 2, mat);
-            lv.fill(x0 + 6, x0 + 13, floorR + 1, floorR + 1, T_WATER);
-            lv.platform(x0 + 6, x0 + 8, floorR - 1);
-            lv.platform(x0 + 9, x0 + 11, floorR - 2);
-            lv.platform(x0 + 11, x0 + 13, floorR - 1);
+            lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
+            lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
+            lv.fill(x0 + 3, x0 + 6, floorR + 1, floorR + 1, T_SPIKES);
+            lv.fill(x0 + 7, x0 + 12, floorR + 1, floorR + 1, T_WATER);
+            lv.fill(x0 + 13, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
+            lv.platform(x0 + 4, x0 + 5, floorR - 1);
+            lv.platform(x0 + 9, x0 + 10, floorR - 2);
+            lv.platform(x0 + 14, x0 + 15, floorR - 1);
           });
-          addWaterBasin(x0 + 6, x0 + 13, floorR + 1, 0.82);
+          addWaterBasin(x0 + 7, x0 + 12, floorR + 1, 0.82);
           addCandle(x0 + 10, floorR - 2, 'heart_big');
         } else if (useFerry) {
           op((lv) => {
+            lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
+            lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
+            lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
             if (isBotInCol) {
-              // Open abyssal hole flanked by spike ledges and crossed by a moving floating platform
-              lv.clear(x0 + 6, x0 + 13, floorR, floorR + 1);
-              lv.ground(x0 + 6, x0 + 13, floorR + 2, mat);
-              lv.fill(x0 + 6, x0 + 13, floorR + 1, floorR + 1, T_SPIKES);
+              // Deep abyssal chasm hole in the center of the wide spike court
               lv.clear(x0 + 8, x0 + 11, floorR, rows - 1);
-            } else {
-              lv.clear(x0 + 6, x0 + 13, floorR, floorR + 1);
-              lv.ground(x0 + 6, x0 + 13, floorR + 2, mat);
-              lv.fill(x0 + 6, x0 + 13, floorR + 1, floorR + 1, T_SPIKES);
             }
-            lv.platform(x0 + 6, x0 + 7, floorR - 1);
-            lv.platform(x0 + 12, x0 + 13, floorR - 1);
+            lv.platform(x0 + 4, x0 + 5, floorR - 1);
+            lv.platform(x0 + 14, x0 + 15, floorR - 1);
           });
           movers.push({
             kind: 'linear',
-            tiles: 3,
-            x0: (x0 + 7) * TILE + 32,
-            y0: py(floorR - 1),
-            x1: (x0 + 13) * TILE - 32,
-            y1: py(floorR - 1),
-            period: 4.0,
+            tiles: 2,
+            x0: (x0 + 7) * TILE + 16,
+            y0: py(floorR - 2),
+            x1: (x0 + 12) * TILE + 16,
+            y1: py(floorR - 2),
+            period: 3.6,
             phase: (mc * 0.35) % 1,
             dwell: 0.14,
           });
-          addCandle(x0 + 4, floorR, 'heart_big');
-          addCandle(x0 + 15, floorR, subDrops[(mc + 2) % subDrops.length]);
+          addCandle(x0 + 5, floorR - 1, 'heart_big');
+          addCandle(x0 + 15, floorR - 1, subDrops[(mc + 2) % subDrops.length]);
         } else {
-          // Wide spike & chasm court crossed by multi-level floating platforms
+          // 14-tile spike & chasm court crossed by 3 spaced 2-tile floating platforms (3-tile open air gaps between each)
           op((lv) => {
-            lv.clear(x0 + 5, x0 + 14, floorR, floorR + 1);
-            lv.ground(x0 + 5, x0 + 14, floorR + 2, mat);
-            lv.fill(x0 + 5, x0 + 14, floorR + 1, floorR + 1, T_SPIKES);
+            lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
+            lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
+            lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
             if (isBotInCol) {
               lv.clear(x0 + 8, x0 + 11, floorR, rows - 1);
             }
-            lv.platform(x0 + 5, x0 + 7, floorR - 1);
-            lv.platform(x0 + 8, x0 + 11, floorR - 2);
-            lv.platform(x0 + 12, x0 + 14, floorR - 1);
+            lv.platform(x0 + 4, x0 + 5, floorR - 1);
+            lv.platform(x0 + 9, x0 + 10, floorR - 2);
+            lv.platform(x0 + 14, x0 + 15, floorR - 1);
           });
           addCandle(x0 + 9, floorR - 2, 'heart_big');
-          addCandle(x0 + 6, floorR - 1);
+          addCandle(x0 + 5, floorR - 1);
         }
 
         // Intentional flanking balustrade piers marking BOTH hazard lips!
-        addDeco(props.tall[0], props.tall[1], x0 + 3, floorR);
-        addDeco(props.tall[0], props.tall[1], x0 + 16, floorR);
+        addDeco(props.tall[0], props.tall[1], x0 + 1, floorR);
+        addDeco(props.tall[0], props.tall[1], x0 + 18, floorR);
         if (props.sconce) {
-          addDeco(props.sconce[0], props.sconce[1], x0 + 3, floorR, 0, -46);
-          addDeco(props.sconce[0], props.sconce[1], x0 + 16, floorR, 0, -46);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 2, floorR, 0, -46);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 17, floorR, 0, -46);
         }
         const [gLeft, gLeftVar] = pickGround(mc);
         const [aType, aVar] = pickAerial(mc + 1);
         const [rType, rVar] = isAccordion2 ? pickHeavy(mc + 3) : pickSniper(mc + 3);
-        addEnemy({ type: gLeft, variant: gLeftVar, off: 3, minOff: 1, maxOff: 4 }, x0, x1, floorR);
-        addEnemy({ type: aType, variant: aVar, off: 9, minOff: 5, maxOff: 14, h: 3 }, x0, x1, floorR);
+        addEnemy({ type: gLeft, variant: gLeftVar, off: 2, minOff: 1, maxOff: 2 }, x0, x1, floorR);
+        addEnemy({ type: aType, variant: aVar, off: 9, minOff: 4, maxOff: 15, h: 3 }, x0, x1, floorR);
         if (colPacing !== PACING_ZONES.INTRO_SAFE) {
           const [aType2, aVar2] = pickAerial(mc + 2);
-          addEnemy({ type: aType2, variant: aVar2, off: 12, minOff: 6, maxOff: 15, h: 4 }, x0, x1, floorR);
+          addEnemy({ type: aType2, variant: aVar2, off: 13, minOff: 5, maxOff: 16, h: 4 }, x0, x1, floorR);
         }
-        addEnemy({ type: rType, variant: rVar, off: 17, minOff: 15, maxOff: 18 }, x0, x1, floorR);
+        addEnemy({ type: rType, variant: rVar, off: 18, minOff: 17, maxOff: 18 }, x0, x1, floorR);
         if (roster.spawner && (mc % 3 === 2)) {
           spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
         }
       } else {
-        // `VIADUCT_PROMENADE`: broken viaduct spans with open chasm holes, spike beds, and floating platforms
+        // `VIADUCT_PROMENADE`: wide 14-tile broken viaduct chasm & spike gauntlet (`x0 + 3 .. x0 + 16`)
+        // crossed by spaced 2-tile floating platforms (`x0 + 4..5`, `x0 + 14..15`) and a central moving ferry!
         colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
         op((lv) => {
-          // First gap (`x0 + 5 .. x0 + 8`): open chasm hole on bottom story or spike bed on upper stories
+          // Left chasm hole (`x0 + 3 .. x0 + 6`) on bottom story or spike trench on upper stories
           if (isBotInCol) {
-            lv.clear(x0 + 5, x0 + 8, floorR, rows - 1);
+            lv.clear(x0 + 3, x0 + 6, floorR, rows - 1);
           } else {
-            lv.clear(x0 + 5, x0 + 8, floorR, floorR + 1);
-            lv.ground(x0 + 5, x0 + 8, floorR + 2, mat);
-            lv.fill(x0 + 5, x0 + 8, floorR + 1, floorR + 1, T_SPIKES);
+            lv.clear(x0 + 3, x0 + 6, floorR, floorR + 1);
+            lv.ground(x0 + 3, x0 + 6, floorR + 2, mat);
+            lv.fill(x0 + 3, x0 + 6, floorR + 1, floorR + 1, T_SPIKES);
           }
-          // Second gap (`x0 + 11 .. x0 + 14`): sunken spike pit
-          lv.clear(x0 + 11, x0 + 14, floorR, floorR + 1);
-          lv.ground(x0 + 11, x0 + 14, floorR + 2, mat);
-          lv.fill(x0 + 11, x0 + 14, floorR + 1, floorR + 1, T_SPIKES);
-          // Floating platforms bridging both gaps + high central overlook platform
-          lv.platform(x0 + 5, x0 + 8, floorR - 1);
-          lv.platform(x0 + 8, x0 + 11, floorR - 2);
-          lv.platform(x0 + 11, x0 + 14, floorR - 1);
+          // Wide 10-tile sunken spike bed (`x0 + 7 .. x0 + 16`)
+          lv.clear(x0 + 7, x0 + 16, floorR, floorR + 1);
+          lv.ground(x0 + 7, x0 + 16, floorR + 2, mat);
+          lv.fill(x0 + 7, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
+          // Spaced 2-tile floating platforms near each end of the 14-tile hazard span
+          lv.platform(x0 + 4, x0 + 5, floorR - 1);
+          lv.platform(x0 + 14, x0 + 15, floorR - 1);
         });
-        addDeco(props.altTall[0], props.altTall[1], x0 + 2, floorR);
-        addDeco(props.altTall[0], props.altTall[1], x0 + 17, floorR);
+        movers.push({
+          kind: 'linear',
+          tiles: 2,
+          x0: (x0 + 7) * TILE + 16,
+          y0: py(floorR - 2),
+          x1: (x0 + 12) * TILE + 16,
+          y1: py(floorR - 2),
+          period: 3.7,
+          phase: (mc * 0.41) % 1,
+          dwell: 0.12,
+        });
+        addDeco(props.altTall[0], props.altTall[1], x0 + 1, floorR);
+        addDeco(props.altTall[0], props.altTall[1], x0 + 18, floorR);
         if (props.sconce) {
-          addDeco(props.sconce[0], props.sconce[1], x0 + 4, floorR, 0, -46);
-          addDeco(props.sconce[0], props.sconce[1], x0 + 15, floorR, 0, -46);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 2, floorR, 0, -46);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 17, floorR, 0, -46);
         }
-        addCandle(x0 + 6, floorR - 1);
-        addCandle(x0 + 9, floorR - 2, 'heart_big');
-        addCandle(x0 + 16, floorR, 'money');
+        addCandle(x0 + 5, floorR - 1);
+        addCandle(x0 + 14, floorR - 1, 'heart_big');
+        addCandle(x0 + 18, floorR, 'money');
 
         const [gType, gVar] = pickGround(mc);
         const [sType, sVar] = pickSniper(mc + 1);
         const [hType, hVar] = colPacing === PACING_ZONES.INTRO_SAFE ? pickGround(mc + 2) : pickHeavy(mc + 2);
         const [aType, aVar] = pickAerial(mc + 3);
-        addEnemy({ type: gType, variant: gVar, off: 3, minOff: 1, maxOff: 4 }, x0, x1, floorR);
-        addEnemy({ type: sType, variant: sVar, off: 9, minOff: 8, maxOff: 11, row: floorR - 2 }, x0, x1, floorR);
-        addEnemy({ type: hType, variant: hVar, off: 17, minOff: 15, maxOff: 18 }, x0, x1, floorR);
-        addEnemy({ type: aType, variant: aVar, off: 13, minOff: 5, maxOff: 17, h: 4 }, x0, x1, floorR);
+        addEnemy({ type: gType, variant: gVar, off: 2, minOff: 1, maxOff: 2 }, x0, x1, floorR);
+        addEnemy({ type: sType, variant: sVar, off: 15, minOff: 14, maxOff: 15, row: floorR - 1 }, x0, x1, floorR);
+        addEnemy({ type: hType, variant: hVar, off: 18, minOff: 17, maxOff: 18 }, x0, x1, floorR);
+        addEnemy({ type: aType, variant: aVar, off: 10, minOff: 4, maxOff: 16, h: 4 }, x0, x1, floorR);
         if (roster.spawner && (mc % 2 === 1)) {
           spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
         }
