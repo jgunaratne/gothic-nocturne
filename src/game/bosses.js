@@ -383,17 +383,86 @@ export class ReaperLord extends Reaper {
   constructor(x, y, arena, difficulty) {
     super(x, y, arena, difficulty);
     this.hp = 180; this.maxHp = 180;
-    this.tint = 'rgba(255, 190, 70, 0.3)';
+    // Gilded-amber sovereign glaze subtle enough to preserve dark cloak folds & crimson eyes
+    this.tint = 'rgba(255, 184, 68, 0.21)';
     this.tempo *= 0.76;
     this.phase2 = true;          // starts with the full move set
     this.enraged = false;
+    this.auraRgb = [255, 168, 52];
+    this.auraOuterRgb = [184, 24, 46];
+    this.slashCore = '#fff6d8';
+    this.slashRim = 'rgba(255, 142, 38, 0.88)';
+    this.trailTint = 'rgba(255, 152, 44, 0.58)';
+    this.sparkColor = '#ffd27a';
+    this.smokeColor = 'rgba(186, 44, 52, 0.50)';
   }
+
   takeHit(dmg, fromX, world) {
     const died = super.takeHit(dmg, fromX, world);
     if (!died && !this.enraged && this.hp <= this.maxHp * 0.55) {
-      this.enraged = true; this.tempo *= 0.72; world.sfx('boss_roar'); world.camera.shake(6, 0.55);
+      this.enraged = true;
+      this.tempo *= 0.72;
+      this.tint = 'rgba(255, 124, 52, 0.26)';
+      this.auraRgb = [255, 112, 48];
+      this.slashRim = 'rgba(255, 76, 52, 0.92)';
+      this.trailTint = 'rgba(255, 92, 54, 0.62)';
+      world.sfx('boss_roar');
+      world.camera.shake(6, 0.55);
+      world.particles.sparks(this.x, this.y - 56, 20, '#ffd27a');
+      if (world.emitShockwave) {
+        world.emitShockwave(this.x, this.y - 54, {
+          maxR: 148,
+          dur: 0.52,
+          strength: 1.0,
+          color: [1.0, 0.68, 0.24],
+        });
+      }
     }
     return died;
+  }
+
+  _drawSoulWisps(ctx, sx, sy, a, frontPass) {
+    const count = this.enraged ? 4 : 3;
+    const speed = this.enraged ? 3.2 : 2.1;
+    const rx = 34;
+    const ry = 10;
+    const baseY = sy - 58;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < count; i++) {
+      const ang = (this.t || 0) * speed + (i * Math.PI * 2) / count;
+      const depth = Math.sin(ang);
+      if (frontPass ? depth < 0 : depth >= 0) continue;
+      const wx = Math.round(sx + Math.cos(ang) * rx);
+      const wy = Math.round(baseY + depth * ry + Math.sin((this.t || 0) * 4.4 + i) * 3);
+      const scale = 0.82 + 0.24 * ((depth + 1) * 0.5);
+      const wa = (0.55 + 0.30 * ((depth + 1) * 0.5)) * a;
+
+      const g = ctx.createRadialGradient(wx, wy, 1, wx, wy, 11 * scale);
+      g.addColorStop(0, this.enraged ? `rgba(255, 224, 150, ${wa.toFixed(3)})` : `rgba(255, 232, 168, ${wa.toFixed(3)})`);
+      g.addColorStop(0.5, this.enraged ? `rgba(255, 86, 48, ${(wa * 0.65).toFixed(3)})` : `rgba(255, 162, 46, ${(wa * 0.62).toFixed(3)})`);
+      g.addColorStop(1, 'rgba(180, 24, 42, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(wx - 13, wy - 15, 26, 28);
+
+      // Crisp pixel soul-flame tongue + white-gold core
+      ctx.globalAlpha = wa;
+      ctx.fillStyle = this.enraged ? '#ff6438' : '#ffa834';
+      ctx.fillRect(wx - 2, wy - 6, 4, 8);
+      ctx.fillRect(wx - 1, wy - 9, 2, 3);
+      ctx.fillStyle = '#fff8dc';
+      ctx.fillRect(wx - 1, wy - 3, 2, 4);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  drawBehindBody(ctx, sx, sy, a) {
+    this._drawSoulWisps(ctx, sx, sy, a, false);
+  }
+
+  drawFrontBody(ctx, sx, sy, a) {
+    this._drawSoulWisps(ctx, sx, sy, a, true);
   }
 }
 

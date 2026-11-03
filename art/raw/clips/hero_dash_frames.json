@@ -1,0 +1,91 @@
+{
+ "fps": null,
+ "frames": {
+  "dash0": {
+   "ax": 13.5,
+   "ay": 51.0,
+   "clipFrame": 42,
+   "h": 51,
+   "w": 34,
+   "x": 1,
+   "y": 1
+  },
+  "dash1": {
+   "ax": 22.0,
+   "ay": 53.0,
+   "clipFrame": 50,
+   "h": 53,
+   "w": 46,
+   "x": 36,
+   "y": 1
+  },
+  "dash2": {
+   "ax": 37.5,
+   "ay": 52.0,
+   "clipFrame": 58,
+   "h": 52,
+   "w": 59,
+   "x": 83,
+   "y": 1
+  },
+  "dash3": {
+   "ax": 34.0,
+   "ay": 51.0,
+   "clipFrame": 70,
+   "h": 51,
+   "w": 59,
+   "x": 143,
+   "y": 1
+  },
+  "dash4": {
+   "ax": 37.5,
+   "ay": 53.0,
+   "clipFrame": 82,
+   "h": 53,
+   "w": 59,
+   "x": 203,
+   "y": 1
+  },
+  "dash5": {
+   "ax": 26.0,
+   "ay": 55.0,
+   "clipFrame": 94,
+   "h": 55,
+   "w": 48,
+   "x": 263,
+   "y": 1
+  },
+  "dash6": {
+   "ax": 17.0,
+   "ay": 62.0,
+   "clipFrame": 106,
+   "h": 62,
+   "w": 45,
+   "x": 312,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "hero_dash_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "hero_dash.mp4",
+  "frame": "idle",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   42,
+   50,
+   58,
+   70,
+   82,
+   94,
+   106
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1221,
+  "select": "pick",
+  "sheet": "hero"
+ }
+}

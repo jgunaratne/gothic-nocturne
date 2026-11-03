@@ -1,6 +1,6 @@
 // Gothic Nocturne — entry point: boot, scaling, game loop and menu states.
 
-import { W, H, DT, DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, ASSET_VERSION } from './engine/constants.js';
+import { W, H, DT, DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, ASSET_VERSION, PLAYER } from './engine/constants.js';
 import { Input } from './engine/input.js';
 import { Assets } from './engine/assets.js';
 import { AudioSys } from './engine/audio.js';
@@ -13,7 +13,7 @@ import { STAGES } from './game/stages.js';
 import { THEMES } from './game/builder.js';
 import { drawHud, drawBanner } from './game/hud.js';
 import {
-  drawCastleMap, moveCursor, nextRoomAfter, stageIndexOf, isDiscovered, MAP_ROOMS, CELL_OWNER,
+  drawCastleMap, moveCursor, nextRoomAfter, nextAdjacentStageKey, stageIndexOf, isDiscovered, MAP_ROOMS, CELL_OWNER,
 } from './game/castlemap.js';
 import { BOSS_RELICS, resolveActiveRelics } from './game/relics.js';
 import {
@@ -73,8 +73,7 @@ class Game {
     this._urlArmoryOverride = armory.urlOverride;
     this.armoryUI = new ArmoryScreen(this);
     const urlStage = parseInt(this.params.get('stage') || '0', 10);
-    this.stageIndex = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1
-      : Math.min(STAGES.length - 1, parseInt(safeStorageGet('gothic.stage') || '0', 10) || 0);
+    this.stageIndex = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1 : 0;
     this.stageCursor = this.stageIndex;
     this.mapCursor = STAGES[this.stageIndex].key;
     this.carryState = null;          // score/lives/hearts carried between connected stages
@@ -147,8 +146,7 @@ class Game {
         for (const k of CELL_OWNER.keys()) this.exploredCells.add(k);
       }
       const urlStage = parseInt(this.params.get('stage') || '0', 10);
-      const stored = parseInt(safeStorageGet('gothic.stage') || '0', 10) || 0;
-      const want = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1 : Math.min(STAGES.length - 1, stored);
+      const want = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1 : 0;
       if (want !== this.stageIndex) { this.stageIndex = want; this.stageCursor = want; this.mapCursor = STAGES[want].key; }
     }
     if (bootEl) bootEl.remove();
@@ -483,6 +481,9 @@ class Game {
       normY,
       inSecret: !!this.world.inSecretArea,
       anim: p.state,
+      dashK: p.dashT > 0 ? Math.round((p.dashT / PLAYER.dashTime) * 100) / 100 : 0,
+      runT: p.runT > 0 ? Math.round(p.runT * 100) / 100 : 0,
+      runFrame: p.runFrame || 0,
       facing: p.facing,
       walkFrame: p.walkFrame,
       attackT: p.attackT,
@@ -574,34 +575,63 @@ class Game {
     this.audio.playMusic('gameover', false);
     this.audio.stopAmbient();
   }
-  onStageClear() {
+  /** Persists stage-clear & Boss Relic unlock in-world without opening a modal map screen. */
+  unlockStageClear() {
+    const wasCleared = !!((this.cleared >>> this.stageIndex) & 1);
     this.cleared |= 1 << this.stageIndex;
     safeStorageSet('gothic.cleared.v3', String(this.cleared));
     if (this.world) {
-      this.world.messages = [];
       this.world.relics = this.getActiveRelics();
     }
+    return !wasCleared;
+  }
+  onStageClear() {
+    this.unlockStageClear();
+    if (this.world) this.world.messages = [];
     this.setState('clear');
   }
 
-  /** After the clear screen: next stage, or the ending after the last one. */
+  /** After clearing a stage: advance directly into the next adjacent level, or Dawn Finale after Throne. */
   advance() {
     const key = STAGES[this.stageIndex].key;
-    if (key === 'throne') { this.beginEnding(); return; }
-    // Back to the castle map: carry the run forward and point at the passage just opened.
-    this.carryState = this.world.carry();
+    const nextKey = nextAdjacentStageKey(key, this.cleared, this.getActiveRelics());
+    if (!nextKey) { this.beginEnding(); return; }
+    const nextIdx = stageIndexOf(nextKey);
+    if (nextIdx >= 0) {
+      this.discoverStage(nextIdx);
+      this.startGame(nextIdx, this.world ? this.world.carry() : this.carryState);
+      return;
+    }
+    this.carryState = this.world ? this.world.carry() : this.carryState;
     this.mapCursor = nextRoomAfter(key, this.cleared) || key;
     this.setState('stageselect');
     this.audio.playMusic('title');
     this.audio.stopAmbient();
   }
 
-  banner(lines, y, opts) { drawBanner(this.ctx, this.font, lines, y, opts); }
+  banner(lines, y, opts, ctx = this.ctx) { drawBanner(ctx, this.font, lines, y, opts); }
 
-  /** Scripted attract/testing driver (?demo=1): walk, jump and whip. */
+  /** Scripted attract/testing driver (?demo=1): walk, jump and whip. `?demo=dash` double-taps forward. */
   startDemo() {
     this.startGame();
     this.audio.muted = true;
+    if (this.params.get('demo') === 'dash') {
+      // Deterministic sprint showcase: no fiends, then double-tap right and hold every 2.5 s.
+      // `&dashfreeze=<t>` hit-stops the simulation once the sprint has lasted `t` seconds.
+      const freezeT = this.params.has('dashfreeze') ? parseFloat(this.params.get('dashfreeze')) : null;
+      this.input.setScript((t) => {
+        if (t > 40) return null;
+        const w = this.world;
+        if (w && w.enemies.length) w.enemies.length = 0;
+        if (w && freezeT != null && w.hitStop <= 0 && w.player.runT >= freezeT && w.player.runT > 0) {
+          w.hitStop = 1e9;
+        }
+        const seg = t % 2.5;
+        const tapRight = (seg > 0.20 && seg < 0.26) || (seg > 0.32 && seg < 1.9);
+        return { right: tapRight };
+      });
+      return;
+    }
     this.input.setScript((t) => {
       if (t > 40) return null;
       const seg = t % 6;
@@ -690,7 +720,7 @@ class Game {
         if (this.stateT > 0.25 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) {
           this.chooseDifficulty(DIFFICULTY_ORDER[this.menuIndex]);
           this.carryState = null;
-          this.setState('stageselect'); this.audio.sfx('select');
+          this.startGame(0, null);
         }
         break;
       }
@@ -984,10 +1014,10 @@ class Game {
       ctx.fillRect(W / 2 - 248, 298, 496, 34);
       ctx.fillStyle = '#3a2e22'; ctx.fillRect(W / 2 - 248, 298, 496, 1); ctx.fillRect(W / 2 - 248, 331, 496, 1);
       const lines = isTouch ? [
-        'D-PAD MOVE   JUMP   L-HAND & R-HAND WEAPONS   SUB THROWS HEART ITEM',
+        'D-PAD MOVE (TAP TWICE TO RUN)   JUMP   L-HAND & R-HAND WEAPONS   SUB THROWS HEART ITEM',
         'GEAR OPENS DUAL-HAND ARMORY   TAP MINI-MAP FOR FAST TRAVEL   ↓↘→ SKILL',
       ] : [
-        '←→ MOVE   ↓ CROUCH   Z/J/SPACE JUMP   X/K L-HAND   C/V/L R-HAND   ↓↘→ SKILL',
+        '←→ MOVE (TAP TWICE TO RUN)   ↓ CROUCH   Z/J/SPACE JUMP   X/K L-HAND   C/V/L R-HAND   ↓↘→ SKILL',
         'E ARMORY  M MAP  ↑ PASSAGES / + L-HAND SUB  P FORGE  G SALUTE  N MUTE  F FX',
       ];
       lines.forEach((l, i) => f.draw(ctx, l, W / 2, 304 + i * 12, { align: 'center', color: i === 1 ? '#ffb0a0' : '#c9c3b0', shadow: '#120f1c' }));
@@ -1009,8 +1039,7 @@ class Game {
   }
 
   drawDifficulty(ctx) {
-    const tw = this.titleWorld;
-    tw.draw(ctx, { hud: false });
+    this.titleWorld.draw(ctx, { hud: false });
     ctx.fillStyle = 'rgba(4, 3, 10, 0.6)';
     ctx.fillRect(0, 0, W, H);
     const f = this.font;
@@ -1056,7 +1085,7 @@ class Game {
       scale: 3,
       color: '#ffd27a',
       sub: `${w.difficulty.name} · LV ${String(this.charLevel).padStart(2, '0')} · SCORE X${w.difficulty.scoreMult}`,
-    });
+    }, ctx);
     const lines = [
       ['TIME BONUS', w.timeBonus],
       ['HEART BONUS', w.heartBonus],
@@ -1110,8 +1139,7 @@ class Game {
   }
 
   drawStageSelect(ctx) {
-    const tw = this.titleWorld;
-    tw.draw(ctx, { hud: false });
+    this.titleWorld.draw(ctx, { hud: false });
     drawCastleMap(ctx, this.font, this.assets, {
       cursor: this.mapCursor,
       cleared: this.cleared,
@@ -1204,7 +1232,12 @@ class Game {
         ctx.fillStyle = e.p % 3 ? '#ff9a3c' : '#ffd27a';
         ctx.fillRect(Math.round(ex), Math.round(yy), e.s > 1.1 ? 2 : 1, e.s > 1.1 ? 2 : 1);
       }
-      if (t > 0.6) this.banner(['THE NIGHT IS OVER'], 38, { scale: 3, color: '#ffd27a', band: true });
+      if (t > 0.6 && t < 8.0) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, (t - 0.6) / 0.35, (8.0 - t) / 0.6));
+        this.banner(['THE NIGHT IS OVER'], 38, { scale: 3, color: '#ffd27a', band: true });
+        ctx.restore();
+      }
     } else if (t < 21) {
       drawPanel(p2, 8, 21, 1.1, 1.0, 14);
     } else if (t < 34) {
@@ -1229,27 +1262,33 @@ class Game {
         ctx.fillRect(0, 0, W, ly + lh + 24);
         ctx.drawImage(logo, lx, ly, lw, lh);
       }
-      const cx = W / 2 - 228, cy = 186, cw = 456, ch = 156;
-      ctx.fillStyle = 'rgba(5, 4, 12, 0.90)';
-      ctx.fillRect(cx, cy, cw, ch);
-      ctx.strokeStyle = '#8a6a3a';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(cx + 0.5, cy + 0.5, cw - 1, ch - 1);
-      ctx.strokeStyle = '#2e243d';
-      ctx.strokeRect(cx + 2.5, cy + 2.5, cw - 5, ch - 5);
-      if (w) {
-        f.draw(ctx, `FINAL SCORE ${String(w.score).padStart(7, '0')}`, W / 2, 198, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
-        f.draw(ctx, `${w.difficulty.name} · LV ${String(this.charLevel).padStart(2, '0')} · ${w.lives} LIVES REMAINING · ${w.hearts} HEARTS`, W / 2, 222, { gothic: false, align: 'center', color: '#e8e2c8', shadow: '#05040a' });
+      const cardFade = Math.max(0, Math.min(1, (t - 34.0) / 0.6));
+      if (cardFade > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = cardFade;
+        const cx = W / 2 - 228, cy = 186, cw = 456, ch = 156;
+        ctx.fillStyle = 'rgba(5, 4, 12, 0.90)';
+        ctx.fillRect(cx, cy, cw, ch);
+        ctx.strokeStyle = '#8a6a3a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cx + 0.5, cy + 0.5, cw - 1, ch - 1);
+        ctx.strokeStyle = '#2e243d';
+        ctx.strokeRect(cx + 2.5, cy + 2.5, cw - 5, ch - 5);
+        if (w) {
+          f.draw(ctx, `FINAL SCORE ${String(w.score).padStart(7, '0')}`, W / 2, 198, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
+          f.draw(ctx, `${w.difficulty.name} · LV ${String(this.charLevel).padStart(2, '0')} · ${w.lives} LIVES REMAINING · ${w.hearts} HEARTS`, W / 2, 222, { gothic: false, align: 'center', color: '#e8e2c8', shadow: '#05040a' });
+        }
+        ctx.fillStyle = '#5a462c';
+        ctx.fillRect(W / 2 - 150, 240, 300, 1);
+        f.draw(ctx, 'THANK YOU FOR PLAYING', W / 2, 250, { scale: 2, gothic: false, align: 'center', color: '#f6f0de', shadow: '#05040a' });
+        f.draw(ctx, 'ART · GEMINI     MUSIC · LYRIA 3     VOICE · DAIKON', W / 2, 278, { gothic: false, align: 'center', color: '#b8c4dc', shadow: '#05040a' });
+        const pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
+        ctx.save();
+        ctx.globalAlpha = cardFade * pulse;
+        f.draw(ctx, (this.touch && this.touch.active) ? 'TAP OR PRESS START' : 'PRESS ENTER', W / 2, 306, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
+        ctx.restore();
+        ctx.restore();
       }
-      ctx.fillStyle = '#5a462c';
-      ctx.fillRect(W / 2 - 150, 240, 300, 1);
-      f.draw(ctx, 'THANK YOU FOR PLAYING', W / 2, 250, { scale: 2, gothic: false, align: 'center', color: '#f6f0de', shadow: '#05040a' });
-      f.draw(ctx, 'ART · GEMINI     MUSIC · LYRIA 3     VOICE · DAIKON', W / 2, 278, { gothic: false, align: 'center', color: '#b8c4dc', shadow: '#05040a' });
-      const pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
-      ctx.save();
-      ctx.globalAlpha = pulse;
-      f.draw(ctx, (this.touch && this.touch.active) ? 'TAP OR PRESS START' : 'PRESS ENTER', W / 2, 306, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
-      ctx.restore();
     }
     // Crossfades between panels
     for (const [a, b] of [[7.4, 8.6], [20.4, 21.6], [33.4, 34.6]]) {

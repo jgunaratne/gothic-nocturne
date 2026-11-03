@@ -289,6 +289,8 @@ export function composeGridStage(spec) {
   let sanctuaryAnchor = null;
   let vesselAnchor = null;
   let pedestalAnchor = null;
+  let drawbridge = null;
+  let gateFoyer = null;
 
   const op = (fn) => ops.push(fn);
   const addCandle = (tx, row, drop = null) => rawCandles.push([tx, row, drop]);
@@ -431,35 +433,60 @@ export function composeGridStage(spec) {
 
       const leftLandR = asc ? floorBot : floorTop;
       const rightLandR = asc ? floorTop : floorBot;
-      op((lv) => {
-        // 5-tile flat landings at both ends (`0..4` and `15..19`) + 10-tile walkable Grand Staircase (`5..15`)
-        lv.clear(x0, x0 + 4, 0, leftLandR - 1);
-        lv.ground(x0, x0 + 4, leftLandR, mat);
-        lv.clear(x0 + 15, x0 + 19, 0, rightLandR - 1);
-        lv.ground(x0 + 15, x0 + 19, rightLandR, mat);
-        lv.stair(x0 + 5, leftLandR, x0 + 15, rightLandR, { passThrough: false, mat, railing: true });
-      });
+      const isGateBridge = key === 'graveyard' && mc === 8;
+      if (!isGateBridge) {
+        op((lv) => {
+          // 5-tile flat landings at both ends (`0..4` and `15..19`) + 10-tile walkable Grand Staircase (`5..15`)
+          lv.clear(x0, x0 + 4, 0, leftLandR - 1);
+          lv.ground(x0, x0 + 4, leftLandR, mat);
+          lv.clear(x0 + 15, x0 + 19, 0, rightLandR - 1);
+          lv.ground(x0 + 15, x0 + 19, rightLandR, mat);
+          lv.stair(x0 + 5, leftLandR, x0 + 15, rightLandR, { passThrough: false, mat, railing: true });
+        });
+      }
 
       // Newel-post monuments on both landings
-      addDeco(props.tall[0], props.tall[1], x0 + 2, leftLandR);
-      addDeco(props.altTall[0], props.altTall[1], x0 + 17, rightLandR);
-      if (key === 'graveyard' && mc === 8) {
-        // Iconic Barbican Gatehouse archway crowning the top of Stage 1's Great Stairway
-        addDeco('arch', 'gate', x0 + 18, rightLandR);
+      addDeco(props.tall[0], props.tall[1], isGateBridge ? x0 + 1 : x0 + 2, leftLandR);
+      if (!isGateBridge) addDeco(props.altTall[0], props.altTall[1], x0 + 17, rightLandR);
+      if (isGateBridge) {
+        // Stage 1 castle approach, left -> right across the cell:
+        //   `0..1`   flat outdoor forecourt at the low moor level (`leftLandR`)
+        //   `2..9`   lowered wooden DRAWBRIDGE (8 tiles) over the moat (one-way plank deck, no drop-through,
+        //            open air + water below, stone abutments, chains hoisted to the gatehouse towers)
+        //   `10`     gatehouse threshold inside the castle (`rooms[0]` starts here)
+        //   `11..19` the Great Stairway now climbs INSIDE the entrance foyer up to the hall floor (`rightLandR`)
+        const bx0 = x0 + 2, bx1 = x0 + 9;
+        drawbridge = { x0: bx0, x1: bx1, row: leftLandR, waterRow: leftLandR + 2, floorRow: leftLandR + 4 };
+        gateFoyer = { x0: x0 + 10, x1: x0 + 19, floorRow: leftLandR, hallRow: rightLandR };
+        op((lv) => {
+          lv.clear(x0, x0 + 1, 0, leftLandR - 1);
+          lv.ground(x0, x0 + 1, leftLandR, mat);
+          lv.clear(bx0, bx1, 0, leftLandR + 3);
+          lv.ground(bx0, bx1, leftLandR + 4, mat);
+          lv.fill(bx0, bx1, leftLandR + 2, leftLandR + 3, T_WATER);
+          lv.platform(bx0, bx1, leftLandR);
+          lv.clear(x0 + 10, x0 + 19, 0, leftLandR - 1);
+          lv.ground(x0 + 10, x0 + 19, leftLandR, mat);
+          lv.stair(x0 + 11, leftLandR, x0 + 20, rightLandR, { passThrough: false, mat, railing: true });
+        });
+        // Iconic Barbican Gatehouse archway right at the castle threshold (end of the drawbridge)
+        addDeco('arch', 'gate', x0 + 10, leftLandR, 14, 0);
       }
       if (props.sconce) {
-        addDeco(props.sconce[0], props.sconce[1], x0 + 7, Math.round(leftLandR + (rightLandR - leftLandR) * 0.25), 0, -44);
-        addDeco(props.sconce[0], props.sconce[1], x0 + 13, Math.round(leftLandR + (rightLandR - leftLandR) * 0.75), 0, -44);
+        const sc0 = isGateBridge ? x0 + 13 : x0 + 7, sc1 = isGateBridge ? x0 + 18 : x0 + 13;
+        addDeco(props.sconce[0], props.sconce[1], sc0, Math.round(leftLandR + (rightLandR - leftLandR) * 0.25), 0, -44);
+        addDeco(props.sconce[0], props.sconce[1], sc1, Math.round(leftLandR + (rightLandR - leftLandR) * 0.75), 0, -44);
       }
-      addCandle(x0 + 3, leftLandR);
-      addCandle(x0 + 16, rightLandR, 'heart_big');
+      addCandle(isGateBridge ? x0 + 4 : x0 + 3, leftLandR);
+      if (isGateBridge) addCandle(x0 + 8, leftLandR, 'heart_big');
+      else addCandle(x0 + 16, rightLandR, 'heart_big');
 
       // Layered grand-stairway defenders: full-flight stair patrol + upper landing sniper + aerial sentry
       const [gStair, gStairVar] = pickGround(mc);
       const [sStair, sStairVar] = pickSniper(mc + 1);
       const [aType, aVar] = pickAerial(mc + 2);
       addEnemy({ type: gStair, variant: gStairVar, off: 3, minOff: 1, maxOff: 17, row: leftLandR }, x0, x1, floorBot);
-      addEnemy({ type: sStair, variant: sStairVar, off: 17, minOff: 15, maxOff: 18, row: rightLandR }, x0, x1, floorBot);
+      addEnemy({ type: sStair, variant: sStairVar, off: 17, minOff: 15, maxOff: 18, row: isGateBridge ? leftLandR : rightLandR }, x0, x1, floorBot);
       addEnemy({ type: aType, variant: aVar, off: 10, minOff: 3, maxOff: 16, row: Math.min(leftLandR, rightLandR), h: 3 }, x0, x1, floorBot);
 
       roomSchema.push(createRoomSchemaEntry({
@@ -1143,9 +1170,9 @@ export function composeGridStage(spec) {
   addCandle(vestX0 + 5, bossRow, 'heart_big');
   addCandle(vestX0 + 14, bossRow, subDrops[(id + 1) % subDrops.length]);
 
-  // 20-tile Boss Arena (`maxC`)
+  // 20-tile Boss Arena (`maxC`) — keep cols 17..18 clear for the right-side Boss Exit Door
   addDeco(bProps.tall[0], bProps.tall[1], arenaX0 + 3, bossRow);
-  addDeco(bProps.tall[0], bProps.tall[1], arenaX0 + 17, bossRow);
+  addDeco(bProps.tall[0], bProps.tall[1], arenaX0 + 15, bossRow);
   addDeco(bProps.focal[0], bProps.focal[1], arenaX0 + 10, bossRow);
   if (key === 'cathedral') {
     addDeco('stained_glass', 'rose', arenaX0 + 10, bossRow, 0, -96);
@@ -1171,6 +1198,8 @@ export function composeGridStage(spec) {
     line: bossSpec.line || null,
     gateCol: arenaX0 + 1,
     gateRows: [bossRow - 3, bossRow - 1],
+    exitX: (arenaX0 + 18) * TILE + 4,
+    exitY: py(bossRow),
     triggerX: px(arenaX0 + 5),
     camX: arenaX0 * TILE,
     spawn: {
@@ -1307,7 +1336,7 @@ export function composeGridStage(spec) {
     const fRow = gridFloorRow(minR, botMr_);
     const tRow = gridFloorRow(minR, topMr);
     const floorY = fRow * TILE;
-    const ceilY = Math.min(floorY - 272, (tRow - 6) * TILE);
+    const ceilY = Math.min(floorY - 352, (tRow - 11) * TILE);
     const th = extra.wallTheme || baseTheme;
     return {
       x0: x0_,
@@ -1325,11 +1354,22 @@ export function composeGridStage(spec) {
   };
 
   if (key === 'graveyard') {
-    // Outdoor moonlit cemetery/moor/viaduct/staircase on cols 1..8 (`x = 0..159`),
-    // Barbican Gatehouse portal into 3D Vaulted Entrance Hall on cols 9..27 (`x = 160..539`)!
+    // Outdoor moonlit cemetery/moor/forecourt & drawbridge on cols 1..8, then the Barbican
+    // Gatehouse threshold opens into a sunken Entrance Foyer (Great Stairway climbing inside the
+    // castle) and the 3D Vaulted Entrance Hall on cols 9..27!
     const inStartCol = (outdoorUntilCol - minC + 1) * GRID_CELL_W;
+    if (gateFoyer) {
+      const foyer = makeHallEntry(gateFoyer.x0, gateFoyer.x1, 0, rows - 1, 11, 13, {
+        edge: true,
+        wallTheme: indoorCastleTheme,
+      });
+      // The foyer floor sits at the low moor level; its stairs rise to the main hall floor.
+      foyer.floorRow = gateFoyer.floorRow;
+      foyer._hallBounds = { floorRow: gateFoyer.floorRow, floorY: gateFoyer.floorRow * TILE, ceilY: foyer._hallBounds.ceilY };
+      stageRooms.push(foyer);
+    }
     stageRooms.push(makeHallEntry(inStartCol, cols - 1, 0, rows - 1, 11, 13, {
-      edge: true,
+      edge: !gateFoyer,
       wallTheme: indoorCastleTheme,
     }));
   } else if (!baseTheme.outdoor) {
@@ -1422,5 +1462,6 @@ export function composeGridStage(spec) {
     secretCell: mapRoom.secret,
     secrets,
     waterBasins,
+    drawbridge,
   };
 }

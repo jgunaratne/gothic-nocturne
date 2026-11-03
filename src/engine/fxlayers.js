@@ -115,18 +115,20 @@ uniform float uFrozen;   // 1 = crystalline ice sheet, 0 = flowing water
 uniform float uAlpha;
 ${NOISE}
 
+// All wave terms travel left -> right (+x) as a horizontal current across the 2.5D plane
+// (no toward-camera drift): phase k*x - w*t, noise sampled at x - v*t.
 float waveField(vec2 w, float t) {
   float h = 0.0;
-  h += sin(w.x * 0.075 + w.y * 0.130 + t * 2.15) * 0.36;
-  h += sin(-w.x * 0.115 + w.y * 0.195 - t * 1.72) * 0.24;
-  h += (fbm(vec2(w.x / 34.0 + t * 0.22, (w.y + t * 18.0) / 28.0)) - 0.5) * 0.85;
-  h += (vnoise(vec2(w.x / 11.0 - t * 0.55, (w.y + t * 26.0) / 9.5)) - 0.5) * 0.32;
+  h += sin(w.x * 0.075 + w.y * 0.130 - t * 2.15) * 0.36;
+  h += sin(w.x * 0.115 + w.y * 0.195 - t * 1.72) * 0.24;
+  h += (fbm(vec2(w.x / 34.0 - t * 0.62, w.y / 28.0 + t * 0.05)) - 0.5) * 0.85;
+  h += (vnoise(vec2(w.x / 11.0 - t * 1.35, w.y / 9.5 + t * 0.08)) - 0.5) * 0.32;
   return h;
 }
 
 float causticNet(vec2 p, float t) {
-  vec2 a = p * 0.11 + vec2(t * 0.38, -t * 0.29);
-  vec2 b = p * 0.14 - vec2(t * 0.31, t * 0.42);
+  vec2 a = p * 0.11 + vec2(-t * 0.52, -t * 0.06);
+  vec2 b = p * 0.14 + vec2(-t * 0.41, t * 0.09);
   float v1 = abs(vnoise(a) - 0.5);
   float v2 = abs(vnoise(b + vec2(4.7, 2.3)) - 0.5);
   return pow(clamp(1.0 - min(v1, v2) * 4.2, 0.0, 1.0), 2.4);
@@ -194,7 +196,7 @@ void main() {
   vec3 halfV = normalize(lightDir + viewDir);
   float specPow = pow(clamp(dot(norm, halfV), 0.0, 1.0), 26.0);
   float crest = smoothstep(0.16, 0.44, hC) * (0.35 + 0.65 * smoothstep(0.0, 48.0, dy));
-  float horizonShimmer = exp(-dy / 16.0) * (0.35 + 0.35 * sin(wx * 0.18 + uTime * 3.5));
+  float horizonShimmer = exp(-dy / 16.0) * (0.35 + 0.35 * sin(wx * 0.18 - uTime * 3.5));
 
   vec3 col = mix(waterBody, reflCol, fresnel * 0.82);
   col += uSpec * (specPow * 1.15 + crest * 0.28 + horizonShimmer * 0.22);
@@ -210,8 +212,10 @@ void main() {
 `;
 
 // Play-plane flooded canal, cistern pool & sanctuary reflecting basin shader:
-// animated wave meniscus, live interactive wake ripples (`uRipples[6]`),
-// underwater `uScene` refraction + Beer-Lambert tint + floor caustics,
+// dispersive left -> right travelling wave train (long swells outrun short chop),
+// analytic surface normals, Schlick Fresnel, Blinn-Phong moon glints, breaking
+// crest foam & drifting flow streaks, chromatic underwater refraction + Beer-Lambert
+// absorption + floor caustics, live interactive wake ripples (`uRipples[6]`),
 // and real-time planar reflections of the hunter, enemies, bosses & torches!
 const WATER_POOL_FRAG = `
 ${SHADER_PREC}
@@ -228,17 +232,27 @@ uniform float uAlpha;
 uniform vec4 uRipples[6]; // (worldX, worldY, ageSec, amplitude), amp<=0 inactive
 ${NOISE}
 
+// Surface height of the flowing wave train at world x (all components travel +x).
+float waveH(float x, float t) {
+  float h = 0.0;
+  h += sin(x * 0.052 - t * 2.35) * 1.30;                              // long swell (fastest)
+  h += sin(x * 0.094 - t * 3.05 + 1.7) * 0.78;                        // mid chop
+  h += sin(x * 0.172 - t * 4.10 + 0.6) * 0.40;                        // capillary ripple
+  h += (vnoise(vec2(x * 0.045 - t * 1.05, t * 0.33)) - 0.5) * 1.70;  // drifting irregularity
+  return h;
+}
+
 void main() {
   vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
-  if (px.x < uPool.x || px.x > uPool.x + uPool.z || px.y < uPool.y - 4.0 || px.y > uPool.y + uPool.w) discard;
+  if (px.x < uPool.x || px.x > uPool.x + uPool.z || px.y < uPool.y - 5.0 || px.y > uPool.y + uPool.w) discard;
 
   float wx = px.x + uCam.x;
   float wy = px.y + uCam.y;
 
-  // Travelling surface wave + interactive hunter/enemy wake rings
-  float surfWave = sin(wx * 0.085 + uTime * 2.9) * 1.15
-                 + sin(wx * 0.19 - uTime * 4.1) * 0.65
-                 + (vnoise(vec2(wx * 0.06 + uTime * 0.45, uTime * 0.6)) - 0.5) * 1.2;
+  // Travelling surface wave (+ analytic slope) + interactive hunter/enemy wake rings
+  float hC = waveH(wx, uTime);
+  float slope = (waveH(wx + 1.5, uTime) - waveH(wx - 1.5, uTime)) / 3.0;
+  float surfWave = hC;
 
   float ripSlope = 0.0;
   float ripFoam = 0.0;
@@ -264,49 +278,77 @@ void main() {
   float poolH = max(6.0, uPool.w);
   float depth = clamp(dy / poolH, 0.0, 1.0);
 
-  // Internal 2D wave normal for underwater refraction & planar surface reflection
-  float n1 = vnoise(vec2(wx * 0.075 + uTime * 1.15, dy * 0.095 - uTime * 0.65)) - 0.5;
-  float n2 = vnoise(vec2(wx * 0.16 - uTime * 1.65, dy * 0.17 + uTime * 0.90)) - 0.5;
-  float nx = (n1 * 0.7 + n2 * 0.45) * 2.2 + ripSlope;
-  float ny = (vnoise(vec2(wx * 0.11, dy * 0.13 + uTime * 1.2)) - 0.5) * 1.8;
+  // Surface normal (x from the wave slope + wake rings, z from flowing micro-ripples)
+  float micro = (vnoise(vec2(wx * 0.14 - uTime * 2.6, wy * 0.21 + uTime * 0.4)) - 0.5) * 0.9;
+  vec3 N = normalize(vec3(-(slope * 1.9 + ripSlope * 0.9 + micro * 0.35), 1.0, 0.30 + micro * 0.5));
 
-  // 1. Underwater refraction of submerged stone tiles, pillars & wading legs
-  vec2 refrPx = px + vec2(nx * (2.2 + depth * 2.6), ny * 1.6 + 1.0);
-  vec3 underCol = texture2D(uScene, clamp(refrPx / uRes, vec2(0.002), vec2(0.998))).rgb;
+  // Sub-surface flow field for refraction (drifts right with the current)
+  float n1 = vnoise(vec2(wx * 0.075 - uTime * 1.55, dy * 0.095 - uTime * 0.35)) - 0.5;
+  float n2 = vnoise(vec2(wx * 0.16 - uTime * 2.35, dy * 0.17 + uTime * 0.55)) - 0.5;
+  float nx = (n1 * 0.7 + n2 * 0.45) * 2.2 + ripSlope - slope * 2.0;
+  float ny = (vnoise(vec2(wx * 0.11 - uTime * 1.1, dy * 0.13 + uTime * 0.9)) - 0.5) * 1.8;
 
-  // Dancing underwater caustic ribbons brighter near shallow masonry & pool floor
-  float cA = abs(vnoise(vec2(wx * 0.09 + dy * 0.04 + uTime * 0.85, wy * 0.08 - uTime * 0.55)) - 0.5);
-  float cB = abs(vnoise(vec2(wx * 0.13 - dy * 0.05 - uTime * 0.72, wy * 0.11 + uTime * 0.62)) - 0.5);
+  // 1. Chromatic underwater refraction of submerged stone, pillars & wading legs
+  vec2 refrPx = px + vec2(nx * (2.2 + depth * 2.8), ny * 1.6 + 1.0 + depth * 1.5);
+  vec2 ca = vec2(0.7 + depth * 0.6, 0.0);
+  vec3 underCol;
+  underCol.r = texture2D(uScene, clamp((refrPx + ca) / uRes, vec2(0.002), vec2(0.998))).r;
+  underCol.g = texture2D(uScene, clamp(refrPx / uRes, vec2(0.002), vec2(0.998))).g;
+  underCol.b = texture2D(uScene, clamp((refrPx - ca) / uRes, vec2(0.002), vec2(0.998))).b;
+
+  // Dancing underwater caustic ribbons (drifting with the flow) brighter on shallow masonry
+  float cA = abs(vnoise(vec2(wx * 0.09 + dy * 0.04 - uTime * 0.95, wy * 0.08 - uTime * 0.45)) - 0.5);
+  float cB = abs(vnoise(vec2(wx * 0.13 - dy * 0.05 - uTime * 1.25, wy * 0.11 + uTime * 0.52)) - 0.5);
   float caust = pow(clamp(1.0 - min(cA, cB) * 4.4, 0.0, 1.0), 2.2);
 
-  // Beer-Lambert absorption: clear turquoise/emerald near meniscus, rich deep cistern hue below
-  vec3 tintedUnder = mix(underCol * (uTint * 1.15 + vec3(0.32)), uDeep, clamp(0.26 + depth * 0.62, 0.0, 0.88));
-  tintedUnder += uFoam * caust * (0.28 * (1.0 - depth * 0.35));
+  // Beer-Lambert absorption: clear tint near the meniscus, rich deep hue below
+  float absorb = clamp(0.22 + depth * 0.66, 0.0, 0.90);
+  vec3 tintedUnder = mix(underCol * (uTint * 1.15 + vec3(0.34)), uDeep, absorb);
+  tintedUnder += uFoam * caust * (0.26 * (1.0 - depth * 0.4));
+  // Subsurface scatter: light glowing through the back of taller swells
+  float sss = smoothstep(0.4, 2.2, hC) * (1.0 - depth) * (1.0 - smoothstep(0.0, 6.0, dy)) ;
+  tintedUnder += uTint * sss * 0.35;
 
-  // 2. Real-time planar reflection of everything above surfY (hunter, bosses, torches, ferries, arches)
-  float reflY = surfY - dy * 0.96 - abs(ny) * 1.5;
-  vec2 reflPx = vec2(px.x + nx * (3.2 + dy * 0.12), reflY);
+  // 2. Real-time planar reflection of everything above surfY, perturbed by the surface normal
+  float reflY = surfY - dy * 0.96 - abs(ny) * 1.2;
+  vec2 reflPx = vec2(px.x + N.x * (14.0 + dy * 0.35), reflY + N.z * 2.0);
   vec3 reflCol = texture2D(uScene, clamp(reflPx / uRes, vec2(0.002), vec2(0.998))).rgb;
-  // Fresnel stronger near the water surface & at grazing ripples, fading gently with depth
-  float fresnel = clamp((0.52 - depth * 0.30) + abs(nx) * 0.12, 0.14, 0.68);
+  reflCol = mix(reflCol, uTint, 0.10);
+
+  // Schlick Fresnel from a low front camera: strong at the meniscus & on wave flanks, fading with depth
+  vec3 V = normalize(vec3(0.0, 0.42 + depth * 0.25, 0.90));
+  float cosT = clamp(dot(N, V), 0.0, 1.0);
+  float fresnel = 0.07 + 0.93 * pow(1.0 - cosT, 4.0);
+  fresnel = clamp(fresnel * (0.95 - depth * 0.55) + 0.10, 0.10, 0.72);
   // Don't dim underwater visibility with pure-black sky voids
   float reflLuma = dot(reflCol, vec3(0.299, 0.587, 0.114));
   fresnel *= mix(0.45, 1.0, smoothstep(0.03, 0.25, reflLuma));
 
   vec3 col = mix(tintedUnder, reflCol, fresnel);
 
-  // 3. Crisp animated surface meniscus, side-wall lapping foam & specular glints
-  float meniscus = 1.0 - smoothstep(0.0, 2.2, dy);
-  float subCrest = (1.0 - smoothstep(1.8, 5.2, dy)) * smoothstep(0.12, 0.42, n1 + ripFoam * 0.5);
+  // 3. Blinn-Phong moonlight glints along crests + broad soft sheen
+  vec3 L = normalize(vec3(-0.38, 0.72, 0.58));
+  vec3 Hv = normalize(L + V);
+  float ndh = clamp(dot(N, Hv), 0.0, 1.0);
+  float glint = pow(ndh, 64.0) * 1.1 + pow(ndh, 10.0) * 0.14;
+  float sparkle = smoothstep(0.90, 0.985, vnoise(vec2(wx * 0.6 - uTime * 3.2, wy * 0.7 + uTime * 0.2)));
+  col += uFoam * (glint + sparkle * 0.55) * (1.0 - depth * 0.7);
+
+  // 4. Breaking crest foam (noise-broken), horizontal flow streaks drifting right, meniscus & lapping shore foam
+  float crestFoam = smoothstep(1.1, 2.3, hC) * smoothstep(0.35, 0.7, vnoise(vec2(wx * 0.28 - uTime * 2.6, wy * 0.22)))
+                  * (1.0 - smoothstep(0.0, 5.5, dy));
+  float streak = smoothstep(0.64, 0.74, vnoise(vec2(wx * 0.035 - uTime * 2.9, dy * 0.55 + wy * 0.09)))
+               * (1.0 - depth * 0.8) * 0.45;
+  float meniscus = 1.0 - smoothstep(0.0, 2.0, dy);
   float wallDist = min(px.x - uPool.x, (uPool.x + uPool.z) - px.x);
-  float shoreFoam = (1.0 - smoothstep(0.0, 5.0, wallDist)) * (1.0 - smoothstep(0.0, 10.0, dy)) * 0.55;
-  float glint = smoothstep(0.40, 0.49, n1 * 0.6 + n2 * 0.5) * (1.0 - depth * 0.65);
+  float shoreFoam = (1.0 - smoothstep(0.0, 5.0, wallDist)) * (1.0 - smoothstep(0.0, 10.0, dy))
+                  * (0.45 + 0.25 * sin(uTime * 3.4 + wy * 0.3));
 
-  float foamAmt = clamp(meniscus * (0.72 + ripFoam * 0.35) + subCrest * 0.45 + shoreFoam + glint * 0.55, 0.0, 1.0);
-  col = mix(col, uFoam, foamAmt * 0.82);
+  float foamAmt = clamp(meniscus * (0.70 + ripFoam * 0.35) + crestFoam * 0.75 + streak + shoreFoam + ripFoam * 0.3, 0.0, 1.0);
+  col = mix(col, uFoam, foamAmt * 0.84);
 
-  float a = clamp(mix(0.68, 0.90, depth) * uAlpha + meniscus * 0.22, 0.0, 0.96);
-  col = floor(col * 20.0) / 20.0;
+  float a = clamp(mix(0.70, 0.91, depth) * uAlpha + meniscus * 0.22 + crestFoam * 0.1, 0.0, 0.96);
+  col = floor(col * 28.0) / 28.0;
   gl_FragColor = vec4(col * a, a);
 }
 `;
@@ -481,8 +523,9 @@ void main() {
   if (px.x < uPool.x || px.x > uPool.x + uPool.z || px.y < uPool.y || px.y > uPool.y + uPool.w) discard;
   float depth = clamp((px.y - uPool.y) / max(1.0, uPool.w), 0.0, 1.0);
   float wx = px.x + uScroll;
-  vec2 p1 = vec2(wx / 26.0 + uTime * 0.32, (px.y - uPool.y) / 14.0 - uTime * 0.18);
-  vec2 p2 = vec2(wx / 13.0 - uTime * 0.48, (px.y - uPool.y) / 9.0 + uTime * 0.25);
+  // Molten current creeps left -> right (+x); only a faint vertical convection roll.
+  vec2 p1 = vec2(wx / 26.0 - uTime * 0.46, (px.y - uPool.y) / 14.0 - uTime * 0.05);
+  vec2 p2 = vec2(wx / 13.0 - uTime * 0.72, (px.y - uPool.y) / 9.0 + uTime * 0.08);
   float n = fbm(p1) * 0.62 + fbm(p2) * 0.38;
   // Bright yellow-white surface meniscus + glowing convective magma fissures between dark basalt crust
   float surface = 1.0 - smoothstep(0.0, 5.0, px.y - uPool.y);
@@ -842,6 +885,43 @@ void main() {
 }
 `;
 
+const RETRO_BG_FRAG = `
+${SHADER_PREC}
+varying vec2 vUv;
+uniform sampler2D uScene;
+uniform vec2 uRes;
+uniform float uPix;    // retro pixel block size in scene px (1 = native, 2 = 320x180 blocks)
+uniform float uLevels; // palette levels per channel (32 = RGB555-style 15-bit)
+
+// Non-periodic Interleaved Gradient Noise (Jimenez) in [-0.5, +0.5]:
+// eliminates the repeating 4x4 Bayer lattice harmonics that beat against
+// stone courses, fluted columns, mural borders, and CRT scanlines.
+float ignNoise(vec2 p) {
+  return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))) - 0.5;
+}
+
+vec3 tap(vec2 uv) {
+  return texture2D(uScene, clamp(uv, vec2(0.001), vec2(0.999))).rgb;
+}
+
+void main() {
+  // Snap to an integer retro pixel grid (uPix x uPix scene px) so the background reads as
+  // chunky 16/32-bit pixel art while never beating against the 1:1 sprites. No blur: each
+  // block is a plain box average of the scene pixels it covers.
+  vec2 topUv = clamp(vec2(vUv.x, 1.0 - vUv.y), vec2(0.0), vec2(0.999999));
+  vec2 block = floor(topUv * uRes / uPix);
+  vec2 cUv = ((block + 0.5) * uPix) / uRes;
+  vec2 q = (vec2(0.25) * uPix) / uRes;
+  vec3 col = 0.25 * (tap(cUv + vec2(-q.x, -q.y)) + tap(cUv + vec2(q.x, -q.y))
+                   + tap(cUv + vec2(-q.x,  q.y)) + tap(cUv + vec2(q.x,  q.y)));
+
+  // Retro palette quantization per block + non-periodic IGN dither (no crosshatch moire)
+  float dither = ignNoise(block);
+  col = clamp(floor(col * uLevels + 0.5 + dither * 0.45) / uLevels, 0.0, 1.0);
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
 const GODRAY_THEMES = {
   graveyard: { a: [0.68, 0.74, 1.00], b: [0.52, 0.62, 0.95], c: [0.75, 0.80, 1.00], multi: 0, lean: 96, alpha: 0.72 },
   ramparts:  { a: [0.66, 0.74, 1.00], b: [0.54, 0.64, 0.96], c: [0.78, 0.84, 1.00], multi: 0, lean: 104, alpha: 0.70 },
@@ -909,6 +989,7 @@ export class FxLayers {
     this.pGodRays = this.program(VERT, GODRAYS_FRAG);
     this.pAttack = this.program(VERT, ATTACK_FRAG);
     this.pShockRing = this.program(VERT, SHOCKRING_FRAG);
+    this.pRetroBg = this.program(VERT, RETRO_BG_FRAG);
     this.pSpark = this.program(SPARK_VERT, SPARK_FRAG);
     this.pSpark.aLocal = gl.getAttribLocation(this.pSpark.p, 'aLocal');
     this.pSpark.aColor = gl.getAttribLocation(this.pSpark.p, 'aColor');
@@ -1043,6 +1124,40 @@ export class FxLayers {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ctx.canvas);
     return true;
+  }
+
+  /**
+   * Filters only the already-composited background layers (sky, parallax, 3D walls,
+   * columns, arches, murals, caustics & god-rays) into a subtle 16/32-bit pixel grid
+   * (`480x270` virtual texels + RGB555 Bayer ordered dithering) before any z = 0
+   * foreground terrain, props, sprites, or HUD elements are drawn.
+   */
+  retroBackground(ctx) {
+    if (!this.enabled) return;
+    if (!this.uploadScene(ctx)) return;
+    const gl = this.gl;
+    const cw = this.canvas.width, ch = this.canvas.height;
+    const prog = this.pRetroBg;
+    gl.viewport(0, 0, cw, ch);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.disable(gl.BLEND);
+    gl.useProgram(prog.p);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+    gl.enableVertexAttribArray(prog.aPos);
+    gl.vertexAttribPointer(prog.aPos, 2, gl.FLOAT, false, 0, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.sceneSnapTex);
+    gl.uniform1i(prog.u.uScene, 0);
+    gl.uniform2f(prog.u.uRes, W, H);
+    // Pixel look only (no blur): native 1x1 scene-px grid + 32-level palette (sharp).
+    gl.uniform1f(prog.u.uPix, this.bgPixel != null ? this.bgPixel : 1.0);
+    gl.uniform1f(prog.u.uLevels, this.bgLevels != null ? this.bgLevels : 32.0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.canvas, 0, 0, cw, ch, 0, 0, W, H);
+    ctx.restore();
   }
 
   water(ctx, rect, { horizon, camX, tint, spec, frozen = 0, alpha = 1 }) {

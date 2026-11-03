@@ -207,8 +207,62 @@ export function moveCursor(fromKey, dx, dy) {
 }
 
 export function nextRoomAfter(clearedKey, clearedMask) {
-  const open = MAP_ROOMS[clearedKey].exits.filter((n) => !isCleared(n, clearedMask));
+  const room = MAP_ROOMS[clearedKey];
+  if (!room) return null;
+  const open = room.exits.filter((n) => !isCleared(n, clearedMask));
   return open[0] || null;
+}
+
+/**
+ * Resolves the next adjacent stage to enter when walking through the right-side
+ * Boss Exit Door after defeating `clearedKey`'s boss.
+ * Returns `null` after `'throne'` (The Count) so the Dawn Finale plays.
+ */
+export function nextAdjacentStageKey(clearedKey, clearedMask, relicsSet = null) {
+  if (clearedKey === 'throne') return null;
+  const room = MAP_ROOMS[clearedKey];
+  if (!room || !room.exits || !room.exits.length) {
+    const idx = stageIndexOf(clearedKey);
+    return (idx >= 0 && idx + 1 < STAGES.length) ? STAGES[idx + 1].key : null;
+  }
+  const doors = stageDoorsFor(clearedKey);
+  const canReachNeighbor = (neighborKey) => {
+    if (!relicsSet) return true;
+    const matching = doors.filter((d) => d.targetKey === neighborKey);
+    if (!matching.length) return true;
+    return matching.some((d) => canTraverseDoor(d, relicsSet));
+  };
+
+  // 1. Prefer directly adjacent connected stages that are unlocked and not yet cleared
+  const reachableExits = room.exits.filter(canReachNeighbor);
+  const pool = reachableExits.length ? reachableExits : room.exits;
+  const unclearedAdjacent = pool.filter((n) => !isCleared(n, clearedMask));
+  if (unclearedAdjacent.length) {
+    // Prefer non-throne until Clock Tower is cleared, unless throne is the only uncleared neighbor
+    const nonThrone = unclearedAdjacent.filter((n) => n !== 'throne' || clearedKey === 'clocktower');
+    return nonThrone[0] || unclearedAdjacent[0];
+  }
+
+  // 2. All direct neighbors cleared: BFS across connected rooms to pick the adjacent step
+  // leading shortest-path toward the nearest remaining uncleared region
+  const visited = new Set([clearedKey]);
+  const queue = pool.map((firstStep) => ({ key: firstStep, firstStep }));
+  for (const item of queue) visited.add(item.key);
+  while (queue.length) {
+    const { key, firstStep } = queue.shift();
+    if (!isCleared(key, clearedMask)) return firstStep;
+    const r = MAP_ROOMS[key];
+    if (!r || !r.exits) continue;
+    for (const nxt of r.exits) {
+      if (!visited.has(nxt)) {
+        visited.add(nxt);
+        queue.push({ key: nxt, firstStep });
+      }
+    }
+  }
+
+  // 3. Entire castle cleared: step into the first connected adjacent stage
+  return pool[0] || room.exits[0];
 }
 
 function countBits(mask, max = 18) {

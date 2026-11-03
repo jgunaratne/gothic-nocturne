@@ -191,6 +191,9 @@ function remoteFrame(assets, p) {
     deadT: p.deadT || 0,
     hurtT: p.hurtT || 0,
     landT: 0,
+    dashK: p.dashK != null ? p.dashK : 0.5,
+    runT: p.runT != null ? p.runT : 1,
+    runFrame: p.runFrame || 0,
     meleeAnim,
   });
 }
@@ -297,8 +300,24 @@ export function drawRemotePlayers(ctx, world, peersInStage, time = 0) {
         }, sx, sy, p.facing, !!(p.wCr || p.anim === 'crouch'), getFxLayers(), time, fr.name);
       }
     }
+  }
+}
 
-    // 5. Floating Nameplate, Salute Banner & Mini HP Bar
+/**
+ * Draws floating nameplates, micro HP bars, and salute callouts for remote
+ * hunters in the UI overlay pass so 5x7 glyphs remain razor-sharp.
+ */
+export function drawRemotePlayerLabels(ctx, font, world, peersInStage) {
+  if (!peersInStage || peersInStage.length === 0) return;
+  const camX = world.camera.rx;
+  const camY = world.camera.ry;
+
+  for (const p of peersInStage) {
+    const sx = p.x - camX;
+    const sy = p.y - camY;
+    if (sx < -110 || sx > W + 110 || sy < -90 || sy > H + 90) continue;
+
+    const pal = paletteForSlot(p.slot);
     const lvTag = (p.level || 1) > 1 ? `LV${p.level} ` : '';
     const baseName = `${lvTag}${p.name}`;
     const label = p.screen === 'map' ? `${baseName} · MAP` : baseName;

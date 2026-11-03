@@ -19,10 +19,10 @@ import { createBoss } from './bosses.js';
 import { THEMES } from './builder.js';
 import { Candle, Item, Projectile, Fire, rollDrop, rectsOverlap } from './objects.js';
 import { populateExploration } from './exploration.js';
-import { cellsToRevealAt, stageIndexOf } from './castlemap.js';
+import { cellsToRevealAt, stageIndexOf, nextAdjacentStageKey } from './castlemap.js';
 import { BOSS_RELICS, FORGED_RELIC_EFFECTS } from './relics.js';
 import { computeExpYield, enemyExpProfile, stageRankFor } from './progression.js';
-import { drawRemotePlayers, drawRemoteEdgeIndicators } from './net_player.js';
+import { drawRemotePlayers, drawRemotePlayerLabels, drawRemoteEdgeIndicators } from './net_player.js';
 import {
   WEAPONS, ELEMENT_META, computeStrengthBreakdown, computeWeaponHit, rollEnemyWeaponDrop,
 } from './weapons.js';
@@ -34,13 +34,13 @@ const BOSS_TALK_FRAMES = {
   greatjack: { idle: ['flame0', 'flame1'], talk: ['flame0', 'spit', 'flame1', 'flame0', 'spit'] },
   devilsanta: { idle: ['idle'], talk: ['idle', 'throw', 'idle', 'lunge', 'throw'] },
   bonecaptain: { idle: ['walk0'], talk: ['walk0', 'throw0', 'walk1', 'throw1', 'walk0'] },
-  reaper: { idle: ['idle0', 'idle1'], talk: ['idle0', 'windup', 'idle1', 'swing', 'idle0'] },
+  reaper: { idle: ['idle0'], talk: ['idle0', 'cast', 'windup', 'idle0'] },
   cinderqueen: { idle: ['idle'], talk: ['idle', 'cast', 'erupt', 'idle', 'cast'] },
   gorgon: { idle: ['a', 'b'], talk: ['a', 'stare', 'b', 'a', 'stare'] },
   automaton: { idle: ['idle'], talk: ['idle', 'walk', 'overload', 'idle', 'punch'] },
   archivist: { idle: ['idle'], talk: ['idle', 'cast', 'summon', 'idle', 'shield'] },
   archon: { idle: ['idle', 'roar'], talk: ['roar', 'pounce', 'idle', 'roar', 'shell'] },
-  reaperlord: { idle: ['idle0', 'idle1'], talk: ['idle0', 'windup', 'idle1', 'swing'] },
+  reaperlord: { idle: ['idle0'], talk: ['idle0', 'cast', 'windup', 'idle0'] },
   count: { idle: ['idle'], talk: ['idle', 'cast', 'cape', 'idle', 'cast'] },
 };
 
@@ -207,6 +207,9 @@ export class World {
     this.bossIntro = null;
     this.bossHold = false;
     this.gateClosed = false;
+    this.gateDropY = 0;
+    this.bossDefeated = false;
+    this.bossRewardsClaimed = false;
     this.camera.resetBounds();
     this.level = new Level(d);     // restores breakable blocks & crumbling slabs
     this.stage3d = new Stage3D(this.assets, this.level, this.fxTheme, d);
@@ -223,7 +226,14 @@ export class World {
     this.passages = exp.passages;
     this.vessel = exp.vessel;
     this.pedestal = exp.pedestal;
-    this.landmarks = [this.sanctuary, ...(this.passages || []), this.vessel, this.pedestal].filter(Boolean);
+    this.bossExitDoor = exp.bossExitDoor || null;
+    this.landmarks = [
+      this.sanctuary,
+      ...(this.passages || []),
+      this.vessel,
+      this.pedestal,
+      this.bossExitDoor,
+    ].filter(Boolean);
     this.stage3d.excludeLandmarks(this.landmarks);
     this.inSecretArea = false;
 
@@ -448,6 +458,7 @@ export class World {
 
   onBossDefeated(boss) {
     this.bossActive = false;
+    this.bossDefeated = true;
     const a = (boss && boss.arena) || this.data.boss.arena;
     const minY = (a.ceilY != null ? a.ceilY : a.floorY - 220) + 48;
     const maxY = a.floorY - 48;
@@ -460,6 +471,9 @@ export class World {
     orb.arenaX1 = a.x1 - 28;
     this.items.push(orb);
     this.sfx('orb');
+    if (this.bossExitDoor) {
+      this.bossExitDoor.openNow(this);
+    }
     if (this.audio && this.audio.playMusic) {
       this.audio.playMusic('clear', false);
     }
@@ -670,6 +684,10 @@ export class World {
       if (this.sanctuary) this.sanctuary.update(p, this);
       if (this.vessel) this.vessel.update(p, this);
       if (this.pedestal) this.pedestal.update(p, this);
+      if (this.bossExitDoor) {
+        this.bossExitDoor.update(dt, p, input, this);
+        if (this.game && this.game.world && this.game.world !== this) return;
+      }
       if (this.passages) {
         for (const g of this.passages) {
           g.update(p, input, this);
@@ -972,17 +990,24 @@ export class World {
       case 'meat': p.hp = Math.min(maxHp, p.hp + (this.hasRelic('cathedral') ? 12 : 8)); this.sfx('pickup'); break;
       case 'dagger': case 'axe': case 'holy_water':
         p.subWeapon = type; this.subWeaponCarry = type; this.sfx('pickup'); break;
-      case 'orb': this.stageClear(); break;
+      case 'orb': this.claimBossClearRewards(); break;
       default: break;
     }
   }
 
   // ----------------------------------------------------------- scripting
-  /** Frames the boss arena: lock X to the arena and Y so floor sits near the bottom with the ceiling in view. */
-  frameArena(b) {
-    this.camera.setBounds(b.camX, b.camX);
+  /**
+   * Frames the boss arena: lock X to the arena and Y so floor sits near the bottom with the ceiling in view.
+   * When `smooth = true`, glides smoothly from the current camera coordinates into the arena over `0.88 s`.
+   */
+  frameArena(b, smooth = false) {
     const want = Math.max(0, Math.min(this.level.height - H, b.arena.floorY + 46 - H));
-    this.camera.setBoundsY(want, want);
+    if (smooth && this.camera.panToBounds) {
+      this.camera.panToBounds(b.camX, b.camX, want, want, 0.88);
+    } else {
+      this.camera.setBounds(b.camX, b.camX);
+      this.camera.setBoundsY(want, want);
+    }
   }
 
   /** True while the boss approach voice line (and its subtitle) is still playing. */
@@ -991,28 +1016,33 @@ export class World {
   }
 
   /**
-   * Boss intro, in order: (1) gate slams and the boss NAME banner appears,
+   * Boss intro, in order: (1) camera glides smoothly into the arena while the
+   * iron gate drops behind the hunter and the boss NAME banner appears,
    * (2) once the banner has been read the boss speaks its Daikon line with a
    * subtitle, (3) when the line ends the boss enters and the battle begins.
-   * The hunter is held at the arena threshold throughout.
+   * The hunter is cushioned gently at the arena threshold throughout.
    */
   updateBossIntro(dt, p) {
     const b = this.data.boss;
     this.bossHold = true;
-    if (p.x > b.triggerX) { p.x = b.triggerX; if (p.vx > 0) p.vx = 0; }
+    if (p.x > b.triggerX + 20) {
+      p.x = b.triggerX + 20;
+      if (p.vx > 0) p.vx = 0;
+    } else if (p.x > b.triggerX && p.vx > 0) {
+      p.vx *= Math.max(0, 1 - dt * 10);
+    }
     if (!this.bossIntro) {
-      this.bossIntro = { t: 0, stage: 'banner' };
+      this.bossIntro = { t: 0, stage: 'banner', gateSlammed: false };
       this.gateClosed = true;
+      this.gateDropY = 96;
       for (let r = b.gateRows[0]; r <= b.gateRows[1]; r++) this.level.set(b.gateCol, r, T_GATE);
-      this.frameArena(b);
+      this.frameArena(b, true);
       this.enemies = this.enemies.filter((e) => e.x > b.camX - 100);
-      this.sfx('gate');
-      this.camera.shake(4, 0.5);
-      // Crossfade straight into the boss battle theme as the gate slams so its
+      // Crossfade straight into the boss battle theme as the camera glides in so its
       // atmospheric opening swells behind the banner and continues playing in the
       // background (ducked via AudioSys.VOICE_DUCK_RATIO) throughout the boss's speech!
       this.audio.playMusic(this.bossMusicKey());
-      this.showMessage(b.name, 'DEFEAT IT TO CLAIM THE ORB', 3.2);
+      this.showMessage(b.name, 'DEFEAT IT TO UNSEAL THE EXIT', 3.2);
       // The boss materialises on its dais now, so it is on screen while it speaks.
       this.boss = createBoss(b.type || 'reaper', b.spawn.x, b.spawn.y, b.arena, this.difficulty);
       this.applyBossOverrides(this.boss, b);
@@ -1029,6 +1059,18 @@ export class World {
     }
     const intro = this.bossIntro;
     intro.t += dt;
+    // Animate the iron portcullis sliding down smoothly and slamming shut at 0.36 s
+    if (!intro.gateSlammed) {
+      const k = Math.max(0, Math.min(1, (intro.t - 0.08) / 0.28));
+      this.gateDropY = Math.round(96 * (1 - k * k));
+      if (intro.t >= 0.36) {
+        intro.gateSlammed = true;
+        this.gateDropY = 0;
+        this.sfx('gate');
+        this.camera.shake(2.2, 0.24);
+        this.particles.dust(b.gateCol * TILE + 16, (b.gateRows[1] + 1) * TILE, 8);
+      }
+    }
     // Posed boss: fade in, breathe and gesture while it speaks; never acts or takes hits until the battle starts.
     if (this.boss && this.boss.introPose) {
       const bs = this.boss;
@@ -1053,7 +1095,9 @@ export class World {
       } else if (G) {
         const seq = talking ? G.talk : G.idle;
         const cand = seq[Math.floor(bs.t * (talking ? 1.65 : 0.85)) % seq.length];
-        if (cand && this.assets.frame(bs.sheet, cand)) bs.frame = cand;
+        if (cand && (this.assets.frame(bs.sheet, cand) || this.assets.info(bs.sheet + '_' + cand))) {
+          bs.frame = cand;
+        }
       }
       if (talking && Math.floor(bs.t * 6) % 2 === 0) {
         if (Math.random() < 0.25) this.particles.sparks(bs.x + (Math.random() - 0.5) * bs.w, bs.y - bs.h * 0.8, 1, '#ffd27a');
@@ -1249,8 +1293,9 @@ export class World {
     this.bossHold = false;
     this.bossActive = true;
     this.gateClosed = true;
+    this.gateDropY = 0;
     for (let r = b.gateRows[0]; r <= b.gateRows[1]; r++) this.level.set(b.gateCol, r, T_GATE);
-    this.frameArena(b);
+    this.frameArena(b, false);
     if (this.boss && this.boss.introPose) {
       // Wake the posed boss: skip straight past its entrance fade (already visible).
       this.boss.introPose = false;
@@ -1473,14 +1518,79 @@ export class World {
     this.game.startGame(destIdx, this.carry({ enterFromDoorId: gate.id }));
   }
 
+  /**
+   * Awards boss-clear bonuses, heals the hunter, and unlocks the stage's Boss Relic
+   * directly in-world so the hunter can walk out through the right-side exit door.
+   */
+  claimBossClearRewards({ silentBanner = false } = {}) {
+    if (this.bossRewardsClaimed) return;
+    this.bossRewardsClaimed = true;
+    this.sfx('orb');
+    if (this.game && this.game.unlockStageClear) {
+      this.game.unlockStageClear();
+    }
+    if (this.player) {
+      this.player.maxHp = this.computeMaxHp();
+      this.player.hp = this.player.maxHp;
+      if (this.hasRelic('graveyard')) this.player.airJumpsLeft = 1;
+      this.particles.sparks(this.player.x, this.player.y - 36, 18, '#ffd27a');
+    }
+    this.recordExploration({ cleared: true });
+    if (this.audio && this.audio.musicKey !== 'clear') {
+      this.audio.playMusic('clear', false);
+    }
+    this.timeBonus = Math.ceil(this.timeLeft) * SCORE.timeBonus;
+    this.heartBonus = this.hearts * 100;
+    this.score += this.timeBonus + this.heartBonus;
+    if (this.bossExitDoor) this.bossExitDoor.openNow(this);
+    if (!silentBanner) {
+      const relic = BOSS_RELICS[this.stage.key];
+      const sub = relic
+        ? `${relic.name} UNLOCKED · ENTER THE OPEN DOOR →`
+        : 'ENTER THE OPEN DOOR ON THE RIGHT →';
+      this.showMessage('STAGE CLEAR!', sub, 3.6);
+    }
+  }
+
+  /**
+   * Transitions directly from the unsealed right-side Boss Exit Door into the
+   * next adjacent connected castle stage (or Dawn Finale after Throne) without
+   * stopping at the Castle Map screen.
+   */
+  enterBossExitDoor(door) {
+    if (!this.game) return;
+    if (!this.bossRewardsClaimed) {
+      this.claimBossClearRewards({ silentBanner: true });
+    }
+    const nextKey = (door && door.resolveNextKey)
+      ? door.resolveNextKey(this)
+      : nextAdjacentStageKey(this.stage.key, this.game.cleared, this.relics);
+    if (!nextKey) {
+      this.sfx('select');
+      this.game.beginEnding();
+      return;
+    }
+    const destIdx = stageIndexOf(nextKey);
+    if (destIdx < 0 || !this.game.startGame) {
+      this.game.beginEnding();
+      return;
+    }
+    if (this.game.discoverStage) this.game.discoverStage(destIdx);
+    this.sfx('select');
+    this.game.startGame(destIdx, this.carry());
+  }
+
   stageClear() {
     this.phase = 'clear'; this.phaseT = 0;
     this.player.invuln = 999;
     this.recordExploration({ cleared: true });
     if (this.audio.musicKey !== 'clear') this.audio.playMusic('clear', false);
-    this.timeBonus = Math.ceil(this.timeLeft) * SCORE.timeBonus;
-    this.heartBonus = this.hearts * 100;
-    this.score += this.timeBonus + this.heartBonus;
+    if (!this.bossRewardsClaimed) {
+      this.bossRewardsClaimed = true;
+      this.timeBonus = Math.ceil(this.timeLeft) * SCORE.timeBonus;
+      this.heartBonus = this.hearts * 100;
+      this.score += this.timeBonus + this.heartBonus;
+    }
     this.game.onStageClear();
   }
 
@@ -1597,6 +1707,14 @@ export class World {
     const flash = indoors ? this.flash * 0.35 : this.flash;
 
     // 1. Far sky, interleaved 2D scrolling parallax & 3D vistas / subterranean abysses.
+    // Pre-filter perspective-minified 3D masonry, columns, arches & 512x288 murals during Steps 1-3
+    // so sub-pixel minification never drops texel rows/columns unevenly before retroBackground runs.
+    const fxl = getFxLayers();
+    const fxOn = !!(fxl && fxl.enabled);
+    if (fxOn) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'medium';
+    }
     // Skip outdoor sky/vista overdraw once camera has crossed inside an opaque castle hall!
     const portalX = roomX < Infinity ? Math.round(project3D(roomX - 18, 144, 40, camX, camY).x) : W;
     const showOutdoor = outdoor && portalX > -8;
@@ -1643,8 +1761,7 @@ export class World {
     // 2. 3D Vaulted Interior Halls / Cylindrical Clock Shaft + 3D Boss Set-Pieces
     this.stage3d.drawInterior3D(ctx, cam, t);
     this.stage3d.drawBossCenterpiece3D(ctx, cam, t);
-    const fxl = getFxLayers();
-    if (fxl && fxl.enabled && !showOutdoor && (this.stage.theme === 'aqueduct' || this.fxTheme === 'ossuary')) {
+    if (fxOn && !showOutdoor && (this.stage.theme === 'aqueduct' || this.fxTheme === 'ossuary')) {
       fxl.caustics(ctx, { x: 0, y: 72, w: W, h: 204 }, {
         camX,
         tint: this.stage.theme === 'aqueduct' ? [0.24, 0.84, 1.0] : [0.20, 0.72, 0.66],
@@ -1666,10 +1783,21 @@ export class World {
     ctx.fillStyle = showOutdoor ? 'rgba(6, 5, 14, 0.15)' : 'rgba(6, 5, 14, 0.19)';
     ctx.fillRect(0, 0, W, H);
 
+    // 3b. Restore strict nearest-neighbor for z = 0 foreground terrain & sprites, then run the
+    // background-only retro pixel quantizer (2x2 blocks + 32-level palette, no blur) on Steps 1-3.
+    ctx.imageSmoothingEnabled = false;
+    if (fxl && fxl.enabled) fxl.retroBackground(ctx);
+
     // 4a. Boss gate + static architectural terrain (viaducts, 3D decks, z = 0 tiles & static balconies)
     if (this.gateClosed) {
       const b = this.data.boss;
-      this.assets.draw(ctx, 'arch', 'gate', b.gateCol * TILE + 16 - camX, (b.gateRows[1] + 1) * TILE - camY);
+      this.assets.draw(
+        ctx,
+        'arch',
+        'gate',
+        b.gateCol * TILE + 16 - camX,
+        (b.gateRows[1] + 1) * TILE - camY - Math.round(this.gateDropY || 0),
+      );
     }
     this.level.drawStaticTiles(ctx, cam, this.assets, t);
 
@@ -1677,6 +1805,7 @@ export class World {
     // Drawn BEFORE dynamic platforms (`drawDynamicTiles`) so moving lifts, ferries, gear gondolas,
     // and falling corbel tiles always pass cleanly IN FRONT OF doors and wall torches!
     if (this.passages) for (const g of this.passages) g.draw(ctx, cam, this.font, this, t);
+    if (this.bossExitDoor) this.bossExitDoor.draw(ctx, cam, this.font, this, t);
     if (this.sanctuary) this.sanctuary.draw(ctx, cam, this.font, t, this);
     if (this.vessel) this.vessel.draw(ctx, cam, this.font, this, t);
     if (this.pedestal) this.pedestal.draw(ctx, cam, this.font, this, t);
@@ -1701,31 +1830,6 @@ export class World {
     const peersHere = this.game && this.game.net ? this.game.net.peersInStage(this.stage.key) : null;
     if (peersHere && peersHere.length) drawRemotePlayers(ctx, this, peersHere, t);
     this.player.draw(ctx, this.assets, camX, camY);
-    if (this.player.saluteT > 0) {
-      ctx.save();
-      ctx.globalAlpha = Math.min(1, this.player.saluteT * 1.5);
-      this.font.draw(
-        ctx,
-        '* HAIL! *',
-        Math.round(this.player.x - camX),
-        Math.round(this.player.y - camY - 72 - (1 - this.player.saluteT / 1.8) * 8),
-        { align: 'center', color: '#ffd27a', shadow: '#05040a', gothic: false },
-      );
-      ctx.restore();
-    }
-    if (this.player.skillBanner && this.player.skillBanner.t > 0) {
-      const sb = this.player.skillBanner;
-      ctx.save();
-      ctx.globalAlpha = Math.min(1, sb.t * 2.2);
-      this.font.draw(
-        ctx,
-        sb.text,
-        Math.round(this.player.x - camX),
-        Math.round(this.player.y - camY - 76 - (1.4 - Math.min(1.4, sb.t)) * 8),
-        { align: 'center', color: sb.color || '#ffd27a', shadow: '#05040a', gothic: false },
-      );
-      ctx.restore();
-    }
     for (const pr of this.projectiles) pr.draw(ctx, this.assets, camX, camY);
     if (this.shockRings.length) {
       for (const r of this.shockRings) {
@@ -1794,12 +1898,42 @@ export class World {
   }
 
   drawOverlays(ctx) {
+    const camX = this.camera.rx, camY = this.camera.ry;
     const peersHere = this.game && this.game.net ? this.game.net.peersInStage(this.stage.key) : null;
-    if (peersHere && peersHere.length) drawRemoteEdgeIndicators(ctx, this.font, this, peersHere);
+    if (peersHere && peersHere.length) {
+      drawRemotePlayerLabels(ctx, this.font, this, peersHere);
+      drawRemoteEdgeIndicators(ctx, this.font, this, peersHere);
+    }
+    if (this.player.saluteT > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, this.player.saluteT * 1.5);
+      this.font.draw(
+        ctx,
+        '* HAIL! *',
+        Math.round(this.player.x - camX),
+        Math.round(this.player.y - camY - 72 - (1 - this.player.saluteT / 1.8) * 8),
+        { align: 'center', color: '#ffd27a', shadow: '#05040a', gothic: false },
+      );
+      ctx.restore();
+    }
+    if (this.player.skillBanner && this.player.skillBanner.t > 0) {
+      const sb = this.player.skillBanner;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, sb.t * 2.2);
+      this.font.draw(
+        ctx,
+        sb.text,
+        Math.round(this.player.x - camX),
+        Math.round(this.player.y - camY - 76 - (1.4 - Math.min(1.4, sb.t)) * 8),
+        { align: 'center', color: sb.color || '#ffd27a', shadow: '#05040a', gothic: false },
+      );
+      ctx.restore();
+    }
     if (this.sanctuary) this.sanctuary.drawPrompt(ctx, this.camera, this.font);
     if (this.passages) for (const g of this.passages) g.drawPrompt(ctx, this.camera, this.font, this);
+    if (this.bossExitDoor) this.bossExitDoor.drawPrompt(ctx, this.camera, this.font, this);
+    if (this.pedestal) this.pedestal.drawPrompt(ctx, this.camera, this.font, this, this.time);
     if (this.popups.length) {
-      const camX = this.camera.rx, camY = this.camera.ry;
       for (const pop of this.popups) {
         const alpha = Math.max(0, Math.min(1, pop.t / 0.12, (pop.dur - pop.t) / 0.36)) * (pop.maxAlpha ?? 1);
         if (alpha <= 0.02) continue;
@@ -1843,7 +1977,7 @@ export class World {
       const k = Math.min(1, m.t / 0.3, (m.dur - m.t) / 0.4);
       ctx.save();
       ctx.globalAlpha = Math.max(0, k);
-      this.game.banner([m.text], 150, { scale: 3, sub: m.sub });
+      this.game.banner([m.text], 150, { scale: 3, sub: m.sub }, ctx);
       ctx.restore();
     }
   }

@@ -60,16 +60,19 @@ export class Enemy extends Entity {
     if (this.deathT > 0.35) this.dead = true;
   }
 
-  drawSprite(ctx, assets, camX, camY, flip, alpha = 1) {
+  drawSprite(ctx, assets, camX, camY, flip, alpha = 1, xf = null) {
     // Generated clip frames (walk cycles, wind-ups, ...) stand in for the legacy
     // frame when their sheet exists; the state machine above is untouched.
-    const f = clipFrame(assets, this);
-    assets.draw(ctx, f.sheet, f.name, this.x - camX, this.y - camY, flip, alpha, this.scale, this.tint);
+    let f = clipFrame(assets, this);
+    if (!assets.frame(f.sheet, f.name) && assets.frame(this.sheet, 'idle0')) {
+      f = { sheet: this.sheet, name: 'idle0' };
+    }
+    assets.draw(ctx, f.sheet, f.name, this.x - camX, this.y - camY, flip, alpha, this.scale, this.tint, xf);
     if (this.flash > 0 && Math.floor(this.flash * 40) % 2 === 0) {
       // Hit flash: additive re-draw brightens the sprite.
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      assets.draw(ctx, f.sheet, f.name, this.x - camX, this.y - camY, flip, 0.8 * alpha, this.scale, this.tint);
+      assets.draw(ctx, f.sheet, f.name, this.x - camX, this.y - camY, flip, 0.8 * alpha, this.scale, this.tint, xf);
       ctx.restore();
     }
   }

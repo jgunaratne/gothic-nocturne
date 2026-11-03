@@ -1,65 +1,59 @@
 {
- "fps": null,
+ "fps": 12.0,
  "frames": {
   "windup0": {
-   "ax": 48.0,
-   "ay": 142.0,
-   "clipFrame": 25,
-   "h": 139,
-   "w": 76,
+   "ax": 43.0,
+   "ay": 134.0,
+   "clipFrame": 35,
+   "h": 135,
+   "w": 87,
    "x": 1,
    "y": 1
   },
   "windup1": {
-   "ax": 73.0,
-   "ay": 157.0,
-   "clipFrame": 59,
-   "h": 160,
-   "w": 114,
-   "x": 78,
+   "ax": 51.5,
+   "ay": 158.0,
+   "clipFrame": 44,
+   "h": 157,
+   "w": 115,
+   "x": 89,
    "y": 1
   },
   "windup2": {
-   "ax": 54.5,
+   "ax": 59.0,
    "ay": 166.0,
-   "clipFrame": 142,
+   "clipFrame": 54,
    "h": 164,
-   "w": 119,
-   "x": 193,
+   "w": 118,
+   "x": 205,
    "y": 1
   },
   "windup3": {
-   "ax": 56.5,
+   "ax": 59.0,
    "ay": 167.0,
-   "clipFrame": 237,
+   "clipFrame": 85,
    "h": 164,
-   "w": 121,
-   "x": 313,
+   "w": 118,
+   "x": 324,
    "y": 1
   }
  },
  "loop": false,
  "sheet": "boss_windup_sheet.png",
  "source": {
-  "action": "windup",
   "anchor": "hips",
   "clip": "boss_windup.mp4",
   "frame": "idle0",
   "model": "omni_1p5",
   "paletteLocked": true,
   "picks": [
-   25,
-   59,
-   142,
-   237
+   35,
+   44,
+   54,
+   85
   ],
-  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The Phantom Reaper, a hooded spectre holding a great scythe performs the WIND-UP of a heavy attack facing right: it draws its weapon and limbs back and up high, its body coiling with tension, and holds the raised pose. it raises the scythe high.",
-  "scale": 0.2976,
-  "select": "motion",
-  "sheet": "boss",
-  "window": [
-   25,
-   237
-  ]
+  "scale": 0.284,
+  "select": "pick",
+  "sheet": "boss"
  }
 }

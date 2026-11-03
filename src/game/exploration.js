@@ -8,7 +8,7 @@ import { getFxLayers } from '../engine/fxlayers.js';
 import { STAGES } from './stages.js';
 import { THEMES } from './builder.js';
 import { BOSS_RELICS } from './relics.js';
-import { stageDoorsFor, stageIndexOf, canTraverseDoor } from './castlemap.js';
+import { stageDoorsFor, stageIndexOf, canTraverseDoor, nextAdjacentStageKey } from './castlemap.js';
 import { rectsOverlap } from './objects.js';
 import { getGlowCanvas } from './tex3d.js';
 import { WeaponPedestal } from './armory_ui.js';
@@ -462,6 +462,195 @@ export class AncientVessel {
 }
 
 /**
+ * Right-side Boss Chamber Exit Door: stands sealed on the right side of every
+ * boss arena during combat, unseals with a golden-amber shockwave once the boss
+ * falls, and steps directly into the next adjacent connected castle level
+ * without returning to the Castle Map.
+ */
+export class BossExitDoor {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.open = false;
+    this.openT = 0;
+    this.near = false;
+    this.openedWithPlayerInside = false;
+  }
+
+  openNow(world) {
+    if (this.open) return;
+    this.open = true;
+    this.openT = 0;
+    this.openedWithPlayerInside = !!(world && world.player && Math.abs(world.player.x - this.x) < 22);
+    if (world) {
+      world.sfx('gate');
+      world.particles.sparks(this.x, this.y - 48, 24, '#ffd27a');
+      world.particles.dust(this.x, this.y, 10, '#d8c59e');
+      world.emitShockwave(this.x, this.y - 52, {
+        maxR: 142,
+        dur: 0.54,
+        strength: 0.78,
+        color: [1.0, 0.84, 0.38],
+      });
+    }
+  }
+
+  resolveNextKey(world) {
+    if (!world || !world.stage) return null;
+    const sIdx = Math.max(0, (world.stage.id || 1) - 1);
+    const clearedMask = ((world.game && world.game.cleared) || 0) | (1 << sIdx);
+    return nextAdjacentStageKey(world.stage.key, clearedMask, world.relics);
+  }
+
+  update(dt, player, input, world) {
+    if (this.open) this.openT += dt;
+    const dx = Math.abs(player.x - this.x);
+    const dy = Math.abs(player.y - this.y);
+    this.near = this.open && dx < 46 && dy < 44;
+    if (this.openedWithPlayerInside && player.x < this.x - 22) {
+      this.openedWithPlayerInside = false;
+    }
+    if (!this.open || this.openT < 0.38 || player.hurtT > 0 || dy >= 44) return;
+
+    const walkedIntoPortal = player.x >= this.x - 10
+      && (!this.openedWithPlayerInside || (input && input.down && input.down.right) || player.vx > 8);
+    const pressedEnterDoor = dx < 40
+      && player.onGround
+      && input && input.pressed && input.pressed.up
+      && !(input.down && input.down.attack);
+
+    if (walkedIntoPortal || pressedEnterDoor) {
+      world.enterBossExitDoor(this);
+    }
+  }
+
+  draw(ctx, cam, font, world, time) {
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    if (sx < -80 || sx > W + 80 || sy < -20 || sy > H + 150) return;
+
+    const open = this.open;
+    const nextKey = open ? this.resolveNextKey(world) : null;
+    const destIdx = nextKey ? stageIndexOf(nextKey) : -1;
+    const destStage = destIdx >= 0 ? STAGES[destIdx] : null;
+    const destTheme = destStage ? (THEMES[destStage.theme] || THEMES.graveyard) : THEMES.throne;
+    const accent = open ? (destTheme.accent || '#ffd27a') : '#ff5a78';
+    const pulse = 0.5 + 0.5 * Math.sin(time * 4.6 + 1.3);
+    const openEase = open ? Math.min(1, this.openT / 0.45) : 0;
+    const isRoyal = open && (ROYAL_HALL_STAGES.has(world.stage.key) || (nextKey && ROYAL_HALL_STAGES.has(nextKey)) || !nextKey);
+    const frameName = !open ? 'sealed' : (isRoyal ? 'royal' : 'open');
+    const assets = world.assets;
+    const doorFrame = assets && assets.frame ? assets.frame('grand_doors', frameName) : null;
+
+    ctx.save();
+    const archH = doorFrame ? doorFrame.h : 118;
+    const g = ctx.createRadialGradient(sx, sy - 54, 6, sx, sy - 54, open ? 72 : 52);
+    g.addColorStop(
+      0,
+      open
+        ? `rgba(255, 212, 118, ${(0.32 * openEase + 0.12 * pulse).toFixed(3)})`
+        : `rgba(198, 48, 96, ${(0.20 + 0.08 * pulse).toFixed(3)})`,
+    );
+    g.addColorStop(1, 'rgba(12, 10, 28, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(sx - 74, sy - archH - 14, 148, archH + 24);
+
+    if (doorFrame && assets.img && assets.img('grand_doors')) {
+      ctx.fillStyle = 'rgba(4, 3, 10, 0.56)';
+      ctx.fillRect(sx - 38, sy - 2, 76, 5);
+
+      assets.draw(ctx, 'grand_doors', frameName, sx, sy + 2);
+
+      const glow = getGlowCanvas(open ? 'amber' : 'crimson');
+      if (glow) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = open ? (0.28 + 0.08 * pulse) : (0.18 + 0.06 * pulse);
+        ctx.drawImage(glow, sx - 48, sy - 76, 40, 40);
+        ctx.drawImage(glow, sx + 8, sy - 76, 40, 40);
+        if (open) {
+          ctx.globalAlpha = (0.34 + 0.14 * pulse) * openEase;
+          ctx.drawImage(glow, sx - 28, sy - 74, 56, 68);
+        }
+        ctx.restore();
+      }
+      const fxl = getFxLayers();
+      if (fxl) {
+        const sconceX = isRoyal ? 23 : 28;
+        const sconceY = isRoyal ? 56 : 49;
+        const flameCol = open ? [1.0, 0.72, 0.24] : [0.95, 0.28, 0.42];
+        fxl.addFlame(sx - sconceX, sy - sconceY, 6, 10, flameCol, this.x * 0.05);
+        fxl.addFlame(sx + sconceX, sy - sconceY, 6, 10, flameCol, this.x * 0.05 + 1.9);
+      }
+
+      if (open) {
+        // Inviting golden-amber threshold column + rising motes inside the unsealed arch
+        const innerG = ctx.createLinearGradient(sx, sy - 78, sx, sy);
+        innerG.addColorStop(0, `rgba(255, 232, 164, ${(0.10 * openEase).toFixed(3)})`);
+        innerG.addColorStop(0.55, `rgba(255, 210, 118, ${(0.24 * openEase + 0.08 * pulse).toFixed(3)})`);
+        innerG.addColorStop(1, `rgba(110, 236, 208, ${(0.20 * openEase).toFixed(3)})`);
+        ctx.fillStyle = innerG;
+        ctx.fillRect(sx - 13, sy - 76, 26, 74);
+
+        for (let i = 0; i < 6; i++) {
+          const wy = sy - 10 - ((Math.round(time * 22 + i * 12)) % 62);
+          const wx = sx - 9 + Math.round(Math.sin(time * 2.8 + i * 1.4) * 7);
+          ctx.fillStyle = i % 2 === 0 ? '#ffe8a4' : accent;
+          ctx.globalAlpha = (0.58 + 0.34 * pulse) * openEase;
+          ctx.fillRect(wx, wy, 2, 2);
+        }
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.fillStyle = '#ff5a78';
+        ctx.globalAlpha = 0.5 + 0.35 * pulse;
+        ctx.fillRect(sx - 3, sy - 42, 6, 6);
+        ctx.fillStyle = '#ffd6e2';
+        ctx.fillRect(sx - 1, sy - 40, 2, 2);
+        ctx.globalAlpha = 1;
+      }
+    } else {
+      ctx.fillStyle = '#24283d';
+      ctx.fillRect(sx - 28, sy - 96, 56, 96);
+      ctx.fillStyle = open ? '#ffd27a' : '#ff5a78';
+      ctx.fillRect(sx - 16, sy - 78, 32, 74);
+    }
+
+    ctx.restore();
+  }
+
+  drawPrompt(ctx, cam, font, world) {
+    if (!this.open) return;
+    const nextKey = this.resolveNextKey(world);
+    const destIdx = nextKey ? stageIndexOf(nextKey) : -1;
+    const destStage = destIdx >= 0 ? STAGES[destIdx] : null;
+    const shortDest = destStage ? destStage.name.replace(/^THE\s+/, '') : 'DAWN FINALE';
+    const isRoyal = ROYAL_HALL_STAGES.has(world.stage.key) || (nextKey && ROYAL_HALL_STAGES.has(nextKey)) || !nextKey;
+    const doorH = isRoyal ? 110 : 124;
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    if (sx < -60 || sx > W + 60) return;
+    const topLine = this.near ? `→ ENTER ${shortDest}` : `→ ${shortDest}`;
+    const lw = font.width(topLine, 1, 1, false) + 12;
+    const lx = Math.max(6, Math.min(W - lw - 6, Math.round(sx - lw / 2)));
+    const ly = Math.max(46, sy - doorH - 14);
+    const fadeIn = Math.min(1, this.openT / 0.35);
+    ctx.save();
+    ctx.globalAlpha = fadeIn;
+    ctx.fillStyle = 'rgba(6, 5, 16, 0.94)';
+    ctx.fillRect(lx, ly, lw, 13);
+    ctx.strokeStyle = this.near ? '#ffe8a4' : '#ffd27a';
+    ctx.strokeRect(lx + 0.5, ly + 0.5, lw - 1, 12);
+    font.draw(ctx, topLine, lx + Math.round(lw / 2), ly + 3, {
+      align: 'center',
+      color: this.near ? '#fff4cc' : '#ffd27a',
+      shadow: '#05040a',
+      gothic: false,
+    });
+    ctx.restore();
+  }
+}
+
+/**
  * Enforces Section 3.2 Mandatory Doorway & Sanctuary Safe Buffers (`[col - 4, col + 4] × 3 tiles`)
  * plus calm `SAVE_ROOM` zones (`0` enemies, `0` active spawners within `100px` trigger range).
  */
@@ -661,7 +850,15 @@ export function populateExploration(world) {
 
   enforceSafeBuffers(world, safeWindows);
 
+  // 6. Right-side Boss Chamber Exit Door: opens after defeating the stage boss
+  let bossExitDoor = null;
+  if (stage.boss) {
+    const exitX = stage.boss.exitX != null ? stage.boss.exitX : (stage.boss.camX + 580);
+    const exitY = stage.boss.exitY != null ? stage.boss.exitY : stage.boss.arena.floorY;
+    bossExitDoor = new BossExitDoor(exitX, exitY);
+  }
+
   if (addedPlatforms) level.recompute();
 
-  return { sanctuary, passages, vessel, pedestal };
+  return { sanctuary, passages, vessel, pedestal, bossExitDoor };
 }

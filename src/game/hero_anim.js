@@ -27,6 +27,9 @@ export const LAND_SOFT_TIME = 0.08;     // soft landing: land1 only
 export const LAUNCH_TIME = 0.08;        // take-off stretch
 export const TURN_TIME = 0.08;          // skid frame on a direction change
 export const CROUCH_BLEND = 0.05;       // half-crouch in-between on the way down / up
+export const DASH_FRAMES = 7;           // dash0 crouch, dash1 launch, dash2..4 sprint, dash5 brake, dash6 settle
+export const RUN_PX_PER_FRAME = 11.5;   // sprint cycle: one of 8 frames per ~11.5 px travelled (~17 fps at full speed)
+export const RUN_LAUNCH = 0.10;         // seconds of the explosive launch frame when a sprint starts
 export const WHIP_EXTEND_MAX = 0.07;    // seconds the lash takes to fly out before the hit box is live
 
 export function walkAdvance(vx, dt) {
@@ -173,6 +176,22 @@ function pickMeleeFrame(assets, m) {
 }
 
 /**
+ * Frame of the double-tap dash clip from the dash phase `k` (1 = just started, 0 = done):
+ * crouch anticipation (1 tick) -> explosive launch -> 3 streamlined sprint strides cycling
+ * at speed -> braking skid -> upright settle. Falls back to the walk cycle without the clip.
+ */
+export function dashName(k) {
+  if (k > 0.94) return 'dash0';
+  if (k > 0.82) return 'dash1';
+  if (k > 0.30) {
+    const stride = Math.floor(((0.82 - k) / 0.52) * 6) % 3;   // ~2 cycles of 3 strides
+    return 'dash' + (2 + stride);
+  }
+  if (k > 0.12) return 'dash5';
+  return 'dash6';
+}
+
+/**
  * Picks the frame for a hunter.
  *
  * `s` is plain state: state ('idle' | 'walk' | 'jump' | 'crouch' | 'attack' |
@@ -240,6 +259,19 @@ export function heroFrame(assets, s) {
     case 'jump':
       if (has('hero_jump')) return pick('hero_jump', jumpName(s.vy));
       return pick('hero', 'jump');
+    case 'dash': {
+      const k = s.dashK != null ? s.dashK : (s.dashT != null ? s.dashT / PLAYER.dashTime : 0.5);
+      if (has('hero_dash')) return pick('hero_dash', dashName(k));
+      if (has('hero_walk8')) return pick('hero_walk8', 'walk' + (Math.floor((1 - k) * 12) % 8));
+      return pick('hero', 'walk' + (Math.floor((1 - k) * 12) % 6));
+    }
+    case 'run': {
+      // Explosive launch pose for the first ticks of a double-tap sprint, then the 8-frame run cycle.
+      if (has('hero_dash') && s.runT != null && s.runT < RUN_LAUNCH) return pick('hero_dash', 'dash1');
+      if (has('hero_run')) return pick('hero_run', 'run' + ((s.runFrame || 0) % 8));
+      if (has('hero_walk8')) return pick('hero_walk8', 'walk' + ((s.runFrame || 0) % 8));
+      return pick('hero', 'walk' + ((s.runFrame || 0) % 6));
+    }
     case 'crouch':
       if (has('hero_jump') && s.crouchBlendT > 0) return pick('hero_jump', 'land1');
       if (s.noWhip && has('hero_csword')) return pick('hero_csword', 'crouch_nowhip');
@@ -282,6 +314,20 @@ export function fidgetLength(assets) {
 /** Squash / stretch for the hunter sprite: { sx, sy } or null when at rest. */
 export function heroScale(s) {
   if (s.state === 'dead' || s.state === 'attack' || s.state === 'hurt') return null;
+  if (s.state === 'run') {
+    // Launch stretch that relaxes into a steady 4% forward lean-stretch while sprinting.
+    const t = s.runT != null ? s.runT : 1;
+    const e = Math.max(0, 1 - t / 0.22);
+    return { sx: 1.04 + 0.12 * e, sy: 1 - 0.03 - 0.07 * e };
+  }
+  if (s.state === 'dash') {
+    // Launch: bold horizontal stretch that relaxes through the sprint; brake: short squash.
+    const k = s.dashK != null ? s.dashK : (s.dashT != null ? s.dashT / PLAYER.dashTime : 0.5);
+    if (k > 0.94) return { sx: 1.10, sy: 0.90 };
+    if (k > 0.55) { const e = (k - 0.55) / 0.39; return { sx: 1 + 0.16 * e, sy: 1 - 0.10 * e }; }
+    if (k < 0.30 && k > 0.12) { const e = (0.30 - k) / 0.18; return { sx: 1 + 0.08 * e, sy: 1 - 0.06 * e }; }
+    return null;
+  }
   if (s.landT > 0 && s.landHard && s.state !== 'jump') {
     const k = Math.pow(Math.min(1, s.landT / LAND_TIME), 1.6);   // hard in, eased out
     return { sx: 1 + 0.18 * k, sy: 1 - 0.20 * k };

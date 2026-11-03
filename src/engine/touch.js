@@ -397,6 +397,10 @@ export class TouchControls {
       this.input.pulse('attack');
       return;
     }
+    if (w.bossExitDoor && w.bossExitDoor.open && w.bossExitDoor.near) {
+      w.enterBossExitDoor(w.bossExitDoor);
+      return;
+    }
     if (w.passages && w.passages.some((p) => p.near)) {
       this.input.pulse('up');
       return;
@@ -788,8 +792,7 @@ export class TouchControls {
           if (g.stateT > 0.2) {
             g.chooseDifficulty(DIFFICULTY_ORDER[idx]);
             g.carryState = null;
-            g.setState('stageselect');
-            g.audio.sfx('select');
+            g.startGame(0, null);
           } else {
             g.audio.sfx('bone');
           }
@@ -910,7 +913,16 @@ export class TouchControls {
             this.input.pulse('attack');
             return true;
           }
-          // Tap directly on a nearby Passage Gateway or Sanctuary Waystone in world space
+          // Tap directly on an open Boss Exit Door, nearby Passage Gateway, or Sanctuary Waystone in world space
+          if (w.bossExitDoor && w.bossExitDoor.open && w.bossExitDoor.near) {
+            const sx = w.bossExitDoor.x - w.camera.rx;
+            const sy = w.bossExitDoor.y - w.camera.ry;
+            if (Math.abs(gx - sx) <= 54 && gy >= sy - 132 && gy <= sy + 16) {
+              this.vibrate(8);
+              w.enterBossExitDoor(w.bossExitDoor);
+              return true;
+            }
+          }
           if (w.passages) {
             for (const pg of w.passages) {
               if (!pg.near) continue;
@@ -1105,6 +1117,12 @@ export class TouchControls {
       if (s === 'play' && w && w.player) {
         if (w.player.petrified > 0) {
           promptText = '⚡ TAP RAPIDLY TO SHATTER STONE';
+        } else if (w.bossExitDoor && w.bossExitDoor.open && w.bossExitDoor.near) {
+          const nextKey = w.bossExitDoor.resolveNextKey ? w.bossExitDoor.resolveNextKey(w) : null;
+          const destIdx = nextKey ? stageIndexOf(nextKey) : -1;
+          const dest = destIdx >= 0 ? STAGES[destIdx].name.replace(/^THE\s+/, '') : 'DAWN FINALE';
+          promptText = `→ ENTER ${dest}`;
+          dpadUpHint = true;
         } else if (w.passages) {
           const nearGate = w.passages.find((pg) => pg.near);
           if (nearGate) {

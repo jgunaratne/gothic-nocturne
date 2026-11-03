@@ -1,0 +1,61 @@
+{
+ "fps": 11.0,
+ "frames": {
+  "cast0": {
+   "ax": 43.0,
+   "ay": 116.0,
+   "clipFrame": 54,
+   "h": 112,
+   "w": 83,
+   "x": 1,
+   "y": 1
+  },
+  "cast1": {
+   "ax": 49.5,
+   "ay": 112.0,
+   "clipFrame": 74,
+   "h": 114,
+   "w": 95,
+   "x": 85,
+   "y": 1
+  },
+  "cast2": {
+   "ax": 86.5,
+   "ay": 112.0,
+   "clipFrame": 104,
+   "h": 115,
+   "w": 188,
+   "x": 181,
+   "y": 1
+  },
+  "cast3": {
+   "ax": 97.0,
+   "ay": 112.0,
+   "clipFrame": 135,
+   "h": 114,
+   "w": 186,
+   "x": 370,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "boss_cast_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "boss_cast.mp4",
+  "frame": "idle1",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   54,
+   74,
+   104,
+   135
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.2747,
+  "select": "pick",
+  "sheet": "boss"
+ }
+}

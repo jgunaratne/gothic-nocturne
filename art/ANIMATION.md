@@ -138,6 +138,31 @@ Every enemy, boss, and ally animates through a single draw-time hook in `Enemy.d
 
 ---
 
+## Worked Example: Double-Tap Sprint (`hero_run` loop + `hero_dash` launch)
+
+1. **Loop clip (treadmill prompt, autocorrelation selection):**
+   ```bash
+   .venv/bin/python tools/animate_sprites.py hero_run --sheet hero --frame walk0 \
+       --prompt "The vampire hunter ... performs a smooth, looping treadmill RUN CYCLE in place facing right: \
+   a fast athletic sprint with the torso leaning forward, long powerful strides ..., arms pumping ..., \
+   a clear airborne moment between strides. Exactly four full stride cycles over the clip ... \
+   The character stays centred and does not travel across the screen. No motion lines, no speed streaks, no dust." \
+       --stop-after contact
+   .venv/bin/python tools/animate_sprites.py hero_run --sheet hero --frame walk0 \
+       --names run --select period --count 8 --start 60 --min-lag 14 --max-lag 60 --anchor mean --anchor-y feet --loop
+   ```
+   (`period 19 frames, correlation 0.58` -> 8 evenly spaced frames of one stride cycle; `--anchor mean` stops treadmill wobble.)
+2. **Launch one-shot (`hero_dash`, custom prompt, hand-picked `--pick 42,50,58,70,82,94,106`):** only `dash1` (the explosive lunge) is used as the first `RUN_LAUNCH = 0.10 s` of a sprint.
+3. **Engine feel layer** (`src/game/player.js`, `src/game/hero_anim.js`, `src/engine/constants.js`):
+   - Input: two `pressed.left/right` edges of the same direction within `PLAYER.runTapWindow` (`0.24 s`) while grounded; the sprint lasts as long as that direction stays held (released, reversed, crouch, stairs, attacks or a hit end it).
+   - Physics: `vx` ramps to `PLAYER.runSpeed` (`198 px/s`, relic speed bonuses applied) over `0.14 s`; facing locked while sprinting.
+   - Frames: `run0..7` advance by distance (`RUN_PX_PER_FRAME = 11.5 px`, ~17 fps at full speed); contact frames `run1` / `run5` fire footstep clicks + dust.
+   - Secondary motion: `+12%` launch stretch relaxing to a steady `4%` forward stretch, `0.13 rad` lean, `'dash'` whoosh and a `1.2 px` camera shake on launch.
+   - Network: `runT` / `runFrame` ride along in `buildNetSnapshot()` so remote hunters sprint with the same frames.
+4. **Deterministic verification:** `?demo=dash&stage=1&at=12&skip=330&dashfreeze=<t>` double-taps and holds right with no fiends, hit-stopping the sim once the sprint has lasted `t` seconds for headless screenshots.
+
+---
+
 ## Troubleshooting & Gotchas Reference
 
 | Symptom | Root cause | Fix |

@@ -43,8 +43,8 @@ const LAYER_SETS = {
   darkwood: {
     layers: [
       { img: 'mountains', fx: 0.07, fy: 0.05, dy: -34, dark: 0.52 },
-      { img: 'darkwood_canopy', fx: 0.18, fy: 0.09, dy: -52, dark: 0.58, topCut: 33 },
-      { img: 'darkwood_canopy', fx: 0.38, fy: 0.15, dy: -56, dark: 0.36, topCut: 33 },
+      { img: 'darkwood_canopy', fx: 0.18, fy: 0.09, dy: -38, dark: 0.58, topCut: 33 },
+      { img: 'darkwood_canopy', fx: 0.38, fy: 0.15, dy: -34, dark: 0.36, topCut: 33 },
     ],
     front: false,
     flock: { count: 5, cx: 0.52, cy: 0.20, rx: 190, ry: 46 },

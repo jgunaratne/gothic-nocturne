@@ -154,16 +154,22 @@ void main() {
     col = mix(col, vec3(0.75, 0.08, 0.1), uHurt * (0.25 + 0.6 * edge));
   }
 
-  // Phosphor scanlines at display scale (soft, never fully dark) + faint aperture mask
+  // Phosphor scanlines at display scale (soft, never fully dark) + faint aperture mask.
+  // Attenuate on non-integer scales below 3.5x so fractional browser viewports never
+  // beat 360-row scanlines or a 3-px aperture grill against physical monitor pixels.
   float scale = uRes.y / uSceneRes.y;
-  if (uScan > 0.001 && scale >= 2.0) {
-    float fade = clamp((scale - 1.75) * 0.8, 0.0, 1.0);
+  float fracErr = abs(scale - floor(scale + 0.5));
+  float intAlign = scale >= 3.5 ? 1.0 : (1.0 - smoothstep(0.02, 0.12, fracErr));
+  if (uScan > 0.001 && scale >= 1.98 && intAlign > 0.001) {
+    float fade = clamp((scale - 1.75) * 0.8, 0.0, 1.0) * intAlign;
     float sy = fract(vUv.y * uSceneRes.y);
-    float line = 0.5 + 0.5 * cos(sy * 6.2831853);
-    col *= 1.0 - uScan * fade * (1.0 - line) * 0.48;
-    float px = mod(floor(vUv.x * uRes.x), 3.0);
-    vec3 mask = px < 1.0 ? vec3(1.0, 0.95, 0.95) : px < 2.0 ? vec3(0.95, 1.0, 0.95) : vec3(0.95, 0.95, 1.0);
-    col *= mix(vec3(1.0), mask, uScan * fade * 0.42);
+    float line = 0.5 + 0.5 * cos((sy - 0.5) * 6.2831853);
+    col *= 1.0 - uScan * fade * (1.0 - line) * 0.44;
+    if (scale >= 2.95) {
+      float px = mod(floor(vUv.x * uRes.x), 3.0);
+      vec3 mask = px < 1.0 ? vec3(1.0, 0.95, 0.95) : px < 2.0 ? vec3(0.95, 1.0, 0.95) : vec3(0.95, 0.95, 1.0);
+      col *= mix(vec3(1.0), mask, uScan * fade * 0.36);
+    }
   }
 
   // Film grain

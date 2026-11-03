@@ -8,7 +8,7 @@ import { getFxLayers } from '../engine/fxlayers.js';
 import {
   heroFrame, heroScale, drawWhipFrame, lashTip, fidgetLength,
   walkAdvance, walkFrameCount, isStepFrame,
-  LAND_TIME, LAND_SOFT_TIME, LAUNCH_TIME, TURN_TIME, CROUCH_BLEND, FIDGET_AFTER,
+  LAND_TIME, LAND_SOFT_TIME, LAUNCH_TIME, TURN_TIME, CROUCH_BLEND, FIDGET_AFTER, RUN_PX_PER_FRAME,
 } from './hero_anim.js';
 import {
   WEAPONS, ELEMENT_META, SET_RESONANCES, InputBuffer,
@@ -53,6 +53,16 @@ export class Player extends Entity {
     this.crouching = false;
     this.petrified = 0;            // seconds left turned to stone
     this.saluteT = 0;
+    this.dashT = 0;                // (legacy) dash burst timer, always 0 now that double-tap sprints
+    this.dashDir = 0;
+    this.dashCd = 0;
+    this.dashTapDir = 0;           // last tapped horizontal direction (double-tap detection)
+    this.dashTapT = 0;             // seconds since that tap (counts down)
+    this.dashTrail = [];           // (legacy) afterimage ghosts, unused by the run
+    this.runT = 0;                 // seconds spent in the current double-tap sprint (0 = not running)
+    this.runDir = 0;               // sprint direction (+1 / -1)
+    this.runDist = 0;              // distance covered this sprint (drives the run-cycle frame)
+    this.runFrame = 0;
 
     // Ambidextrous Dual-Hand Equipment Matrix (`slots[0]` = Hand_L, `slots[1]` = Hand_R)
     this.inputBuffer = new InputBuffer(30);
@@ -241,6 +251,47 @@ export class Player extends Entity {
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     if (ctl && input.pressed.jump) this.jumpBuffer = PLAYER.buffer;
 
+    // -----------------------------------------------------------------------
+    // Double-tap forward RUN: two taps of the same direction within RUN_TAP_WINDOW
+    // break into a sustained sprint (RUN_SPEED) for as long as that direction is held,
+    // opening with a short launch burst, dust & a whoosh.
+    // -----------------------------------------------------------------------
+    this.dashTapT = Math.max(0, this.dashTapT - dt);
+    if (this.dashTapT <= 0) this.dashTapDir = 0;
+    if (ctl) {
+      const tap = input.pressed.right ? 1 : input.pressed.left ? -1 : 0;
+      if (tap !== 0) {
+        const canRun = this.runT <= 0 && this.onGround && !this.onStair
+          && !this.attacking && !this.throwing && this.hurtT <= 0 && !this.crouching
+          && !this.slots.some((s) => s.active && !s.guarding);
+        if (tap === this.dashTapDir && this.dashTapT > 0 && canRun) {
+          this.runT = 0.0001;
+          this.runDir = tap;
+          this.runDist = 0;
+          this.dashTapDir = 0; this.dashTapT = 0;
+          this.facing = tap;
+          this.turnT = 0;
+          world.sfx('dash');
+          world.particles.dust(this.x - tap * 8, this.y, 6);
+          if (world.camera && world.camera.shake) world.camera.shake(1.2, 0.07);
+        } else {
+          this.dashTapDir = tap;
+          this.dashTapT = PLAYER.runTapWindow;
+        }
+      }
+    }
+    if (this.runT > 0) {
+      const holding = ctl && ((this.runDir > 0 && input.down.right && !input.down.left) || (this.runDir < 0 && input.down.left && !input.down.right));
+      const blocked = this.hurtT > 0 || this.crouching || this.onStair || this.attacking || this.throwing
+        || this.slots.some((s) => s.active && !s.guarding && s.weapon && s.weapon.category !== 'light_blade');
+      if (!holding || blocked) this.runT = 0;
+      else this.runT += dt;
+    }
+    const running = this.runT > 0;
+    // Legacy dash-burst fields kept at rest (afterimage trail no longer used by the run).
+    this.dashT = 0;
+    if (this.dashTrail.length) this.dashTrail.length = 0;
+
     // Record directional frame into 30-frame fighting-game Input Buffer Queue
     if (ctl) this.inputBuffer.record(input, this.facing);
 
@@ -324,23 +375,31 @@ export class Player extends Entity {
       else driveAxis = 0;
     }
     const stairSpeedMul = this.onStair ? (1 / Math.hypot(1, this.onStair.slope * 0.65)) : 1;
-    const target = rooted || this.crouching ? 0 : driveAxis * moveSpeed * stairSpeedMul;
-    const accel = this.onGround ? PLAYER.accel : PLAYER.airAccel;
+    let target = rooted || this.crouching ? 0 : driveAxis * moveSpeed * stairSpeedMul;
+    let accel = this.onGround ? PLAYER.accel : PLAYER.airAccel;
+    if (running) {
+      // Sprint: quick ramp to RUN_SPEED (relic speed bonuses still apply), held while the direction is held.
+      const ramp = Math.min(1, this.runT / 0.14);
+      target = this.runDir * (moveSpeed + (PLAYER.runSpeed * relicSpeedMul - moveSpeed) * (0.55 + 0.45 * ramp));
+      accel = PLAYER.accel * (this.onGround ? 3 : 1.2);
+    }
     if (this.hurtT > 0) {
       // Knockback: keep the launch velocity, only friction on the ground.
       if (this.onGround) this.vx *= 0.9;
     } else if (this.vx < target) this.vx = Math.min(target, this.vx + accel * dt);
     else if (this.vx > target) this.vx = Math.max(target, this.vx - accel * dt);
 
-    const lockFacing = this.attacking || this.slots.some((s) => s.active && !s.guarding && s.weapon && s.weapon.category !== 'light_blade' && s.weapon.category !== 'boomerang' && s.weapon.category !== 'catalyst');
+    const lockFacing = running || this.attacking || this.slots.some((s) => s.active && !s.guarding && s.weapon && s.weapon.category !== 'light_blade' && s.weapon.category !== 'boomerang' && s.weapon.category !== 'catalyst');
     if (driveAxis !== 0 && !rooted && !lockFacing) {
       // Direction change at speed on the ground: a few ticks of skid frame.
       if (driveAxis !== this.facing && this.onGround && Math.abs(this.vx) > 32) this.turnT = TURN_TIME;
       this.facing = driveAxis;
     }
     // Weight shift: lean into acceleration, back into a stop (skid); snaps in, eases out.
-    const wantLean = this.onGround && this.hurtT <= 0 && !this.attacking
-      ? Math.max(-1, Math.min(1, (target - this.vx) / Math.max(1, moveSpeed))) * 0.10 : 0;
+    const wantLean = running && this.onGround
+      ? this.runDir * 0.13
+      : this.onGround && this.hurtT <= 0 && !this.attacking
+        ? Math.max(-1, Math.min(1, (target - this.vx) / Math.max(1, moveSpeed))) * 0.10 : 0;
     this.lean += (wantLean - this.lean) * Math.min(1, (Math.abs(wantLean) > Math.abs(this.lean) ? 40 : 8) * dt);
 
     // Jump (coyote + buffer), variable height; Heavy Blade roots feet on ground during active cleave!
@@ -538,10 +597,21 @@ export class Player extends Entity {
     if (this.hurtT > 0) this.state = 'hurt';
     else if (this.attacking) this.state = 'attack';
     else if (!this.onGround) this.state = 'jump';
+    else if (this.runT > 0 && Math.abs(this.vx) > 10) this.state = 'run';
     else if (this.crouching) this.state = 'crouch';
     else if (Math.abs(this.vx) > 10) this.state = 'walk';
     else this.state = 'idle';
-    if (this.state === 'walk') {
+    if (this.state === 'run') {
+      // Sprint cycle advanced by distance (one frame per ~11 px); contact frames kick up dust + footfalls.
+      this.runDist += Math.abs(this.vx) * dt;
+      const frame = Math.floor(this.runDist / RUN_PX_PER_FRAME) % 8;
+      if (frame !== this.runFrame && (frame === 1 || frame === 5)) {
+        world.sfx('step');
+        world.particles.dust(this.x - this.facing * 9, this.y, 2);
+      }
+      this.runFrame = frame;
+      this.animT = 0; this.walkFrame = 0;
+    } else if (this.state === 'walk') {
       // Stride advanced by distance travelled (one frame per ~9.5 px, with a floor
       // so slow acceleration frames still read as steps) so the planted boot never
       // slides; the boot-contact frames fire a footstep and a puff of dust.
@@ -773,6 +843,7 @@ export class Player extends Entity {
     let hasOneWay = false;
     for (let tx = tx0; tx <= tx1; tx++) {
       if (level.isSolid(tx, ty)) return false;
+      if (level.isDrawbridgeTile && level.isDrawbridgeTile(tx, ty)) return false;
       if (level.isOneWay(tx, ty)) hasOneWay = true;
     }
     return hasOneWay;

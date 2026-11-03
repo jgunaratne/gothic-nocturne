@@ -33,6 +33,9 @@ export class Level {
     this.lavaRuns = [];
     this.waterRuns = [];
     this.waterBasins = (data.waterBasins || []).map((b) => Object.assign({}, b));
+    // Stage 1 castle-moat drawbridge: `{ x0, x1, row, waterRow, floorRow }` (tiles); the
+    // plank deck is a one-way platform run that never lets the hunter drop into the moat.
+    this.drawbridge = data.drawbridge ? Object.assign({}, data.drawbridge) : null;
     this.stairs = [];
     this.crumbles = [];
     this.crumbleMap = new Map();
@@ -120,7 +123,7 @@ export class Level {
             if (sr > 0 && sr < minSurf) minSurf = sr;
           }
           const fY = Math.max(matchRoom.floorRow || 11, refRow) * TILE;
-          ceilY = Math.min(Math.max(matchRoom.y0 * TILE + 36, (minSurf - 6) * TILE), fY - 268) + 18;
+          ceilY = Math.min(Math.max(matchRoom.y0 * TILE - 96, (minSurf - 11) * TILE), fY - 352) + 18;
         }
       }
 
@@ -221,7 +224,7 @@ export class Level {
     const risePx = botY - topY;
     const slope = risePx / (x1 - x0);
     const steps = Math.max(2, Math.round(risePx / 8));
-    const railing = opts.railing == null ? (risePx >= 48) : !!opts.railing;
+    const railing = false;
     const rec = {
       col0, row0, col1, row1,
       x0, y0, x1, y1,
@@ -334,6 +337,16 @@ export class Level {
   isLava(tx, ty) { return this.tile(tx, ty) === T_LAVA; }
   isWater(tx, ty) { return this.tile(tx, ty) === T_WATER; }
   isStandable(tx, ty) { const t = this.tile(tx, ty); return isSolidTile(t) || t === T_PLATFORM || t === T_CRUMBLE; }
+  /** True for the plank deck of the castle-moat drawbridge (walkable, never drop-through). */
+  isDrawbridgeTile(tx, ty) {
+    const d = this.drawbridge;
+    return !!d && ty === d.row && tx >= d.x0 && tx <= d.x1;
+  }
+  /** True when platform run `r` is the drawbridge deck (rendered by `drawDrawbridge`). */
+  isDrawbridgeRun(r) {
+    const d = this.drawbridge;
+    return !!d && r.y === d.row && r.x0 <= d.x1 && r.x1 >= d.x0;
+  }
 
   /** World-space surface Y of staircase `s` at `wx` (clamped cleanly to `[s.topY, s.botY]`). */
   stairY(s, wx) {
@@ -567,6 +580,7 @@ export class Level {
     const bgTint = 'rgba(6, 5, 16, 0.36)';
     for (const d of this.decor) {
       if (d.type === 'gear') {
+        if (stage3d && stage3d.overlapsMural && stage3d.overlapsMural(d.x, d.y)) continue;
         if (stage3d) stage3d.drawGear3D(ctx, camX, camY, d.x, d.y, d.z == null ? 52 : d.z, Object.assign({ bright: 0.76 }, d), time);
         continue;
       }
@@ -581,9 +595,31 @@ export class Level {
         x = d.x - camX; y = d.y - camY;
       }
       if (x < -220 || x > W + 220 || y < -260 || y > H + 300) continue;
-      if (d.type === 'pendulum') { this.drawPendulum(ctx, x, y, d, time); continue; }
-      if (d.type === 'chandelier') { this.drawChandelier(ctx, x, y, d, time); continue; }
-      if (d.type === 'cage') { this.drawCage(ctx, x, y, d, time); continue; }
+      if (d.type === 'pendulum') {
+        if (stage3d && stage3d.overlapsMural && stage3d.overlapsMural(d.x, d.y + (d.len || 150) * 0.7)) continue;
+        this.drawPendulum(ctx, x, y, d, time);
+        continue;
+      }
+      if (d.type === 'chandelier') {
+        if (stage3d && stage3d.overlapsMural && stage3d.overlapsMural(d.x, d.y + (d.len != null ? d.len : 64) + 28)) continue;
+        this.drawChandelier(ctx, x, y, d, time);
+        continue;
+      }
+      if (d.type === 'cage') {
+        if (stage3d && stage3d.overlapsMural && stage3d.overlapsMural(d.x, d.y + 84)) continue;
+        this.drawCage(ctx, x, y, d, time);
+        continue;
+      }
+      if (stage3d && stage3d.overlapsMural) {
+        const f = assets.frame(d.sheet, d.frame);
+        if (
+          (d.sheet === 'stained_glass' || d.frame === 'torch' || d.frame === 'window' ||
+           d.frame === 'canal_lantern' || d.frame === 'water_spout' || (f && f.h >= 52)) &&
+          stage3d.overlapsMural(d.x, d.y)
+        ) {
+          continue;
+        }
+      }
       assets.draw(ctx, d.sheet, d.frame, x, y, false, 1, sc, bgTint);
       if (d.sheet === 'stained_glass') {
         const f = assets.frame('stained_glass', d.frame);
@@ -979,6 +1015,7 @@ export class Level {
     const postTex = bank ? bank.get(wood ? 'wood_plank' : 'iron_rivet') : null;
     for (const r of this.platformRuns) {
       if (r.x1 < tx0 || r.x0 > tx1 || r.y < ty0 - 1 || r.y > ty1) continue;
+      if (this.isDrawbridgeRun(r)) continue;
       for (let tx = r.x0; tx <= r.x1; tx++) {
         if (tx !== r.x0 && tx !== r.x1 && (tx - r.x0) % 4 !== 2) continue;
         let gy = -1;
@@ -1004,6 +1041,7 @@ export class Level {
     }
     for (const r of this.platformRuns) {
       if (r.x1 < tx0 || r.x0 > tx1 || r.y < ty0 - 1 || r.y > ty1) continue;
+      if (this.isDrawbridgeRun(r)) { this.drawDrawbridge(ctx, camX, camY, bank, assets, time); continue; }
       const wy = r.y * TILE, y = wy - camY - 2;
       const spanW = (r.x1 - r.x0 + 1) * TILE;
       if (wy > camY + EYE_Y + 4) {
@@ -1027,6 +1065,150 @@ export class Level {
     // 4b. Walkable 2.5D/3D Gothic staircases (solid stone/earth flights & mezzanine stringer stairs).
     if (this.stairs.length) {
       this.drawStairs3D(ctx, camX, camY, tx0, tx1, assets, bank, pImg, plat, platTex, wood);
+    }
+  }
+
+  /**
+   * Stage 1 castle-moat DRAWBRIDGE: lowered oak plank deck with iron strapping and
+   * end rollers, a texture-mapped stone pier rising out of the moat, 3D timber
+   * soffit, and twin hoist chains climbing from the deck's outer end to the
+   * Barbican Gatehouse tower winch above the portal.
+   */
+  drawDrawbridge(ctx, camX, camY, bank, assets, time = 0) {
+    const d = this.drawbridge;
+    if (!d) return;
+    const wx0 = d.x0 * TILE, wx1 = (d.x1 + 1) * TILE;
+    const wy = d.row * TILE;
+    const sx0 = Math.round(wx0 - camX), sx1 = Math.round(wx1 - camX);
+    const sy = Math.round(wy - camY);
+    if (sx1 < -80 || sx0 > W + 80) return;
+    const woodTex = bank ? bank.get('plat_wood') : null;
+    const plankTex = bank ? bank.get('wood_plank') : null;
+    const stoneTex = bank ? bank.get('wall') : null;
+    const trimTex = bank ? bank.get('stone_trim') : null;
+    const deckH = 14;
+
+    // 1. Central stone pier from the moat floor up to the deck underside (z = 8..40)
+    const floorWy = d.floorRow * TILE;
+    const pierCx = (wx0 + wx1) * 0.5, pw = 22;
+    if (stoneTex) {
+      const fTL = project3D(pierCx - pw / 2, wy + deckH, 8, camX, camY);
+      const fTR = project3D(pierCx + pw / 2, wy + deckH, 8, camX, camY);
+      const fBL = project3D(pierCx - pw / 2 - 5, floorWy + 6, 8, camX, camY);
+      const fBR = project3D(pierCx + pw / 2 + 5, floorWy + 6, 8, camX, camY);
+      const bTL = project3D(pierCx - pw / 2, wy + deckH, 40, camX, camY);
+      const bTR = project3D(pierCx + pw / 2, wy + deckH, 40, camX, camY);
+      const bBL = project3D(pierCx - pw / 2 - 5, floorWy + 6, 40, camX, camY);
+      const bBR = project3D(pierCx + pw / 2 + 5, floorWy + 6, 40, camX, camY);
+      if (bTL.x < fTL.x - 0.4) {
+        texQuad(ctx, stoneTex, bTL, fTL, fBL, bBL, 0, wy, 32, wy, 32, floorWy, 0, floorWy, shadeOverlay32([-1, 0, -0.2], DECK_FOG, 0.40));
+      } else if (bTR.x > fTR.x + 0.4) {
+        texQuad(ctx, stoneTex, fTR, bTR, bBR, fBR, 0, wy, 32, wy, 32, floorWy, 0, floorWy, shadeOverlay32([1, 0, -0.2], DECK_FOG, 0.40));
+      }
+      texQuad(ctx, stoneTex, fTL, fTR, fBR, fBL, pierCx - 11, wy, pierCx + 11, wy, pierCx + 16, floorWy, pierCx - 16, floorWy, shadeOverlay32([0, -0.1, -1], DECK_FOG, 0.24));
+      if (trimTex) {
+        texQuad(ctx, trimTex,
+          { x: fTL.x - 4, y: fTL.y }, { x: fTR.x + 4, y: fTR.y }, { x: fTR.x + 4, y: fTR.y + 6 }, { x: fTL.x - 4, y: fTL.y + 6 },
+          0, 0, 32, 0, 32, 8, 0, 8, shadeOverlay32([0, -0.3, -0.9], DECK_FOG, 0.18));
+      }
+    }
+
+    // 2. Receding plank top deck (behind the play plane) + 3D timber soffit under the span
+    if (woodTex) {
+      if (wy > camY + EYE_Y + 4) this.drawTopDeck3D(ctx, camX, camY, wx0, wy, wx1 - wx0, 26, woodTex, 0.70);
+      const fL = project3D(wx0, wy + deckH, 2, camX, camY);
+      const fR = project3D(wx1, wy + deckH, 2, camX, camY);
+      const bR = project3D(wx1, wy + deckH + 6, 30, camX, camY);
+      const bL = project3D(wx0, wy + deckH + 6, 30, camX, camY);
+      texQuad(ctx, plankTex || woodTex, fL, fR, bR, bL, wx0, 0, wx1, 0, wx1, 24, wx0, 24, shadeOverlay32([0, 0.8, -0.5], DECK_FOG, 0.34, 0.80));
+    }
+
+    // 3. Crisp z = 0 plank deck face: long oak boards, bolted iron straps, end rollers
+    const spanW = sx1 - sx0;
+    ctx.fillStyle = '#4a311d';
+    ctx.fillRect(sx0, sy - 2, spanW, deckH + 2);
+    const boards = ['#7a5330', '#6c4828', '#86603a', '#6f4b2a'];
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle = boards[i % boards.length];
+      ctx.fillRect(sx0, sy - 2 + i * 4, spanW, 3);
+    }
+    ctx.fillStyle = '#2b1a0e';
+    ctx.fillRect(sx0, sy + 10, spanW, 2);
+    ctx.fillStyle = '#a07a4c';
+    ctx.fillRect(sx0, sy - 2, spanW, 1);
+    // Board seams
+    ctx.fillStyle = 'rgba(30, 18, 8, 0.75)';
+    for (let x = sx0 + 24; x < sx1 - 6; x += 48) ctx.fillRect(x + ((x >> 4) & 1) * 11, sy - 1, 1, 10);
+    // Iron straps with bolt heads every tile
+    for (let x = sx0 + 6; x < sx1 - 4; x += 32) {
+      ctx.fillStyle = '#3c3f4c';
+      ctx.fillRect(x, sy - 3, 5, deckH + 1);
+      ctx.fillStyle = '#8b90a4';
+      ctx.fillRect(x + 1, sy - 3, 2, 1);
+      ctx.fillRect(x + 1, sy + 2, 2, 1);
+      ctx.fillRect(x + 1, sy + 7, 2, 1);
+    }
+    // Iron end rollers / hinge drums at both abutments
+    for (const ex of [sx0 - 2, sx1 - 8]) {
+      ctx.fillStyle = '#2a2c36';
+      ctx.fillRect(ex, sy - 5, 10, 18);
+      ctx.fillStyle = '#5a5e70';
+      ctx.fillRect(ex + 1, sy - 4, 8, 2);
+      ctx.fillRect(ex + 1, sy + 5, 8, 2);
+      ctx.fillStyle = '#9ca1b8';
+      ctx.fillRect(ex + 4, sy + 1, 2, 2);
+    }
+
+    // 4. Twin hoist chains of interlocking links: from the outer deck end up to the gatehouse tower winch (z = 40 face)
+    const gx = this.rooms.length ? this.rooms[0].x0 * TILE : wx1;
+    const showChains = camX < gx + 96;
+    if (showChains) {
+      const anchor = project3D(gx - 44, wy - 202, 40, camX, camY);
+      const sway = Math.sin(time * 1.6) * 0.6;
+      ctx.save();
+      ctx.lineCap = 'round';
+      for (let c = 0; c < 2; c++) {
+        const ax = sx0 + 4 + c * 5, ay = sy - 3 + c;
+        const bx = anchor.x + c * 4 + sway, by = anchor.y + c * 2;
+        const len = Math.hypot(bx - ax, by - ay);
+        const ux = (bx - ax) / len, uy = (by - ay) / len;
+        const nx = -uy, ny = ux;
+        const linkL = 6, n = Math.floor(len / linkL);
+        const dark = c === 0 ? '#2b2e3a' : '#1c1e27';
+        const mid = c === 0 ? '#6e7488' : '#474c5c';
+        const hi = c === 0 ? '#b4bacd' : '#7d8396';
+        for (let i = 0; i < n; i++) {
+          const px0 = ax + ux * (i * linkL + 0.5), py0 = ay + uy * (i * linkL + 0.5);
+          const px1 = ax + ux * ((i + 1) * linkL - 0.8), py1 = ay + uy * ((i + 1) * linkL - 0.8);
+          if (i % 2 === 0) {
+            // Flat (face-on) oval link: dark outline ring with a hollow centre
+            ctx.strokeStyle = dark; ctx.lineWidth = 3.6;
+            ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px1, py1); ctx.stroke();
+            ctx.strokeStyle = mid; ctx.lineWidth = 2.0;
+            ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px1, py1); ctx.stroke();
+            ctx.strokeStyle = dark; ctx.lineWidth = 0.9;
+            ctx.beginPath(); ctx.moveTo(px0 + ux * 1.2, py0 + uy * 1.2); ctx.lineTo(px1 - ux * 1.2, py1 - uy * 1.2); ctx.stroke();
+            ctx.strokeStyle = hi; ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.moveTo(px0 + nx * 1.1, py0 + ny * 1.1); ctx.lineTo(px1 + nx * 1.1, py1 + ny * 1.1); ctx.stroke();
+          } else {
+            // Edge-on link: narrow bar threading through the neighbours
+            ctx.strokeStyle = dark; ctx.lineWidth = 2.2;
+            ctx.beginPath(); ctx.moveTo(px0 - ux, py0 - uy); ctx.lineTo(px1 + ux, py1 + uy); ctx.stroke();
+            ctx.strokeStyle = hi; ctx.lineWidth = 0.9;
+            ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px1, py1); ctx.stroke();
+          }
+        }
+        // Shackle pin where the chain bolts into the deck end
+        ctx.fillStyle = '#9ca1b8';
+        ctx.fillRect(Math.round(ax) - 2, Math.round(ay) - 1, 4, 3);
+      }
+      ctx.restore();
+      // Winch drum bracket on the tower face
+      ctx.fillStyle = '#2a2c36';
+      ctx.fillRect(Math.round(anchor.x - 4), Math.round(anchor.y - 5), 12, 10);
+      ctx.fillStyle = '#6a6f84';
+      ctx.fillRect(Math.round(anchor.x - 2), Math.round(anchor.y - 3), 8, 2);
+      ctx.fillRect(Math.round(anchor.x - 2), Math.round(anchor.y + 1), 8, 2);
     }
   }
 
@@ -1492,53 +1674,7 @@ export class Level {
       const stepW = spanX / s.steps;
       const stepH = risePx / s.steps;
 
-      // 1. Back-plane Gothic handrail, balusters & carved newel posts (z = zDepth - 4)
-      if (s.railing) {
-        const zRail = Math.max(16, zDepth - 4);
-        const railH = 26;
-        const postDark = wood ? '#1d140f' : '#161826';
-        const postMid = wood ? '#5a3f28' : '#4a526e';
-        const railHi = wood ? '#b88854' : '#9aa8c8';
-        const bCount = Math.max(2, Math.round(spanX / 32));
-        ctx.save();
-        for (let bi = 0; bi <= bCount; bi++) {
-          const u = bi / bCount;
-          const bx = s.x0 + spanX * u;
-          const by = s.y0 + (s.y1 - s.y0) * u;
-          const pBot = project3D(bx, by + 2, zRail, camX, camY);
-          const pTop = project3D(bx, by - railH, zRail, camX, camY);
-          const isNewel = bi === 0 || bi === bCount;
-          const pw = isNewel ? 5 : 2;
-          ctx.fillStyle = postDark;
-          ctx.fillRect(Math.round(pTop.x - pw * 0.5) - 1, Math.round(pTop.y - (isNewel ? 4 : 0)), pw + 2, Math.max(4, Math.round(pBot.y - pTop.y + (isNewel ? 4 : 0))));
-          ctx.fillStyle = postMid;
-          ctx.fillRect(Math.round(pTop.x - pw * 0.5), Math.round(pTop.y - (isNewel ? 3 : 0)), pw, Math.max(3, Math.round(pBot.y - pTop.y + (isNewel ? 3 : 0))));
-          if (isNewel) {
-            ctx.fillStyle = railHi;
-            ctx.fillRect(Math.round(pTop.x - 3), Math.round(pTop.y - 5), 6, 2);
-          }
-        }
-        const rA = project3D(s.x0, s.y0 - railH, zRail, camX, camY);
-        const rB = project3D(s.x1, s.y1 - railH, zRail, camX, camY);
-        const mA = project3D(s.x0, s.y0 - railH * 0.42, zRail, camX, camY);
-        const mB = project3D(s.x1, s.y1 - railH * 0.42, zRail, camX, camY);
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = postDark;
-        ctx.lineWidth = 5;
-        ctx.beginPath(); ctx.moveTo(rA.x, rA.y); ctx.lineTo(rB.x, rB.y); ctx.stroke();
-        ctx.strokeStyle = postMid;
-        ctx.lineWidth = 2.6;
-        ctx.beginPath(); ctx.moveTo(rA.x, rA.y); ctx.lineTo(rB.x, rB.y); ctx.stroke();
-        ctx.strokeStyle = railHi;
-        ctx.lineWidth = 1.1;
-        ctx.beginPath(); ctx.moveTo(rA.x, rA.y - 1); ctx.lineTo(rB.x, rB.y - 1); ctx.stroke();
-        ctx.strokeStyle = postDark;
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(mA.x, mA.y); ctx.lineTo(mB.x, mB.y); ctx.stroke();
-        ctx.restore();
-      }
-
-      // 2. Supporting diagonal stringer carriage (passThrough) OR solid terrain spandrel (!passThrough)
+      // 1. Supporting diagonal stringer carriage (passThrough) OR solid terrain spandrel (!passThrough)
       if (isPass) {
         const beamDrop = 15;
         const fA0 = { x: s.x0 - camX, y: s.y0 + 3 - camY };

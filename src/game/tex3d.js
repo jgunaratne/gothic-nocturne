@@ -520,6 +520,7 @@ class TextureBank3D {
       const wallImg = A.img('wall');
       if (wallImg) {
         const { c, g } = makeCanvas(128, 128);
+        g.imageSmoothingEnabled = false;
         g.drawImage(wallImg, 0, 0, wallImg.width, wallImg.height, 0, 0, 128, 128);
         this.reg('keep_stone', c);
       } else {
@@ -903,20 +904,55 @@ class TextureBank3D {
     this.reg(sideKey, cs);
   }
 
-  /** Cached tinted stained-glass lancet window canvas from `arch.window`. */
+  /** Cached tinted stained-glass circular-arch window canvas (`64x128`, full-bleed for semicircular fans). */
   stainedWindow(tintCss) {
     const key = `win|${tintCss}`;
     if (this.map.has(key)) return this.map.get(key);
     const arch = this.assets.img('arch');
     const wf = this.assets.frame('arch', 'window');
     const { c, g } = makeCanvas(64, 128);
-    if (arch && wf) {
-      g.drawImage(arch, wf.x, wf.y, wf.w, wf.h, 0, 0, 64, 128);
-      g.globalCompositeOperation = 'source-atop';
-      g.fillStyle = tintCss;
-      g.fillRect(0, 0, 64, 128);
-      g.globalCompositeOperation = 'source-over';
+    // 1. Opaque deep cathedral stained-glass base + crisp 1px diamond quarry lattice
+    // so circular arch UV fans (`v = 0..42` semicircular head, `v = 42..128` lower lights)
+    // never expose transparent pointed-lancet corner gaps.
+    g.fillStyle = '#1b1834';
+    g.fillRect(0, 0, 64, 128);
+    const tones = ['#2a2550', '#383068', '#463c7e', '#231e44'];
+    for (let y = 0; y < 128; y += 2) {
+      for (let x = 0; x < 64; x += 2) {
+        const qx = ((x + y) >> 3), qy = ((y - x + 128) >> 3);
+        const onCame = ((x + y) & 7) === 0 || ((y - x + 128) & 7) === 0;
+        g.fillStyle = onCame ? '#12101e' : tones[(qx * 5 + qy * 3) & 3];
+        g.fillRect(x, y, 2, 2);
+      }
     }
+    // 2. Composite central stained-glass pane detail from `arch.window`
+    if (arch && wf) {
+      g.save();
+      g.globalAlpha = 0.72;
+      g.drawImage(arch, wf.x + 6, wf.y + 16, Math.max(8, wf.w - 12), Math.max(16, wf.h - 20), 0, 0, 64, 128);
+      g.restore();
+    }
+    // 3. Radial jewel-glass glow & circular rose medallion in the semicircular arch head (`cy = 21`)
+    const rg = g.createRadialGradient(32, 22, 2, 32, 48, 54);
+    rg.addColorStop(0, 'rgba(235, 228, 255, 0.46)');
+    rg.addColorStop(0.45, 'rgba(170, 155, 235, 0.20)');
+    rg.addColorStop(1, 'rgba(18, 14, 34, 0.28)');
+    g.fillStyle = rg;
+    g.fillRect(0, 0, 64, 128);
+    // Crisp 1px lead saddle bars & circular rose tracery lines
+    g.fillStyle = '#12101e';
+    for (const sy of [42, 70, 98]) g.fillRect(0, sy, 64, 1);
+    g.strokeStyle = '#12101e';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.arc(32, 21, 11, 0, Math.PI * 2);
+    g.arc(32, 21, 5, 0, Math.PI * 2);
+    g.stroke();
+    // 4. Biome glass tint overlay
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = tintCss;
+    g.fillRect(0, 0, 64, 128);
+    g.globalCompositeOperation = 'source-over';
     return this.reg(key, c);
   }
 

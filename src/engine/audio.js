@@ -752,6 +752,11 @@ export class AudioSys {
         this._osc('sine', 420, 760, 0.07, 0.045, 0.015);
         break;
       case 'jump': this._osc('square', 220, 520, 0.14, 0.12); break;
+      case 'dash':                                                     // coat snapping in a burst of speed
+        this._noise(0.16, 0.26, 1400, 'bandpass');
+        this._noise(0.08, 0.14, 2600, 'highpass', 0.02);
+        this._osc('triangle', 180, 90, 0.12, 0.07);
+        break;
       case 'land': this._noise(0.06, 0.18, 300, 'lowpass'); break;
       case 'step': this._noise(0.03, 0.06, 420, 'lowpass'); break;   // boot contact on walk frames
       case 'crack':                                                    // the lash tip breaking the air

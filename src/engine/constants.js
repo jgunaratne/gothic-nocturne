@@ -9,7 +9,7 @@ export const DT = 1 / 60;        // fixed simulation step
 
 // Tile ids
 /** Bumped whenever assets/ change so browsers never pair a stale atlas with new code. */
-export const ASSET_VERSION = '20261102k';
+export const ASSET_VERSION = '20261103k';
 
 export const T_EMPTY = 0;
 export const T_GROUND = 1;       // graveyard earth (strip "ground")
@@ -87,6 +87,12 @@ export const PLAYER = {
   whipActive: [0.13, 0.31],
   whipReach: 96,
   petrifyTime: 1.6,
+  dashSpeed: 312,          // (legacy) double-tap dash burst speed (px/s)
+  dashTime: 0.26,          // (legacy) dash duration (s)
+  dashCooldown: 0.22,      // (legacy) dash recovery (s)
+  dashTapWindow: 0.24,     // (legacy) alias of runTapWindow
+  runSpeed: 198,           // double-tap sprint speed (px/s), ~1.85x walking
+  runTapWindow: 0.24,      // max gap between the two taps that start a sprint (s)
 };
 
 export const SCORE = {

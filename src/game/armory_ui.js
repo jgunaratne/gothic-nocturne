@@ -85,27 +85,38 @@ export class WeaponPedestal {
         ctx.fillStyle = accent;
         ctx.fillRect(sx - 5, cy - 5, 10, 10);
       }
-
-      // Subtle floating label when hunter approaches
-      if (world && world.player && Math.abs(world.player.x - this.x) < 68 && Math.abs(world.player.y - this.y) < 58) {
-        const tag = w.name;
-        const lw = font.width(tag, 1, 1, false) + 10;
-        const lx = Math.max(6, Math.min(W - lw - 6, Math.round(sx - lw * 0.5)));
-        const ly = Math.max(48, cy - 26);
-        ctx.fillStyle = 'rgba(6, 5, 16, 0.92)';
-        ctx.fillRect(lx, ly, lw, 12);
-        ctx.strokeStyle = accent;
-        ctx.strokeRect(lx + 0.5, ly + 0.5, lw - 1, 11);
-        font.draw(ctx, tag, lx + Math.round(lw * 0.5), ly + 2, {
-          align: 'center', color: '#f6f0de', shadow: '#05040a', gothic: false,
-        });
-      }
     } else {
       const fxl = getFxLayers();
       if (fxl && fxl.enabled) {
         fxl.addFlame(sx, sy - 17, 6, 9, [0.55, 0.78, 1.0], this.x * 0.02);
       }
     }
+    ctx.restore();
+  }
+
+  drawPrompt(ctx, cam, font, world, time = 0) {
+    const w = this.weapon;
+    if (!w || this.isCollected(world)) return;
+    if (!world || !world.player || Math.abs(world.player.x - this.x) >= 68 || Math.abs(world.player.y - this.y) >= 58) return;
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    if (sx < -48 || sx > W + 48 || sy < -30 || sy > H + 70) return;
+    const elem = w.element ? ELEMENT_META[w.element] : null;
+    const accent = elem ? elem.color : (w.trimColor || '#ffd27a');
+    const bob = Math.round(Math.sin(time * 3.6) * 3);
+    const cy = sy - 32 + bob;
+    const tag = w.name;
+    const lw = font.width(tag, 1, 1, false) + 10;
+    const lx = Math.max(6, Math.min(W - lw - 6, Math.round(sx - lw * 0.5)));
+    const ly = Math.max(48, cy - 26);
+    ctx.save();
+    ctx.fillStyle = 'rgba(6, 5, 16, 0.92)';
+    ctx.fillRect(lx, ly, lw, 12);
+    ctx.strokeStyle = accent;
+    ctx.strokeRect(lx + 0.5, ly + 0.5, lw - 1, 11);
+    font.draw(ctx, tag, lx + Math.round(lw * 0.5), ly + 2, {
+      align: 'center', color: '#f6f0de', shadow: '#05040a', gothic: false,
+    });
     ctx.restore();
   }
 }

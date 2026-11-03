@@ -1575,57 +1575,57 @@ export class StageBuilder {
       }
     });
     this.candle(x0 + 4, row, 'heart_big');
-    this.candle(x0 + 16, row, 'heart_big');
+    this.candle(x0 + 14, row, 'heart_big');
     const kind = this.theme.decor;
     const fp = this.theme.props;
     if (fp && fp.frames && fp.frames.length) {
       const f = fp.frames;
-      [x0 + 3, x0 + 17].forEach((tx) => this.deco(fp.sheet, f[0], tx, row));
-      [x0 + 6, x0 + 14].forEach((tx) => this.deco(fp.sheet, f[Math.min(1, f.length - 1)], tx, row));
+      [x0 + 3, x0 + 15].forEach((tx) => this.deco(fp.sheet, f[0], tx, row));
+      [x0 + 6, x0 + 13].forEach((tx) => this.deco(fp.sheet, f[Math.min(1, f.length - 1)], tx, row));
       this.deco(fp.sheet, f[Math.min(2, f.length - 1)], x0 + 10, row);
       this.deco('props', 'torch', x0 + 8, row, 0, -46); this.deco('props', 'torch', x0 + 12, row, 0, -46);
     } else if (kind === 'graveyard') {
-      this.deco('props', 'tombstone', x0 + 3, row); this.deco('props', 'tombstone', x0 + 17, row);
+      this.deco('props', 'tombstone', x0 + 3, row); this.deco('props', 'tombstone', x0 + 15, row);
     } else if (kind === 'cathedral') {
-      [x0 + 3, x0 + 17].forEach((tx) => this.deco('cathedral_props', 'angel', tx, row));
+      [x0 + 3, x0 + 15].forEach((tx) => this.deco('cathedral_props', 'angel', tx, row));
       this.deco('stained_glass', 'rose', x0 + 10, row, 0, -96);
-      [x0 + 6, x0 + 14].forEach((tx) => this.deco('stained_glass', tx === x0 + 6 ? 'hunter' : 'moon', tx, row, 0, -70));
+      [x0 + 6, x0 + 13].forEach((tx) => this.deco('stained_glass', tx === x0 + 6 ? 'hunter' : 'moon', tx, row, 0, -70));
       this.deco('cathedral_props', 'candles', x0 + 8, row); this.deco('cathedral_props', 'candles', x0 + 12, row);
     } else if (kind === 'library') {
-      [x0 + 3, x0 + 17].forEach((tx) => this.deco('library_props', 'bookcase', tx, row));
-      this.deco('library_props', 'globe', x0 + 6, row); this.deco('library_props', 'tomes', x0 + 14, row);
+      [x0 + 3, x0 + 15].forEach((tx) => this.deco('library_props', 'bookcase', tx, row));
+      this.deco('library_props', 'globe', x0 + 6, row); this.deco('library_props', 'tomes', x0 + 13, row);
       this.deco('props', 'torch', x0 + 8, row, 0, -46); this.deco('props', 'torch', x0 + 12, row, 0, -46);
     } else if (kind === 'arcade') {
-      this.deco('arcade_props', 'sage_cabinet', x0 + 3, row); this.deco('arcade_props', 'oracle_engine', x0 + 17, row);
-      this.deco('arcade_props', 'zoetrope', x0 + 6, row); this.deco('arcade_props', 'magic_lantern', x0 + 14, row);
+      this.deco('arcade_props', 'sage_cabinet', x0 + 3, row); this.deco('arcade_props', 'oracle_engine', x0 + 15, row);
+      this.deco('arcade_props', 'zoetrope', x0 + 6, row); this.deco('arcade_props', 'magic_lantern', x0 + 13, row);
       this.deco('props', 'torch', x0 + 9, row, 0, -46); this.deco('props', 'torch', x0 + 11, row, 0, -46);
     } else if (kind === 'darkwood') {
-      [x0 + 3, x0 + 17].forEach((tx) => this.deco('darkwood_props', 'ancient_totem', tx, row));
-      [x0 + 6, x0 + 14].forEach((tx) => this.deco('darkwood_props', 'moss_lantern', tx, row));
+      [x0 + 3, x0 + 15].forEach((tx) => this.deco('darkwood_props', 'ancient_totem', tx, row));
+      [x0 + 6, x0 + 13].forEach((tx) => this.deco('darkwood_props', 'moss_lantern', tx, row));
       [x0 + 9, x0 + 11].forEach((tx) => this.deco('darkwood_props', 'glow_shrooms', tx, row));
     } else if (kind === 'forest') {
-      [x0 + 3, x0 + 17].forEach((tx) => this.deco('pumpkinprops', 'jack_big', tx, row));
+      [x0 + 3, x0 + 15].forEach((tx) => this.deco('pumpkinprops', 'jack_big', tx, row));
       [x0 + 7, x0 + 13].forEach((tx) => this.deco('pumpkinprops', 'scarecrow', tx, row));
       this.deco('pumpkinprops', 'pumpkins', x0 + 10, row);
     } else if (kind === 'yule') {
-      [x0 + 3, x0 + 17].forEach((tx) => this.deco('xmasprops', 'tree', tx, row));
+      [x0 + 3, x0 + 15].forEach((tx) => this.deco('xmasprops', 'tree', tx, row));
       [x0 + 7, x0 + 13].forEach((tx) => this.deco('xmasprops', 'lamppost', tx, row));
       this.deco('xmasprops', 'gifts', x0 + 10, row);
     } else if (kind === 'ramparts') {
-      this.deco('arch', 'column', x0 + 3, row); this.deco('arch', 'column', x0 + 18, row);
-      [x0 + 5, x0 + 15].forEach((tx) => this.deco('arch', 'banner', tx, row, 0, -48));
-      this.deco('props', 'torch', x0 + 7, row, 0, -46); this.deco('props', 'torch', x0 + 13, row, 0, -46);
+      this.deco('arch', 'column', x0 + 3, row); this.deco('arch', 'column', x0 + 15, row);
+      [x0 + 5, x0 + 13].forEach((tx) => this.deco('arch', 'banner', tx, row, 0, -48));
+      this.deco('props', 'torch', x0 + 7, row, 0, -46); this.deco('props', 'torch', x0 + 12, row, 0, -46);
     } else if (kind === 'clockwork') {
-      this.deco('arch', 'column', x0 + 3, row); this.deco('arch', 'column', x0 + 18, row);
-      this.deco('props', 'torch', x0 + 5, row, 0, -46); this.deco('props', 'torch', x0 + 16, row, 0, -46);
+      this.deco('arch', 'column', x0 + 3, row); this.deco('arch', 'column', x0 + 15, row);
+      this.deco('props', 'torch', x0 + 5, row, 0, -46); this.deco('props', 'torch', x0 + 13, row, 0, -46);
     } else if (kind === 'cavern') {
-      [x0 + 3, x0 + 17].forEach((tx) => this.deco('cavern_props', 'obsidian_pillar', tx, row));
-      [x0 + 6, x0 + 14].forEach((tx) => this.deco('cavern_props', 'brazier', tx, row));
+      [x0 + 3, x0 + 15].forEach((tx) => this.deco('cavern_props', 'obsidian_pillar', tx, row));
+      [x0 + 6, x0 + 13].forEach((tx) => this.deco('cavern_props', 'brazier', tx, row));
       this.deco('cavern_props', 'magma_vent', x0 + 10, row);
     } else {
-      this.deco('arch', 'column', x0 + 3, row); this.deco('arch', 'column', x0 + 18, row);
-      [x0 + 5, x0 + 16].forEach((tx) => this.deco('arch', 'banner', tx, row, 0, -48));
-      this.deco('props', 'torch', x0 + 4, row, 0, -46); this.deco('props', 'torch', x0 + 17, row, 0, -46);
+      this.deco('arch', 'column', x0 + 3, row); this.deco('arch', 'column', x0 + 15, row);
+      [x0 + 5, x0 + 13].forEach((tx) => this.deco('arch', 'banner', tx, row, 0, -48));
+      this.deco('props', 'torch', x0 + 4, row, 0, -46); this.deco('props', 'torch', x0 + 14, row, 0, -46);
     }
     this.checkpoints.push(px(x0));
     if (o.waterPool || this.themeKey === 'aqueduct') {
@@ -1639,6 +1639,7 @@ export class StageBuilder {
       voice: o.voice || null,
       line: o.line || null,
       gateCol: x0 + 1, gateRows: [row - 3, row - 1],
+      exitX: (x0 + 18) * TILE + 4, exitY: py(row),
       triggerX: px(x0 + 5), camX: x0 * TILE,
       spawn: { x: px(x0 + 14), y: py(row) - (o.spawnHeight == null ? 70 : o.spawnHeight) },
       arena: { x0: (x0 + 2) * TILE + 8, x1: (x0 + len) * TILE - 8, floorY: py(row), ceilY: py(row) - 230 },

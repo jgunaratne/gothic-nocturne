@@ -71,8 +71,8 @@ export const BOSS_RELICS = {
     key: 'arcade',
     boss: 'THE BRASS AUTOMATON',
     name: 'CLOCKWORK HEART',
-    short: 'HEART MAGNET',
-    desc: 'EVERY 2ND SUB-WEAPON COSTS 0 HEARTS & MAGNETIC LOOT',
+    short: 'FREE THROWS',
+    desc: 'EVERY 2ND SUB-WEAPON COSTS 0 HEARTS & WIDER LOOT PICKUP',
     color: '#f0b85a',
   },
   library: {

@@ -68,17 +68,8 @@ export class Item extends Entity {
     if (!isOrb) {
       this.life -= dt;
       if (this.life <= 0) this.dead = true;
-      // CLOCKWORK HEART relic: magnetic pull toward nearby hunter
-      if (world && world.hasRelic && world.hasRelic('arcade') && world.player && world.player.alive) {
-        const dx = world.player.x - this.x;
-        const dy = (world.player.y - 24) - (this.y - 7);
-        const dist = Math.hypot(dx, dy);
-        if (dist > 4 && dist < 86) {
-          this.x += (dx / dist) * 165 * dt;
-          this.y += (dy / dist) * 135 * dt;
-        }
-      }
     }
+    // Drops always fall under gravity and settle on the floor; nothing pulls them toward the hunter.
     if (this.onGround) this.vx *= 0.8;
     this.physics(level, dt, { collide: true, oneWay: !isOrb });
     if (isOrb) {
