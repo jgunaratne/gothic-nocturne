@@ -206,8 +206,6 @@ export class World {
     this.voiceCue = null;
     this.bossIntro = null;
     this.bossHold = false;
-    this.gateClosed = false;
-    this.gateDropY = 0;
     this.bossDefeated = false;
     this.bossRewardsClaimed = false;
     this.camera.resetBounds();
@@ -227,12 +225,14 @@ export class World {
     this.vessel = exp.vessel;
     this.pedestal = exp.pedestal;
     this.bossExitDoor = exp.bossExitDoor || null;
+    this.bossGateDoor = exp.bossGateDoor || null;
     this.landmarks = [
       this.sanctuary,
       ...(this.passages || []),
       this.vessel,
       this.pedestal,
       this.bossExitDoor,
+      this.bossGateDoor,
     ].filter(Boolean);
     this.stage3d.excludeLandmarks(this.landmarks);
     this.inSecretArea = false;
@@ -273,6 +273,7 @@ export class World {
     const hasTurtle = d.ally === 'turtle' || this.theme.ally === 'turtle';
     this.ally = hasTurtle ? new TurtleAlly(this.player.x + 28, this.player.y) : null;
     this.camera.snapTo(this.player.x, this.player.y);
+    this.syncBossGateToPlayer();
     if (enteredViaPassage) {
       this.phase = 'play';
       this.phaseT = 0;
@@ -290,6 +291,23 @@ export class World {
   sfx(name) { this.audio.sfx(name); }
   addScore(n) { this.score += Math.round(n * this.difficulty.scoreMult); }
   showMessage(text, sub, dur = 2) { this.messages = [{ text, sub, t: 0, dur }]; }
+
+  /** Debug `UNLOCK ALL AREAS` (title Settings): every passage seal stands open. */
+  get allAreasUnlocked() {
+    return !!(this.game && this.game.debug && this.game.debug.unlockAreas);
+  }
+
+  /**
+   * Keeps the vertical Boss Gate Door consistent with where the hunter stands:
+   * a hunter already inside the sanctum (testing teleports, boss-arena checkpoint
+   * respawns) must never be walled in by a door that is meant to bar the entrance.
+   */
+  syncBossGateToPlayer() {
+    const door = this.bossGateDoor;
+    if (!door || !this.player) return;
+    door.refreshStatus(this);
+    if (this.player.x > door.x) door.openNow(this, true);
+  }
   /** Registers an enemy, scaling health, contact force & boss tempo by stage rank and difficulty. */
   spawnEnemy(e) {
     const rank = stageRankFor(this.stage);
@@ -473,6 +491,10 @@ export class World {
     this.sfx('orb');
     if (this.bossExitDoor) {
       this.bossExitDoor.openNow(this);
+    }
+    // The entrance rises again for good: the sanctum is now free to roam back out of.
+    if (this.bossGateDoor) {
+      this.bossGateDoor.openNow(this);
     }
     if (this.audio && this.audio.playMusic) {
       this.audio.playMusic('clear', false);
@@ -684,6 +706,7 @@ export class World {
       if (this.sanctuary) this.sanctuary.update(p, this);
       if (this.vessel) this.vessel.update(p, this);
       if (this.pedestal) this.pedestal.update(p, this);
+      if (this.bossGateDoor) this.bossGateDoor.update(dt, p, input, this);
       if (this.bossExitDoor) {
         this.bossExitDoor.update(dt, p, input, this);
         if (this.game && this.game.world && this.game.world !== this) return;
@@ -1032,10 +1055,8 @@ export class World {
       p.vx *= Math.max(0, 1 - dt * 10);
     }
     if (!this.bossIntro) {
-      this.bossIntro = { t: 0, stage: 'banner', gateSlammed: false };
-      this.gateClosed = true;
-      this.gateDropY = 96;
-      for (let r = b.gateRows[0]; r <= b.gateRows[1]; r++) this.level.set(b.gateCol, r, T_GATE);
+      this.bossIntro = { t: 0, stage: 'banner' };
+      this.sealBossGate();
       this.frameArena(b, true);
       this.enemies = this.enemies.filter((e) => e.x > b.camX - 100);
       // Crossfade straight into the boss battle theme as the camera glides in so its
@@ -1059,18 +1080,7 @@ export class World {
     }
     const intro = this.bossIntro;
     intro.t += dt;
-    // Animate the iron portcullis sliding down smoothly and slamming shut at 0.36 s
-    if (!intro.gateSlammed) {
-      const k = Math.max(0, Math.min(1, (intro.t - 0.08) / 0.28));
-      this.gateDropY = Math.round(96 * (1 - k * k));
-      if (intro.t >= 0.36) {
-        intro.gateSlammed = true;
-        this.gateDropY = 0;
-        this.sfx('gate');
-        this.camera.shake(2.2, 0.24);
-        this.particles.dust(b.gateCol * TILE + 16, (b.gateRows[1] + 1) * TILE, 8);
-      }
-    }
+    // (The vertical Boss Gate Door slams shut behind the hunter on its own — see BossGateDoor.update.)
     // Posed boss: fade in, breathe and gesture while it speaks; never acts or takes hits until the battle starts.
     if (this.boss && this.boss.introPose) {
       const bs = this.boss;
@@ -1287,14 +1297,26 @@ export class World {
     return this._fogWorldY;
   }
 
+  /**
+   * Seals the sanctum behind the hunter for the battle. With a vertical Boss Gate
+   * Door this is an animated slam; stages without one fall back to raw gate tiles.
+   */
+  sealBossGate() {
+    const b = this.data.boss;
+    if (!b) return;
+    if (this.bossGateDoor) {
+      this.bossGateDoor.closeNow(this);
+      return;
+    }
+    for (let r = b.gateRows[0]; r <= b.gateRows[1]; r++) this.level.set(b.gateCol, r, T_GATE);
+  }
+
   startBoss() {
     const b = this.data.boss;
     const hadIntro = !!this.bossIntro;
     this.bossHold = false;
     this.bossActive = true;
-    this.gateClosed = true;
-    this.gateDropY = 0;
-    for (let r = b.gateRows[0]; r <= b.gateRows[1]; r++) this.level.set(b.gateCol, r, T_GATE);
+    this.sealBossGate();
     this.frameArena(b, false);
     if (this.boss && this.boss.introPose) {
       // Wake the posed boss: skip straight past its entrance fade (already visible).
@@ -1505,7 +1527,8 @@ export class World {
   }
 
   traversePassage(gate) {
-    const destIdx = stageIndexOf(gate.targetKey);
+    const targetKey = gate.effectiveTargetKey ? gate.effectiveTargetKey(this) : gate.targetKey;
+    const destIdx = stageIndexOf(targetKey);
     if (destIdx < 0 || !this.game || !this.game.startGame) return;
     if (this.game.markCellsExplored) {
       this.game.markCellsExplored([
@@ -1515,7 +1538,10 @@ export class World {
     }
     if (this.game.discoverStage) this.game.discoverStage(destIdx);
     this.sfx('select');
-    this.game.startGame(destIdx, this.carry({ enterFromDoorId: gate.id }));
+    const clearedDest = !!((this.game.cleared >>> destIdx) & 1);
+    const redirected = targetKey !== gate.targetKey;
+    const carryOpts = (!redirected && clearedDest) ? { enterFromDoorId: gate.id } : {};
+    this.game.startGame(destIdx, this.carry(carryOpts));
   }
 
   /**
@@ -1564,7 +1590,13 @@ export class World {
     }
     const nextKey = (door && door.resolveNextKey)
       ? door.resolveNextKey(this)
-      : nextAdjacentStageKey(this.stage.key, this.game.cleared, this.relics);
+      : nextAdjacentStageKey(
+        this.stage.key,
+        this.game.cleared,
+        this.relics,
+        (k) => (this.game.canEnterStage ? this.game.canEnterStage(k) : true),
+        this.game.visitedStages || null,
+      );
     if (!nextKey) {
       this.sfx('select');
       this.game.beginEnding();
@@ -1788,23 +1820,14 @@ export class World {
     ctx.imageSmoothingEnabled = false;
     if (fxl && fxl.enabled) fxl.retroBackground(ctx);
 
-    // 4a. Boss gate + static architectural terrain (viaducts, 3D decks, z = 0 tiles & static balconies)
-    if (this.gateClosed) {
-      const b = this.data.boss;
-      this.assets.draw(
-        ctx,
-        'arch',
-        'gate',
-        b.gateCol * TILE + 16 - camX,
-        (b.gateRows[1] + 1) * TILE - camY - Math.round(this.gateDropY || 0),
-      );
-    }
+    // 4a. Static architectural terrain (viaducts, 3D decks, z = 0 tiles & static balconies)
     this.level.drawStaticTiles(ctx, cam, this.assets, t);
 
-    // 4b. Wall-recessed monumental doorways, sanctuary waystone & vessel altar + wall sconce flames.
+    // 4b. Wall-recessed monumental doorways, vertical boss doors, sanctuary waystone & vessel altar + wall sconce flames.
     // Drawn BEFORE dynamic platforms (`drawDynamicTiles`) so moving lifts, ferries, gear gondolas,
     // and falling corbel tiles always pass cleanly IN FRONT OF doors and wall torches!
     if (this.passages) for (const g of this.passages) g.draw(ctx, cam, this.font, this, t);
+    if (this.bossGateDoor) this.bossGateDoor.draw(ctx, cam, this.font, this, t);
     if (this.bossExitDoor) this.bossExitDoor.draw(ctx, cam, this.font, this, t);
     if (this.sanctuary) this.sanctuary.draw(ctx, cam, this.font, t, this);
     if (this.vessel) this.vessel.draw(ctx, cam, this.font, this, t);
@@ -1931,6 +1954,7 @@ export class World {
     }
     if (this.sanctuary) this.sanctuary.drawPrompt(ctx, this.camera, this.font);
     if (this.passages) for (const g of this.passages) g.drawPrompt(ctx, this.camera, this.font, this);
+    if (this.bossGateDoor) this.bossGateDoor.drawPrompt(ctx, this.camera, this.font, this);
     if (this.bossExitDoor) this.bossExitDoor.drawPrompt(ctx, this.camera, this.font, this);
     if (this.pedestal) this.pedestal.drawPrompt(ctx, this.camera, this.font, this, this.time);
     if (this.popups.length) {

@@ -214,55 +214,106 @@ export function nextRoomAfter(clearedKey, clearedMask) {
 }
 
 /**
- * Resolves the next adjacent stage to enter when walking through the right-side
- * Boss Exit Door after defeating `clearedKey`'s boss.
+ * Resolves the next adjacent/nearby stage to enter when walking through the
+ * Boss Exit Door or a progression passage from `clearedKey`.
+ * Always progresses to a nearby connected stage that has NOT been completed yet
+ * (and avoids returning to `'graveyard'` or stages already visited this session
+ * whenever unvisited uncompleted regions remain).
  * Returns `null` after `'throne'` (The Count) so the Dawn Finale plays.
  */
-export function nextAdjacentStageKey(clearedKey, clearedMask, relicsSet = null) {
+export function nextAdjacentStageKey(clearedKey, clearedMask, relicsSet = null, canEnter = null, visitedSet = null) {
   if (clearedKey === 'throne') return null;
+  const curIdx = stageIndexOf(clearedKey);
   const room = MAP_ROOMS[clearedKey];
   if (!room || !room.exits || !room.exits.length) {
-    const idx = stageIndexOf(clearedKey);
-    return (idx >= 0 && idx + 1 < STAGES.length) ? STAGES[idx + 1].key : null;
+    return (curIdx >= 0 && curIdx + 1 < STAGES.length) ? STAGES[curIdx + 1].key : null;
   }
+  const effectiveRelics = relicsSet ? new Set([...relicsSet, clearedKey]) : null;
   const doors = stageDoorsFor(clearedKey);
   const canReachNeighbor = (neighborKey) => {
-    if (!relicsSet) return true;
+    if (!effectiveRelics) return true;
     const matching = doors.filter((d) => d.targetKey === neighborKey);
     if (!matching.length) return true;
-    return matching.some((d) => canTraverseDoor(d, relicsSet));
+    return matching.some((d) => canTraverseDoor(d, effectiveRelics));
   };
+  const isAllowed = (k) => k && k !== clearedKey && (typeof canEnter !== 'function' || canEnter(k));
+  const isUncleared = (k) => !isCleared(k, clearedMask);
+  const isUnvisited = (k) => k !== 'graveyard' && (!visitedSet || !visitedSet.has(k));
+  const isFresh = (k) => isUncleared(k) && isUnvisited(k);
 
-  // 1. Prefer directly adjacent connected stages that are unlocked and not yet cleared
-  const reachableExits = room.exits.filter(canReachNeighbor);
-  const pool = reachableExits.length ? reachableExits : room.exits;
-  const unclearedAdjacent = pool.filter((n) => !isCleared(n, clearedMask));
+  // Order candidate neighbors so forward castle stages (higher stage index) come before
+  // earlier stages (preventing backward loops to Graveyard when forward neighbors exist).
+  const orderForward = (list) => [...list].sort((a, b) => {
+    const reachA = canReachNeighbor(a) ? 0 : 1;
+    const reachB = canReachNeighbor(b) ? 0 : 1;
+    if (reachA !== reachB) return reachA - reachB;
+    const ia = stageIndexOf(a);
+    const ib = stageIndexOf(b);
+    const fwdA = ia > curIdx ? 0 : 1;
+    const fwdB = ib > curIdx ? 0 : 1;
+    if (fwdA !== fwdB) return fwdA - fwdB;
+    return ia - ib;
+  });
+
+  const exits = orderForward(room.exits.filter(isAllowed));
+
+  // 1. Direct adjacent stages that are both uncleared and not yet visited this session
+  const freshAdjacent = exits.filter(isFresh);
+  if (freshAdjacent.length) {
+    const nonThrone = freshAdjacent.filter((n) => n !== 'throne' || clearedKey === 'clocktower');
+    return nonThrone[0] || freshAdjacent[0];
+  }
+
+  // 2. Direct adjacent stages that are uncleared (excluding Graveyard unless no other uncleared stage exists)
+  const unclearedAdjacent = exits.filter((n) => isUncleared(n) && n !== 'graveyard');
   if (unclearedAdjacent.length) {
-    // Prefer non-throne until Clock Tower is cleared, unless throne is the only uncleared neighbor
     const nonThrone = unclearedAdjacent.filter((n) => n !== 'throne' || clearedKey === 'clocktower');
     return nonThrone[0] || unclearedAdjacent[0];
   }
 
-  // 2. All direct neighbors cleared: BFS across connected rooms to pick the adjacent step
-  // leading shortest-path toward the nearest remaining uncleared region
-  const visited = new Set([clearedKey]);
-  const queue = pool.map((firstStep) => ({ key: firstStep, firstStep }));
-  for (const item of queue) visited.add(item.key);
-  while (queue.length) {
-    const { key, firstStep } = queue.shift();
-    if (!isCleared(key, clearedMask)) return firstStep;
-    const r = MAP_ROOMS[key];
-    if (!r || !r.exits) continue;
-    for (const nxt of r.exits) {
-      if (!visited.has(nxt)) {
-        visited.add(nxt);
-        queue.push({ key: nxt, firstStep });
+  // 3. BFS across the Castle Grid to find the nearest remaining uncompleted region in the castle
+  const bfsFind = (predicate) => {
+    const seen = new Set([clearedKey]);
+    const queue = [...exits];
+    for (const k of queue) seen.add(k);
+    while (queue.length) {
+      const key = queue.shift();
+      if (isAllowed(key) && predicate(key)) return key;
+      const r = MAP_ROOMS[key];
+      if (!r || !r.exits) continue;
+      const nextNeighbors = [...r.exits].sort((a, b) => {
+        const ia = stageIndexOf(a);
+        const ib = stageIndexOf(b);
+        const fwdA = ia > curIdx ? 0 : 1;
+        const fwdB = ib > curIdx ? 0 : 1;
+        return fwdA !== fwdB ? fwdA - fwdB : ia - ib;
+      });
+      for (const nxt of nextNeighbors) {
+        if (!seen.has(nxt)) {
+          seen.add(nxt);
+          queue.push(nxt);
+        }
       }
     }
+    return null;
+  };
+
+  const nearestFresh = bfsFind((k) => isFresh(k) && k !== 'throne');
+  if (nearestFresh) return nearestFresh;
+
+  const nearestUnclearedNonGy = bfsFind((k) => isUncleared(k) && k !== 'graveyard' && k !== 'throne');
+  if (nearestUnclearedNonGy) return nearestUnclearedNonGy;
+
+  const nearestAnyUncleared = bfsFind((k) => isUncleared(k));
+  if (nearestAnyUncleared) return nearestAnyUncleared;
+
+  // 4. Fallback scan of STAGES in order for any allowed uncleared stage
+  for (const st of STAGES) {
+    if (isAllowed(st.key) && isUncleared(st.key)) return st.key;
   }
 
-  // 3. Entire castle cleared: step into the first connected adjacent stage
-  return pool[0] || room.exits[0];
+  // 5. Entire castle cleared: step into a forward / unvisited neighbor
+  return exits.find(isUnvisited) || exits[0] || room.exits[0];
 }
 
 function countBits(mask, max = 18) {
@@ -334,10 +385,13 @@ export function drawCastleMap(ctx, font, assets, {
   onlineCount = 1,
   roomName = 'castle',
   netConnected = false,
+  gateInfo = null,
 }) {
   const pulse = 0.5 + 0.5 * Math.sin(time * 5.2);
   const expSet = explored || new Set();
   const relicSet = relics || new Set();
+  // Progression gates (see gates.js): `{ bossOpen, entryLock }` per region, when the caller provides them.
+  const gateOf = (key) => (typeof gateInfo === 'function' ? gateInfo(key) : null) || { bossOpen: true, entryLock: null };
 
   // Dimmed parchment + deep cartographer's blueprint slate
   const parchment = assets.img('map_parchment');
@@ -478,14 +532,27 @@ export function drawCastleMap(ctx, font, assets, {
     if (disc || anyBossExp) {
       const bx = Math.round(MAP_X + rm.bossCenter[0] * CELL_SIZE);
       const by = Math.round(MAP_Y + rm.bossCenter[1] * CELL_SIZE);
+      const gate = gateOf(key);
+      const sealed = !done && !gate.bossOpen;
       ctx.fillStyle = '#140c18';
       ctx.fillRect(bx - 3, by - 3, 7, 7);
-      ctx.fillStyle = done ? '#b8d0ff' : '#ffb4c0';
+      ctx.fillStyle = done ? '#b8d0ff' : (sealed ? '#7a4e5c' : '#ffb4c0');
       ctx.fillRect(bx - 2, by - 2, 5, 3);
       ctx.fillRect(bx - 1, by + 1, 3, 2);
       ctx.fillStyle = '#140c18';
       ctx.fillRect(bx - 1, by - 1, 1, 1);
       ctx.fillRect(bx + 1, by - 1, 1, 1);
+      if (sealed) {
+        // Sealed Boss Gate Door: a tiny padlock pinned to the chamber emblem
+        const lx = bx + 4, ly = by - 6;
+        ctx.fillStyle = '#05040a';
+        ctx.fillRect(lx - 1, ly - 1, 6, 7);
+        ctx.fillStyle = key === 'throne' ? `rgba(226, 60, 60, ${0.7 + 0.3 * pulse})` : '#ff6a88';
+        ctx.fillRect(lx, ly + 2, 4, 3);
+        ctx.fillRect(lx, ly, 1, 2);
+        ctx.fillRect(lx + 3, ly, 1, 2);
+        ctx.fillRect(lx + 1, ly - 1, 2, 1);
+      }
     }
   }
 
@@ -693,9 +760,15 @@ export function drawCastleMap(ctx, font, assets, {
   font.draw(ctx, st.name, tx, ly + 18, { scale: 2, gothic: false, color: '#efe3bf', shadow: '#05040a' });
 
   const relic = BOSS_RELICS[cursor];
-  font.draw(ctx, `BOSS · ${st.boss ? st.boss.name : '???'}`, rx, ly + 7, { align: 'right', color: '#ffb0a0', shadow: '#05040a', gothic: false });
+  const cursorGate = gateOf(cursor);
+  const bossSealed = !done && !cursorGate.bossOpen;
+  const entryLock = cursorGate.entryLock;
+  const bossLine = `BOSS · ${st.boss ? st.boss.name : '???'}${done ? '' : (bossSealed ? ' · GATE SEALED' : ' · GATE OPEN')}`;
+  font.draw(ctx, bossLine, rx, ly + 7, { align: 'right', color: bossSealed ? '#ff6a88' : '#ffb0a0', shadow: '#05040a', gothic: false });
 
-  if (mode === 'live') {
+  if (entryLock) {
+    font.draw(ctx, `${entryLock.title} · ${entryLock.sub}`, rx, ly + 21, { align: 'right', color: pulse > 0.3 ? '#e23c3c' : '#a8263e', shadow: '#05040a', gothic: false });
+  } else if (mode === 'live') {
     if (cursor === currentStageKey) {
       font.draw(ctx, 'CURRENT AREA · M / ESC / ENTER RESUME', rx, ly + 21, { align: 'right', color: '#9ef5dc', shadow: '#05040a', gothic: false });
     } else if (canWarp) {
@@ -738,6 +811,8 @@ export function drawCastleMap(ctx, font, assets, {
   let bottomLeft = '';
   if (huntersInCursor.length > 0) {
     bottomLeft = `HUNTERS HERE · ${huntersInCursor.join(', ')}`;
+  } else if (bossSealed && cursorGate.bossSub) {
+    bottomLeft = `BOSS GATE · ${cursorGate.bossSub}`;
   } else if (gateNotes.length > 0) {
     bottomLeft = `GATES · ${gateNotes.slice(0, 2).join('  ·  ')}`;
   } else {

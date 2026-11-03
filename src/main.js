@@ -1,6 +1,9 @@
 // Gothic Nocturne — entry point: boot, scaling, game loop and menu states.
 
-import { W, H, DT, DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, ASSET_VERSION, PLAYER } from './engine/constants.js';
+import {
+  W, H, DT, DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, ASSET_VERSION, PLAYER,
+  TITLE_MENU_ITEMS, TITLE_MENU_Y0, TITLE_MENU_ROW_H, SETTINGS_ITEMS, SETTINGS_TOP, SETTINGS_ROW_H,
+} from './engine/constants.js';
 import { Input } from './engine/input.js';
 import { Assets } from './engine/assets.js';
 import { AudioSys } from './engine/audio.js';
@@ -19,6 +22,9 @@ import { BOSS_RELICS, resolveActiveRelics } from './game/relics.js';
 import {
   START_LEVEL, LEVEL_CAP, expRequiredForNextLevel, levelBonuses, applyExpGain,
 } from './game/progression.js';
+import {
+  DEFAULT_DEBUG_FLAGS, canEnterStage, stageEntryLock, bossGateStatus, guardianProgress, allGuardiansFelled,
+} from './game/gates.js';
 import { Forge } from './game/forge.js';
 import { ForgeScreens } from './game/forge_ui.js';
 import { ArmoryScreen } from './game/armory_ui.js';
@@ -36,10 +42,13 @@ class Game {
     this.input = new Input(canvas);
     this.postfx = new PostFX(canvas);
     if (new URLSearchParams(location.search).has('nofx')) { this.postfx.setEnabled(false); const fl = getFxLayers(); if (fl) fl.setEnabled(false); }
-    this.state = 'loading';          // loading | title | difficulty | stageselect | forge | forging | play | map | pause | clear | ending | gameover
+    this.state = 'loading';          // loading | title | controls | settings | difficulty | stageselect | forge | forging | play | map | pause | clear | ending | gameover
     this.forge = new Forge(this);     // Castle Forge: player-proposed wings
     this.forgeUI = new ForgeScreens(this);
-    this.titleMenu = 0;               // 0 = begin the hunt, 1 = expand the castle
+    this.titleMenu = 0;               // 0 = begin the hunt, 1 = expand the castle, 2 = controls, 3 = settings
+    this.settingsIndex = 0;           // cursor on the title Settings screen
+    this.settingsConfirmReset = false; // RESET PROGRESS asks twice
+    this.settingsFlash = null;        // { text, t } confirmation line on the Settings screen
     this.wingBanner = null;           // { name, t } after a wing is raised in the background
     this.stateT = 0;
     this.world = null;
@@ -47,6 +56,8 @@ class Game {
     this.acc = 0;
     this.last = performance.now();
     this.params = new URLSearchParams(location.search);
+    // Debug flags (title Settings screen): URL `?debug=areas|bosses|all` overrides for this session only.
+    this.debug = loadDebugFlags('gothic.debug.v1', this.params);
     // Difficulty: URL override > last choice (localStorage) > default.
     const stored = safeStorageGet('gothic.difficulty');
     const urlDiff = this.params.get('difficulty');
@@ -76,6 +87,7 @@ class Game {
     this.stageIndex = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1 : 0;
     this.stageCursor = this.stageIndex;
     this.mapCursor = STAGES[this.stageIndex].key;
+    this.visitedStages = new Set([STAGES[this.stageIndex].key]);
     this.carryState = null;          // score/lives/hearts carried between connected stages
     this.editingCallsign = false;
     this.callsignDraft = '';
@@ -166,6 +178,10 @@ class Game {
       if (this.params.has('ending')) this.stateT = Math.max(0, parseFloat(this.params.get('ending')) || 0);
     } else if (screen === 'difficulty' || screen === 'stageselect') {
       this.setState(screen);
+    } else if (screen === 'controls') {
+      this.openControls();
+    } else if (screen === 'settings') {
+      this.openSettings();
     } else if (screen === 'forge') {
       this.openForge('title');
     } else if (screen === 'play') {
@@ -230,6 +246,111 @@ class Game {
   /** Resolves all currently unlocked Boss Relic power-ups. */
   getActiveRelics() {
     return resolveActiveRelics(this.cleared, STAGES, this.params);
+  }
+
+  // ------------------------------------------------ Castle progression gates
+
+  /** Bitmask covering every stage (built-in + forged). */
+  allStagesMask() {
+    return STAGES.length >= 31 ? 0x7fffffff : ((1 << STAGES.length) - 1);
+  }
+
+  /** May the hunter set foot in `key` yet? Only the Count's hall is ever barred. */
+  canEnterStage(key) {
+    return canEnterStage(key, this.cleared, this.debug);
+  }
+
+  /** `{ title, sub }` explaining why `key` is barred, or `null`. */
+  stageEntryLock(key) {
+    return stageEntryLock(key, this.cleared, this.debug);
+  }
+
+  /** Boss Gate Door status for `key` (see gates.js). */
+  bossGateStatus(key) {
+    return bossGateStatus(key, this.cleared, this.debug);
+  }
+
+  /** `{ felled, total }` guardians defeated among the built-in regions. */
+  guardianProgress() {
+    return guardianProgress(this.cleared);
+  }
+
+  /** Discovered for Castle Map fast travel (debug `UNLOCK ALL AREAS` charts everything). */
+  isStageDiscovered(key) {
+    if (this.debug.unlockAreas) return true;
+    return isDiscovered(key, this.cleared, this.discovered);
+  }
+
+  /** Discovery mask handed to the Castle Map renderer. */
+  discoveredForMap() {
+    return this.debug.unlockAreas ? this.allStagesMask() : this.discovered;
+  }
+
+  /** Relic set handed to the Castle Map renderer (debug `UNLOCK ALL AREAS` draws every seal open). */
+  relicsForMap() {
+    if (!this.debug.unlockAreas) return this.getActiveRelics();
+    return new Set(Object.keys(BOSS_RELICS));
+  }
+
+  /** Per-region progression summary for the Castle Map renderer. */
+  mapGateInfo(key) {
+    const gs = this.bossGateStatus(key);
+    return { bossOpen: gs.open, bossSub: gs.sub, entryLock: this.stageEntryLock(key) };
+  }
+
+  /** Warps / enters `key` from the map or stage-select; rebuffs barred regions with the reason. */
+  tryEnterStageFromMap(key, carry) {
+    const idx = stageIndexOf(key);
+    if (idx < 0) return false;
+    if (!this.canEnterStage(key)) {
+      const lock = this.stageEntryLock(key);
+      this.audio.sfx('block');
+      this.muteFlash = lock ? `${lock.title} · ${lock.sub}` : 'SEALED';
+      this.muteT = 2.2;
+      return false;
+    }
+    this.startGame(idx, carry);
+    return true;
+  }
+
+  setDebugFlag(flag, on) {
+    if (!(flag in DEFAULT_DEBUG_FLAGS)) return;
+    this.debug = Object.assign({}, this.debug, { [flag]: !!on });
+    safeStorageSet('gothic.debug.v1', JSON.stringify(this.debug));
+    if (this.world) this.world.relics = this.getActiveRelics();
+  }
+
+  /**
+   * Resets the hunt to its initial state: cleared bosses, charted map, sanctuaries,
+   * vessels, level & EXP, armory, remembered stage/difficulty and debug flags.
+   * Hunter callsign and Castle Forge wings (shared castle content) are kept.
+   */
+  resetProgress() {
+    for (const k of [
+      'gothic.cleared.v3', 'gothic.discovered.v1', 'gothic.vessels.v1', 'gothic.explored.v2',
+      'gothic.progression.v1', 'gothic.armory.v1', 'gothic.stage', 'gothic.difficulty', 'gothic.debug.v1',
+    ]) safeStorageRemove(k);
+    this.cleared = 0;
+    this.discovered = 1;
+    this.vessels = 0;
+    this.exploredCells = new Set();
+    this.charLevel = START_LEVEL;
+    this.charExp = 0;
+    this._urlLevelOverride = false;
+    this.ownedWeapons = new Set(['hunters_lash']);
+    this.handL = 'hunters_lash';
+    this.handR = null;
+    this._urlArmoryOverride = false;
+    this.debug = Object.assign({}, DEFAULT_DEBUG_FLAGS);
+    this.difficultyKey = DEFAULT_DIFFICULTY;
+    this.difficulty = DIFFICULTIES[this.difficultyKey];
+    this.menuIndex = DIFFICULTY_ORDER.indexOf(this.difficultyKey);
+    this.stageIndex = 0;
+    this.stageCursor = 0;
+    this.mapCursor = STAGES[0].key;
+    this.visitedStages = new Set([STAGES[0].key]);
+    this.carryState = null;
+    this.world = null;
   }
 
   /** Persists newly charted Castle Grid cell coordinates (`"c,r"`). */
@@ -521,6 +642,8 @@ class Game {
     this.mapCursor = STAGES[this.stageIndex].key;
     safeStorageSet('gothic.stage', String(this.stageIndex));
     const stage = STAGES[this.stageIndex];
+    if (!this.visitedStages) this.visitedStages = new Set();
+    this.visitedStages.add(stage.key);
     this.world = new World(this, stage, carry);
     // ?boss=1 teleports directly to the boss vestibule for testing.
     if (this.params.has('boss') && stage.boss && !carry) {
@@ -534,6 +657,15 @@ class Game {
         this.world.startBoss();
         this.world.messages = [];
       }
+    }
+    // ?gate=1 teleports to the vestibule just outside the vertical Boss Gate Door for testing.
+    if (this.params.has('gate') && stage.boss && stage.boss.gateCol != null && !carry) {
+      this.world.phase = 'play';
+      this.world.phaseT = 0;
+      this.world.messages = [];
+      this.world.player.x = stage.boss.gateCol * 32 - 64;
+      this.world.player.y = stage.boss.arena.floorY;
+      this.world.camera.snapTo(this.world.player.x, this.world.player.y);
     }
     // ?at=<tile column>[&aty=<tile row>] teleports the hunter for testing.
     let at = parseInt(this.params.get('at') || '-1', 10);
@@ -561,6 +693,8 @@ class Game {
     if (this.world.bossActive || (this.params.has('boss') && stage.boss && !carry)) {
       this.world.recordExploration();
     }
+    // Testing teleports may land inside the Boss Sanctum: never wall the hunter in behind the Boss Gate Door.
+    this.world.syncBossGateToPlayer();
     this.setState('play');
     this.audio.playMusic(this.world.theme.music);
     this.audio.playAmbient(this.world.theme.ambient || null);
@@ -594,7 +728,13 @@ class Game {
   /** After clearing a stage: advance directly into the next adjacent level, or Dawn Finale after Throne. */
   advance() {
     const key = STAGES[this.stageIndex].key;
-    const nextKey = nextAdjacentStageKey(key, this.cleared, this.getActiveRelics());
+    const nextKey = nextAdjacentStageKey(
+      key,
+      this.cleared,
+      this.getActiveRelics(),
+      (k) => this.canEnterStage(k),
+      this.visitedStages,
+    );
     if (!nextKey) { this.beginEnding(); return; }
     const nextIdx = stageIndexOf(nextKey);
     if (nextIdx >= 0) {
@@ -668,7 +808,7 @@ class Game {
         this.postfx.shockwave(sh.x, sh.y, sh.strength);
         fxWorld.fxShock = null;
       }
-    } else if ((this.state === 'title' || this.state === 'difficulty' || this.state === 'stageselect') && this.titleWorld && this.titleWorld.flash > 0.02) {
+    } else if ((this.state === 'title' || this.state === 'controls' || this.state === 'settings' || this.state === 'difficulty' || this.state === 'stageselect') && this.titleWorld && this.titleWorld.flash > 0.02) {
       this.postfx.strike(this.titleWorld.flash);
     }
     this.postfx.draw(dt, fxWorld ? (fxWorld.fxTheme || fxWorld.data.theme) : 'menu');
@@ -679,7 +819,7 @@ class Game {
     this.stateT += dt;
     this.net.update(dt, this.buildNetSnapshot());
     if (this.editingCallsign) {
-      if (this.state === 'title' || this.state === 'difficulty' || this.state === 'stageselect') {
+      if (this.state === 'title' || this.state === 'controls' || this.state === 'settings' || this.state === 'difficulty' || this.state === 'stageselect') {
         this.updateTitleBackdrop(dt);
       }
       return;
@@ -698,12 +838,23 @@ class Game {
         this.updateTitleBackdrop(dt);
         this.audio.playMusic('title');
         this.audio.stopAmbient();
-        if (inp.pressed.up || inp.pressed.down) { this.titleMenu = this.titleMenu ? 0 : 1; this.audio.sfx('bone'); }
+        if (inp.pressed.up) { this.titleMenu = (this.titleMenu + TITLE_MENU_ITEMS - 1) % TITLE_MENU_ITEMS; this.audio.sfx('bone'); }
+        if (inp.pressed.down) { this.titleMenu = (this.titleMenu + 1) % TITLE_MENU_ITEMS; this.audio.sfx('bone'); }
         if (inp.pressed.forge) { this.openForge('title'); break; }
         if (inp.pressed.start || inp.pressed.jump || inp.pressed.attack) {
           if (this.titleMenu === 1) this.openForge('title');
+          else if (this.titleMenu === 2) this.openControls();
+          else if (this.titleMenu === 3) this.openSettings();
           else { this.setState('difficulty'); this.audio.sfx('select'); }
         }
+        break;
+      case 'controls':
+        this.updateTitleBackdrop(dt);
+        this.updateControls(dt, inp);
+        break;
+      case 'settings':
+        this.updateTitleBackdrop(dt);
+        this.updateSettings(dt, inp);
         break;
       case 'forge':
         this.forgeUI.updateProposal(dt, inp);
@@ -735,7 +886,7 @@ class Game {
         else if (inp.pressed.down) c = moveCursor(c, 0, 1);
         if (c !== this.mapCursor) { this.mapCursor = c; this.audio.sfx('bone'); }
         if (this.stateT > 0.25 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) {
-          this.startGame(stageIndexOf(this.mapCursor));
+          this.tryEnterStageFromMap(this.mapCursor, this.carryState);
         }
         break;
       }
@@ -766,9 +917,9 @@ class Game {
           if (this.mapCursor === curKey) {
             this.setState('play');
             this.audio.sfx('pause');
-          } else if (isDiscovered(this.mapCursor, this.cleared, this.discovered)) {
-            this.startGame(
-              stageIndexOf(this.mapCursor),
+          } else if (this.isStageDiscovered(this.mapCursor)) {
+            this.tryEnterStageFromMap(
+              this.mapCursor,
               this.world.carry({ enterFromDoorId: 'sanctuary' }),
             );
           } else {
@@ -814,6 +965,8 @@ class Game {
     ctx.imageSmoothingEnabled = false;
     switch (this.state) {
       case 'title': this.drawTitle(ctx); break;
+      case 'controls': this.drawControls(ctx); break;
+      case 'settings': this.drawSettings(ctx); break;
       case 'difficulty': this.drawDifficulty(ctx); break;
       case 'stageselect': this.drawStageSelect(ctx); this.forgeUI.drawTicker(ctx, 230, 572, 'right'); break;
       case 'forge': this.forgeUI.drawProposal(ctx); break;
@@ -993,34 +1146,38 @@ class Game {
     }
     if (reveal >= 1) {
       // Ornamental rule and tagline
-      ctx.fillStyle = '#8a6a3a'; ctx.fillRect(W / 2 - 150, 226, 300, 1);
-      ctx.fillStyle = '#d9b36a'; ctx.fillRect(W / 2 - 2, 224, 4, 4); ctx.fillRect(W / 2 - 150, 225, 3, 3); ctx.fillRect(W / 2 + 147, 225, 3, 3);
-      f.draw(ctx, 'A 32-BIT WHIP-CRACKING ACTION PLATFORMER', W / 2, 234, { align: 'center', color: '#a89a74', shadow: '#120f1c' });
+      ctx.fillStyle = '#8a6a3a'; ctx.fillRect(W / 2 - 150, 218, 300, 1);
+      ctx.fillStyle = '#d9b36a'; ctx.fillRect(W / 2 - 2, 216, 4, 4); ctx.fillRect(W / 2 - 150, 217, 3, 3); ctx.fillRect(W / 2 + 147, 217, 3, 3);
+      f.draw(ctx, 'A 32-BIT WHIP-CRACKING ACTION PLATFORMER', W / 2, 224, { align: 'center', color: '#a89a74', shadow: '#120f1c' });
       const isTouch = !!(this.touch && this.touch.active);
-      // Title menu: begin the hunt, or propose a new wing for the Castle Forge to raise
+      // Title menu: begin the hunt, propose a new wing for the Castle Forge to raise, view Controls, or open Settings
+      const gp = this.guardianProgress();
+      const huntSub = gp.felled > 0
+        ? `${isTouch ? 'TAP OR PRESS START' : 'PRESS ENTER OR START'} · GUARDIANS FELLED ${gp.felled}/${gp.total}${allGuardiansFelled(this.cleared) ? ' · THE COUNT AWAITS' : ''}`
+        : (isTouch ? 'TAP OR PRESS START' : 'PRESS ENTER OR START');
+      const debugOn = this.debug.unlockAreas || this.debug.unlockBosses;
       const items = [
-        ['BEGIN THE HUNT', isTouch ? 'TAP OR PRESS START' : 'PRESS ENTER OR START'],
+        ['BEGIN THE HUNT', huntSub],
         ['EXPAND THE CASTLE', `PROPOSE A NEW WING · ${this.forge.forgedCount ? `${this.forge.forgedCount} RAISED SO FAR` : 'AI-FORGED LEVEL, ART, MUSIC AND BOSS'}`],
+        ['CONTROLS', isTouch ? 'TOUCH D-PAD, WEAPON CLUSTER & SHORTCUTS' : 'KEYBOARD, GAMEPAD & TOUCH CONTROLS'],
+        ['SETTINGS', debugOn ? 'RESET PROGRESS · DEBUG UNLOCKS ACTIVE' : 'RESET PROGRESS · DEBUG UNLOCKS'],
       ];
       items.forEach(([label, sub], i) => {
         const sel = this.titleMenu === i;
-        const y = 246 + i * 18;
-        const col = sel ? (pulse > 0.25 ? '#ffd27a' : '#e0b45a') : '#6f6a80';
+        const y = TITLE_MENU_Y0 + i * TITLE_MENU_ROW_H;
+        const col = sel ? (pulse > 0.25 ? '#ffd27a' : '#e0b45a') : (i === 3 && debugOn ? '#9a6f8a' : '#6f6a80');
         f.draw(ctx, `${sel ? '→ ' : '  '}${label}${sel ? ' ←' : '  '}`, W / 2, y, { scale: 2, align: 'center', color: col, shadow: '#5b2a3a', gothic: false });
-        if (sel) f.draw(ctx, sub, W / 2, 284, { align: 'center', color: '#a89a74', shadow: '#120f1c', gothic: false });
+        if (sel) f.draw(ctx, sub, W / 2, TITLE_MENU_Y0 + TITLE_MENU_ROW_H * TITLE_MENU_ITEMS + 3, { align: 'center', color: '#a89a74', shadow: '#120f1c', gothic: false });
       });
-      // Controls plate
-      ctx.fillStyle = 'rgba(4, 3, 10, 0.55)';
-      ctx.fillRect(W / 2 - 248, 298, 496, 34);
-      ctx.fillStyle = '#3a2e22'; ctx.fillRect(W / 2 - 248, 298, 496, 1); ctx.fillRect(W / 2 - 248, 331, 496, 1);
-      const lines = isTouch ? [
-        'D-PAD MOVE (TAP TWICE TO RUN)   JUMP   L-HAND & R-HAND WEAPONS   SUB THROWS HEART ITEM',
-        'GEAR OPENS DUAL-HAND ARMORY   TAP MINI-MAP FOR FAST TRAVEL   ↓↘→ SKILL',
-      ] : [
-        '←→ MOVE (TAP TWICE TO RUN)   ↓ CROUCH   Z/J/SPACE JUMP   X/K L-HAND   C/V/L R-HAND   ↓↘→ SKILL',
-        'E ARMORY  M MAP  ↑ PASSAGES / + L-HAND SUB  P FORGE  G SALUTE  N MUTE  F FX',
-      ];
-      lines.forEach((l, i) => f.draw(ctx, l, W / 2, 304 + i * 12, { align: 'center', color: i === 1 ? '#ffb0a0' : '#c9c3b0', shadow: '#120f1c' }));
+      // Game author attribution on the home screen
+      ctx.fillStyle = '#3a2e22';
+      ctx.fillRect(W / 2 - 140, 323, 280, 1);
+      f.draw(ctx, 'CREATED BY JUNIUS GUNARATNE', W / 2, 328, {
+        align: 'center',
+        color: '#d9b36a',
+        shadow: '#120f1c',
+        gothic: false,
+      });
       if (this.net && this.net.enabled) {
         const netLine = this.net.connected
           ? `ONLINE · ${this.net.onlineCount} IN ${this.net.room.toUpperCase()} · AS ${this.net.name} (${isTouch ? 'TAP TO RENAME' : 'PRESS C'})`
@@ -1032,9 +1189,247 @@ class Game {
           gothic: false,
         });
       } else {
-        f.draw(ctx, 'ART · GEMINI     MUSIC · LYRIA 3     VOICE · DAIKON     FORGE · GEMINI + GEMPIX     2026', W / 2, H - 16, { align: 'center', color: '#5b6b86' });
+        f.draw(ctx, 'ART · GEMINI & OMNI     MUSIC · LYRIA 3     VOICE · DAIKON     FORGE · GEMINI + GEMPIX     2026', W / 2, H - 16, { align: 'center', color: '#5b6b86' });
       }
       this.forgeUI.drawTicker(ctx, 4);
+    }
+  }
+
+  // ------------------------------------------------------------ Controls screen
+
+  openControls() {
+    this.setState('controls');
+    this.audio.sfx('select');
+  }
+
+  closeControls() {
+    this.titleMenu = 2;
+    this.setState('title');
+    this.audio.sfx('pause');
+  }
+
+  updateControls(dt, inp) {
+    if (this.stateT > 0.22 && (inp.pressed.escape || inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) {
+      this.closeControls();
+    }
+  }
+
+  drawControls(ctx) {
+    this.titleWorld.draw(ctx, { hud: false });
+    ctx.fillStyle = 'rgba(4, 3, 10, 0.72)';
+    ctx.fillRect(0, 0, W, H);
+    const f = this.font;
+    const pulse = 0.5 + 0.5 * Math.sin(this.stateT * 2.2);
+    const isTouch = !!(this.touch && this.touch.active);
+    f.draw(ctx, 'GOTHIC NOCTURNE', W / 2, 22, { scale: 2, align: 'center', color: '#8a9ab5', spacing: 2, shadow: '#120f1c' });
+    f.draw(ctx, 'CONTROLS', W / 2, 48, { scale: 3, align: 'center', color: '#e8e2c8', shadow: '#5b2a3a' });
+    ctx.fillStyle = '#5b6b86';
+    ctx.fillRect(W / 2 - 260, 82, 520, 1);
+
+    const px = 48, py = 90, pw = W - 96, ph = 206;
+    ctx.fillStyle = 'rgba(7, 5, 16, 0.90)';
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeStyle = '#8a6a3a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+    ctx.strokeStyle = '#2e243d';
+    ctx.strokeRect(px + 2.5, py + 2.5, pw - 5, ph - 5);
+
+    // Column headers: Movement vs Combat
+    const leftX = px + 14;
+    const rightX = W / 2 + 12;
+    f.draw(ctx, 'MOVEMENT & PLATFORMING', leftX, py + 10, { color: '#ffd27a', shadow: '#05040a', gothic: false });
+    f.draw(ctx, 'COMBAT & DUAL-HAND ARSENAL', rightX, py + 10, { color: '#ffd27a', shadow: '#05040a', gothic: false });
+    ctx.fillStyle = '#3a2e4c';
+    ctx.fillRect(px + 10, py + 22, pw - 20, 1);
+    ctx.fillRect(W / 2, py + 8, 1, 108);
+
+    const moveRows = [
+      ['← / →  OR  A / D', 'WALK  (TAP TWICE TO RUN)'],
+      ['↑ / ↓  OR  W / S', 'STAIRS  ·  CROUCH'],
+      ['Z / J / SPACE', 'JUMP  (2X WITH NIGHT-WINGS)'],
+      ['↓ + JUMP', 'DROP THROUGH LEDGE'],
+    ];
+    moveRows.forEach(([k, desc], i) => {
+      const ry = py + 30 + i * 21;
+      f.draw(ctx, k, leftX, ry, { color: '#62f2c2', shadow: '#05040a', gothic: false });
+      f.draw(ctx, desc, leftX + 102, ry, { color: '#e8e2c8', shadow: '#05040a', gothic: false });
+    });
+
+    const combatRows = [
+      ['X / K', 'LEFT-HAND WEAPON (MAIN)'],
+      ['C / V / L', 'RIGHT-HAND OFF-HAND'],
+      ['↑ + ATTACK', 'THROW SUB-WEAPON (♥)'],
+      ['↓ ↘ → + ATTACK', 'WEAPON SIGNATURE SKILL'],
+    ];
+    combatRows.forEach(([k, desc], i) => {
+      const ry = py + 30 + i * 21;
+      f.draw(ctx, k, rightX, ry, { color: '#ffb0a0', shadow: '#05040a', gothic: false });
+      f.draw(ctx, desc, rightX + 98, ry, { color: '#e8e2c8', shadow: '#05040a', gothic: false });
+    });
+
+    // Exploration, shortcuts & touch section
+    ctx.fillStyle = '#3a2e4c';
+    ctx.fillRect(px + 10, py + 120, pw - 20, 1);
+    f.draw(ctx, 'EXPLORATION, CASTLE FORGE & TOUCH', W / 2, py + 128, { align: 'center', color: '#ffd27a', shadow: '#05040a', gothic: false });
+
+    const expLines = [
+      ['↑ AT DOORWAY / SHRINE', 'ENTER PASSAGE, BOSS EXIT DOOR, OR SANCTUARY FAST TRAVEL'],
+      ['E  ARMORY     M  CASTLE MAP     P  CASTLE FORGE     G  SALUTE     C  CALLSIGN', ''],
+      ['N  MUTE AUDIO     F  TOGGLE CRT / POST-FX SHADERS     ENTER / ESC  PAUSE', ''],
+      ['TOUCH & GAMEPAD', '8-WAY D-PAD + ACTION CLUSTER · TAP MINI-MAP, ARMORY SOCKETS OR DOORS'],
+    ];
+    expLines.forEach(([a, b], i) => {
+      const ry = py + 144 + i * 15;
+      if (b) {
+        f.draw(ctx, a, leftX, ry, { color: '#62f2c2', shadow: '#05040a', gothic: false });
+        f.draw(ctx, b, leftX + 142, ry, { color: '#c9c3b0', shadow: '#05040a', gothic: false });
+      } else {
+        f.draw(ctx, a, W / 2, ry, { align: 'center', color: '#e8e2c8', shadow: '#05040a', gothic: false });
+      }
+    });
+
+    const prompt = isTouch ? 'TAP ANYWHERE OR PRESS ✕ BACK TO RETURN' : 'PRESS ESC / ENTER / JUMP TO RETURN TO TITLE';
+    if (pulse > 0.25) {
+      f.draw(ctx, prompt, W / 2, 306, { align: 'center', color: '#ffd27a', shadow: '#120f1c' });
+    }
+    f.draw(ctx, 'CREATED BY JUNIUS GUNARATNE', W / 2, 326, { align: 'center', color: '#8a9ab5', shadow: '#120f1c' });
+  }
+
+  // ------------------------------------------------------------ Settings screen
+
+  openSettings() {
+    this.settingsIndex = 0;
+    this.settingsConfirmReset = false;
+    this.settingsFlash = null;
+    this.setState('settings');
+    this.audio.sfx('select');
+  }
+
+  closeSettings() {
+    this.settingsConfirmReset = false;
+    this.titleMenu = 3;
+    this.setState('title');
+    this.audio.sfx('pause');
+  }
+
+  updateSettings(dt, inp) {
+    if (this.settingsFlash) {
+      this.settingsFlash.t -= dt;
+      if (this.settingsFlash.t <= 0) this.settingsFlash = null;
+    }
+    if (inp.pressed.escape) { this.closeSettings(); return; }
+    const n = SETTINGS_ITEMS.length;
+    if (inp.pressed.up) { this.settingsIndex = (this.settingsIndex + n - 1) % n; this.settingsConfirmReset = false; this.audio.sfx('bone'); }
+    if (inp.pressed.down) { this.settingsIndex = (this.settingsIndex + 1) % n; this.settingsConfirmReset = false; this.audio.sfx('bone'); }
+    if (this.stateT > 0.25 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack || inp.pressed.left || inp.pressed.right)) {
+      this.activateSettingsItem(this.settingsIndex);
+    }
+  }
+
+  /** Activates a Settings row (keyboard, gamepad or a touch tap on the row). */
+  activateSettingsItem(idx) {
+    const item = SETTINGS_ITEMS[idx];
+    if (!item) return;
+    this.settingsIndex = idx;
+    switch (item.id) {
+      case 'resetProgress':
+        if (!this.settingsConfirmReset) {
+          this.settingsConfirmReset = true;
+          this.audio.sfx('block');
+          return;
+        }
+        this.settingsConfirmReset = false;
+        this.resetProgress();
+        this.settingsFlash = { text: 'THE HUNT BEGINS ANEW · ALL PROGRESS ERASED', t: 3.2, color: '#ffd27a' };
+        this.audio.sfx('orb');
+        if (this.touch && this.touch.active) this.touch.syncUI(true);
+        break;
+      case 'unlockAreas':
+      case 'unlockBosses': {
+        this.settingsConfirmReset = false;
+        const on = !this.debug[item.id];
+        this.setDebugFlag(item.id, on);
+        this.settingsFlash = {
+          text: `${item.label.replace(/^DEBUG · /, '')} ${on ? 'ENABLED' : 'DISABLED'}`,
+          t: 2.4,
+          color: on ? '#62f2c2' : '#a89a74',
+        };
+        this.audio.sfx(on ? 'select' : 'bone');
+        break;
+      }
+      case 'back':
+      default:
+        this.closeSettings();
+        break;
+    }
+  }
+
+  drawSettings(ctx) {
+    this.titleWorld.draw(ctx, { hud: false });
+    ctx.fillStyle = 'rgba(4, 3, 10, 0.66)';
+    ctx.fillRect(0, 0, W, H);
+    const f = this.font;
+    const pulse = 0.5 + 0.5 * Math.sin(this.stateT * 2.2);
+    const isTouch = !!(this.touch && this.touch.active);
+    f.draw(ctx, 'GOTHIC NOCTURNE', W / 2, 28, { scale: 2, align: 'center', color: '#8a9ab5', spacing: 2, shadow: '#120f1c' });
+    f.draw(ctx, 'SETTINGS', W / 2, 58, { scale: 3, align: 'center', color: '#e8e2c8', shadow: '#5b2a3a' });
+    ctx.fillStyle = '#5b6b86';
+    ctx.fillRect(W / 2 - 230, 94, 460, 1);
+
+    // Hunt summary: how far the castle has been conquered
+    const gp = this.guardianProgress();
+    const countOpen = allGuardiansFelled(this.cleared) || this.debug.unlockBosses;
+    const summary = `GUARDIANS FELLED ${String(gp.felled).padStart(2, '0')}/${String(gp.total).padStart(2, '0')}`
+      + ` · VESSELS ${String(this.getVesselCount()).padStart(2, '0')}/${STAGES.length}`
+      + ` · LV ${String(this.charLevel).padStart(2, '0')}`
+      + ` · THE COUNT ${countOpen ? 'AWAITS' : 'SEALED'}`;
+    f.draw(ctx, summary, W / 2, 102, { align: 'center', color: countOpen ? '#ffb0a0' : '#a89a74', shadow: '#120f1c', gothic: false });
+
+    SETTINGS_ITEMS.forEach((item, i) => {
+      const y = SETTINGS_TOP + i * SETTINGS_ROW_H;
+      const selected = i === this.settingsIndex;
+      const isToggle = item.id === 'unlockAreas' || item.id === 'unlockBosses';
+      const on = isToggle && !!this.debug[item.id];
+      const isReset = item.id === 'resetProgress';
+      const confirming = isReset && this.settingsConfirmReset;
+      const accent = confirming ? '#e23c3c' : isToggle ? (on ? '#62f2c2' : '#ffd27a') : isReset ? '#ffb0a0' : '#c9c3b0';
+      if (selected) {
+        ctx.fillStyle = confirming ? 'rgba(226, 60, 60, 0.10)' : 'rgba(232, 226, 200, 0.07)';
+        ctx.fillRect(W / 2 - 230, y - 7, 460, SETTINGS_ROW_H - 6);
+        ctx.fillStyle = accent;
+        ctx.fillRect(W / 2 - 230, y - 7, 3, SETTINGS_ROW_H - 6);
+      }
+      const label = confirming ? 'CONFIRM RESET? PRESS AGAIN' : item.label;
+      f.draw(ctx, `${selected ? '→ ' : '  '}${label}`, W / 2 - 218, y, {
+        scale: 2, gothic: false, color: selected ? accent : '#6f6a80', shadow: '#120f1c',
+      });
+      if (isToggle) {
+        const tag = on ? '[ ON ]' : '[ OFF ]';
+        f.draw(ctx, tag, W / 2 + 222, y, {
+          scale: 2, gothic: false, align: 'right', color: on ? '#62f2c2' : (selected ? '#a89a74' : '#4e4a5e'), shadow: '#120f1c',
+        });
+      } else if (isReset) {
+        f.draw(ctx, confirming ? 'ESC CANCEL' : 'ERASES SAVE', W / 2 + 222, y + 3, {
+          gothic: false, align: 'right', color: selected ? accent : '#4e4a5e', shadow: '#120f1c',
+        });
+      }
+      const desc = confirming ? 'THIS CANNOT BE UNDONE · CALLSIGN AND FORGED WINGS ARE KEPT' : item.desc;
+      f.draw(ctx, desc, W / 2 - 206, y + 18, { color: selected ? '#c9c3b0' : '#4e4a5e', shadow: '#120f1c', gothic: false });
+    });
+
+    const prompt = isTouch
+      ? 'TAP A ROW TO SELECT · TAP AGAIN TO TOGGLE · ✕ BACK'
+      : '↑↓ SELECT     ENTER / JUMP / WHIP TOGGLE     ESC BACK';
+    if (pulse > 0.25 || this.settingsFlash) {
+      f.draw(ctx, prompt, W / 2, 298, { align: 'center', color: '#ffd27a', shadow: '#120f1c' });
+    }
+    if (this.settingsFlash) {
+      f.draw(ctx, this.settingsFlash.text, W / 2, 316, {
+        align: 'center', gothic: false, color: this.settingsFlash.color || '#ffd27a', shadow: '#120f1c',
+      });
+    } else {
+      f.draw(ctx, 'DEBUG UNLOCKS ARE FOR TESTING THE CASTLE · THEY DO NOT GRANT RELICS OR EXP', W / 2, 316, { align: 'center', color: '#5b6b86' });
     }
   }
 
@@ -1143,14 +1538,15 @@ class Game {
     drawCastleMap(ctx, this.font, this.assets, {
       cursor: this.mapCursor,
       cleared: this.cleared,
-      discovered: this.discovered,
+      discovered: this.discoveredForMap(),
       vessels: this.vessels,
       explored: this.exploredCells,
-      relics: this.getActiveRelics(),
+      relics: this.relicsForMap(),
       time: this.stateT,
       difficultyName: this.difficulty.name,
       charLevel: this.charLevel,
       mode: 'select',
+      gateInfo: (key) => this.mapGateInfo(key),
       remotePlayers: this.net ? this.net.activePeers() : null,
       onlineCount: this.net ? this.net.onlineCount : 1,
       roomName: this.net ? this.net.room : 'castle',
@@ -1169,14 +1565,15 @@ class Game {
     drawCastleMap(ctx, this.font, this.assets, {
       cursor: this.mapCursor,
       cleared: this.cleared,
-      discovered: this.discovered,
+      discovered: this.discoveredForMap(),
       vessels: this.vessels,
       explored: this.exploredCells,
-      relics: this.getActiveRelics(),
+      relics: this.relicsForMap(),
       time: this.stateT,
       difficultyName: this.difficulty.name,
       charLevel: this.charLevel,
       mode: 'live',
+      gateInfo: (key) => this.mapGateInfo(key),
       currentStageKey: STAGES[this.stageIndex].key,
       playerNormX: normX,
       playerNormY: normY,
@@ -1188,7 +1585,7 @@ class Game {
     });
   }
 
-  /** Starts the finale: collapse, three illustrated panels with the narrator, dawn, logo. */
+  /** Starts the finale: 5-act animated dawn story (including Gemini Omni vigil scene) + Grand Epilogue & Credits. */
   beginEnding() {
     this.setState('ending');
     this.endingNarrated = false;
@@ -1202,119 +1599,333 @@ class Game {
     const f = this.font;
     const w = this.world;
     const A = this.assets;
-    const p1 = A.img('ending_1'), p2 = A.img('ending_2'), p3 = A.img('ending_3');
-    // Timeline (seconds): 0-7 collapse panel with quake & crimson cracks, 7-20 road panel,
-    // 20-33 dawn panel, 33+ logo/credits. Slow drifts (Ken Burns) on every panel.
-    const drawPanel = (img, from, to, zoomFrom, zoomTo, panX) => {
+    const p1 = A.img('ending_1');
+    const p2 = A.img('ending_2');
+    const p3 = A.img('ending_3');
+    const p4 = A.img('ending_4');
+    const p5 = A.img('ending_5');
+    const omniImg = A.img('ending_omni');
+
+    // Timeline (seconds):
+    //   0.0 -  6.8  Act I:   The Shattering of the Sovereign Keep (ending_1 + quake, lightning, falling debris, bats)
+    //   6.8 - 13.6  Act II:  The Breaking of the Blood Curse (ending_4 + dawn rays & rising guardian relic soul motes)
+    //  13.6 - 20.4  Act III: The Sanctuary Vigil — Gemini Omni (`omni_1p5`) 12-frame animated cutscene (`ending_omni`)
+    //  20.4 - 27.2  Act IV:  The Graveyard Road at First Light (ending_2 + lifting silver mist & soul wisps)
+    //  27.2 - 34.0  Act V:   Sunrise Over the Freed Valley (ending_3 + golden sunbeams & wheeling dawn birds)
+    //  34.0+        Act VI:  Grand Epilogue & Credits Roll (Junius & Alex Gunaratne attribution + hunt chronicle)
+    const drawPanel = (img, from, to, zoomFrom, zoomTo, panX, panY = 0) => {
       if (!img) return;
       const k = Math.max(0, Math.min(1, (t - from) / Math.max(0.01, to - from)));
       const z = zoomFrom + (zoomTo - zoomFrom) * k;
       const dw = W * z, dh = H * z;
-      const dx = (W - dw) / 2 + panX * k, dy = (H - dh) / 2;
+      const dx = (W - dw) / 2 + panX * k, dy = (H - dh) / 2 + panY * k;
       ctx.drawImage(img, Math.round(dx), Math.round(dy), Math.round(dw), Math.round(dh));
     };
-    const fadeBetween = (a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
-
-    ctx.fillStyle = '#05040a'; ctx.fillRect(0, 0, W, H);
-    if (t < 8.2) {
-      // 1. The keep comes down: slow push-in, quake shake, crimson flashes, falling embers
-      const quake = t < 6 ? Math.max(0, 1 - t / 6) * 5 : 0;
-      ctx.save();
-      ctx.translate(Math.round((Math.random() - 0.5) * quake), Math.round((Math.random() - 0.5) * quake));
-      drawPanel(p1, 0, 8, 1.0, 1.12, -18);
-      ctx.restore();
-      const flash = Math.max(0, Math.sin(t * 7.3) * Math.sin(t * 3.1)) * Math.max(0, 1 - t / 6);
-      if (flash > 0.55) { ctx.fillStyle = `rgba(255, 80, 60, ${(flash - 0.55) * 0.5})`; ctx.fillRect(0, 0, W, H); }
-      if (!this._embers) this._embers = Array.from({ length: 70 }, (_, i) => ({ x: Math.random() * W, y: Math.random() * H, s: 0.4 + Math.random(), p: i }));
-      for (const e of this._embers) {
-        const ex = (e.x + Math.sin(t * 0.8 + e.p) * 12 + t * 9 * e.s) % (W + 20) - 10;
-        const ey = (e.y - t * 26 * e.s) % H; const yy = ey < 0 ? ey + H : ey;
-        ctx.fillStyle = e.p % 3 ? '#ff9a3c' : '#ffd27a';
-        ctx.fillRect(Math.round(ex), Math.round(yy), e.s > 1.1 ? 2 : 1, e.s > 1.1 ? 2 : 1);
+    const drawOmniClip = (from, to, zoomFrom, zoomTo, panX) => {
+      const k = Math.max(0, Math.min(1, (t - from) / Math.max(0.01, to - from)));
+      const z = zoomFrom + (zoomTo - zoomFrom) * k;
+      const dw = W * z, dh = H * z;
+      const dx = Math.round((W - dw) / 2 + panX * k);
+      const dy = Math.round((H - dh) / 2);
+      const fi = Math.max(0, Math.floor((t - from) * 6)) % 12;
+      const fr = A.frame('ending_omni', `f${fi}`);
+      if (omniImg && fr) {
+        ctx.drawImage(omniImg, fr.x, fr.y, fr.w, fr.h, dx, dy, Math.round(dw), Math.round(dh));
+      } else if (p5) {
+        ctx.drawImage(p5, dx, dy, Math.round(dw), Math.round(dh));
       }
-      if (t > 0.6 && t < 8.0) {
+    };
+    const fadeBetween = (a, b) => Math.max(0, Math.min(1, (t - a) / Math.max(0.01, b - a)));
+
+    if (!this._embers) {
+      this._embers = Array.from({ length: 76 }, (_, i) => ({
+        x: ((i * 97) % W),
+        y: ((i * 53) % H),
+        s: 0.45 + ((i * 29) % 100) / 100,
+        p: i,
+      }));
+    }
+
+    ctx.fillStyle = '#05040a';
+    ctx.fillRect(0, 0, W, H);
+
+    if (t < 6.8) {
+      // Act I: The Shattering of the Sovereign Keep
+      const quake = t < 5.6 ? Math.max(0, 1 - t / 5.6) * 5 : 0;
+      ctx.save();
+      ctx.translate(
+        Math.round(Math.sin(t * 43) * quake),
+        Math.round(Math.cos(t * 37) * quake),
+      );
+      drawPanel(p1, 0, 6.8, 1.0, 1.12, -16);
+      ctx.restore();
+
+      const flash = Math.max(0, Math.sin(t * 7.3) * Math.sin(t * 3.1)) * Math.max(0, 1 - t / 5.8);
+      if (flash > 0.52) {
+        ctx.fillStyle = `rgba(255, 86, 62, ${(flash - 0.52) * 0.52})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+      // Falling masonry fragments & rising embers
+      for (const e of this._embers) {
+        const ex = (e.x + Math.sin(t * 0.9 + e.p) * 12 + t * 9 * e.s) % (W + 20) - 10;
+        const ey = (e.y - t * 28 * e.s) % H;
+        const yy = ey < 0 ? ey + H : ey;
+        ctx.fillStyle = e.p % 3 === 0 ? '#ffd27a' : (e.p % 2 === 0 ? '#ff8a3c' : '#e23c3c');
+        ctx.fillRect(Math.round(ex), Math.round(yy), e.s > 1.05 ? 2 : 1, e.s > 1.05 ? 2 : 1);
+      }
+      // Escaping belfry bats wheeling across the moon
+      for (let b = 0; b < 9; b++) {
+        const bx = ((280 + b * 24 + t * (36 + b * 5)) % (W + 60)) - 30;
+        const by = 118 - t * (12 + (b % 3) * 4) + Math.sin(t * 6 + b) * 8;
+        if (by > 24 && by < H - 70) {
+          const wing = Math.sin(t * 18 + b * 1.7) > 0 ? -2 : 2;
+          ctx.fillStyle = '#120a1c';
+          ctx.fillRect(Math.round(bx), Math.round(by), 2, 2);
+          ctx.fillRect(Math.round(bx - 3), Math.round(by + wing), 3, 1);
+          ctx.fillRect(Math.round(bx + 2), Math.round(by + wing), 3, 1);
+        }
+      }
+      if (t > 0.5 && t < 6.3) {
         ctx.save();
-        ctx.globalAlpha = Math.max(0, Math.min(1, (t - 0.6) / 0.35, (8.0 - t) / 0.6));
-        this.banner(['THE NIGHT IS OVER'], 38, { scale: 3, color: '#ffd27a', band: true });
+        ctx.globalAlpha = Math.max(0, Math.min(1, (t - 0.5) / 0.35, (6.3 - t) / 0.5));
+        this.banner(['THE NIGHT IS OVER'], 32, { scale: 3, color: '#ffd27a', band: true });
         ctx.restore();
       }
-    } else if (t < 21) {
-      drawPanel(p2, 8, 21, 1.1, 1.0, 14);
-    } else if (t < 34) {
-      drawPanel(p3, 21, 34, 1.0, 1.1, -10);
-      // Dawn: warm light swelling over the valley
-      const kd = fadeBetween(21, 30);
+    } else if (t < 13.6) {
+      // Act II: The Breaking of the Blood Curse in the Sovereign Throne Hall (`ending_4`)
+      drawPanel(p4 || p1, 6.8, 13.6, 1.09, 1.0, 12, -4);
+      // Streaming dawn sunbeams through the shattered rose window
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let r = 0; r < 4; r++) {
+        const pulse = 0.05 + 0.03 * Math.sin(t * 2.1 + r * 1.4);
+        ctx.fillStyle = `rgba(255, 210, 122, ${pulse})`;
+        ctx.beginPath();
+        ctx.moveTo(W * 0.5 - 36 + r * 22, 22);
+        ctx.lineTo(W * 0.5 - 18 + r * 22, 22);
+        ctx.lineTo(W * 0.5 - 120 + r * 68, H - 58);
+        ctx.lineTo(W * 0.5 - 165 + r * 68, H - 58);
+        ctx.closePath();
+        ctx.fill();
+      }
+      // Ascending guardian relic soul motes (gold & spectral teal)
+      for (let i = 0; i < 36; i++) {
+        const e = this._embers[i];
+        const sx = W * 0.22 + ((e.x * 0.62 + Math.sin(t * 1.4 + i) * 18) % (W * 0.56));
+        const sy = H - 64 - (((t - 6.8) * (22 + (i % 5) * 6) + i * 19) % (H - 96));
+        ctx.fillStyle = i % 3 === 0 ? '#62f2c2' : (i % 2 === 0 ? '#ffd27a' : '#ff9ad5');
+        ctx.fillRect(Math.round(sx), Math.round(sy), i % 4 === 0 ? 3 : 2, i % 4 === 0 ? 3 : 2);
+      }
+      ctx.restore();
+      if (t > 7.2 && t < 10.2) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, (t - 7.2) / 0.35, (10.2 - t) / 0.45));
+        this.banner(['THE BLOOD CURSE UNBOUND'], 32, { scale: 2, color: '#62f2c2', band: true });
+        ctx.restore();
+      }
+    } else if (t < 20.4) {
+      // Act III: The Sanctuary Vigil — Gemini Omni (`omni_1p5`) animated video scene (`ending_omni`)
+      drawOmniClip(13.6, 20.4, 1.0, 1.06, -8);
+      // Warm watchfire flicker & drifting fireflies
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const flicker = 0.10 + 0.04 * Math.sin(t * 9.5) + 0.03 * Math.cos(t * 14.2);
+      const fg = ctx.createRadialGradient(W * 0.42, H * 0.66, 8, W * 0.42, H * 0.66, 175);
+      fg.addColorStop(0, `rgba(255, 168, 74, ${flicker})`);
+      fg.addColorStop(1, 'rgba(255, 120, 40, 0)');
+      ctx.fillStyle = fg;
+      ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 28; i++) {
+        const e = this._embers[i];
+        const fx = (e.x + Math.sin(t * 1.6 + e.p) * 20) % W;
+        const fy = (e.y - (t - 13.6) * 18 * e.s) % (H - 60);
+        const yy = fy < 24 ? fy + (H - 84) : fy;
+        ctx.fillStyle = i % 3 === 0 ? '#ffd27a' : '#ff9a3c';
+        ctx.fillRect(Math.round(fx), Math.round(yy), 2, 2);
+      }
+      ctx.restore();
+      if (t > 14.0 && t < 17.0) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, (t - 14.0) / 0.35, (17.0 - t) / 0.45));
+        this.banner(['THE SANCTUARY VIGIL'], 32, { scale: 2, color: '#ffd27a', band: true });
+        ctx.restore();
+      }
+    } else if (t < 27.2) {
+      // Act IV: The Graveyard Road at First Light (`ending_2`)
+      drawPanel(p2, 20.4, 27.2, 1.10, 1.0, 14);
+      // Drifting silver morning mist ribbons lifting off the road
+      ctx.save();
+      ctx.globalAlpha = 0.16;
+      for (let m = 0; m < 3; m++) {
+        const my = 198 + m * 28 - (t - 20.4) * 2.2;
+        const mx = (((t - 20.4) * (14 + m * 6) + m * 140) % (W + 260)) - 260;
+        const mg = ctx.createLinearGradient(mx, 0, mx + 260, 0);
+        mg.addColorStop(0, 'rgba(210, 220, 245, 0)');
+        mg.addColorStop(0.5, 'rgba(210, 220, 245, 1)');
+        mg.addColorStop(1, 'rgba(210, 220, 245, 0)');
+        ctx.fillStyle = mg;
+        ctx.fillRect(mx, my, 260, 16);
+      }
+      ctx.restore();
+    } else if (t < 34.0) {
+      // Act V: Sunrise Over the Freed Valley (`ending_3`)
+      drawPanel(p3, 27.2, 34.0, 1.0, 1.10, -10);
+      const kd = fadeBetween(27.2, 33.2);
       const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, `rgba(255, 190, 110, ${0.05 + 0.12 * kd})`); g.addColorStop(1, 'rgba(255, 190, 110, 0)');
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      g.addColorStop(0, `rgba(255, 198, 118, ${0.06 + 0.16 * kd})`);
+      g.addColorStop(1, 'rgba(255, 190, 110, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      // Wheeling white dawn birds rising into the golden sky
+      for (let b = 0; b < 7; b++) {
+        const bx = ((120 + b * 48 + (t - 27.2) * (24 + b * 3)) % (W - 80)) + 40;
+        const by = 148 - (t - 27.2) * (7 + (b % 3) * 2) + Math.sin(t * 4 + b) * 5;
+        if (by > 28 && by < 220) {
+          const wing = Math.sin(t * 12 + b * 1.4) > 0 ? -1 : 1;
+          ctx.fillStyle = '#fff4dc';
+          ctx.fillRect(Math.round(bx), Math.round(by), 2, 1);
+          ctx.fillRect(Math.round(bx - 2), Math.round(by + wing), 2, 1);
+          ctx.fillRect(Math.round(bx + 2), Math.round(by + wing), 2, 1);
+        }
+      }
     } else {
-      // Final card: logo over the dawn panel, framed score & credits plate
+      // Act VI: Grand Epilogue & Credits Roll (34.0s+)
       drawPanel(p3, 34, 60, 1.1, 1.18, -6);
-      ctx.fillStyle = 'rgba(6, 4, 14, 0.74)'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(6, 4, 14, 0.76)';
+      ctx.fillRect(0, 0, W, H);
+      // Gentle golden dust motes over the epilogue
+      for (let i = 0; i < 32; i++) {
+        const e = this._embers[i];
+        const ex = (e.x + Math.sin(t * 0.7 + e.p) * 14) % W;
+        const ey = (e.y - t * 10 * e.s) % H;
+        const yy = ey < 0 ? ey + H : ey;
+        ctx.fillStyle = i % 3 === 0 ? '#62f2c2' : '#ffd27a';
+        ctx.fillRect(Math.round(ex), Math.round(yy), 1, 1);
+      }
       const logo = A.img('title_logo');
       if (logo) {
-        const lw = 276, lh = Math.round(logo.height * (lw / logo.width));
-        const lx = Math.round((W - lw) / 2), ly = 10;
-        const lg = ctx.createRadialGradient(W / 2, ly + lh * 0.5, 24, W / 2, ly + lh * 0.5, 210);
+        const lw = 252, lh = Math.round(logo.height * (lw / logo.width));
+        const lx = Math.round((W - lw) / 2), ly = 6;
+        const lg = ctx.createRadialGradient(W / 2, ly + lh * 0.5, 20, W / 2, ly + lh * 0.5, 195);
         lg.addColorStop(0, 'rgba(4, 3, 10, 0.72)');
         lg.addColorStop(1, 'rgba(4, 3, 10, 0)');
         ctx.fillStyle = lg;
-        ctx.fillRect(0, 0, W, ly + lh + 24);
+        ctx.fillRect(0, 0, W, ly + lh + 18);
         ctx.drawImage(logo, lx, ly, lw, lh);
       }
       const cardFade = Math.max(0, Math.min(1, (t - 34.0) / 0.6));
       if (cardFade > 0.01) {
         ctx.save();
         ctx.globalAlpha = cardFade;
-        const cx = W / 2 - 228, cy = 186, cw = 456, ch = 156;
-        ctx.fillStyle = 'rgba(5, 4, 12, 0.90)';
+        const cx = W / 2 - 244, cy = 166, cw = 488, ch = 184;
+        ctx.fillStyle = 'rgba(5, 4, 12, 0.92)';
         ctx.fillRect(cx, cy, cw, ch);
         ctx.strokeStyle = '#8a6a3a';
         ctx.lineWidth = 1;
         ctx.strokeRect(cx + 0.5, cy + 0.5, cw - 1, ch - 1);
         ctx.strokeStyle = '#2e243d';
         ctx.strokeRect(cx + 2.5, cy + 2.5, cw - 5, ch - 5);
+
+        const gp = this.guardianProgress();
         if (w) {
-          f.draw(ctx, `FINAL SCORE ${String(w.score).padStart(7, '0')}`, W / 2, 198, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
-          f.draw(ctx, `${w.difficulty.name} · LV ${String(this.charLevel).padStart(2, '0')} · ${w.lives} LIVES REMAINING · ${w.hearts} HEARTS`, W / 2, 222, { gothic: false, align: 'center', color: '#e8e2c8', shadow: '#05040a' });
+          f.draw(ctx, `FINAL SCORE ${String(w.score).padStart(7, '0')}`, W / 2, 176, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
+          f.draw(
+            ctx,
+            `${w.difficulty.name} · LV ${String(this.charLevel).padStart(2, '0')} · GUARDIANS ${gp.felled}/${gp.total} · VESSELS ${this.getVesselCount()}/${STAGES.length}`,
+            W / 2,
+            197,
+            { gothic: false, align: 'center', color: '#e8e2c8', shadow: '#05040a' },
+          );
         }
         ctx.fillStyle = '#5a462c';
-        ctx.fillRect(W / 2 - 150, 240, 300, 1);
-        f.draw(ctx, 'THANK YOU FOR PLAYING', W / 2, 250, { scale: 2, gothic: false, align: 'center', color: '#f6f0de', shadow: '#05040a' });
-        f.draw(ctx, 'ART · GEMINI     MUSIC · LYRIA 3     VOICE · DAIKON', W / 2, 278, { gothic: false, align: 'center', color: '#b8c4dc', shadow: '#05040a' });
+        ctx.fillRect(W / 2 - 180, 211, 360, 1);
+
+        // End Credits: credit both Junius and Alex Gunaratne
+        f.draw(ctx, 'END CREDITS', W / 2, 218, { gothic: false, align: 'center', color: '#a89a74', shadow: '#05040a' });
+        f.draw(ctx, 'JUNIUS GUNARATNE  &  ALEX GUNARATNE', W / 2, 232, {
+          scale: 2,
+          gothic: false,
+          align: 'center',
+          color: '#ffd27a',
+          shadow: '#05040a',
+        });
+        f.draw(ctx, 'GAME DESIGN, DIRECTION, STORY & ENGINEERING · JUNIUS & ALEX GUNARATNE', W / 2, 254, {
+          gothic: false,
+          align: 'center',
+          color: '#f6f0de',
+          shadow: '#05040a',
+        });
+        f.draw(ctx, 'ART & CUTSCENES · GEMINI & OMNI     MUSIC · LYRIA 3     VOICE · DAIKON', W / 2, 270, {
+          gothic: false,
+          align: 'center',
+          color: '#b8c4dc',
+          shadow: '#05040a',
+        });
+        ctx.fillStyle = '#3a2e4c';
+        ctx.fillRect(W / 2 - 150, 285, 300, 1);
+        f.draw(ctx, 'THANK YOU FOR PLAYING GOTHIC NOCTURNE', W / 2, 293, {
+          scale: 2,
+          gothic: false,
+          align: 'center',
+          color: '#62f2c2',
+          shadow: '#05040a',
+        });
         const pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
         ctx.save();
         ctx.globalAlpha = cardFade * pulse;
-        f.draw(ctx, (this.touch && this.touch.active) ? 'TAP OR PRESS START' : 'PRESS ENTER', W / 2, 306, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
+        f.draw(ctx, (this.touch && this.touch.active) ? 'TAP OR PRESS START' : 'PRESS ENTER', W / 2, 322, { scale: 2, gothic: false, align: 'center', color: '#ffd27a', shadow: '#05040a' });
         ctx.restore();
         ctx.restore();
       }
     }
-    // Crossfades between panels
-    for (const [a, b] of [[7.4, 8.6], [20.4, 21.6], [33.4, 34.6]]) {
-      if (t > a && t < b) { const k = 1 - Math.abs((t - (a + b) / 2) / ((b - a) / 2)); ctx.fillStyle = `rgba(5, 4, 10, ${k})`; ctx.fillRect(0, 0, W, H); }
+
+    // Crossfades between all 6 acts
+    for (const [a, b] of [[6.3, 7.3], [13.1, 14.1], [19.9, 20.9], [26.7, 27.7], [33.5, 34.5]]) {
+      if (t > a && t < b) {
+        const k = 1 - Math.abs((t - (a + b) / 2) / ((b - a) / 2));
+        ctx.fillStyle = `rgba(5, 4, 10, ${k})`;
+        ctx.fillRect(0, 0, W, H);
+      }
     }
-    // Letterbox + high-legibility timed captions during the narrated panels (0..34s)
+
+    // Letterbox + high-legibility timed captions during the 5 story acts (0..34s)
     if (t < 34) {
       ctx.fillStyle = '#05040a';
       ctx.fillRect(0, 0, W, 22);
       ctx.fillStyle = '#5a462c';
       ctx.fillRect(0, 22, W, 1);
+      // Scene progress chapter indicator in the top letterbox bar
+      const actIdx = t < 6.8 ? 1 : t < 13.6 ? 2 : t < 20.4 ? 3 : t < 27.2 ? 4 : 5;
+      const actTitle = [
+        '',
+        'ACT I · THE FALL OF CASTLE NOCTURNE',
+        'ACT II · THE SHATTERED SOVEREIGN THRONE',
+        'ACT III · THE SANCTUARY WATCHFIRE (GEMINI OMNI)',
+        'ACT IV · THE CYPRESS ROAD AT DAWN',
+        'ACT V · SUNRISE OVER THE FREED VALLEY',
+      ][actIdx];
+      f.draw(ctx, actTitle, W / 2, 7, { align: 'center', color: '#a89a74', shadow: '#05040a', gothic: false });
+
       const barH = 58, barY = H - barH;
       ctx.fillStyle = 'rgba(5, 4, 12, 0.94)';
       ctx.fillRect(0, barY, W, barH);
       ctx.fillStyle = '#7a603a';
       ctx.fillRect(0, barY, W, 1);
       const caps = [
-        [2.4, 8.0, 'AND SO THE COUNT WAS DUST, AND HIS KEEP FELL SILENT.'],
-        [8.6, 14.5, 'THE BELLS OF MIDNIGHT CRACKED AND TUMBLED FROM THE BELFRY,'],
-        [14.5, 20.3, 'AND THE DARKNESS THAT FED ON THE VALLEY DRAINED AWAY.'],
-        [21.6, 27.5, 'THE HUNTER DID NOT LOOK BACK. HE WALKED THE GRAVEYARD ROAD AS THE MIST LIFTED,'],
-        [27.5, 33.3, 'AND FOR THE FIRST TIME IN HIS LIFE... HE WALKED IT TOWARD THE SUNRISE.'],
+        [0.8, 3.8, 'WITH THE FINAL STRIKE OF THE VAMPIRE KILLER, COUNT VLADIMIR\'S COVENANT SHATTERED INTO ASH.'],
+        [3.9, 6.5, 'ACROSS EVERY WING OF CASTLE NOCTURNE, ANCIENT GEARS LOCKED AND CURSED STONE TUMBLED INTO THE ABYSS.'],
+        [7.1, 10.2, 'WITHIN THE SOVEREIGN THRONE HALL, GOLDEN DAWN PIERCED THE ROSE WINDOW AND BANISHED THE CRIMSON MIST.'],
+        [10.3, 13.3, 'ONE BY ONE, THE SIXTEEN GUARDIAN RELICS DISSOLVED INTO STARLIGHT, RETURNING PEACE TO THE FALLEN.'],
+        [13.9, 17.0, 'AT THE HILLTOP SANCTUARY SHRINE, THE WEARY HUNTER LAID HIS CONSECRATED WHIP BESIDE THE WATCHFIRE.'],
+        [17.1, 20.1, 'THROUGH THE QUIET ASH OF REMEMBRANCE, HE KEPT VIGIL FOR THOSE LOST TO THE LONG CENTURY OF NIGHT.'],
+        [20.7, 23.8, 'WHEN THE BELLS OF THE VALLEY CHAPEL RANG OUT UNBROKEN, HE ROSE AND WALKED THE GRAVEYARD ROAD.'],
+        [23.9, 26.9, 'THE IRON GATES STOOD OPEN, AND THE SILVER FOG PARTED BEFORE HIS BOOTS LIKE A FADING DREAM.'],
+        [27.5, 30.6, 'BELOW THE CRAGS, LANTERNS FLICKERED AWAKE IN EVERY VILLAGE WINDOW AS WARMTH RETURNED TO THE REALM.'],
+        [30.7, 33.6, 'THE HUNTER DID NOT LOOK BACK—FOR THE FIRST TIME IN HIS LIFE, HE WALKED INTO THE RISING SUN.'],
       ];
       for (const [a, b, text] of caps) {
         if (t < a || t > b) continue;
-        const k = Math.min(1, (t - a) / 0.35, (b - t) / 0.35);
+        const k = Math.min(1, (t - a) / 0.30, (b - t) / 0.30);
         ctx.save();
         ctx.globalAlpha = Math.max(0, k);
         const lines = f.wrap(text, W - 32, 2, 1, false);
@@ -1459,9 +2070,33 @@ function loadArmoryState(key, params) {
   return { owned, handL, handR, urlOverride };
 }
 
+function loadDebugFlags(key, params) {
+  const flags = Object.assign({}, DEFAULT_DEBUG_FLAGS);
+  const raw = safeStorageGet(key);
+  if (raw) {
+    try {
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj === 'object') {
+        for (const k of Object.keys(DEFAULT_DEBUG_FLAGS)) if (typeof obj[k] === 'boolean') flags[k] = obj[k];
+      }
+    } catch (e) { /* ignore malformed storage */ }
+  }
+  const url = params && params.get('debug');
+  if (url) {
+    const parts = url.split(',').map((s) => s.trim());
+    if (parts.includes('all') || parts.includes('areas')) flags.unlockAreas = true;
+    if (parts.includes('all') || parts.includes('bosses')) flags.unlockBosses = true;
+    if (parts.includes('none') || parts.includes('off')) { flags.unlockAreas = false; flags.unlockBosses = false; }
+  }
+  return flags;
+}
+
 function safeStorageGet(key) {
   try { return window.localStorage.getItem(key); } catch (e) { return null; }
 }
 function safeStorageSet(key, value) {
   try { window.localStorage.setItem(key, value); } catch (e) { /* private mode */ }
+}
+function safeStorageRemove(key) {
+  try { window.localStorage.removeItem(key); } catch (e) { /* private mode */ }
 }

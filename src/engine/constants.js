@@ -9,7 +9,7 @@ export const DT = 1 / 60;        // fixed simulation step
 
 // Tile ids
 /** Bumped whenever assets/ change so browsers never pair a stale atlas with new code. */
-export const ASSET_VERSION = '20261103k';
+export const ASSET_VERSION = '20261103l';
 
 export const T_EMPTY = 0;
 export const T_GROUND = 1;       // graveyard earth (strip "ground")
@@ -134,3 +134,20 @@ export const DIFFICULTIES = {
 };
 export const DIFFICULTY_ORDER = ['easy', 'normal', 'hard'];
 export const DEFAULT_DIFFICULTY = 'normal';
+
+// ---------------------------------------------------------------- title & settings menus
+/** Title menu rows: BEGIN THE HUNT · EXPAND THE CASTLE · CONTROLS · SETTINGS. */
+export const TITLE_MENU_ITEMS = 4;
+/** Title menu geometry (shared with the touch controller's hit-testing). */
+export const TITLE_MENU_Y0 = 236;
+export const TITLE_MENU_ROW_H = 18;
+
+/** Settings screen rows (title menu → SETTINGS). */
+export const SETTINGS_ITEMS = [
+  { id: 'resetProgress', label: 'RESET PROGRESS', desc: 'ERASE CLEARED BOSSES, CHARTED MAP, VESSELS, LEVEL & ARMORY · BACK TO A FRESH HUNT' },
+  { id: 'unlockAreas', label: 'DEBUG · UNLOCK ALL AREAS', desc: 'EVERY PASSAGE SEAL STANDS OPEN AND THE WHOLE CASTLE MAP IS CHARTED FOR FAST TRAVEL' },
+  { id: 'unlockBosses', label: 'DEBUG · UNLOCK BOSSES', desc: "EVERY BOSS GATE DOOR RISES ON APPROACH AND THE COUNT'S THRONE HALL IS OPEN" },
+  { id: 'back', label: 'BACK TO TITLE', desc: 'SETTINGS ARE REMEMBERED ON THIS DEVICE' },
+];
+export const SETTINGS_TOP = 126;
+export const SETTINGS_ROW_H = 40;

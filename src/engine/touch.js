@@ -9,7 +9,9 @@
 // - Software-keyboard proxy <input> so iOS Safari & Android IME can type in
 //   Castle Forge proposals and Hunter Callsign modals without viewport zoom/jump.
 
-import { W, H, DIFFICULTY_ORDER } from './constants.js';
+import {
+  W, H, DIFFICULTY_ORDER, TITLE_MENU_ITEMS, TITLE_MENU_Y0, TITLE_MENU_ROW_H, SETTINGS_ITEMS, SETTINGS_TOP, SETTINGS_ROW_H,
+} from './constants.js';
 import { MAP_X, MAP_Y, CELL_SIZE, GRID_COLS, GRID_ROWS, CELL_OWNER, stageIndexOf } from '../game/castlemap.js';
 import { STAGES } from '../game/stages.js';
 import { BOSS_RELICS } from '../game/relics.js';
@@ -206,7 +208,7 @@ export class TouchControls {
     // Landscape touch mode: fill vertical height cleanly during active play,
     // and reserve a 36px bottom strip on map/menu/forge screens so the bottom
     // toolbar never overlaps inspector cards or prompts.
-    const reserveBottomStrip = inTextForm || s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'forging';
+    const reserveBottomStrip = inTextForm || s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'forging';
     const availW = Math.max(200, vw - safe.left - safe.right);
     const availH = reserveBottomStrip
       ? Math.max(110, vh - Math.max(2, Math.round(safe.top * 0.5)) - Math.max(36, safe.bottom + 30))
@@ -346,7 +348,7 @@ export class TouchControls {
         if (s === 'map') this.input.pulse('map');
         else if (s === 'armory') this.input.pulse('armory');
         else if (s === 'forge') { this.blurTextProxy(); g.forgeUI.cancel(); }
-        else if (s === 'forging' || s === 'difficulty' || s === 'stageselect') this.input.pulseEscape();
+        else if (s === 'forging' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'stageselect') this.input.pulseEscape();
         else this.input.pulse('start');
         break;
       case 'armory':
@@ -767,22 +769,52 @@ export class TouchControls {
           this.focusTextProxy();
           return true;
         }
-        if (gx >= 130 && gx <= W - 130) {
-          if (gy >= 238 && gy < 263) {
-            g.titleMenu = 0;
-            g.setState('difficulty');
-            g.audio.sfx('select');
-            return true;
-          }
-          if (gy >= 263 && gy <= 294) {
-            g.titleMenu = 1;
+        if (gx >= 130 && gx <= W - 130 && gy >= TITLE_MENU_Y0 - 4 && gy < TITLE_MENU_Y0 + TITLE_MENU_ROW_H * TITLE_MENU_ITEMS + 2) {
+          const row = Math.max(0, Math.min(TITLE_MENU_ITEMS - 1, Math.floor((gy - (TITLE_MENU_Y0 - 4)) / TITLE_MENU_ROW_H)));
+          g.titleMenu = row;
+          if (row === 1) {
             g.openForge('title');
             if (g.state === 'forge') this.focusTextProxy();
-            return true;
+          } else if (row === 2) {
+            g.openControls();
+          } else if (row === 3) {
+            g.openSettings();
+          } else {
+            g.setState('difficulty');
+            g.audio.sfx('select');
           }
+          return true;
         }
         this.input.pulse('start');
         return true;
+      }
+
+      case 'controls': {
+        this.vibrate(5);
+        this.input.pulseEscape();
+        return true;
+      }
+
+      case 'settings': {
+        // Settings rows: first tap selects, a second tap on the selected row activates it
+        const top = SETTINGS_TOP - 8;
+        if (gx >= 70 && gx <= W - 70 && gy >= top && gy < top + SETTINGS_ROW_H * SETTINGS_ITEMS.length) {
+          const idx = Math.max(0, Math.min(SETTINGS_ITEMS.length - 1, Math.floor((gy - top) / SETTINGS_ROW_H)));
+          this.vibrate(5);
+          if (g.settingsIndex === idx && g.stateT > 0.2) {
+            g.activateSettingsItem(idx);
+          } else {
+            g.settingsIndex = idx;
+            g.settingsConfirmReset = false;
+            g.audio.sfx('bone');
+          }
+          return true;
+        }
+        if (gy >= 290) {
+          this.input.pulseEscape();
+          return true;
+        }
+        return false;
       }
 
       case 'difficulty': {
@@ -1012,8 +1044,8 @@ export class TouchControls {
     const s = g.state;
     const w = g.world;
     const inTextForm = !!(g.editingCallsign || s === 'forge');
-    const reserveBottomStrip = inTextForm || s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'forging';
-    const subtleMenuPads = !inTextForm && (s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title');
+    const reserveBottomStrip = inTextForm || s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'forging';
+    const subtleMenuPads = !inTextForm && (s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title' || s === 'controls');
 
     this._setClass('bodyTextForm', document.body, 'in-text-form', inTextForm);
     this._setClass('bodyBottomStrip', document.body, 'has-bottom-strip', reserveBottomStrip);
@@ -1037,7 +1069,7 @@ export class TouchControls {
     // Toolbar pills
     const pauseTxt = s === 'play' ? 'PAUSE'
       : (s === 'pause' || s === 'map' || s === 'armory') ? '▶ RESUME'
-      : (s === 'forge' || s === 'forging' || s === 'difficulty' || s === 'stageselect') ? '✕ BACK'
+      : (s === 'forge' || s === 'forging' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'stageselect') ? '✕ BACK'
       : 'START';
     this._setText('pillPause', this.pills.pause, pauseTxt);
     this._setClass('pillPauseGold', this.pills.pause, 't-pill-gold', s === 'pause' || s === 'map' || s === 'armory' || s === 'title');
@@ -1103,7 +1135,7 @@ export class TouchControls {
       this._setText('whipLbl', this.whipLabel, 'OK');
       this._setText('jumpLbl', this.jumpLabel, 'OK');
       this._setHidden('offHide', this.btns.offhand, true);
-      const canBack = s === 'map' || s === 'difficulty' || s === 'stageselect' || s === 'forging';
+      const canBack = s === 'map' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'stageselect' || s === 'forging';
       this._setText('subLbl', this.subLabel, canBack ? 'BACK' : 'ALT');
       this._setText('subMeta', this.subMeta, canBack ? 'ESC' : '');
       this._setClass('subArmed', this.btns.sub, 'is-armed', false);
@@ -1126,11 +1158,15 @@ export class TouchControls {
         } else if (w.passages) {
           const nearGate = w.passages.find((pg) => pg.near);
           if (nearGate) {
-            const destIdx = stageIndexOf(nearGate.targetKey);
+            const effKey = nearGate.effectiveTargetKey ? nearGate.effectiveTargetKey(w) : nearGate.targetKey;
+            const destIdx = stageIndexOf(effKey);
             const dest = destIdx >= 0 ? STAGES[destIdx].name.replace(/^THE\s+/, '') : 'PASSAGE';
             if (nearGate.isOpen(w)) {
               promptText = `▲ ENTER ${dest}`;
               dpadUpHint = true;
+            } else if (nearGate.relicOpen && nearGate.relicOpen(w) && nearGate.entryLock) {
+              const lock = nearGate.entryLock(w);
+              promptText = lock ? `SEALED · ${lock.sub}` : 'SEALED';
             } else {
               const relic = BOSS_RELICS[nearGate.gateRelic];
               promptText = `SEALED · NEEDS ${relic ? relic.name : 'RELIC'}`;

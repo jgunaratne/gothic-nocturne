@@ -100,6 +100,47 @@ Whip candelabra for hearts, money, and sub-weapons (dagger, axe, holy water).
 Breakable blocks hide meat and gold. Spike pits hurt; bottomless pits kill.
 Defeat each stage's boss and claim the orb to march into the next stage.
 
+### Boss Doors & Castle Progression
+
+Every Boss Sanctum is shut behind a floor-to-ceiling **vertical Boss Gate
+Door** (an iron portcullis that slides straight up into the vault when it
+unseals, and slams back down behind the hunter once the battle begins), with a
+matching **vertical Boss Exit Door** on the far wall that rises with a golden
+shockwave when the guardian falls and steps straight into the next adjacent
+castle level (`src/game/exploration.js`). Progression spreads outward from the
+Graveyard Road across the Castle Map (`src/game/gates.js`):
+
+- **The Graveyard Road's gate is always open**: it is where the hunt begins.
+- **A region's Boss Gate Door only rises once a *neighbouring* region's guardian
+  has been felled** (its prompt names the neighbours still standing), so each
+  victory unseals the sanctums next door and the castle must be explored
+  wing by wing. A sealed door is solid from floor to ceiling: it cannot be
+  jumped, double-jumped or flown over, and the next-level routing never offers a
+  region you may not enter yet.
+- **The Count waits behind every other guardian**: the Throne Hall's passage
+  gateways, map fast travel, stage select and the Count's own Boss Gate Door all
+  stay sealed until all 17 other built-in guardians lie defeated
+  (`GUARDIANS FELLED 17/17` on the title, Settings and Castle Map screens).
+  Forged wings' bosses are optional and do not count toward the Count.
+- Castle Map boss emblems carry a padlock while their gate is sealed, and the
+  inspector plate shows `GATE SEALED / GATE OPEN` plus the reason.
+
+### Settings (title menu)
+
+`SETTINGS` on the title screen (↑↓ + Enter, or tap) offers:
+
+- **RESET PROGRESS** (asks twice): erases cleared bosses, charted map,
+  discovered sanctuaries, vessels, level & EXP, the armory, remembered stage,
+  difficulty and debug flags, returning the hunt to its initial state. Hunter
+  callsign and Castle Forge wings (shared castle content) are kept.
+- **DEBUG · UNLOCK ALL AREAS**: every passage seal stands open and the whole
+  Castle Map is charted for fast travel (no relic bonuses are granted).
+- **DEBUG · UNLOCK BOSSES**: every Boss Gate Door rises on approach
+  and the Throne Hall of the Count is open.
+
+Debug flags persist in `localStorage` (`gothic.debug.v1`); `?debug=areas|bosses|all|off`
+overrides them for one session.
+
 ## Castle Exploration Map & Interconnected Regions
 
 All eighteen stages fit together as an interlocking **72×27 architectural cell grid** (`672` cells across multi-story galleries, vertical tower shafts, diagonal grand stairways, sunken undercrofts, cobalt halls, crimson boss chambers, emerald-cyan Sanctuaries, and amber-gold secret vaults, joined by `36` doorways including `18` Boss-Relic Golden Loop shortcuts):
@@ -412,13 +453,15 @@ tools/screenshot.sh "demo=1&skip=600" /tmp/shot.png
 
 URL parameters: `demo=1` drives the hunter with a scripted input loop,
 `skip=N` pre-simulates N fixed steps before the first frame, `at=<column>`
-teleports to a tile column, `boss=1` teleports to the boss vestibule,
+teleports to a tile column, `boss=1` teleports to the boss vestibule (past the
+Boss Gate Door), `gate=1` teleports to just outside the vertical Boss Gate Door,
 `bosshp=N` weakens the boss, `relics=all` (or `relics=graveyard,darkcave`)
 enables boss power-ups, `lightning=1` triggers an immediate outdoor storm bolt,
 `ending=<seconds>` jumps into the ending sequence,
 `difficulty=easy|normal|hard` presets the difficulty, `stage=1..N` picks the
 stage (forged wings follow the eighteen built-in ones),
-`screen=play|armory|map|difficulty|stageselect|forge|clear|ending` opens a screen directly,
+`screen=play|armory|map|difficulty|settings|stageselect|forge|clear|ending` opens a screen directly,
+`debug=areas|bosses|all|off` overrides the Settings debug unlocks for one session,
 `forge=<name>[&forgedesc=<text>][&local=1]` proposes a wing immediately
 (`local=1` forces the offline procedural forge),
 `discovered=all`, `vessels=all`, and `explored=all` unlock map exploration state,

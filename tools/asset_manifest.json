@@ -1361,6 +1361,58 @@
       ],
       "colors": 48
     },
+    "ending_4": {
+      "type": "texture",
+      "src": "ending_4.png",
+      "size": [
+        640,
+        360
+      ],
+      "colors": 48
+    },
+    "ending_5": {
+      "type": "texture",
+      "src": "ending_5.png",
+      "size": [
+        640,
+        360
+      ],
+      "colors": 48
+    },
+    "ending_omni": {
+      "type": "clip",
+      "src": "clips/ending_omni_sheet.png",
+      "frames": "clips/ending_omni_frames.json"
+    },
+    "boss_gates": {
+      "type": "sheet",
+      "src": "boss_gates_sheet.png",
+      "height": 360,
+      "ref": "entry_gate",
+      "colors": 36,
+      "rows": [
+        [
+          "entry_gate",
+          "exit_gate",
+          "side_jamb"
+        ]
+      ]
+    },
+    "boss_door_props": {
+      "type": "sheet",
+      "src": "boss_door_props_sheet.png",
+      "height": 96,
+      "ref": "entry_guardian",
+      "colors": 36,
+      "rows": [
+        [
+          "entry_guardian",
+          "exit_guardian",
+          "iron_brazier",
+          "ward_stele"
+        ]
+      ]
+    },
     "cathedralwall": {
       "type": "texture",
       "src": "tex_cathedral_wall.png",
