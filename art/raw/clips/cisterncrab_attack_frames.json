@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 53.0,
+   "ay": 112.0,
+   "clipFrame": 27,
+   "h": 112,
+   "w": 104,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 79.0,
+   "ay": 105.0,
+   "clipFrame": 60,
+   "h": 105,
+   "w": 152,
+   "x": 106,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 57.0,
+   "ay": 113.0,
+   "clipFrame": 163,
+   "h": 113,
+   "w": 113,
+   "x": 259,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 58.0,
+   "ay": 113.0,
+   "clipFrame": 236,
+   "h": 113,
+   "w": 115,
+   "x": 373,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "cisterncrab_attack_sheet.png",
+ "source": {
+  "action": "punch",
+  "anchor": "hips",
+  "clip": "cisterncrab_attack.mp4",
+  "frame": "windup",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   27,
+   60,
+   163,
+   236
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The colossal armoured cavern crab carrying broken Roman marble columns on its shell performs ONE heavy punch facing right: it pulls its fist back in a wind-up, drives it forward to the right with a step, then withdraws. it snaps its colossal barnacle-crusted crushing claw forward; no water jets, no bubbles, no projectiles.",
+  "scale": 0.2478,
+  "select": "motion",
+  "sheet": "cisterncrab",
+  "window": [
+   27,
+   236
+  ]
+ }
+}

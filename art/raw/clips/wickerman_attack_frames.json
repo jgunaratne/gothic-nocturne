@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 41.5,
+   "ay": 108.0,
+   "clipFrame": 30,
+   "h": 108,
+   "w": 95,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 46.5,
+   "ay": 138.0,
+   "clipFrame": 84,
+   "h": 138,
+   "w": 88,
+   "x": 97,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 70.0,
+   "ay": 95.0,
+   "clipFrame": 109,
+   "h": 95,
+   "w": 123,
+   "x": 186,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 38.5,
+   "ay": 109.0,
+   "clipFrame": 155,
+   "h": 109,
+   "w": 97,
+   "x": 310,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "wickerman_attack_sheet.png",
+ "source": {
+  "action": "slam",
+  "anchor": "hips",
+  "clip": "wickerman_attack.mp4",
+  "frame": "windup",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   30,
+   84,
+   109,
+   155
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The colossal burning wicker harvest effigy giant with horned pumpkin head and iron furnace belly performs ONE ground slam facing right: it raises its arms high overhead, then smashes them down onto the ground in front of it with its whole body dropping, then rises back up. it swings both flaming wicker arms down in a crushing smash; no projectiles, no detached fireballs, no shockwaves.",
+  "scale": 0.239,
+  "select": "motion",
+  "sheet": "wickerman",
+  "window": [
+   30,
+   155
+  ]
+ }
+}

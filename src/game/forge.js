@@ -6,7 +6,7 @@
 // produced them (tinted base assets otherwise), a relic, and new rooms on the
 // Castle Exploration Map joined to a neighbouring region by a passage gateway.
 
-import { T_FORGE_BASE, registerMaterial } from '../engine/constants.js';
+import { ASSET_VERSION, T_FORGE_BASE, registerMaterial } from '../engine/constants.js';
 import { registerTrack, registerVoice } from '../engine/audio.js';
 import { StageBuilder, THEMES, registerTheme } from './builder.js';
 import { STAGE_BY_KEY, registerStage } from './stages.js';
@@ -23,19 +23,19 @@ const LOCAL_KEY = 'gothic.forge.local.v1';
 
 /** Base realms a forged wing can inherit (3D vistas, grading, decor, enemy rosters). */
 export const BASE_THEMES = {
-  graveyard: { label: 'MOONLIT MOOR', outdoor: true, rows: 18, startRow: 11, backdrop: 'forest', strip: 'ground', words: ['grave', 'cemetery', 'moor', 'road', 'church', 'mist', 'fog', 'hill', 'meadow', 'field', 'ruin'], enemies: ['skeleton', 'zombie', 'bat', 'medusa', 'catoblepas', 'necromancer'], spawn: ['zombie', 'bat', 'medusa'], boss: ['giantbat', 'bonecaptain', 'reaper'] },
-  darkwood: { label: 'ANCIENT WOODS', outdoor: true, rows: 18, startRow: 11, backdrop: 'darkwood_canopy', strip: 'darkwoodfloor', words: ['wood', 'forest', 'grove', 'swamp', 'marsh', 'bog', 'glade', 'thicket', 'root', 'tree', 'garden', 'jungle', 'fen'], enemies: ['wolf', 'mushroom', 'merman', 'owl', 'skeleton'], spawn: ['owl', 'merman'], boss: ['treant'] },
-  forest: { label: 'HAUNTED HARVEST', outdoor: true, rows: 18, startRow: 11, backdrop: 'deepforest', strip: 'forestfloor', words: ['pumpkin', 'harvest', 'autumn', 'orchard', 'farm', 'barn', 'scarecrow', 'lantern', 'vineyard', 'mill'], enemies: ['pumpkin', 'alchfiend', 'bat', 'dragon', 'skeleton'], spawn: ['lantern', 'pumpkin'], boss: ['greatjack'] },
-  yule: { label: 'SNOWBOUND VILLAGE', outdoor: true, rows: 18, startRow: 11, backdrop: 'winter', strip: 'snowfloor', words: ['village', 'hamlet', 'town', 'snow', 'ice', 'frozen', 'winter', 'frost', 'cottage', 'market', 'inn', 'street', 'square', 'abandoned', 'plague', 'glacier', 'tundra'], enemies: ['snowman', 'icegolem', 'alchfiend', 'valkyrie', 'bat', 'skeleton'], spawn: ['wisp', 'zombie'], boss: ['devilsanta', 'bonecaptain'] },
-  ramparts: { label: 'OUTER WALLS', outdoor: true, rows: 18, startRow: 11, backdrop: 'castle', strip: 'floor', words: ['wall', 'rampart', 'battlement', 'gate', 'bridge', 'siege', 'bailey', 'watch', 'keep', 'fort', 'barracks', 'harbor', 'harbour', 'dock', 'pier', 'lighthouse'], enemies: ['skeleton', 'armor', 'executioner', 'valkyrie', 'merman', 'bat', 'medusa'], spawn: ['bat', 'medusa', 'valkyrie'], boss: ['bonecaptain'] },
-  catacombs: { label: 'BURIAL CRYPTS', outdoor: false, rows: 18, startRow: 9, strip: 'catacomb', words: ['catacomb', 'crypt', 'tomb', 'sewer', 'cistern', 'dungeon', 'cellar', 'vault', 'well', 'underground', 'tunnel', 'mine', 'prison', 'oubliette', 'drain'], enemies: ['skeleton', 'necromancer', 'executioner', 'merman', 'wraith', 'bat', 'catoblepas'], spawn: ['zombie', 'medusa', 'wraith', 'merman'], boss: ['reaper', 'gorgon'] },
-  darkcave: { label: 'MOLTEN CAVERNS', outdoor: false, rows: 20, startRow: 12, strip: 'cavernfloor', words: ['cave', 'cavern', 'volcano', 'lava', 'magma', 'forge', 'furnace', 'foundry', 'fire', 'ember', 'smith', 'kiln', 'inferno', 'hell'], enemies: ['magmaslime', 'lavagolem', 'executioner', 'cinderimp', 'bat'], spawn: ['cinderimp'], boss: ['cinderqueen'] },
-  ossuary: { label: 'ABYSSAL OSSUARY', outdoor: false, rows: 16, startRow: 11, strip: 'catacomb', words: ['ossuary', 'bone', 'skull', 'abyss', 'pit', 'chasm', 'charnel', 'temple', 'shrine', 'altar', 'void'], enemies: ['skeleton', 'necromancer', 'executioner', 'wraith', 'bat', 'catoblepas'], spawn: ['zombie', 'medusa', 'necromancer'], boss: ['gorgon'] },
-  arcade: { label: 'GILDED GALLERY', outdoor: false, rows: 20, startRow: 15, strip: 'floor', words: ['arcade', 'gallery', 'automaton', 'machine', 'workshop', 'clockwork', 'casino', 'theatre', 'theater', 'carnival', 'circus', 'museum', 'toy', 'puppet', 'doll'], enemies: ['duelist', 'armor', 'alchfiend', 'skeleton', 'bat', 'catoblepas'], spawn: ['medusa', 'ghost'], boss: ['automaton'] },
-  library: { label: 'HAUNTED STACKS', outdoor: false, rows: 20, startRow: 13, strip: 'floor', words: ['library', 'archive', 'study', 'scriptorium', 'school', 'academy', 'observatory', 'laboratory', 'alchemist', 'alchemy', 'tome', 'book', 'wizard', 'sorcerer', 'witch'], enemies: ['tome', 'alchfiend', 'necromancer', 'duelist', 'ghost', 'skeleton', 'wraith'], spawn: ['tome', 'ghost', 'necromancer'], boss: ['archivist'] },
-  cathedral: { label: 'GREAT NAVE', outdoor: false, rows: 26, startRow: 23, strip: 'floor', words: ['cathedral', 'chapel', 'nave', 'abbey', 'monastery', 'cloister', 'sanctum', 'basilica', 'organ', 'choir', 'glass', 'convent', 'bell'], enemies: ['gargoyle', 'valkyrie', 'duelist', 'executioner', 'armor', 'bat'], spawn: ['gargoyle', 'valkyrie'], boss: ['archon'] },
-  clocktower: { label: 'CLOCKWORK SPIRE', outdoor: false, rows: 34, startRow: 31, strip: 'clockfloor', words: ['clock', 'gear', 'belfry', 'spire', 'tower', 'steeple', 'windmill', 'engine', 'elevator', 'shaft'], enemies: ['duelist', 'executioner', 'armor', 'valkyrie', 'bat', 'medusa'], spawn: ['bat', 'medusa', 'valkyrie'], boss: ['reaperlord', 'automaton'] },
-  throne: { label: 'ROYAL HALLS', outdoor: false, rows: 18, startRow: 11, strip: 'floor', words: ['throne', 'hall', 'ballroom', 'court', 'palace', 'royal', 'king', 'queen', 'banquet', 'chamber', 'manor', 'mansion', 'estate', 'armory', 'armoury', 'treasury', 'gallery of mirrors'], enemies: ['duelist', 'executioner', 'necromancer', 'valkyrie', 'armor', 'wraith', 'bat'], spawn: ['zombie', 'medusa', 'wraith', 'valkyrie'], boss: ['count', 'reaperlord'] },
+  graveyard: { label: 'MOONLIT MOOR', outdoor: true, rows: 18, startRow: 11, backdrop: 'forest', strip: 'ground', words: ['grave', 'cemetery', 'moor', 'road', 'church', 'mist', 'fog', 'hill', 'meadow', 'field', 'ruin', 'abandoned', 'plague', 'hamlet', 'village', 'gallows', 'shuttered'], enemies: ['gravekeeper', 'zombie', 'skeleton', 'armor', 'bat', 'ghost'], spawn: ['zombie', 'bat', 'ghost'], boss: ['giantbat', 'bonecaptain', 'reaper'] },
+  darkwood: { label: 'ANCIENT WOODS', outdoor: true, rows: 18, startRow: 11, backdrop: 'darkwood_canopy', strip: 'darkwoodfloor', words: ['wood', 'forest', 'grove', 'swamp', 'marsh', 'bog', 'glade', 'thicket', 'root', 'tree', 'garden', 'jungle', 'fen'], enemies: ['wolf', 'spriggan', 'mushroom', 'mosstroll', 'owl', 'bat'], spawn: ['owl', 'bat'], boss: ['treant'] },
+  forest: { label: 'HAUNTED HARVEST', outdoor: true, rows: 18, startRow: 11, backdrop: 'deepforest', strip: 'forestfloor', words: ['pumpkin', 'harvest', 'autumn', 'orchard', 'farm', 'barn', 'scarecrow', 'lantern', 'vineyard', 'mill'], enemies: ['scarecrow', 'pumpkin', 'wickerman', 'skeleton', 'bat'], spawn: ['lantern', 'pumpkin'], boss: ['greatjack'] },
+  yule: { label: 'SNOWBOUND VILLAGE', outdoor: true, rows: 18, startRow: 11, backdrop: 'winter', strip: 'snowfloor', words: ['snow', 'ice', 'frozen', 'winter', 'frost', 'yule', 'blizzard', 'cottage', 'market', 'inn', 'street', 'square', 'glacier', 'tundra'], enemies: ['snowman', 'icegolem', 'wendigo', 'wolf', 'wisp', 'skeleton'], spawn: ['wisp'], boss: ['devilsanta', 'bonecaptain'] },
+  ramparts: { label: 'OUTER WALLS', outdoor: true, rows: 18, startRow: 11, backdrop: 'castle', strip: 'floor', words: ['wall', 'rampart', 'battlement', 'gate', 'bridge', 'siege', 'bailey', 'watch', 'keep', 'fort', 'barracks', 'harbor', 'harbour', 'dock', 'pier', 'lighthouse'], enemies: ['arbalest', 'skeleton', 'armor', 'executioner', 'gargoyle', 'bat'], spawn: ['bat', 'gargoyle'], boss: ['bonecaptain'] },
+  catacombs: { label: 'BURIAL CRYPTS', outdoor: false, rows: 18, startRow: 9, strip: 'catacomb', words: ['catacomb', 'crypt', 'tomb', 'sewer', 'cistern', 'dungeon', 'cellar', 'vault', 'well', 'underground', 'tunnel', 'mine', 'prison', 'oubliette', 'drain'], enemies: ['zombie', 'skeleton', 'bonegoliath', 'executioner', 'necromancer', 'wraith', 'ghost'], spawn: ['zombie', 'wraith'], boss: ['reaper', 'gorgon'] },
+  darkcave: { label: 'MOLTEN CAVERNS', outdoor: false, rows: 20, startRow: 12, strip: 'cavernfloor', words: ['cave', 'cavern', 'volcano', 'lava', 'magma', 'forge', 'furnace', 'foundry', 'fire', 'ember', 'smith', 'kiln', 'inferno', 'hell'], enemies: ['magmaslime', 'pyromancer', 'lavagolem', 'cinderimp', 'bat'], spawn: ['cinderimp'], boss: ['cinderqueen'] },
+  ossuary: { label: 'ABYSSAL OSSUARY', outdoor: false, rows: 16, startRow: 11, strip: 'catacomb', words: ['ossuary', 'bone', 'skull', 'abyss', 'pit', 'chasm', 'charnel', 'temple', 'shrine', 'altar', 'void'], enemies: ['merman', 'skeleton', 'bonegoliath', 'catoblepas', 'necromancer', 'medusa', 'wraith'], spawn: ['medusa', 'merman', 'necromancer'], boss: ['gorgon'] },
+  arcade: { label: 'GILDED GALLERY', outdoor: false, rows: 20, startRow: 15, strip: 'floor', words: ['arcade', 'gallery', 'automaton', 'machine', 'workshop', 'clockwork', 'casino', 'theatre', 'theater', 'carnival', 'circus', 'museum', 'toy', 'puppet', 'doll'], enemies: ['clockknight', 'brasstitan', 'duelist', 'armor', 'gearharpy', 'gargoyle'], spawn: ['gearharpy', 'gargoyle'], boss: ['automaton'] },
+  library: { label: 'HAUNTED STACKS', outdoor: false, rows: 20, startRow: 13, strip: 'floor', words: ['library', 'archive', 'study', 'scriptorium', 'school', 'academy', 'observatory', 'laboratory', 'alchemist', 'alchemy', 'tome', 'book', 'wizard', 'sorcerer', 'witch'], enemies: ['inkscholar', 'alchfiend', 'vathulk', 'tome', 'necromancer', 'duelist', 'ghost'], spawn: ['tome', 'ghost', 'necromancer'], boss: ['archivist'] },
+  cathedral: { label: 'GREAT NAVE', outdoor: false, rows: 26, startRow: 23, strip: 'floor', words: ['cathedral', 'chapel', 'nave', 'abbey', 'monastery', 'cloister', 'sanctum', 'basilica', 'organ', 'choir', 'glass', 'convent', 'bell'], enemies: ['censerprelate', 'armor', 'executioner', 'gargoyle', 'valkyrie', 'wraith'], spawn: ['gargoyle', 'valkyrie'], boss: ['archon'] },
+  clocktower: { label: 'CLOCKWORK SPIRE', outdoor: false, rows: 34, startRow: 31, strip: 'clockfloor', words: ['clock', 'gear', 'belfry', 'spire', 'tower', 'steeple', 'windmill', 'engine', 'elevator', 'shaft'], enemies: ['clockknight', 'arbalest', 'brasstitan', 'skeleton', 'gearharpy', 'medusa'], spawn: ['gearharpy', 'medusa'], boss: ['reaperlord', 'automaton'] },
+  throne: { label: 'ROYAL HALLS', outdoor: false, rows: 18, startRow: 11, strip: 'floor', words: ['throne', 'hall', 'ballroom', 'court', 'palace', 'royal', 'king', 'queen', 'banquet', 'chamber', 'manor', 'mansion', 'estate', 'armory', 'armoury', 'treasury', 'gallery of mirrors'], enemies: ['bloodknight', 'duelist', 'censerprelate', 'executioner', 'armor', 'waltzdancer', 'wraith', 'necromancer'], spawn: ['waltzdancer', 'wraith'], boss: ['count', 'reaperlord'] },
 };
 
 /** Boss behaviours a forged wing may reuse; `frames` lists the sheet a generated sprite must match. */
@@ -55,9 +55,21 @@ export const BOSS_BASES = {
   count: { spawnHeight: 0, frames: null, sheet: 'vampire', nouns: ['BARON', 'MARGRAVE', 'COUNTESS', 'DUKE'] },
 };
 
-export const GROUND_ENEMIES = ['skeleton', 'zombie', 'catoblepas', 'pumpkin', 'icegolem', 'snowman', 'wolf', 'mushroom', 'magmaslime', 'lavagolem', 'armor', 'alchfiend', 'duelist', 'executioner', 'merman'];
-export const FLYING_ENEMIES = ['bat', 'medusa', 'dragon', 'owl', 'ghost', 'tome', 'gargoyle', 'cinderimp', 'wraith', 'valkyrie', 'necromancer'];
-export const SPAWNER_TYPES = ['zombie', 'pumpkin', 'medusa', 'lantern', 'wisp', 'ghost', 'wraith', 'cinderimp', 'tome', 'gargoyle', 'bat', 'owl', 'merman', 'valkyrie', 'necromancer'];
+export const GROUND_ENEMIES = [
+  'skeleton', 'zombie', 'catoblepas', 'pumpkin', 'icegolem', 'snowman', 'wolf', 'mushroom',
+  'magmaslime', 'lavagolem', 'armor', 'alchfiend', 'duelist', 'executioner', 'merman',
+  'gravekeeper', 'spriggan', 'scarecrow', 'arbalest', 'pyromancer', 'clockknight', 'inkscholar',
+  'censerprelate', 'bloodknight', 'retiarius', 'astralarcher',
+  'mosstroll', 'wickerman', 'wendigo', 'bonegoliath', 'brasstitan', 'vathulk', 'minotaur', 'cisterncrab', 'marblecolossus',
+];
+export const FLYING_ENEMIES = [
+  'bat', 'medusa', 'dragon', 'owl', 'ghost', 'tome', 'gargoyle', 'cinderimp', 'wraith',
+  'valkyrie', 'necromancer', 'gearharpy', 'waltzdancer', 'siren',
+];
+export const SPAWNER_TYPES = [
+  'zombie', 'pumpkin', 'medusa', 'lantern', 'wisp', 'ghost', 'wraith', 'cinderimp', 'tome',
+  'gargoyle', 'bat', 'owl', 'merman', 'valkyrie', 'necromancer', 'gearharpy', 'waltzdancer', 'siren',
+];
 const ENEMY_VARIANTS = {
   skeleton: ['normal', 'axe', 'red', 'blood', 'frost'],
   bat: ['normal', 'fire'],
@@ -210,7 +222,7 @@ export function designBlueprint({ name, description = '' }, seedOverride = null)
     { type: 'stepDown', n: 2 },
     { type: 'splitRoute', len: 14, reward: 'meat', spawn: sp1, vista: outdoor && rng() < 0.5, enemies: [[g1, 3], [g2, 6], [g0, 9], [g1, 12]], upperEnemies: [[fl, 5, { h: 6 }], [fl1, 10, { h: 5 }]] },
     { type: 'crumbleRun', len: 3, spikes: true },
-    { type: 'flat', len: long(10), candles: [3, 8], enemies: [['catoblepas', 4], [g2, 8]] },
+    { type: 'flat', len: long(10), candles: [3, 8], enemies: [[g2, 4], [g1, 8]] },
     rng() < 0.5 ? { type: 'liftShaft', h: 4, spawn: FLYING_ENEMIES.includes(sp0) || sp0 === 'bat' ? sp0 : 'bat', reward: 'holy_water' } : { type: 'climb', n: 3, candles: true },
     { type: 'flat', len: long(10), candles: [[3, 'holy_water'], 8], enemies: [[fl, 3, { h: 5 }], [g1, 6], [g2, 9]], spawn: sp0 },
     { type: 'descent', h: 4, enemies: [[fl, 2, { h: 2 }], [fl1, 4, { h: 3 }]] },
@@ -477,7 +489,7 @@ export async function registerForgedEntry(entry, { assets, audio = null } = {}) 
   const bt = BASE_THEMES[bp.base];
   const base = THEMES[bp.base];
   const prefix = `forge_${bp.key}_`;
-  const v = encodeURIComponent(String(entry.createdAt || entry.key));
+  const v = encodeURIComponent(`${entry.createdAt || entry.key}_${ASSET_VERSION}`);
   const gen = entry.assets || {};
   const loaded = {};
   // 1. Generated art (server) ...

@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 85.5,
+   "ay": 149.0,
+   "clipFrame": 69,
+   "h": 149,
+   "w": 137,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 57.0,
+   "ay": 165.0,
+   "clipFrame": 85,
+   "h": 165,
+   "w": 112,
+   "x": 139,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 85.5,
+   "ay": 89.0,
+   "clipFrame": 93,
+   "h": 89,
+   "w": 158,
+   "x": 252,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 84.0,
+   "ay": 91.0,
+   "clipFrame": 108,
+   "h": 93,
+   "w": 156,
+   "x": 411,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "mosstroll_attack_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "mosstroll_attack.mp4",
+  "frame": "windup",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   69,
+   85,
+   93,
+   108
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.2609,
+  "select": "pick",
+  "sheet": "mosstroll"
+ }
+}

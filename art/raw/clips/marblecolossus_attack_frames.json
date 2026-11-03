@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 43.0,
+   "ay": 125.0,
+   "clipFrame": 17,
+   "h": 125,
+   "w": 101,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 71.0,
+   "ay": 143.0,
+   "clipFrame": 81,
+   "h": 144,
+   "w": 132,
+   "x": 103,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 67.0,
+   "ay": 105.0,
+   "clipFrame": 125,
+   "h": 105,
+   "w": 165,
+   "x": 236,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 45.5,
+   "ay": 127.0,
+   "clipFrame": 159,
+   "h": 127,
+   "w": 101,
+   "x": 402,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "marblecolossus_attack_sheet.png",
+ "source": {
+  "action": "slash",
+  "anchor": "hips",
+  "clip": "marblecolossus_attack.mp4",
+  "frame": "windup",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   17,
+   81,
+   125,
+   159
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The colossal winged white-marble-and-gold celestial temple guardian wielding a gilded halberd performs ONE sword slash facing right: it raises its weapon high in a wind-up, slashes it down and across in a wide arc with a lunging step, then recovers to its guard stance. it sweeps its giant gilded halberd down in a grand arc; no projectiles, no light beams, no shockwaves.",
+  "scale": 0.2654,
+  "select": "motion",
+  "sheet": "marblecolossus",
+  "window": [
+   17,
+   159
+  ]
+ }
+}

@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 60.8,
+   "ay": 116.0,
+   "clipFrame": 30,
+   "h": 116,
+   "w": 114,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 57.3,
+   "ay": 117.0,
+   "clipFrame": 33,
+   "h": 117,
+   "w": 110,
+   "x": 116,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 53.7,
+   "ay": 117.0,
+   "clipFrame": 36,
+   "h": 117,
+   "w": 106,
+   "x": 227,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 57.0,
+   "ay": 117.0,
+   "clipFrame": 39,
+   "h": 117,
+   "w": 109,
+   "x": 334,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 61.9,
+   "ay": 115.0,
+   "clipFrame": 42,
+   "h": 115,
+   "w": 115,
+   "x": 444,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 59.8,
+   "ay": 114.0,
+   "clipFrame": 44,
+   "h": 115,
+   "w": 113,
+   "x": 560,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 53.7,
+   "ay": 115.0,
+   "clipFrame": 47,
+   "h": 117,
+   "w": 108,
+   "x": 674,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 54.2,
+   "ay": 117.0,
+   "clipFrame": 50,
+   "h": 119,
+   "w": 109,
+   "x": 783,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "marblecolossus_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "marblecolossus_walk.mp4",
+  "corr": 0.22444401681423187,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 23,
+  "picks": [
+   30,
+   33,
+   36,
+   39,
+   42,
+   44,
+   47,
+   50
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The colossal winged white-marble-and-gold celestial temple guardian wielding a gilded halberd performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. majestic heavy statue colossus strides, golden halo gleaming.",
+  "scale": 0.2544,
+  "select": "period",
+  "sheet": "marblecolossus"
+ }
+}

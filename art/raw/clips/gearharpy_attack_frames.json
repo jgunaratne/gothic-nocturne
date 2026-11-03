@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 17.5,
+   "ay": 45.0,
+   "clipFrame": 12,
+   "h": 45,
+   "w": 33,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 21.0,
+   "ay": 38.0,
+   "clipFrame": 84,
+   "h": 37,
+   "w": 47,
+   "x": 35,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 18.5,
+   "ay": 44.0,
+   "clipFrame": 166,
+   "h": 44,
+   "w": 34,
+   "x": 83,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 18.5,
+   "ay": 44.0,
+   "clipFrame": 234,
+   "h": 44,
+   "w": 34,
+   "x": 118,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "gearharpy_attack_sheet.png",
+ "source": {
+  "action": "spit",
+  "anchor": "hips",
+  "clip": "gearharpy_attack.mp4",
+  "frame": "fly0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   84,
+   166,
+   234
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The flying clockwork brass gear-owl mechanical drone with copper pinion wings performs ONE spitting attack facing right: it draws its head back, then snaps forward and spits toward the right, then returns to the starting pose. staying airborne, it snaps forward to fire a gear; no projectiles, no detached cogs, no energy beams.",
+  "scale": 0.0987,
+  "select": "motion",
+  "sheet": "gearharpy",
+  "window": [
+   12,
+   234
+  ]
+ }
+}

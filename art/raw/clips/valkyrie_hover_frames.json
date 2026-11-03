@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "hover0": {
+   "ax": 21.6,
+   "ay": 72.0,
+   "clipFrame": 30,
+   "h": 73,
+   "w": 41,
+   "x": 1,
+   "y": 1
+  },
+  "hover1": {
+   "ax": 20.0,
+   "ay": 73.0,
+   "clipFrame": 38,
+   "h": 74,
+   "w": 40,
+   "x": 43,
+   "y": 1
+  },
+  "hover2": {
+   "ax": 29.4,
+   "ay": 61.0,
+   "clipFrame": 46,
+   "h": 61,
+   "w": 56,
+   "x": 84,
+   "y": 1
+  },
+  "hover3": {
+   "ax": 31.1,
+   "ay": 52.0,
+   "clipFrame": 54,
+   "h": 50,
+   "w": 62,
+   "x": 141,
+   "y": 1
+  },
+  "hover4": {
+   "ax": 20.8,
+   "ay": 51.0,
+   "clipFrame": 63,
+   "h": 50,
+   "w": 40,
+   "x": 204,
+   "y": 1
+  },
+  "hover5": {
+   "ax": 34.1,
+   "ay": 54.0,
+   "clipFrame": 71,
+   "h": 54,
+   "w": 66,
+   "x": 245,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "valkyrie_hover_sheet.png",
+ "source": {
+  "action": "fly",
+  "anchor": "mean",
+  "clip": "valkyrie_hover.mp4",
+  "corr": 0.7258283495903015,
+  "frame": "hover0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 49,
+  "picks": [
+   30,
+   38,
+   46,
+   54,
+   63,
+   71
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The winged armoured valkyrie sentinel holding a spear and shield hovers in place facing right, flapping its wings in a smooth looping cycle: wings sweeping high above the body, then down below it, with a gentle bob of the body. It stays centred and does not travel across the screen. feathered wings beating smoothly up and down while hovering.",
+  "scale": 0.139,
+  "select": "period",
+  "sheet": "valkyrie"
+ }
+}

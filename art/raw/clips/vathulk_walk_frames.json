@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 34.7,
+   "ay": 111.0,
+   "clipFrame": 30,
+   "h": 112,
+   "w": 74,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 35.2,
+   "ay": 113.0,
+   "clipFrame": 34,
+   "h": 113,
+   "w": 73,
+   "x": 76,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 45.8,
+   "ay": 109.0,
+   "clipFrame": 38,
+   "h": 110,
+   "w": 84,
+   "x": 150,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 46.7,
+   "ay": 107.0,
+   "clipFrame": 42,
+   "h": 107,
+   "w": 87,
+   "x": 235,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 35.2,
+   "ay": 108.0,
+   "clipFrame": 46,
+   "h": 108,
+   "w": 75,
+   "x": 323,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 35.2,
+   "ay": 109.0,
+   "clipFrame": 50,
+   "h": 109,
+   "w": 73,
+   "x": 399,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 36.7,
+   "ay": 108.0,
+   "clipFrame": 54,
+   "h": 108,
+   "w": 83,
+   "x": 473,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 41.9,
+   "ay": 107.0,
+   "clipFrame": 58,
+   "h": 108,
+   "w": 91,
+   "x": 557,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "vathulk_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "vathulk_walk.mp4",
+  "corr": 0.41457101702690125,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 32,
+  "picks": [
+   30,
+   34,
+   38,
+   42,
+   46,
+   50,
+   54,
+   58
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The colossal stitched alchemical homunculus brute with glowing cyan glass reactor vat on its back performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. heavy hulking brute strides, glowing cyan fluid sloshing inside its back tank.",
+  "scale": 0.24,
+  "select": "period",
+  "sheet": "vathulk"
+ }
+}

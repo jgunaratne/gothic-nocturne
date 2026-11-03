@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 17.7,
+   "ay": 65.0,
+   "clipFrame": 30,
+   "h": 65,
+   "w": 37,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 19.4,
+   "ay": 67.0,
+   "clipFrame": 34,
+   "h": 67,
+   "w": 38,
+   "x": 39,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 22.0,
+   "ay": 67.0,
+   "clipFrame": 38,
+   "h": 67,
+   "w": 42,
+   "x": 78,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 22.9,
+   "ay": 66.0,
+   "clipFrame": 41,
+   "h": 66,
+   "w": 44,
+   "x": 121,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 21.8,
+   "ay": 66.0,
+   "clipFrame": 45,
+   "h": 66,
+   "w": 42,
+   "x": 166,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 19.2,
+   "ay": 67.0,
+   "clipFrame": 49,
+   "h": 68,
+   "w": 38,
+   "x": 209,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 16.8,
+   "ay": 67.0,
+   "clipFrame": 52,
+   "h": 67,
+   "w": 38,
+   "x": 248,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 19.2,
+   "ay": 66.0,
+   "clipFrame": 56,
+   "h": 66,
+   "w": 41,
+   "x": 287,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "retiarius_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "retiarius_walk.mp4",
+  "corr": 0.6043124794960022,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 30,
+  "picks": [
+   30,
+   34,
+   38,
+   41,
+   45,
+   49,
+   52,
+   56
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The crested undead Roman gladiator holding a bronze buckler and barbed javelin performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. an aggressive gladiator arena stride, buckler raised.",
+  "scale": 0.1447,
+  "select": "period",
+  "sheet": "retiarius"
+ }
+}

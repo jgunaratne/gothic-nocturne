@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 27.0,
+   "ay": 80.0,
+   "clipFrame": 54,
+   "h": 80,
+   "w": 54,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 39.0,
+   "ay": 80.0,
+   "clipFrame": 69,
+   "h": 80,
+   "w": 65,
+   "x": 56,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 28.5,
+   "ay": 55.0,
+   "clipFrame": 77,
+   "h": 56,
+   "w": 88,
+   "x": 122,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 33.0,
+   "ay": 57.0,
+   "clipFrame": 85,
+   "h": 57,
+   "w": 81,
+   "x": 211,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "gravekeeper_attack_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "gravekeeper_attack.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   54,
+   69,
+   77,
+   85
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1473,
+  "select": "pick",
+  "sheet": "gravekeeper"
+ }
+}

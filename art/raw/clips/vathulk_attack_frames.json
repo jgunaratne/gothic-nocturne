@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 54.5,
+   "ay": 105.0,
+   "clipFrame": 23,
+   "h": 105,
+   "w": 96,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 37.5,
+   "ay": 142.0,
+   "clipFrame": 39,
+   "h": 142,
+   "w": 75,
+   "x": 98,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 59.0,
+   "ay": 98.0,
+   "clipFrame": 64,
+   "h": 98,
+   "w": 123,
+   "x": 174,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 51.5,
+   "ay": 112.0,
+   "clipFrame": 141,
+   "h": 112,
+   "w": 91,
+   "x": 298,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "vathulk_attack_sheet.png",
+ "source": {
+  "action": "slam",
+  "anchor": "hips",
+  "clip": "vathulk_attack.mp4",
+  "frame": "windup",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   23,
+   39,
+   64,
+   141
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The colossal stitched alchemical homunculus brute with glowing cyan glass reactor vat on its back performs ONE ground slam facing right: it raises its arms high overhead, then smashes them down onto the ground in front of it with its whole body dropping, then rises back up. it smashes its iron-gauntleted fists down in front of it; no detached splashes, no shockwaves.",
+  "scale": 0.2349,
+  "select": "motion",
+  "sheet": "vathulk",
+  "window": [
+   23,
+   141
+  ]
+ }
+}

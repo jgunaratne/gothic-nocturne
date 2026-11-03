@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "float0": {
+   "ax": 37.0,
+   "ay": 70.0,
+   "clipFrame": 30,
+   "h": 69,
+   "w": 76,
+   "x": 1,
+   "y": 1
+  },
+  "float1": {
+   "ax": 38.3,
+   "ay": 69.0,
+   "clipFrame": 36,
+   "h": 69,
+   "w": 77,
+   "x": 78,
+   "y": 1
+  },
+  "float2": {
+   "ax": 38.5,
+   "ay": 69.0,
+   "clipFrame": 43,
+   "h": 66,
+   "w": 77,
+   "x": 156,
+   "y": 1
+  },
+  "float3": {
+   "ax": 39.2,
+   "ay": 67.0,
+   "clipFrame": 49,
+   "h": 67,
+   "w": 77,
+   "x": 234,
+   "y": 1
+  },
+  "float4": {
+   "ax": 38.9,
+   "ay": 67.0,
+   "clipFrame": 55,
+   "h": 68,
+   "w": 77,
+   "x": 312,
+   "y": 1
+  },
+  "float5": {
+   "ax": 38.6,
+   "ay": 66.0,
+   "clipFrame": 62,
+   "h": 68,
+   "w": 77,
+   "x": 390,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "waltzdancer_float_sheet.png",
+ "source": {
+  "action": "float",
+  "anchor": "mean",
+  "clip": "waltzdancer_float.mp4",
+  "corr": 0.4311506450176239,
+  "frame": "float0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 38,
+  "picks": [
+   30,
+   36,
+   43,
+   49,
+   55,
+   62
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The gliding masked phantom ballroom courtesan in tattered crimson silk gown holding a silver war-fan hovers in place facing right with a slow looping drifting motion: it bobs gently up and down, its trailing wisps, robes or tail swaying. No flapping. It stays centred and does not travel across the screen. gliding gracefully above the floor, silk gown hem billowing.",
+  "scale": 0.1429,
+  "select": "period",
+  "sheet": "waltzdancer"
+ }
+}

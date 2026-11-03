@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "cast0": {
+   "ax": 28.0,
+   "ay": 69.0,
+   "clipFrame": 38,
+   "h": 69,
+   "w": 41,
+   "x": 1,
+   "y": 1
+  },
+  "cast1": {
+   "ax": 20.5,
+   "ay": 75.0,
+   "clipFrame": 102,
+   "h": 72,
+   "w": 54,
+   "x": 43,
+   "y": 1
+  },
+  "cast2": {
+   "ax": 24.5,
+   "ay": 70.0,
+   "clipFrame": 164,
+   "h": 68,
+   "w": 42,
+   "x": 98,
+   "y": 1
+  },
+  "cast3": {
+   "ax": 26.5,
+   "ay": 66.0,
+   "clipFrame": 206,
+   "h": 65,
+   "w": 42,
+   "x": 141,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "necromancer_cast_sheet.png",
+ "source": {
+  "action": "cast",
+  "anchor": "hips",
+  "clip": "necromancer_cast.mp4",
+  "frame": "float0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   38,
+   102,
+   164,
+   206
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The floating skeletal lich necromancer in tattered robes holding a skull staff performs ONE spell cast facing right: it raises both hands, gathers energy with a flourish, thrusts a hand forward to release it toward the right, then lowers its arms. staying airborne, it raises and thrusts its skull staff forward; no projectiles, no energy beams, no detached skulls.",
+  "scale": 0.1447,
+  "select": "motion",
+  "sheet": "necromancer",
+  "window": [
+   38,
+   206
+  ]
+ }
+}

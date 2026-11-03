@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 24.3,
+   "ay": 74.0,
+   "clipFrame": 30,
+   "h": 74,
+   "w": 52,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 19.8,
+   "ay": 75.0,
+   "clipFrame": 35,
+   "h": 75,
+   "w": 43,
+   "x": 54,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 19.8,
+   "ay": 75.0,
+   "clipFrame": 40,
+   "h": 75,
+   "w": 43,
+   "x": 98,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 24.0,
+   "ay": 73.0,
+   "clipFrame": 45,
+   "h": 73,
+   "w": 44,
+   "x": 142,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 24.8,
+   "ay": 74.0,
+   "clipFrame": 50,
+   "h": 74,
+   "w": 43,
+   "x": 187,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 20.8,
+   "ay": 75.0,
+   "clipFrame": 55,
+   "h": 75,
+   "w": 43,
+   "x": 231,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 17.2,
+   "ay": 75.0,
+   "clipFrame": 60,
+   "h": 75,
+   "w": 43,
+   "x": 275,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 21.7,
+   "ay": 74.0,
+   "clipFrame": 65,
+   "h": 74,
+   "w": 50,
+   "x": 319,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "censerprelate_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "censerprelate_walk.mp4",
+  "corr": 0.8070640563964844,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 40,
+  "picks": [
+   30,
+   35,
+   40,
+   45,
+   50,
+   55,
+   60,
+   65
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The tall mitred undead cathedral bishop swinging a heavy smoking brass censer on a chain performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. a solemn heavy liturgical procession stride, chained censer swaying.",
+  "scale": 0.1623,
+  "select": "period",
+  "sheet": "censerprelate"
+ }
+}

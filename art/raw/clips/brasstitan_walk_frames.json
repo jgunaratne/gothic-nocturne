@@ -1,0 +1,101 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 50.3,
+   "ay": 102.0,
+   "clipFrame": 62,
+   "h": 102,
+   "w": 123,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 42.5,
+   "ay": 131.0,
+   "clipFrame": 69,
+   "h": 131,
+   "w": 111,
+   "x": 125,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 38.1,
+   "ay": 126.0,
+   "clipFrame": 77,
+   "h": 126,
+   "w": 90,
+   "x": 237,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 33.0,
+   "ay": 130.0,
+   "clipFrame": 85,
+   "h": 130,
+   "w": 84,
+   "x": 328,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 38.4,
+   "ay": 104.0,
+   "clipFrame": 93,
+   "h": 104,
+   "w": 101,
+   "x": 413,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 40.5,
+   "ay": 103.0,
+   "clipFrame": 100,
+   "h": 103,
+   "w": 108,
+   "x": 515,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 45.4,
+   "ay": 114.0,
+   "clipFrame": 108,
+   "h": 114,
+   "w": 117,
+   "x": 624,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 44.4,
+   "ay": 118.0,
+   "clipFrame": 116,
+   "h": 118,
+   "w": 115,
+   "x": 742,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "brasstitan_walk_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "mean",
+  "clip": "brasstitan_walk.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   62,
+   69,
+   77,
+   85,
+   93,
+   100,
+   108,
+   116
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.2446,
+  "select": "pick",
+  "sheet": "brasstitan"
+ }
+}

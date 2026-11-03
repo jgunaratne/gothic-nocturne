@@ -917,6 +917,89 @@ void main() {
 }
 `;
 
+// Circulating spectral phylactery / soul-flame shader for the Reaper Lord (2.5D behind/front occluded)
+const SOUL_WISP_FRAG = `
+${SHADER_PREC}
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform vec4 uCenter;   // cx, cy, radius, scale (scene px)
+uniform vec4 uVel;      // tanX, tanY (orbital velocity vector), seed, enraged(0|1)
+uniform vec3 uCoreCol;
+uniform vec3 uMidCol;
+uniform vec3 uRimCol;
+uniform float uAlpha;
+${NOISE}
+void main() {
+  // Snap to integer 640x360 scene pixel grid so shader wisps match crisp 32-bit sprites
+  vec2 px = floor(vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y)) + 0.5;
+  float rad = max(4.0, uCenter.z);
+  vec2 rel = (px - uCenter.xy) / rad;
+  if (dot(rel, rel) > 7.6) discard;
+
+  float seed = uVel.z;
+  float enraged = uVel.w;
+
+  // 1. Rotating faceted phylactery lantern core + flickering inner soul-slit
+  float angCore = uTime * (2.6 + enraged * 1.5) + seed;
+  float cs = cos(angCore), sn = sin(angCore);
+  vec2 rq = vec2(rel.x * cs - rel.y * sn, rel.x * sn + rel.y * cs);
+  float dFacet = (abs(rq.x) * 1.08 + abs(rq.y) * 0.82) * 0.78;
+  float dOrb = mix(length(rel), dFacet, 0.54);
+  float coreShell = exp(-max(0.0, dOrb - 0.14) * 3.7);
+  float slit = exp(-pow(rel.x * 4.8, 2.0) - pow((rel.y + 0.03) * 2.2, 2.0));
+  float eyeFlicker = 0.55 + 0.45 * sin(uTime * 11.5 + seed * 3.7);
+
+  // 2. Domain-warped rising FBM soul-flame plume (above the core: rel.y < 0.35)
+  float up = clamp((0.35 - rel.y) / 2.25, 0.0, 1.0);
+  float sway = (fbm(vec2(rel.y * 2.2 + uTime * 4.0, seed * 1.7 + uTime * 1.5)) - 0.5) * (0.52 + 0.68 * up);
+  float flameHalfW = mix(0.60, 0.05, pow(up, 0.82));
+  float flameX = abs(rel.x + sway * up) / max(0.05, flameHalfW);
+  float flameN = fbm(vec2(rel.x * 2.8 + seed, rel.y * 2.6 + uTime * 5.4));
+  float plume = smoothstep(1.16, 0.14, flameX - (flameN - 0.5) * 0.55)
+    * (1.0 - smoothstep(0.52, 1.0, up))
+    * smoothstep(-0.42, 0.06, 0.35 - rel.y);
+
+  // 3. 3D foreshortened orbital comet wake trailing opposite uVel.xy
+  float speed = length(uVel.xy);
+  vec2 fwd = speed > 0.001 ? (uVel.xy / speed) : vec2(1.0, 0.0);
+  vec2 perp = vec2(-fwd.y, fwd.x);
+  float behind = dot(rel, -fwd);
+  float side = dot(rel, perp);
+  float tailLen = clamp(speed, 0.16, 1.55) * (1.35 + 0.35 * enraged);
+  float tailT = clamp(behind / max(0.22, tailLen), 0.0, 1.0);
+  float wakeWave = (fbm(vec2(tailT * 3.4 - uTime * 5.8 + seed, side * 2.4)) - 0.5) * 0.40 * tailT;
+  float wakeW = mix(0.52, 0.05, tailT);
+  float wake = smoothstep(-0.14, 0.12, behind)
+    * exp(-abs(side + wakeWave - 0.16 * tailT * perp.y) / max(0.04, wakeW))
+    * pow(1.0 - tailT, 1.25)
+    * clamp(speed * 0.95, 0.18, 1.0);
+
+  // 4. Detached rising & trailing pixel ember motes + outer 6-point arcane ring
+  float m1Phase = fract(uTime * 1.35 + seed * 0.37);
+  float m2Phase = fract(uTime * 1.85 + seed * 0.73);
+  vec2 sp1 = vec2(sin(uTime * 6.4 + seed * 2.1) * 0.68, -0.50 - m1Phase * 1.15);
+  vec2 sp2 = -fwd * (0.50 + m2Phase * 1.10) + perp * (sin(uTime * 9.0 + seed) * 0.22);
+  float sparks = exp(-length(rel - sp1) * 7.8) * (1.0 - m1Phase)
+    + exp(-length(rel - sp2) * 8.2) * (1.0 - m2Phase) * clamp(speed, 0.0, 1.0);
+  float runeRing = exp(-abs(dOrb - 0.78) * 10.5)
+    * (0.45 + 0.55 * sin(atan(rel.y, rel.x) * 6.0 - uTime * 5.2 + seed));
+
+  float energy = max(coreShell * 1.18, max(plume * 0.92, max(wake * 0.88, runeRing * 0.52))) + sparks * 0.85;
+  if (energy <= 0.08) discard;
+
+  // Quantize into 6 stepped 32-bit palette tiers
+  float qE = floor(clamp(energy, 0.0, 1.15) * 6.0) / 6.0;
+  float outA = clamp(qE * uAlpha, 0.0, 1.0);
+  if (outA <= 0.02) discard;
+
+  vec3 col = mix(uRimCol, uMidCol, smoothstep(0.14, 0.56, qE));
+  col = mix(col, uCoreCol, smoothstep(0.58, 0.98, energy));
+  col = mix(col, uRimCol * 0.28, clamp(slit * 0.68 * eyeFlicker, 0.0, 0.72));
+  gl_FragColor = vec4(col * outA, outA);
+}
+`;
+
 // Batched combat spark, hit-slash burst, ember, faceted shard & vapour shader
 const SPARK_VERT = `
 ${SHADER_PREC}
@@ -1144,6 +1227,7 @@ export class FxLayers {
     this.pAttack = this.program(VERT, ATTACK_FRAG);
     this.pShockRing = this.program(VERT, SHOCKRING_FRAG);
     this.pVortex = this.program(VERT, VORTEX_FRAG);
+    this.pSoulWisp = this.program(VERT, SOUL_WISP_FRAG);
     this.pRetroBg = this.program(VERT, RETRO_BG_FRAG);
     this.pSpark = this.program(SPARK_VERT, SPARK_FRAG);
     this.pSpark.aLocal = gl.getAttribLocation(this.pSpark.p, 'aLocal');
@@ -1511,6 +1595,30 @@ export class FxLayers {
       gl.uniform3f(u.uRimCol, rim[0], rim[1], rim[2]);
       gl.uniform3f(u.uMeta, open, seed, alpha);
     }, 'source-over');
+  }
+
+  /**
+   * Immediately renders an orbiting spectral phylactery / soul-flame shader at `(x, y)` in scene px
+   * so behind-body and front-body 2.5D passes occlude accurately around boss sprites.
+   */
+  soulWisp(ctx, {
+    x, y, radius = 11, scale = 1.0, tanX = 1.0, tanY = 0.0, seed = 0, enraged = 0,
+    core = [1.0, 0.97, 0.84], mid = [1.0, 0.68, 0.18], rim = [0.68, 0.12, 0.36], alpha = 0.90,
+  } = {}) {
+    if (!this.enabled || alpha <= 0.02) return;
+    const padX = Math.ceil(radius * 2.65) + 4;
+    const padTop = Math.ceil(radius * 2.55) + 4;
+    const padBot = Math.ceil(radius * 2.15) + 4;
+    if (x + padX < 0 || x - padX > W || y + padBot < 0 || y - padTop > H) return;
+    const box = { x: x - padX, y: y - padTop, w: padX * 2, h: padTop + padBot };
+    this.run(ctx, this.pSoulWisp, box, (gl, u) => {
+      gl.uniform4f(u.uCenter, x, y, radius, scale);
+      gl.uniform4f(u.uVel, tanX, tanY, seed, enraged);
+      gl.uniform3f(u.uCoreCol, core[0], core[1], core[2]);
+      gl.uniform3f(u.uMidCol, mid[0], mid[1], mid[2]);
+      gl.uniform3f(u.uRimCol, rim[0], rim[1], rim[2]);
+      gl.uniform1f(u.uAlpha, alpha);
+    }, 'lighter');
   }
 
   /** Flushes all queued enemy/boss shader attacks and shockwave rings. */

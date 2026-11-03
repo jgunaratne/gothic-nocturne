@@ -272,7 +272,28 @@ export class Projectile {
     if (this.type === 'spore') {
       this.vy = Math.cos(this.time * 4.8) * 34;
     }
-    // Tile contact
+    // Tile contact (player projectiles shatter breakable `T_BLOCK` walls & floor hatches first)
+    if (this.owner === 'player' && world && world.shatterBlocksInRect) {
+      const broke = world.shatterBlocksInRect({
+        x: this.x - this.w * 0.5 - 2,
+        y: this.y - this.h * 0.5 - 2,
+        w: this.w + 4,
+        h: this.h + (this.vy > 0 ? 10 : 4),
+      });
+      if (broke > 0) {
+        if (this.type === 'holy_water') {
+          const floorY = Math.floor((this.y + 4) / TILE) * TILE;
+          world.spawnFire(this.x, floorY);
+          this.dead = true;
+          return;
+        }
+        if (this.pierce > 0) this.pierce--;
+        else if (this.type !== 'cross') {
+          this.dead = true;
+          return;
+        }
+      }
+    }
     const tx = Math.floor(this.x / TILE), ty = Math.floor(this.y / TILE);
     if (level.isSolid(tx, ty) || (this.type === 'holy_water' && this.vy > 0 && level.isStandable(tx, Math.floor((this.y + 4) / TILE)))) {
       if (this.type === 'holy_water') {
@@ -821,7 +842,7 @@ export class Fire {
   constructor(x, floorY, owner = 'player') {
     this.x = x; this.y = floorY; this.owner = owner;
     this.life = owner === 'enemy' ? 1.35 : 1.7;
-    this.tick = 0; this.dead = false;
+    this.tick = 0.20; this.dead = false;
     this.w = owner === 'enemy' ? 32 : 40; this.h = 26;
   }
   get box() { return { x: this.x - this.w / 2, y: this.y - this.h, w: this.w, h: this.h }; }

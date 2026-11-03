@@ -94,7 +94,10 @@ export class World {
     this.level = new Level(data);
     this.stage3d = new Stage3D(this.assets, this.level, this.fxTheme, data);
     this.parallax = new Parallax(this.assets, this.level.height, this.theme.layers || 'outdoor');
-    if (this.theme.base) this.parallax.setFxTheme(this.fxTheme);   // cloud banks, aurora & god rays of the base realm
+    if (this.theme.base) {
+      const skyFx = (this.theme.forged && this.fxTheme === 'yule') ? 'graveyard' : this.fxTheme;
+      this.parallax.setFxTheme(skyFx);   // cloud banks, aurora & god rays of the base realm
+    }
     this.particles = new Particles();
     this.camera = new Camera(this.level.width, this.level.height);
     this.score = carry ? carry.score : 0;
@@ -731,6 +734,53 @@ export class World {
     this.camera.update(dt, p, p.facing);
   }
 
+  /**
+   * Shatters all breakable `T_BLOCK` tiles overlapping `rect` (including floor hatches
+   * and secret walls), spawning masonry shards, sound, camera shake, and hidden drops.
+   * Connected horizontal floor-hatch slabs (`!isSolid` above and below) collapse together
+   * so sunken secret vaults open cleanly across their full stairwell landing.
+   */
+  shatterBlocksInRect(rect) {
+    if (!rect || !this.level) return 0;
+    const lvl = this.level;
+    const tx0 = Math.floor(rect.x / TILE);
+    const tx1 = Math.floor((rect.x + Math.max(0, rect.w - 0.001)) / TILE);
+    const ty0 = Math.floor(rect.y / TILE);
+    const ty1 = Math.floor((rect.y + Math.max(0, rect.h - 0.001)) / TILE);
+    const queue = [];
+    for (let ty = ty0; ty <= ty1; ty++) {
+      for (let tx = tx0; tx <= tx1; tx++) {
+        if (lvl.tile(tx, ty) === T_BLOCK) queue.push({ tx, ty, propagate: true });
+      }
+    }
+    let broken = 0;
+    while (queue.length) {
+      const { tx, ty, propagate } = queue.shift();
+      if (lvl.tile(tx, ty) !== T_BLOCK) continue;
+      const isFloorHatch = !lvl.isSolid(tx, ty - 1) && !lvl.isSolid(tx, ty + 1);
+      const drop = lvl.breakBlock(tx, ty);
+      broken++;
+      this.particles.shards(tx * TILE + 16, ty * TILE + 24, 12, '#8a9ab5', (ty + 1) * TILE);
+      if (drop) this.spawnItem(drop, tx * TILE + 16, ty * TILE + 20);
+      if (propagate && isFloorHatch) {
+        for (const dir of [-1, 1]) {
+          for (let step = 1; step <= 3; step++) {
+            const nx = tx + dir * step;
+            if (lvl.tile(nx, ty) !== T_BLOCK) break;
+            if (lvl.isSolid(nx, ty - 1) || lvl.isSolid(nx, ty + 1)) break;
+            queue.push({ tx: nx, ty, propagate: false });
+          }
+        }
+      }
+    }
+    if (broken > 0) {
+      this.sfx('block');
+      this.camera.shake(2, 0.12);
+      this.hitStop = Math.max(this.hitStop, 0.04);
+    }
+    return broken;
+  }
+
   resolveCombat() {
     const p = this.player;
     const lvl = this.level;
@@ -746,6 +796,7 @@ export class World {
         slotState: { timer: 0.2, win0: 0.14, win1: 0.26, isSkill: false, hitEnemies: new Map(), legacy: true },
         weapon: WEAPONS.hunters_lash,
         box: legacyWhip,
+        blockBox: legacyWhip,
       });
     }
 
@@ -764,17 +815,8 @@ export class World {
         }
       }
 
-      const tx0 = Math.floor(box.x / TILE), tx1 = Math.floor((box.x + box.w) / TILE);
-      const ty0 = Math.floor(box.y / TILE), ty1 = Math.floor((box.y + box.h) / TILE);
-      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
-        if (lvl.tile(tx, ty) !== T_BLOCK) continue;
-        const drop = lvl.breakBlock(tx, ty);
+      if (this.shatterBlocksInRect(strike.blockBox || box) > 0) {
         hitSomething = true;
-        this.sfx('block');
-        this.camera.shake(2, 0.12);
-        this.hitStop = Math.max(this.hitStop, 0.04);
-        this.particles.shards(tx * TILE + 16, ty * TILE + 30, 12, '#8a9ab5', ty * TILE + 32);
-        if (drop) this.spawnItem(drop, tx * TILE + 16, ty * TILE + 20);
       }
 
       const multiHits = (slotState.isSkill && weapon.skill && weapon.skill.multiHit) || weapon.multiHit || 1;
@@ -917,6 +959,7 @@ export class World {
           p.hurt(fireDmg, f.x, this);
         }
       } else {
+        this.shatterBlocksInRect({ x: f.box.x, y: f.box.y, w: f.box.w, h: f.box.h + 10 });
         const fireHit = Math.round(this.getAttackMult() * 10) / 10;
         for (const e of this.enemies) if (e.alive && rectsOverlap(f.box, e.box())) e.takeHit(fireHit, f.x, this);
       }

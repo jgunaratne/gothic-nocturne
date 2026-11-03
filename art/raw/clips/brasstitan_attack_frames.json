@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 61.0,
+   "ay": 115.0,
+   "clipFrame": 69,
+   "h": 115,
+   "w": 111,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 62.5,
+   "ay": 118.0,
+   "clipFrame": 77,
+   "h": 118,
+   "w": 112,
+   "x": 113,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 43.0,
+   "ay": 119.0,
+   "clipFrame": 85,
+   "h": 119,
+   "w": 97,
+   "x": 226,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 40.5,
+   "ay": 118.0,
+   "clipFrame": 93,
+   "h": 118,
+   "w": 139,
+   "x": 324,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "brasstitan_attack_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "brasstitan_attack.mp4",
+  "frame": "windup",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   69,
+   77,
+   85,
+   93
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.2489,
+  "select": "pick",
+  "sheet": "brasstitan"
+ }
+}

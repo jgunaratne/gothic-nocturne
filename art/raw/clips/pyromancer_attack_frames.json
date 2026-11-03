@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 21.0,
+   "ay": 76.0,
+   "clipFrame": 39,
+   "h": 76,
+   "w": 47,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 30.0,
+   "ay": 81.0,
+   "clipFrame": 54,
+   "h": 81,
+   "w": 62,
+   "x": 49,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 30.5,
+   "ay": 80.0,
+   "clipFrame": 62,
+   "h": 80,
+   "w": 62,
+   "x": 112,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 29.0,
+   "ay": 69.0,
+   "clipFrame": 162,
+   "h": 69,
+   "w": 52,
+   "x": 175,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "pyromancer_attack_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "pyromancer_attack.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   39,
+   54,
+   62,
+   162
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.1454,
+  "select": "pick",
+  "sheet": "pyromancer"
+ }
+}

@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "fly0": {
+   "ax": 19.1,
+   "ay": 26.0,
+   "clipFrame": 30,
+   "h": 26,
+   "w": 44,
+   "x": 1,
+   "y": 1
+  },
+  "fly1": {
+   "ax": 15.3,
+   "ay": 27.0,
+   "clipFrame": 35,
+   "h": 29,
+   "w": 31,
+   "x": 46,
+   "y": 1
+  },
+  "fly2": {
+   "ax": 18.5,
+   "ay": 26.0,
+   "clipFrame": 40,
+   "h": 25,
+   "w": 39,
+   "x": 78,
+   "y": 1
+  },
+  "fly3": {
+   "ax": 19.7,
+   "ay": 41.0,
+   "clipFrame": 45,
+   "h": 41,
+   "w": 40,
+   "x": 118,
+   "y": 1
+  },
+  "fly4": {
+   "ax": 14.9,
+   "ay": 45.0,
+   "clipFrame": 50,
+   "h": 46,
+   "w": 30,
+   "x": 159,
+   "y": 1
+  },
+  "fly5": {
+   "ax": 15.5,
+   "ay": 45.0,
+   "clipFrame": 55,
+   "h": 46,
+   "w": 31,
+   "x": 190,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "gearharpy_fly_sheet.png",
+ "source": {
+  "action": "fly",
+  "anchor": "mean",
+  "clip": "gearharpy_fly.mp4",
+  "corr": 0.3541313707828522,
+  "frame": "fly0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 30,
+  "picks": [
+   30,
+   35,
+   40,
+   45,
+   50,
+   55
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The flying clockwork brass gear-owl mechanical drone with copper pinion wings hovers in place facing right, flapping its wings in a smooth looping cycle: wings sweeping high above the body, then down below it, with a gentle bob of the body. It stays centred and does not travel across the screen. copper mechanical wings flapping up and down in a crisp rhythmic cycle.",
+  "scale": 0.0987,
+  "select": "period",
+  "sheet": "gearharpy"
+ }
+}

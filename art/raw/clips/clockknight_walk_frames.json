@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 28.1,
+   "ay": 68.0,
+   "clipFrame": 30,
+   "h": 68,
+   "w": 58,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 29.3,
+   "ay": 67.0,
+   "clipFrame": 34,
+   "h": 67,
+   "w": 58,
+   "x": 60,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 29.0,
+   "ay": 64.0,
+   "clipFrame": 38,
+   "h": 65,
+   "w": 58,
+   "x": 119,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 27.5,
+   "ay": 66.0,
+   "clipFrame": 43,
+   "h": 67,
+   "w": 56,
+   "x": 178,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 24.5,
+   "ay": 67.0,
+   "clipFrame": 47,
+   "h": 67,
+   "w": 54,
+   "x": 235,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 21.9,
+   "ay": 69.0,
+   "clipFrame": 51,
+   "h": 69,
+   "w": 50,
+   "x": 290,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 24.8,
+   "ay": 69.0,
+   "clipFrame": 56,
+   "h": 69,
+   "w": 52,
+   "x": 341,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 27.2,
+   "ay": 68.0,
+   "clipFrame": 60,
+   "h": 68,
+   "w": 56,
+   "x": 394,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "clockknight_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "clockknight_walk.mp4",
+  "corr": 0.3672289550304413,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 34,
+  "picks": [
+   30,
+   34,
+   38,
+   43,
+   47,
+   51,
+   56,
+   60
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The clockwork brass halberdier automaton with porcelain mask and gear pauldrons performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. a crisp mechanical clockwork march, halberd held at guard.",
+  "scale": 0.1491,
+  "select": "period",
+  "sheet": "clockknight"
+ }
+}

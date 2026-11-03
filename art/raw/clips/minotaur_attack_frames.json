@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 62.0,
+   "ay": 148.0,
+   "clipFrame": 33,
+   "h": 148,
+   "w": 134,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 99.0,
+   "ay": 147.0,
+   "clipFrame": 49,
+   "h": 147,
+   "w": 181,
+   "x": 136,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 95.5,
+   "ay": 102.0,
+   "clipFrame": 88,
+   "h": 102,
+   "w": 176,
+   "x": 318,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 51.5,
+   "ay": 131.0,
+   "clipFrame": 106,
+   "h": 131,
+   "w": 126,
+   "x": 495,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "minotaur_attack_sheet.png",
+ "source": {
+  "action": "swing",
+  "anchor": "hips",
+  "clip": "minotaur_attack.mp4",
+  "frame": "windup",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   33,
+   49,
+   88,
+   106
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The colossal armoured bull-headed gladiator minotaur wielding a huge bronze double-bladed battleaxe performs ONE heavy swing facing right starting from a raised wind-up: it brings its weapon down and across in a wide sweeping arc, following through past its body, then recovers. it cleaves its massive bronze double-axe forward in a devastating arc; no shockwaves, no dust clouds.",
+  "scale": 0.2575,
+  "select": "motion",
+  "sheet": "minotaur",
+  "window": [
+   33,
+   106
+  ]
+ }
+}

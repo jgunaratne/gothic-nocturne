@@ -82,11 +82,14 @@ export class StageBuilder {
   gear(tx, row, r, speed, dy, z = 56) { this.decor.push({ type: 'gear', x: px(tx), y: py(row) + dy, r, speed, z }); }
   waterBasin(x0Tile, x1Tile, surfaceY, bottomY, opts = {}) {
     if (x1Tile < x0Tile) return this;
+    const floorY = Math.round(((bottomY != null ? bottomY - 3 : surfaceY + 8)) / TILE) * TILE;
     this.waterBasins.push(Object.assign({
-      x: x0Tile * TILE,
-      y: surfaceY,
-      w: (x1Tile - x0Tile + 1) * TILE,
-      h: Math.max(8, bottomY - surfaceY),
+      x: x0Tile * TILE + 4,
+      y: floorY - 5,
+      w: (x1Tile - x0Tile + 1) * TILE - 8,
+      h: 9,
+      floorY,
+      curbs: true,
     }, opts));
     return this;
   }
@@ -802,7 +805,16 @@ export class StageBuilder {
       const flooded = o.water || this.themeKey === 'aqueduct' || this.themeKey === 'ossuary' || this.themeKey === 'darkwood';
       this.op((lv) => {
         lv.ground(x0, x1, floorR, this.mat);
-        if (flooded) lv.fill(x0, x1, Math.max(1, floorR - 1), Math.max(1, floorR - 1), T_WATER);
+        if (flooded) {
+          const wRow = Math.max(1, floorR - 1);
+          if (width >= 4) {
+            lv.ground(x0, x0, wRow, this.mat);
+            lv.ground(x1, x1, wRow, this.mat);
+            lv.fill(x0 + 1, x1 - 1, wRow, wRow, T_WATER);
+          } else {
+            lv.fill(x0, x1, wRow, wRow, T_WATER);
+          }
+        }
         if (floorR - startRow > 2) lv.platform(x0, x0 + 1, floorR - 2);
       });
     }
@@ -1413,9 +1425,15 @@ export class StageBuilder {
    */
   lavaRun(width, o = {}) {
     const x0 = this.x, x1 = this.x + width - 1, row = this.row;
+    const lx0 = width >= 5 ? x0 + 1 : x0;
+    const lx1 = width >= 5 ? x1 - 1 : x1;
     this.op((lv) => {
       lv.ground(x0, x1, Math.min(this.rows - 1, row + 3), this.mat);
-      lv.fill(x0, x1, row + 1, Math.min(this.rows - 1, row + 2), T_LAVA);
+      if (width >= 5) {
+        lv.ground(x0, x0, row + 1, this.mat);
+        lv.ground(x1, x1, row + 1, this.mat);
+      }
+      lv.fill(lx0, lx1, row + 1, Math.min(this.rows - 1, row + 2), T_LAVA);
       for (const [off, w = 2, dr = 0] of o.islands || []) {
         const ix0 = x0 + off, ix1 = Math.min(x1, ix0 + w - 1);
         lv.ground(ix0, ix1, row + dr, this.mat);
@@ -1462,10 +1480,17 @@ export class StageBuilder {
    */
   canalRun(width, o = {}) {
     const x0 = this.x, x1 = this.x + width - 1, row = this.row;
-    const floorR = Math.min(this.rows - 1, row + 2);
+    const floorR = Math.min(this.rows - 1, row + 3);
+    const wx0 = width >= 4 ? x0 + 1 : x0;
+    const wx1 = width >= 4 ? x1 - 1 : x1;
+    const wTop = Math.min(floorR - 1, row + 1);
     this.op((lv) => {
       lv.ground(x0, x1, floorR, this.mat);
-      if (floorR > row) lv.fill(x0, x1, row, floorR - 1, T_WATER);
+      if (width >= 4) {
+        lv.ground(x0, x0, wTop, this.mat);
+        lv.ground(x1, x1, wTop, this.mat);
+      }
+      if (floorR > wTop) lv.fill(wx0, wx1, wTop, floorR - 1, T_WATER);
       for (const [off, w = 2, dr = 0] of o.islands || []) {
         const ix0 = x0 + off, ix1 = Math.min(x1, ix0 + w - 1);
         lv.ground(ix0, ix1, row + dr, this.mat);

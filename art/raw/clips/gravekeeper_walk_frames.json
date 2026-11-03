@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 22.7,
+   "ay": 65.0,
+   "clipFrame": 30,
+   "h": 65,
+   "w": 57,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 23.0,
+   "ay": 65.0,
+   "clipFrame": 34,
+   "h": 65,
+   "w": 59,
+   "x": 59,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 21.8,
+   "ay": 66.0,
+   "clipFrame": 38,
+   "h": 66,
+   "w": 60,
+   "x": 119,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 18.9,
+   "ay": 67.0,
+   "clipFrame": 42,
+   "h": 67,
+   "w": 58,
+   "x": 180,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 18.9,
+   "ay": 68.0,
+   "clipFrame": 46,
+   "h": 68,
+   "w": 56,
+   "x": 239,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 19.2,
+   "ay": 69.0,
+   "clipFrame": 49,
+   "h": 69,
+   "w": 55,
+   "x": 296,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 20.6,
+   "ay": 67.0,
+   "clipFrame": 53,
+   "h": 67,
+   "w": 54,
+   "x": 352,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 22.4,
+   "ay": 65.0,
+   "clipFrame": 57,
+   "h": 65,
+   "w": 55,
+   "x": 407,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "gravekeeper_walk_sheet.png",
+ "source": {
+  "action": "shamble",
+  "anchor": "mean",
+  "clip": "gravekeeper_walk.mp4",
+  "corr": 0.13870233297348022,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 31,
+  "picks": [
+   30,
+   34,
+   38,
+   42,
+   46,
+   49,
+   53,
+   57
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The hunched undead gravedigger carrying a glowing amber lantern and iron spade performs a looping treadmill shamble in place facing right: stiff lurching steps, arms held out forward, head lolling, dragging one foot. It stays centred and does not travel across the screen. heavy trudging steps, amber lantern swinging gently.",
+  "scale": 0.1473,
+  "select": "period",
+  "sheet": "gravekeeper"
+ }
+}

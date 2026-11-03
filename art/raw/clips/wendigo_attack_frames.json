@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 53.5,
+   "ay": 116.0,
+   "clipFrame": 16,
+   "h": 116,
+   "w": 112,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 70.5,
+   "ay": 134.0,
+   "clipFrame": 81,
+   "h": 134,
+   "w": 133,
+   "x": 114,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 54.5,
+   "ay": 95.0,
+   "clipFrame": 135,
+   "h": 98,
+   "w": 94,
+   "x": 248,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 58.0,
+   "ay": 90.0,
+   "clipFrame": 238,
+   "h": 99,
+   "w": 108,
+   "x": 343,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "wendigo_attack_sheet.png",
+ "source": {
+  "action": "lunge",
+  "anchor": "hips",
+  "clip": "wendigo_attack.mp4",
+  "frame": "windup",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   16,
+   81,
+   135,
+   238
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The colossal frost-furred antlered elk-skull wendigo beast with jagged ice claws performs ONE lunge attack facing right: it coils back in anticipation, springs forward with its limbs and claws extended, then recovers to the starting pose. it lunges and rakes both huge ice claws downward in a savage swipe; no projectiles, no ice shockwaves.",
+  "scale": 0.2393,
+  "select": "motion",
+  "sheet": "wendigo",
+  "window": [
+   16,
+   238
+  ]
+ }
+}

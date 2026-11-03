@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 15.5,
+   "ay": 63.0,
+   "clipFrame": 12,
+   "h": 63,
+   "w": 31,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 24.5,
+   "ay": 60.0,
+   "clipFrame": 71,
+   "h": 60,
+   "w": 54,
+   "x": 33,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 14.5,
+   "ay": 63.0,
+   "clipFrame": 118,
+   "h": 63,
+   "w": 52,
+   "x": 88,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 13.5,
+   "ay": 64.0,
+   "clipFrame": 162,
+   "h": 64,
+   "w": 39,
+   "x": 141,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "arbalest_attack_sheet.png",
+ "source": {
+  "action": "punch",
+  "anchor": "hips",
+  "clip": "arbalest_attack.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   71,
+   118,
+   162
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The armoured castle siege crossbowman in dark steel kettle helm carrying a heavy crossbow performs ONE heavy punch facing right: it pulls its fist back in a wind-up, drives it forward to the right with a step, then withdraws. it shoulders and fires its heavy crossbow forward with sharp recoil; no projectiles, no detached bolts, no muzzle flashes.",
+  "scale": 0.1404,
+  "select": "motion",
+  "sheet": "arbalest",
+  "window": [
+   12,
+   162
+  ]
+ }
+}

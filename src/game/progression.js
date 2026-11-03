@@ -185,11 +185,25 @@ export function enemyExpProfile(enemy, stage, { isBoss = false } = {}) {
       return { baseExp: 40 + sLv * 22, enemyLevel: sLv + 1 };
     case 'alchfiend':
     case 'merman':
-      return { baseExp: 52 + sLv * 26, enemyLevel: sLv + 1 };
+    case 'gravekeeper':
+    case 'spriggan':
+    case 'scarecrow':
+    case 'arbalest':
+    case 'pyromancer':
+    case 'gearharpy':
+    case 'inkscholar':
+    case 'waltzdancer':
+    case 'retiarius':
+    case 'siren':
+    case 'astralarcher':
+      return { baseExp: 54 + sLv * 26, enemyLevel: sLv + 1 };
     case 'duelist':
     case 'valkyrie':
     case 'necromancer':
-      return { baseExp: 68 + sLv * 34, enemyLevel: sLv + 2 };
+    case 'clockknight':
+    case 'censerprelate':
+    case 'bloodknight':
+      return { baseExp: 72 + sLv * 35, enemyLevel: sLv + 2 };
     case 'skeleton':
       if (variant === 'blood') return { baseExp: 62 + sLv * 30, enemyLevel: sLv + 2 };
       if (variant === 'frost') return { baseExp: 54 + sLv * 26, enemyLevel: sLv + 1 };
@@ -201,11 +215,21 @@ export function enemyExpProfile(enemy, stage, { isBoss = false } = {}) {
       return score >= 400
         ? { baseExp: 78 + sLv * 38, enemyLevel: sLv + 2 }
         : { baseExp: 38 + sLv * 21, enemyLevel: sLv + 1 };
+    case 'mosstroll':
+    case 'wickerman':
+    case 'wendigo':
+    case 'bonegoliath':
+    case 'brasstitan':
+    case 'vathulk':
+    case 'minotaur':
+    case 'cisterncrab':
+    case 'marblecolossus':
+    case 'lavagolem':
+      return { baseExp: 98 + sLv * 46, enemyLevel: sLv + 3 };
     case 'dragon':
     case 'armor':
     case 'executioner':
     case 'catoblepas':
-    case 'lavagolem':
       return variant === 'crimson' || variant === 'elder' || variant === 'elite'
         ? { baseExp: 98 + sLv * 46, enemyLevel: sLv + 3 }
         : { baseExp: 82 + sLv * 40, enemyLevel: sLv + 2 };

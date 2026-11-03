@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 33.0,
+   "ay": 112.0,
+   "clipFrame": 30,
+   "h": 112,
+   "w": 62,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 23.6,
+   "ay": 113.0,
+   "clipFrame": 35,
+   "h": 114,
+   "w": 51,
+   "x": 64,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 27.6,
+   "ay": 114.0,
+   "clipFrame": 40,
+   "h": 114,
+   "w": 57,
+   "x": 116,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 31.0,
+   "ay": 113.0,
+   "clipFrame": 44,
+   "h": 113,
+   "w": 67,
+   "x": 174,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 33.5,
+   "ay": 112.0,
+   "clipFrame": 49,
+   "h": 112,
+   "w": 72,
+   "x": 242,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 27.6,
+   "ay": 113.0,
+   "clipFrame": 54,
+   "h": 113,
+   "w": 59,
+   "x": 315,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 25.1,
+   "ay": 114.0,
+   "clipFrame": 58,
+   "h": 114,
+   "w": 50,
+   "x": 375,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 26.1,
+   "ay": 113.0,
+   "clipFrame": 63,
+   "h": 113,
+   "w": 62,
+   "x": 426,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "wickerman_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "wickerman_walk.mp4",
+  "corr": 0.787794291973114,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 38,
+  "picks": [
+   30,
+   35,
+   40,
+   44,
+   49,
+   54,
+   58,
+   63
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The colossal burning wicker harvest effigy giant with horned pumpkin head and iron furnace belly performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. heavy creaking colossus strides, inner furnace flames flickering.",
+  "scale": 0.2456,
+  "select": "period",
+  "sheet": "wickerman"
+ }
+}

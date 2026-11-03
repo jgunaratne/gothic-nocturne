@@ -1,0 +1,61 @@
+{
+ "fps": null,
+ "frames": {
+  "cleave0": {
+   "ax": 39.0,
+   "ay": 98.0,
+   "clipFrame": 23,
+   "h": 98,
+   "w": 65,
+   "x": 1,
+   "y": 1
+  },
+  "cleave1": {
+   "ax": 31.5,
+   "ay": 108.0,
+   "clipFrame": 31,
+   "h": 108,
+   "w": 62,
+   "x": 67,
+   "y": 1
+  },
+  "cleave2": {
+   "ax": 66.0,
+   "ay": 104.0,
+   "clipFrame": 39,
+   "h": 104,
+   "w": 113,
+   "x": 130,
+   "y": 1
+  },
+  "cleave3": {
+   "ax": 59.5,
+   "ay": 70.0,
+   "clipFrame": 46,
+   "h": 70,
+   "w": 109,
+   "x": 244,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "executioner_cleave_sheet.png",
+ "source": {
+  "action": null,
+  "anchor": "hips",
+  "clip": "executioner_cleave.mp4",
+  "frame": "heave",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   23,
+   31,
+   39,
+   46
+  ],
+  "prompt": "(cached clip)",
+  "scale": 0.2293,
+  "select": "pick",
+  "sheet": "executioner"
+ }
+}

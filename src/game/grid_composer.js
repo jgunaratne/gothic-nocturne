@@ -29,7 +29,12 @@ function mulberry32(seed) {
 
 const FLYING_ENEMIES = new Set([
   'bat', 'dragon', 'owl', 'ghost', 'tome', 'gargoyle', 'cinderimp', 'wraith', 'medusa', 'lantern', 'wisp',
-  'valkyrie', 'necromancer',
+  'valkyrie', 'necromancer', 'gearharpy', 'waltzdancer', 'siren',
+]);
+
+const OVERSIZED_ENEMIES = new Set([
+  'mosstroll', 'wickerman', 'wendigo', 'bonegoliath', 'lavagolem',
+  'brasstitan', 'vathulk', 'minotaur', 'cisterncrab', 'marblecolossus',
 ]);
 
 /** Returns architectural floor/wall prop descriptors appropriate to a theme. */
@@ -313,11 +318,14 @@ export function composeGridStage(spec) {
   };
   const addWaterBasin = (x0Tile, x1Tile, floorRow, alpha = 0.78) => {
     if (x1Tile < x0Tile) return;
+    const floorY = py(floorRow);
     waterBasins.push({
-      x: x0Tile * TILE,
-      y: py(floorRow) - 9,
-      w: (x1Tile - x0Tile + 1) * TILE,
-      h: 12,
+      x: x0Tile * TILE + 4,
+      y: floorY - 5,
+      w: (x1Tile - x0Tile + 1) * TILE - 8,
+      h: 9,
+      floorY,
+      curbs: true,
       alpha,
     });
   };
@@ -344,8 +352,14 @@ export function composeGridStage(spec) {
     const list = roster.ground || [['skeleton', 'normal']];
     return list[idx % list.length];
   };
-  const pickHeavy = (idx) => {
+  const pickHeavy = (idx, lowCeiling = false) => {
     const list = roster.heavy || roster.ground || [['armor', 'normal']];
+    if (lowCeiling) {
+      const regular = list.filter((e) => !OVERSIZED_ENEMIES.has(e[0]));
+      if (regular.length) return regular[idx % regular.length];
+      const fallback = (roster.ground || [['skeleton', 'normal']]).filter((e) => !OVERSIZED_ENEMIES.has(e[0]));
+      if (fallback.length) return fallback[idx % fallback.length];
+    }
     return list[idx % list.length];
   };
   const pickSniper = (idx) => {
@@ -1070,7 +1084,7 @@ export function composeGridStage(spec) {
         addCandle(x0 + 2, floorR - 3);
 
         const [sLeft, sLeftVar] = pickSniper(mc);
-        const [hType, hVar] = pickHeavy(mc + 1);
+        const [hType, hVar] = pickHeavy(mc + 1, true);
         const [gRight, gRightVar] = pickGround(mc + 3);
         addEnemy({ type: sLeft, variant: sLeftVar, off: 5, minOff: 4, maxOff: 5, row: floorR - 1 }, x0, x1, floorR);
         addEnemy({ type: hType, variant: hVar, off: 2, minOff: 1, maxOff: 2 }, x0, x1, floorR);
@@ -1093,9 +1107,9 @@ export function composeGridStage(spec) {
           op((lv) => {
             lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
             lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
-            lv.fill(x0 + 3, x0 + 6, floorR + 1, floorR + 1, T_SPIKES);
-            lv.fill(x0 + 7, x0 + 12, floorR + 1, floorR + 1, T_LAVA);
-            lv.fill(x0 + 13, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
+            lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_LAVA);
+            lv.ground(x0 + 6, x0 + 6, floorR, mat);
+            lv.ground(x0 + 13, x0 + 13, floorR, mat);
             lv.platform(x0 + 4, x0 + 5, floorR - 1);
             lv.platform(x0 + 9, x0 + 10, floorR - 2);
             lv.platform(x0 + 14, x0 + 15, floorR - 1);
@@ -1105,14 +1119,13 @@ export function composeGridStage(spec) {
           op((lv) => {
             lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
             lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
-            lv.fill(x0 + 3, x0 + 6, floorR + 1, floorR + 1, T_SPIKES);
-            lv.fill(x0 + 7, x0 + 12, floorR + 1, floorR + 1, T_WATER);
-            lv.fill(x0 + 13, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
+            lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_WATER);
+            lv.ground(x0 + 6, x0 + 6, floorR, mat);
+            lv.ground(x0 + 13, x0 + 13, floorR, mat);
             lv.platform(x0 + 4, x0 + 5, floorR - 1);
             lv.platform(x0 + 9, x0 + 10, floorR - 2);
             lv.platform(x0 + 14, x0 + 15, floorR - 1);
           });
-          addWaterBasin(x0 + 7, x0 + 12, floorR + 1, 0.82);
           addCandle(x0 + 10, floorR - 2, 'heart_big');
         } else if (useFerry) {
           op((lv) => {

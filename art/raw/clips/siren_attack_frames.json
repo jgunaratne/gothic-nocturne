@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 36.5,
+   "ay": 60.0,
+   "clipFrame": 12,
+   "h": 61,
+   "w": 63,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 33.5,
+   "ay": 58.0,
+   "clipFrame": 65,
+   "h": 57,
+   "w": 61,
+   "x": 65,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 29.5,
+   "ay": 61.0,
+   "clipFrame": 145,
+   "h": 59,
+   "w": 61,
+   "x": 127,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 36.5,
+   "ay": 60.0,
+   "clipFrame": 235,
+   "h": 59,
+   "w": 63,
+   "x": 189,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "siren_attack_sheet.png",
+ "source": {
+  "action": "shriek",
+  "anchor": "hips",
+  "clip": "siren_attack.mp4",
+  "frame": "fly0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   65,
+   145,
+   235
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The hovering finned sea-nymph siren playing a golden shell-lyre performs ONE shriek facing right: it rears back drawing in, then throws its head forward with jaws wide open in a scream, its body shaking, then settles back. staying airborne, she strums her shell-lyre and sings forward; no projectiles, no soundwave rings, no energy beams.",
+  "scale": 0.1327,
+  "select": "motion",
+  "sheet": "siren",
+  "window": [
+   12,
+   235
+  ]
+ }
+}

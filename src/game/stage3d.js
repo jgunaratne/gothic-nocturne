@@ -596,7 +596,7 @@ export class Stage3D {
 
   /** Celestial 3D sky ribbons (drawn inside the sky dome BEHIND mountains & trees). */
   drawSky3D(ctx, cam, time) {
-    if (this.themeKey === 'yule' || this.stageTheme === 'skykeep') {
+    if (this.stageTheme === 'yule' || this.stageTheme === 'skykeep') {
       this.drawAurora3D(ctx, cam.rx, time);
     }
   }
@@ -653,11 +653,18 @@ export class Stage3D {
       });
       this.drawRampartParapets3D(ctx, camX, camY);
     } else if (k === 'yule') {
-      this.drawScanlinePlane(ctx, cam, time, {
-        kind: 'ice', horizon: 242, fx: 0.46, focal: 105,
-        fog: [14, 22, 42], shimmer: true,
-        water: { tint: [0.45, 0.62, 0.9], spec: [0.85, 0.95, 1.0], frozen: 1, alpha: 0.62 },
-      });
+      if (this.stageTheme !== 'yule') {
+        this.drawScanlinePlane(ctx, cam, time, {
+          kind: 'courtyard', horizon: 242, fx: 0.46, focal: 105,
+          fog: [12, 13, 24], torches: false,
+        });
+      } else {
+        this.drawScanlinePlane(ctx, cam, time, {
+          kind: 'ice', horizon: 242, fx: 0.46, focal: 105,
+          fog: [14, 22, 42], shimmer: true,
+          water: { tint: [0.45, 0.62, 0.9], spec: [0.85, 0.95, 1.0], frozen: 1, alpha: 0.62 },
+        });
+      }
       this.drawYuleVillage3D(ctx, camX, camY, time);
     } else if (k === 'darkwood') {
       this.drawScanlinePlane(ctx, cam, time, {
@@ -1304,7 +1311,8 @@ export class Stage3D {
     const txLo = Math.max(phase, Math.floor((camX - 280) / TILE));
     const txHi = Math.min(lv.cols - 12, Math.ceil((camX + W + 280) / TILE));
     const eyeWorldX = camX + EYE_X;
-    const fog = this.pal.fog;
+    const abandoned = this.stageTheme !== 'yule';
+    const fog = abandoned ? [12, 13, 24] : this.pal.fog;
     const glow = getGlowCanvas('amber');
     for (let tx = Math.ceil((txLo - phase) / spacing) * spacing + phase; tx <= txHi; tx += spacing) {
       const r = lv.nearestGroundRow(tx, 14, this.startRow());
@@ -1317,60 +1325,84 @@ export class Stage3D {
       const h = variant === 0 ? 64 : 52;
       const d = 52;
       const ridgeY = wy - h - (variant === 0 ? 40 : 32);
-      const fogAmt = clamp01((z - 15) / 360) * 0.54;
+      const fogAmt = clamp01((z - 15) / 360) * (abandoned ? 0.60 : 0.54);
+      const bScale = abandoned ? 0.80 : 1.0;
 
       // Stone foundation plinth + half-timbered upper cottage/chapel body + stone chimney
-      this.drawBox3D(ctx, camX, camY, wx - w * 0.5 - 3, wy - 16, z - 2, w + 6, 16, d + 4, 'keep_stone', { bright: 0.72 });
-      this.drawBox3D(ctx, camX, camY, wx - w * 0.5, wy - h, z, w, h - 16, d, variant === 1 ? 'wood_carved' : 'keep_stone', { bright: 0.76 });
-      this.drawBox3D(ctx, camX, camY, wx + w * 0.28, ridgeY - 14, z + 10, 12, (wy - h) - (ridgeY - 14) + 8, 14, 'keep_stone', { bright: 0.74 });
+      this.drawBox3D(ctx, camX, camY, wx - w * 0.5 - 3, wy - 16, z - 2, w + 6, 16, d + 4, 'keep_stone', { bright: 0.72 * bScale });
+      this.drawBox3D(ctx, camX, camY, wx - w * 0.5, wy - h, z, w, h - 16, d, (abandoned ? variant !== 0 : variant === 1) ? 'wood_carved' : 'keep_stone', { bright: 0.76 * bScale });
+      this.drawBox3D(ctx, camX, camY, wx + w * 0.28, ridgeY - 14, z + 10, 12, (wy - h) - (ridgeY - 14) + 8, 14, 'keep_stone', { bright: 0.74 * bScale });
       if (variant === 0) {
-        // Tall Nordic belfry turret rising beside the chapel gable
-        this.drawBox3D(ctx, camX, camY, wx - w * 0.5 - 18, wy - h - 38, z + 6, 24, h + 38, 26, 'keep_stone', { bright: 0.76 });
+        // Tall belfry turret rising beside the chapel gable
+        this.drawBox3D(ctx, camX, camY, wx - w * 0.5 - 18, wy - h - 38, z + 6, 24, h + 38, 26, 'keep_stone', { bright: 0.76 * bScale });
         const bApex = project3D(wx - w * 0.5 - 6, wy - h - 72, z + 19, camX, camY);
         const bFL = project3D(wx - w * 0.5 - 20, wy - h - 38, z + 4, camX, camY);
         const bFR = project3D(wx - w * 0.5 + 8, wy - h - 38, z + 4, camX, camY);
-        texTri(ctx, roofTex, bFL, bFR, bApex, 0, 34, 28, 34, 14, 0, shadeOverlay32([0, -0.6, -0.8], fog, fogAmt, 0.84), 0.45);
+        texTri(ctx, roofTex, bFL, bFR, bApex, 0, 34, 28, 34, 14, 0, shadeOverlay32([0, -0.6, -0.8], fog, fogAmt, 0.84 * bScale), 0.45);
       }
 
-      // Steep snow-dusted pitched roof slopes (far slope first)
+      // Steep pitched roof slopes (far slope first)
       const slope = (dir) => {
         const ex = wx + dir * (w * 0.5 + 6);
         const a = project3D(ex, wy - h + 3, z - 4, camX, camY);
         const b = project3D(wx, ridgeY, z - 4, camX, camY);
         const c = project3D(wx, ridgeY, z + d + 4, camX, camY);
         const e = project3D(ex, wy - h + 3, z + d + 4, camX, camY);
-        const sh = shadeOverlay32([dir * 0.68, -0.74, -0.1], fog, fogAmt, 0.84);
+        const sh = shadeOverlay32([dir * 0.68, -0.74, -0.1], fog, fogAmt, 0.84 * bScale);
         texQuad(ctx, roofTex, a, b, c, e, 0, 0, 36, 0, 36, d + 8, 0, d + 8, sh);
       };
       const nearSide = wx < eyeWorldX ? 1 : -1;
       slope(-nearSide);
       slope(nearSide);
 
-      // Carved timber/stone front gable triangle + frost-rim snow bargeboards
+      // Carved timber/stone front gable triangle + bargeboards
       const g0 = project3D(wx - w * 0.5, wy - h, z - 0.5, camX, camY);
       const g1 = project3D(wx, ridgeY + 2, z - 0.5, camX, camY);
       const g2 = project3D(wx + w * 0.5, wy - h, z - 0.5, camX, camY);
-      texTri(ctx, woodTex || stoneTex, g0, g1, g2, 0, 36, w * 0.5, 0, w, 36, shadeOverlay32([0, -0.15, -1], fog, fogAmt, 0.78), 0.45);
-      ctx.strokeStyle = 'rgba(205, 226, 250, 0.55)';
+      texTri(ctx, woodTex || stoneTex, g0, g1, g2, 0, 36, w * 0.5, 0, w, 36, shadeOverlay32([0, -0.15, -1], fog, fogAmt, 0.78 * bScale), 0.45);
+      ctx.strokeStyle = abandoned ? 'rgba(104, 114, 142, 0.48)' : 'rgba(205, 226, 250, 0.55)';
       ctx.lineWidth = Math.max(1.5, 2.6 * g1.s);
       ctx.beginPath();
       ctx.moveTo(g0.x - 2, g0.y + 1); ctx.lineTo(g1.x, g1.y - 1); ctx.lineTo(g2.x + 2, g2.y + 1);
       ctx.stroke();
 
-      // Warm hearth-lit diamond mullioned windows
+      // Windows: shuttered & boarded-up in Abandoned Village, warm hearth-lit in Yule
       const pulse = 0.62 + 0.24 * Math.sin(time * 2.5 + tx);
-      for (const ox of [-w * 0.22, w * 0.20]) {
+      for (let wi = 0; wi < 2; wi++) {
+        const ox = wi === 0 ? -w * 0.22 : w * 0.20;
         const wp = project3D(wx + ox, wy - h * 0.58, z - 1, camX, camY);
         const ww = Math.max(3, Math.round(7 * wp.s)), wh = Math.max(4, Math.round(11 * wp.s));
-        ctx.fillStyle = `rgba(255, 196, 108, ${pulse.toFixed(2)})`;
-        ctx.fillRect(Math.round(wp.x - ww * 0.5), Math.round(wp.y), ww, wh);
-        if (glow) {
-          const gr = 18 * wp.s;
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.globalAlpha = 0.24 * pulse;
-          ctx.drawImage(glow, wp.x - gr, wp.y - gr * 0.6, gr * 2, gr * 2);
-          ctx.restore();
+        const wx0 = Math.round(wp.x - ww * 0.5), wy0 = Math.round(wp.y);
+        if (abandoned) {
+          const hauntedLit = (variant === 0 && wi === 1);
+          ctx.fillStyle = hauntedLit ? `rgba(214, 166, 92, ${(0.34 * pulse).toFixed(2)})` : '#0d0b14';
+          ctx.fillRect(wx0, wy0, ww, wh);
+          // Crossed weathered timber planks nailed across shuttered panes
+          ctx.strokeStyle = '#3f2e22';
+          ctx.lineWidth = Math.max(1, 1.4 * wp.s);
+          ctx.beginPath();
+          ctx.moveTo(wx0 - 1, wy0 + 2); ctx.lineTo(wx0 + ww + 1, wy0 + Math.round(wh * 0.45));
+          ctx.moveTo(wx0 - 1, wy0 + wh - 2); ctx.lineTo(wx0 + ww + 1, wy0 + Math.round(wh * 0.55));
+          ctx.stroke();
+          if (hauntedLit && glow) {
+            const gr = 12 * wp.s;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.11 * pulse;
+            ctx.drawImage(glow, wp.x - gr, wp.y - gr * 0.6, gr * 2, gr * 2);
+            ctx.restore();
+          }
+        } else {
+          ctx.fillStyle = `rgba(255, 196, 108, ${pulse.toFixed(2)})`;
+          ctx.fillRect(wx0, wy0, ww, wh);
+          if (glow) {
+            const gr = 18 * wp.s;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.24 * pulse;
+            ctx.drawImage(glow, wp.x - gr, wp.y - gr * 0.6, gr * 2, gr * 2);
+            ctx.restore();
+          }
         }
       }
     }

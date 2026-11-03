@@ -35,7 +35,8 @@ LOOP, SHOT = "period", "motion"
 # Hovering sprites keep the first frame's ground line as their anchor (a flap or
 # bob must not move the body); walkers are anchored at the feet.
 FLYERS = {"bat", "medusa", "pumpkin", "dragon", "wisp", "owl", "ghost", "tome", "gargoyle", "cinderimp",
-          "wraith", "boss", "giantbat", "gorgon", "archivist", "greatjack", "archon"}
+          "wraith", "valkyrie", "necromancer", "gearharpy", "waltzdancer", "siren",
+          "boss", "giantbat", "gorgon", "archivist", "greatjack", "archon"}
 
 # (sheet, subject, [(family, action, select, count, ref_frame, extra), ...])
 CAST = [
@@ -114,6 +115,124 @@ CAST = [
     ]),
     ("turtle", "giant armoured turtle", [
         ("walk", "walk", LOOP, 8, "walk0", "a slow four-legged plod"),
+    ]),
+    ("alchfiend", "hunchbacked plague alchemist carrying glowing green glass vials", [
+        ("walk", "walk", LOOP, 8, "walk0", "a hunched sneaky stride, vials clinking"),
+        ("lob", "throw", SHOT, 4, "walk0", "it underhand-tosses a flask gesture; no projectiles, no detached flasks, no splashes"),
+    ]),
+    ("duelist", "aristocratic undead fencing duelist in velvet coat with silver rapier", [
+        ("step", "walk", LOOP, 8, "step0", "a poised nimble fencing footwork stride, rapier held ready"),
+        ("lunge", "lunge", SHOT, 4, "step0", "a swift rapier thrust forward and clean recovery; no detached slash waves"),
+    ]),
+    ("executioner", "towering hooded executioner carrying a massive iron greataxe", [
+        ("walk", "walk", LOOP, 8, "walk0", "a slow heavy menacing march dragging the greataxe"),
+        ("cleave", "swing", SHOT, 4, "heave", "it slams the massive greataxe down in front of it; no shockwaves, no sparks"),
+    ]),
+    ("merman", "finned amphibious abyssal merman creature", [
+        ("stalk", "walk", LOOP, 8, "stalk0", "a crouched stalking webbed-foot stride"),
+        ("spit", "spit", SHOT, 4, "stalk0", "no projectiles, no water jets, no detached droplets"),
+    ]),
+    ("valkyrie", "winged armoured valkyrie sentinel holding a spear and shield", [
+        ("hover", "fly", LOOP, 6, "hover0", "feathered wings beating smoothly up and down while hovering"),
+        ("aim", "throw", SHOT, 4, "hover0", "staying airborne, it thrusts its spear forward in a throwing motion; no projectiles, no detached spears, no energy beams"),
+    ]),
+    ("necromancer", "floating skeletal lich necromancer in tattered robes holding a skull staff", [
+        ("float", "float", LOOP, 6, "float0", "hovering smoothly as tattered robes drift"),
+        ("cast", "cast", SHOT, 4, "float0", "staying airborne, it raises and thrusts its skull staff forward; no projectiles, no energy beams, no detached skulls"),
+    ]),
+    # ------------------------------------------------- biome-specific enemies
+    ("gravekeeper", "hunched undead gravedigger carrying a glowing amber lantern and iron spade", [
+        ("walk", "shamble", LOOP, 8, "walk0", "heavy trudging steps, amber lantern swinging gently"),
+        ("attack", "slash", SHOT, 4, "walk0", "it swings its iron spade forward in a heavy scoop slash; no dirt clouds, no projectiles"),
+    ]),
+    ("spriggan", "antlered wooden forest fey archer with a gnarled briar bow", [
+        ("walk", "walk", LOOP, 8, "walk0", "a light stalking woodland stride, leafy cloak swaying"),
+        ("attack", "cast", SHOT, 4, "walk0", "it draws and releases its wooden briar bowstring toward the right; no projectiles, no detached arrows, no energy beams"),
+    ]),
+    ("scarecrow", "cursed stilt-legged harvest scarecrow in a tattered witch hat holding a rusted scythe", [
+        ("walk", "shamble", LOOP, 8, "walk0", "jerky eerie stilt-legged harvest strides, straw coat fluttering"),
+        ("attack", "slash", SHOT, 4, "walk0", "it sweeps its rusted scythe across in a wide reaping slash; no projectiles, no detached blades"),
+    ]),
+    ("arbalest", "armoured castle siege crossbowman in dark steel kettle helm carrying a heavy crossbow", [
+        ("walk", "walk", LOOP, 8, "walk0", "a disciplined armoured march carrying the heavy siege crossbow"),
+        ("attack", "punch", SHOT, 4, "walk0", "it shoulders and fires its heavy crossbow forward with sharp recoil; no projectiles, no detached bolts, no muzzle flashes"),
+    ]),
+    ("pyromancer", "horned obsidian volcano cultist carrying a blazing magma brazier staff", [
+        ("walk", "walk", LOOP, 8, "walk0", "a solemn robed stride, brazier flames flickering"),
+        ("attack", "cast", SHOT, 4, "walk0", "it raises its magma brazier staff and thrusts it forward; no projectiles, no detached fireballs, no energy beams"),
+    ]),
+    ("clockknight", "clockwork brass halberdier automaton with porcelain mask and gear pauldrons", [
+        ("walk", "walk", LOOP, 8, "walk0", "a crisp mechanical clockwork march, halberd held at guard"),
+        ("attack", "slash", SHOT, 4, "walk0", "it thrusts and sweeps its brass gear-halberd forward; no sparks, no projectiles"),
+    ]),
+    ("gearharpy", "flying clockwork brass gear-owl mechanical drone with copper pinion wings", [
+        ("fly", "fly", LOOP, 6, "fly0", "copper mechanical wings flapping up and down in a crisp rhythmic cycle"),
+        ("attack", "spit", SHOT, 4, "fly0", "staying airborne, it snaps forward to fire a gear; no projectiles, no detached cogs, no energy beams"),
+    ]),
+    ("inkscholar", "blindfolded occult library warlock levitating an open chained grimoire", [
+        ("walk", "walk", LOOP, 8, "walk0", "a measured robed scholar stride while the chained grimoire hovers beside its hand"),
+        ("attack", "cast", SHOT, 4, "walk0", "the open grimoire flares as the warlock thrusts a hand forward; no projectiles, no detached pages, no energy beams"),
+    ]),
+    ("censerprelate", "tall mitred undead cathedral bishop swinging a heavy smoking brass censer on a chain", [
+        ("walk", "walk", LOOP, 8, "walk0", "a solemn heavy liturgical procession stride, chained censer swaying"),
+        ("attack", "swing", SHOT, 4, "windup", "it swings the chained brass censer forward in a wide heavy arc; no projectiles, no detached smoke clouds"),
+    ]),
+    ("bloodknight", "tall aristocratic vampire knight in crimson-and-ebony bat-wing plate wielding a crimson greatsword", [
+        ("walk", "walk", LOOP, 8, "walk0", "a regal menacing armoured knight stride, cape flowing"),
+        ("attack", "slash", SHOT, 4, "walk0", "a ferocious sweeping greatsword slash forward; no projectiles, no detached blood waves, no shockwaves"),
+    ]),
+    ("waltzdancer", "gliding masked phantom ballroom courtesan in tattered crimson silk gown holding a silver war-fan", [
+        ("float", "float", LOOP, 6, "float0", "gliding gracefully above the floor, silk gown hem billowing"),
+        ("attack", "slash", SHOT, 4, "float0", "staying afloat, she snaps her bladed silver war-fan open in a graceful sweeping slash; no projectiles, no detached blades"),
+    ]),
+    ("retiarius", "crested undead Roman gladiator holding a bronze buckler and barbed javelin", [
+        ("walk", "walk", LOOP, 8, "walk0", "an aggressive gladiator arena stride, buckler raised"),
+        ("attack", "throw", SHOT, 4, "walk0", "it lunges and thrusts its barbed javelin forward; no projectiles, no detached spears"),
+    ]),
+    ("siren", "hovering finned sea-nymph siren playing a golden shell-lyre", [
+        ("fly", "fly", LOOP, 6, "fly0", "hovering smoothly as iridescent fin-wings undulate and beat gently"),
+        ("attack", "shriek", SHOT, 4, "fly0", "staying airborne, she strums her shell-lyre and sings forward; no projectiles, no soundwave rings, no energy beams"),
+    ]),
+    ("astralarcher", "white-marble-and-gold celestial sentinel drawing a radiant crescent bow", [
+        ("walk", "walk", LOOP, 8, "walk0", "a poised noble sentinel stride, navy star-cloak swaying"),
+        ("attack", "cast", SHOT, 4, "walk0", "it draws its golden crescent bow and releases the bowstring forward; no projectiles, no detached arrows, no energy beams"),
+    ]),
+    # ---------------------------------------------- oversized colossal enemies
+    ("mosstroll", "colossal ancient moss-and-root forest troll carrying an uprooted oak trunk club", [
+        ("walk", "walk", LOOP, 8, "walk0", "earth-shaking lumbering giant strides, heavy oak club swaying"),
+        ("attack", "slam", SHOT, 4, "windup", "it smashes its massive oak trunk club down onto the ground in front of it; no shockwaves, no flying rocks"),
+    ]),
+    ("wickerman", "colossal burning wicker harvest effigy giant with horned pumpkin head and iron furnace belly", [
+        ("walk", "walk", LOOP, 8, "walk0", "heavy creaking colossus strides, inner furnace flames flickering"),
+        ("attack", "slam", SHOT, 4, "windup", "it swings both flaming wicker arms down in a crushing smash; no projectiles, no detached fireballs, no shockwaves"),
+    ]),
+    ("wendigo", "colossal frost-furred antlered elk-skull wendigo beast with jagged ice claws", [
+        ("walk", "walk", LOOP, 8, "walk0", "hulking predatory beast strides, frosted mane swaying"),
+        ("attack", "lunge", SHOT, 4, "windup", "it lunges and rakes both huge ice claws downward in a savage swipe; no projectiles, no ice shockwaves"),
+    ]),
+    ("bonegoliath", "colossal multi-skull fused skeletal ossuary giant wielding a jagged bone great-cleaver", [
+        ("walk", "walk", LOOP, 8, "walk0", "ponderous towering bone-giant strides, dragging the bone great-cleaver"),
+        ("attack", "slam", SHOT, 4, "windup", "it heaves and slams its colossal bone great-cleaver down in front of it; no shockwaves, no flying bones"),
+    ]),
+    ("brasstitan", "colossal steam-powered brass clockwork juggernaut with twin smokestacks and piston hammer", [
+        ("walk", "walk", LOOP, 8, "walk0", "heavy mechanical piston-driven colossus strides"),
+        ("attack", "punch", SHOT, 4, "windup", "it drives its massive brass piston hammer forward in a crushing blow; no detached steam clouds, no shockwaves"),
+    ]),
+    ("vathulk", "colossal stitched alchemical homunculus brute with glowing cyan glass reactor vat on its back", [
+        ("walk", "walk", LOOP, 8, "walk0", "heavy hulking brute strides, glowing cyan fluid sloshing inside its back tank"),
+        ("attack", "slam", SHOT, 4, "windup", "it smashes its iron-gauntleted fists down in front of it; no detached splashes, no shockwaves"),
+    ]),
+    ("minotaur", "colossal armoured bull-headed gladiator minotaur wielding a huge bronze double-bladed battleaxe", [
+        ("walk", "walk", LOOP, 8, "walk0", "thunderous hooved colossus strides, broken iron chains swaying"),
+        ("attack", "swing", SHOT, 4, "windup", "it cleaves its massive bronze double-axe forward in a devastating arc; no shockwaves, no dust clouds"),
+    ]),
+    ("cisterncrab", "colossal armoured cavern crab carrying broken Roman marble columns on its shell", [
+        ("walk", "walk", LOOP, 8, "walk0", "heavy multi-legged crustacean scuttle in place, marble ruins shifting slightly"),
+        ("attack", "punch", SHOT, 4, "windup", "it snaps its colossal barnacle-crusted crushing claw forward; no water jets, no bubbles, no projectiles"),
+    ]),
+    ("marblecolossus", "colossal winged white-marble-and-gold celestial temple guardian wielding a gilded halberd", [
+        ("walk", "walk", LOOP, 8, "walk0", "majestic heavy statue colossus strides, golden halo gleaming"),
+        ("attack", "slash", SHOT, 4, "windup", "it sweeps its giant gilded halberd down in a grand arc; no projectiles, no light beams, no shockwaves"),
     ]),
     # ----------------------------------------------------------------- bosses
     ("boss", "Phantom Reaper, a hooded spectre holding a great scythe", [

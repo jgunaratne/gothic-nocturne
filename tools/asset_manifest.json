@@ -1,2568 +1,3300 @@
 {
-  "assets": {
-    "wall": {
-      "type": "texture",
-      "src": "tex_wall_brick.png",
-      "size": [
-        256,
-        256
-      ],
-      "colors": 64,
-      "seamless": "blend_hv"
-    },
-    "ground": {
-      "type": "strip",
-      "src": "tex_ground_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 8,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "floor": {
-      "type": "strip",
-      "src": "tex_castle_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 3,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "platform": {
-      "type": "texture",
-      "src": "tex_platform.png",
-      "key": true,
-      "cropAlpha": true,
-      "size": [
-        320,
-        null
-      ],
-      "colors": 24
-    },
-    "sky": {
-      "type": "texture",
-      "src": "bg_sky.png",
-      "size": [
-        640,
-        360
-      ],
-      "colors": 96
-    },
-    "mountains": {
-      "type": "texture",
-      "src": "bg_mountains.png",
-      "key": true,
-      "size": [
-        640,
-        360
-      ],
-      "colors": 40,
-      "seamless": "mirror"
-    },
-    "castle": {
-      "type": "texture",
-      "src": "bg_castle.png",
-      "key": true,
-      "size": [
-        640,
-        360
-      ],
-      "colors": 48,
-      "seamless": "mirror"
-    },
-    "forest": {
-      "type": "texture",
-      "src": "bg_forest.png",
-      "key": true,
-      "size": [
-        640,
-        360
-      ],
-      "colors": 40,
-      "seamless": "mirror"
-    },
-    "fg": {
-      "type": "texture",
-      "src": "bg_fg.png",
-      "key": true,
-      "size": [
-        640,
-        360
-      ],
-      "colors": 8,
-      "seamless": "mirror"
-    },
-    "hero": {
-      "type": "sheet",
-      "src": "hero_sheet.png",
-      "height": 64,
-      "ref": "idle",
-      "colors": 32,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "walk2",
-          "walk3",
-          "walk4",
-          "walk5"
-        ],
-        [
-          "idle",
-          "jump",
-          "crouch",
-          "whip0",
-          "whip1",
-          "hurt"
-        ]
-      ],
-      "anchors": {
-        "whip0": "right",
-        "whip1": "left"
-      }
-    },
-    "skeleton": {
-      "type": "sheet",
-      "src": "skeleton_sheet.png",
-      "height": 60,
-      "ref": "walk0",
-      "colors": 24,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "walk2",
-          "walk3"
-        ],
-        [
-          "walkb0",
-          "walkb1",
-          "walkb2",
-          "throw0",
-          "throw1"
-        ]
-      ],
-      "anchors": {
-        "throw1": "left"
-      }
-    },
-    "skeleton_walk": {
-      "type": "clip",
-      "src": "clips/skeleton_walk_sheet.png",
-      "frames": "clips/skeleton_walk_frames.json"
-    },
-    "skeleton_walkb": {
-      "type": "clip",
-      "src": "clips/skeleton_walkb_sheet.png",
-      "frames": "clips/skeleton_walkb_frames.json"
-    },
-    "skeleton_throw": {
-      "type": "clip",
-      "src": "clips/skeleton_throw_sheet.png",
-      "frames": "clips/skeleton_throw_frames.json"
-    },
-    "bat": {
-      "type": "sheet",
-      "src": "bat_sheet.png",
-      "height": 30,
-      "ref": "fly1",
-      "colors": 16,
-      "rows": [
-        [
-          "fly0",
-          "fly1",
-          "fly2"
-        ],
-        [
-          "alt0",
-          "alt1",
-          "alt2"
-        ]
-      ]
-    },
-    "bat_fly": {
-      "type": "clip",
-      "src": "clips/bat_fly_sheet.png",
-      "frames": "clips/bat_fly_frames.json"
-    },
-    "zombie": {
-      "type": "sheet",
-      "src": "zombie_sheet.png",
-      "height": 58,
-      "ref": "walk0",
-      "colors": 24,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "walk2",
-          "walk3"
-        ]
-      ]
-    },
-    "zombie_walk": {
-      "type": "clip",
-      "src": "clips/zombie_walk_sheet.png",
-      "frames": "clips/zombie_walk_frames.json"
-    },
-    "medusa": {
-      "type": "sheet",
-      "src": "medusa_sheet.png",
-      "height": 30,
-      "ref": "a",
-      "colors": 16,
-      "rows": [
-        [
-          "a",
-          "b"
-        ]
-      ]
-    },
-    "medusa_wave": {
-      "type": "clip",
-      "src": "clips/medusa_wave_sheet.png",
-      "frames": "clips/medusa_wave_frames.json"
-    },
-    "boss": {
-      "type": "sheet",
-      "src": "boss_sheet.png",
-      "height": 136,
-      "ref": "idle0",
-      "colors": 48,
-      "rows": [
-        [
-          "idle0",
-          "idle1",
-          "windup",
-          "swing"
-        ]
-      ]
-    },
-    "boss_idle": {
-      "type": "clip",
-      "src": "clips/boss_idle_sheet.png",
-      "frames": "clips/boss_idle_frames.json"
-    },
-    "boss_windup": {
-      "type": "clip",
-      "src": "clips/boss_windup_sheet.png",
-      "frames": "clips/boss_windup_frames.json"
-    },
-    "boss_swing": {
-      "type": "clip",
-      "src": "clips/boss_swing_sheet.png",
-      "frames": "clips/boss_swing_frames.json"
-    },
-    "boss_cast": {
-      "type": "clip",
-      "src": "clips/boss_cast_sheet.png",
-      "frames": "clips/boss_cast_frames.json"
-    },
-    "items": {
-      "type": "clip",
-      "src": "items_packed.png",
-      "frames": "items_frames.json",
-      "out": "items.png"
-    },
-    "props": {
-      "type": "sheet",
-      "src": "props_sheet.png",
-      "height": 64,
-      "ref": "candelabra",
-      "colors": 32,
-      "rows": [
-        [
-          "candelabra",
-          "torch",
-          "block",
-          "spikes",
-          "tombstone",
-          "shrub"
-        ]
-      ],
-      "fit": {
-        "block": [
-          32,
-          32
-        ],
-        "spikes": [
-          64,
-          24
-        ],
-        "torch": [
-          24,
-          40
-        ]
-      }
-    },
-    "arch": {
-      "type": "sheet",
-      "src": "arch_sheet.png",
-      "height": 128,
-      "ref": "column",
-      "colors": 32,
-      "rows": [
-        [
-          "column",
-          "window",
-          "gate",
-          "banner",
-          "chain"
-        ]
-      ],
-      "fit": {
-        "gate": [
-          80,
-          96
-        ],
-        "chain": [
-          12,
-          96
-        ]
-      }
-    },
-    "catacombwall": {
-      "type": "texture",
-      "src": "tex_catacomb_wall.png",
-      "size": [
-        192,
-        192
-      ],
-      "colors": 24,
-      "seamless": "blend"
-    },
-    "catacomb": {
-      "type": "strip",
-      "src": "tex_catacomb_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 4,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "clockwall": {
-      "type": "texture",
-      "src": "tex_clock_wall.png",
-      "size": [
-        256,
-        256
-      ],
-      "colors": 28,
-      "seamless": "blend"
-    },
-    "clockfloor": {
-      "type": "strip",
-      "src": "tex_clock_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 3,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "vampire": {
-      "type": "sheet",
-      "src": "boss_vampire_sheet.png",
-      "height": 84,
-      "ref": "idle",
-      "colors": 32,
-      "rows": [
-        [
-          "idle",
-          "cape",
-          "cast"
-        ],
-        [
-          "lunge0",
-          "lunge1",
-          "hurt"
-        ]
-      ]
-    },
-    "vampire_idle": {
-      "type": "clip",
-      "src": "clips/vampire_idle_sheet.png",
-      "frames": "clips/vampire_idle_frames.json"
-    },
-    "vampire_cape": {
-      "type": "clip",
-      "src": "clips/vampire_cape_sheet.png",
-      "frames": "clips/vampire_cape_frames.json"
-    },
-    "vampire_cast": {
-      "type": "clip",
-      "src": "clips/vampire_cast_sheet.png",
-      "frames": "clips/vampire_cast_frames.json"
-    },
-    "vampire_lunge": {
-      "type": "clip",
-      "src": "clips/vampire_lunge_sheet.png",
-      "frames": "clips/vampire_lunge_frames.json"
-    },
-    "vampire_fly": {
-      "type": "clip",
-      "src": "clips/vampire_fly_sheet.png",
-      "frames": "clips/vampire_fly_frames.json"
-    },
-    "catoblepas": {
-      "type": "sheet",
-      "src": "catoblepas_sheet.png",
-      "height": 52,
-      "ref": "walk0",
-      "rows": [
-        [
-          "walk0",
-          "walk1"
-        ],
-        [
-          "walk2",
-          "breath"
-        ]
-      ],
-      "colors": 24,
-      "anchors": {
-        "breath": "left"
-      }
-    },
-    "catoblepas_walk": {
-      "type": "clip",
-      "src": "clips/catoblepas_walk_sheet.png",
-      "frames": "clips/catoblepas_walk_frames.json"
-    },
-    "catoblepas_breath": {
-      "type": "clip",
-      "src": "clips/catoblepas_breath_sheet.png",
-      "frames": "clips/catoblepas_breath_frames.json"
-    },
-    "pumpkin": {
-      "type": "sheet",
-      "src": "pumpkin_sheet.png",
-      "height": 30,
-      "ref": "hop0",
-      "rows": [
-        [
-          "hop0",
-          "hop1"
-        ],
-        [
-          "flame0",
-          "flame1"
-        ]
-      ],
-      "colors": 24
-    },
-    "pumpkin_flame": {
-      "type": "clip",
-      "src": "clips/pumpkin_flame_sheet.png",
-      "frames": "clips/pumpkin_flame_frames.json"
-    },
-    "dragon": {
-      "type": "sheet",
-      "src": "dragon_sheet.png",
-      "height": 44,
-      "ref": "fly0",
-      "rows": [
-        [
-          "fly0",
-          "fly1"
-        ],
-        [
-          "glide",
-          "breath"
-        ]
-      ],
-      "colors": 24,
-      "anchors": {
-        "breath": "left"
-      }
-    },
-    "dragon_fly": {
-      "type": "clip",
-      "src": "clips/dragon_fly_sheet.png",
-      "frames": "clips/dragon_fly_frames.json"
-    },
-    "dragon_breath": {
-      "type": "clip",
-      "src": "clips/dragon_breath_sheet.png",
-      "frames": "clips/dragon_breath_frames.json"
-    },
-    "pumpkinprops": {
-      "type": "sheet",
-      "src": "pumpkin_props_sheet.png",
-      "height": 76,
-      "ref": "scarecrow",
-      "rows": [
-        [
-          "jack_big",
-          "jack_small",
-          "pumpkins",
-          "scarecrow"
-        ]
-      ],
-      "colors": 32
-    },
-    "ice": {
-      "type": "sheet",
-      "src": "ice_sheet.png",
-      "height": 62,
-      "ref": "golem0",
-      "rows": [
-        [
-          "golem0",
-          "golem1"
-        ],
-        [
-          "snowman0",
-          "snowman1"
-        ]
-      ],
-      "colors": 24
-    },
-    "ice_golem": {
-      "type": "clip",
-      "src": "clips/ice_golem_sheet.png",
-      "frames": "clips/ice_golem_frames.json"
-    },
-    "wisp": {
-      "type": "sheet",
-      "src": "wisp_sheet.png",
-      "height": 28,
-      "ref": "wisp0",
-      "rows": [
-        [
-          "wisp0",
-          "wisp1"
-        ],
-        [
-          "wisp2",
-          "wisp3"
-        ]
-      ],
-      "colors": 16
-    },
-    "wisp_wisp": {
-      "type": "clip",
-      "src": "clips/wisp_wisp_sheet.png",
-      "frames": "clips/wisp_wisp_frames.json"
-    },
-    "santa": {
-      "type": "sheet",
-      "src": "santa_sheet.png",
-      "height": 92,
-      "ref": "idle",
-      "rows": [
-        [
-          "idle",
-          "throw"
-        ],
-        [
-          "lunge",
-          "hurt"
-        ]
-      ],
-      "colors": 32
-    },
-    "santa_idle": {
-      "type": "clip",
-      "src": "clips/santa_idle_sheet.png",
-      "frames": "clips/santa_idle_frames.json"
-    },
-    "santa_throw": {
-      "type": "clip",
-      "src": "clips/santa_throw_sheet.png",
-      "frames": "clips/santa_throw_frames.json"
-    },
-    "santa_lunge": {
-      "type": "clip",
-      "src": "clips/santa_lunge_sheet.png",
-      "frames": "clips/santa_lunge_frames.json"
-    },
-    "xmasprops": {
-      "type": "sheet",
-      "src": "xmas_props_sheet.png",
-      "height": 96,
-      "ref": "tree",
-      "rows": [
-        [
-          "tree",
-          "wreath",
-          "lamppost",
-          "gifts",
-          "stump"
-        ]
-      ],
-      "colors": 32
-    },
-    "forestfloor": {
-      "type": "strip",
-      "src": "tex_forest_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 6,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "snowfloor": {
-      "type": "strip",
-      "src": "tex_snow_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 6,
-      "depth_tiles": 4,
-      "colors": 32,
-      "bodyScale": 0.5
-    },
-    "ground_b": {
-      "type": "strip",
-      "src": "tex_ground_strip_b.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 6,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "floor_b": {
-      "type": "strip",
-      "src": "tex_castle_floor_strip_b.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 3,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "catacomb_b": {
-      "type": "strip",
-      "src": "tex_catacomb_floor_strip_b.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 4,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "clockfloor_b": {
-      "type": "strip",
-      "src": "tex_clock_floor_strip_b.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 3,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "forestfloor_b": {
-      "type": "strip",
-      "src": "tex_forest_floor_strip_b.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 6,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "wall_b": {
-      "type": "texture",
-      "src": "tex_wall_brick_b.png",
-      "size": [
-        256,
-        256
-      ],
-      "colors": 64,
-      "seamless": "blend_hv"
-    },
-    "catacombwall_b": {
-      "type": "texture",
-      "src": "tex_catacomb_wall_b.png",
-      "size": [
-        192,
-        192
-      ],
-      "colors": 24,
-      "seamless": "blend"
-    },
-    "clockwall_b": {
-      "type": "texture",
-      "src": "tex_clock_wall_b.png",
-      "size": [
-        256,
-        256
-      ],
-      "colors": 28,
-      "seamless": "blend"
-    },
-    "platform_wood": {
-      "type": "texture",
-      "src": "tex_platform_wood.png",
-      "key": true,
-      "cropAlpha": true,
-      "size": [
-        320,
-        null
-      ],
-      "colors": 24
-    },
-    "deepforest": {
-      "type": "texture",
-      "src": "bg_deepforest.png",
-      "key": true,
-      "crop": [
-        0,
-        0.35,
-        1,
-        0.9125
-      ],
-      "size": [
-        640,
-        360
-      ],
-      "colors": 24,
-      "seamless": "mirror"
-    },
-    "winter": {
-      "type": "texture",
-      "src": "bg_winter.png",
-      "key": true,
-      "crop": [
-        0,
-        0.35,
-        1,
-        0.9125
-      ],
-      "size": [
-        640,
-        360
-      ],
-      "colors": 24,
-      "seamless": "mirror"
-    },
-    "darkwoodfloor": {
-      "type": "strip",
-      "src": "tex_darkwood_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 6,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "darkwoodfloor_b": {
-      "type": "strip",
-      "src": "tex_darkwood_floor_strip_b.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 6,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "darkwood_canopy": {
-      "type": "texture",
-      "src": "bg_darkwood_canopy.png",
-      "key": true,
-      "crop": [
-        0,
-        0.14,
-        1,
-        0.84
-      ],
-      "size": [
-        640,
-        360
-      ],
-      "colors": 24,
-      "seamless": "mirror"
-    },
-    "turtle": {
-      "type": "sheet",
-      "src": "turtle_sheet.png",
-      "height": 30,
-      "ref": "walk0",
-      "colors": 24,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "walk2",
-          "walk3"
-        ],
-        [
-          "shell0",
-          "shell1",
-          "shell2",
-          "shell3"
-        ]
-      ]
-    },
-    "turtle_walk": {
-      "type": "clip",
-      "src": "clips/turtle_walk_sheet.png",
-      "frames": "clips/turtle_walk_frames.json"
-    },
-    "wolf": {
-      "type": "sheet",
-      "src": "wolf_sheet.png",
-      "height": 34,
-      "ref": "walk0",
-      "colors": 24,
-      "rows": [
-        [
-          "walk0",
-          "walk1"
-        ],
-        [
-          "walk2",
-          "lunge"
-        ]
-      ]
-    },
-    "wolf_walk": {
-      "type": "clip",
-      "src": "clips/wolf_walk_sheet.png",
-      "frames": "clips/wolf_walk_frames.json"
-    },
-    "wolf_lunge": {
-      "type": "clip",
-      "src": "clips/wolf_lunge_sheet.png",
-      "frames": "clips/wolf_lunge_frames.json"
-    },
-    "sporecap": {
-      "type": "sheet",
-      "src": "sporecap_sheet.png",
-      "height": 38,
-      "ref": "walk0",
-      "colors": 24,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "puff"
-        ]
-      ]
-    },
-    "sporecap_walk": {
-      "type": "clip",
-      "src": "clips/sporecap_walk_sheet.png",
-      "frames": "clips/sporecap_walk_frames.json"
-    },
-    "sporecap_puff": {
-      "type": "clip",
-      "src": "clips/sporecap_puff_sheet.png",
-      "frames": "clips/sporecap_puff_frames.json"
-    },
-    "owl": {
-      "type": "sheet",
-      "src": "owl_sheet.png",
-      "height": 30,
-      "ref": "fly1",
-      "colors": 20,
-      "rows": [
-        [
-          "fly0",
-          "fly1",
-          "fly2"
-        ]
-      ]
-    },
-    "owl_fly": {
-      "type": "clip",
-      "src": "clips/owl_fly_sheet.png",
-      "frames": "clips/owl_fly_frames.json"
-    },
-    "treant": {
-      "type": "sheet",
-      "src": "treant_sheet.png",
-      "height": 136,
-      "ref": "idle0",
-      "colors": 32,
-      "rows": [
-        [
-          "idle0",
-          "idle1",
-          "slam",
-          "roar"
-        ]
-      ]
-    },
-    "treant_idle": {
-      "type": "clip",
-      "src": "clips/treant_idle_sheet.png",
-      "frames": "clips/treant_idle_frames.json"
-    },
-    "treant_roar": {
-      "type": "clip",
-      "src": "clips/treant_roar_sheet.png",
-      "frames": "clips/treant_roar_frames.json"
-    },
-    "treant_slam": {
-      "type": "clip",
-      "src": "clips/treant_slam_sheet.png",
-      "frames": "clips/treant_slam_frames.json"
-    },
-    "darkwood_props": {
-      "type": "sheet",
-      "src": "darkwood_props_sheet.png",
-      "height": 64,
-      "ref": "moss_lantern",
-      "colors": 32,
-      "rows": [
-        [
-          "moss_lantern",
-          "glow_shrooms",
-          "elder_stump",
-          "ancient_totem"
-        ]
-      ]
-    },
-    "hero_walk": {
-      "type": "sheet",
-      "src": "hero_walk_sheet.png",
-      "height": 63,
-      "ref": "walk0",
-      "colors": 32,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "walk2",
-          "walk3",
-          "walk4",
-          "walk5"
-        ]
-      ]
-    },
-    "hero_idle": {
-      "type": "clip",
-      "src": "clips/hero_idle_sheet.png",
-      "frames": "clips/hero_idle_frames.json"
-    },
-    "hero_walk8": {
-      "type": "clip",
-      "src": "clips/hero_walk8_sheet.png",
-      "frames": "clips/hero_walk8_frames.json"
-    },
-    "hero_whip": {
-      "type": "clip",
-      "src": "clips/hero_whip_sheet.png",
-      "frames": "clips/hero_whip_frames.json"
-    },
-    "hero_cwhip": {
-      "type": "clip",
-      "src": "clips/hero_cwhip_sheet.png",
-      "frames": "clips/hero_cwhip_frames.json"
-    },
-    "hero_jump": {
-      "type": "clip",
-      "src": "clips/hero_jump_sheet.png",
-      "frames": "clips/hero_jump_frames.json"
-    },
-    "hero_hurt": {
-      "type": "clip",
-      "src": "clips/hero_hurt_sheet.png",
-      "frames": "clips/hero_hurt_frames.json"
-    },
-    "hero_fidget": {
-      "type": "clip",
-      "src": "clips/hero_fidget_sheet.png",
-      "frames": "clips/hero_fidget_frames.json"
-    },
-    "hero_turn": {
-      "type": "clip",
-      "src": "clips/hero_turn_sheet.png",
-      "frames": "clips/hero_turn_frames.json"
-    },
-    "giantbat": {
-      "type": "sheet",
-      "src": "giantbat_sheet.png",
-      "height": 78,
-      "ref": "fly1",
-      "colors": 24,
-      "rows": [
-        [
-          "fly0",
-          "fly1"
-        ],
-        [
-          "fly2",
-          "dive"
-        ]
-      ]
-    },
-    "giantbat_fly": {
-      "type": "clip",
-      "src": "clips/giantbat_fly_sheet.png",
-      "frames": "clips/giantbat_fly_frames.json"
-    },
-    "bonecaptain": {
-      "type": "sheet",
-      "src": "bonecaptain_sheet.png",
-      "height": 100,
-      "ref": "walk0",
-      "colors": 28,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "walk2",
-          "walk3"
-        ],
-        [
-          "throw0",
-          "throw1"
-        ]
-      ],
-      "anchors": {
-        "throw1": "left"
-      }
-    },
-    "bonecaptain_walk": {
-      "type": "clip",
-      "src": "clips/bonecaptain_walk_sheet.png",
-      "frames": "clips/bonecaptain_walk_frames.json"
-    },
-    "bonecaptain_throw": {
-      "type": "clip",
-      "src": "clips/bonecaptain_throw_sheet.png",
-      "frames": "clips/bonecaptain_throw_frames.json"
-    },
-    "gorgon": {
-      "type": "sheet",
-      "src": "gorgon_sheet.png",
-      "height": 96,
-      "ref": "a",
-      "colors": 28,
-      "rows": [
-        [
-          "a",
-          "b",
-          "stare"
-        ]
-      ]
-    },
-    "gorgon_idle": {
-      "type": "clip",
-      "src": "clips/gorgon_idle_sheet.png",
-      "frames": "clips/gorgon_idle_frames.json"
-    },
-    "gorgon_stare": {
-      "type": "clip",
-      "src": "clips/gorgon_stare_sheet.png",
-      "frames": "clips/gorgon_stare_frames.json"
-    },
-    "greatjack": {
-      "type": "sheet",
-      "src": "greatjack_sheet.png",
-      "height": 96,
-      "ref": "flame0",
-      "colors": 24,
-      "rows": [
-        [
-          "flame0",
-          "flame1",
-          "spit"
-        ]
-      ],
-      "anchors": {
-        "spit": "left"
-      }
-    },
-    "greatjack_flame": {
-      "type": "clip",
-      "src": "clips/greatjack_flame_sheet.png",
-      "frames": "clips/greatjack_flame_frames.json"
-    },
-    "greatjack_spit": {
-      "type": "clip",
-      "src": "clips/greatjack_spit_sheet.png",
-      "frames": "clips/greatjack_spit_frames.json"
-    },
-    "automaton": {
-      "type": "sheet",
-      "src": "automaton_sheet.png",
-      "height": 110,
-      "ref": "idle",
-      "colors": 32,
-      "rows": [
-        [
-          "idle",
-          "walk",
-          "punch",
-          "overload"
-        ]
-      ],
-      "anchors": {
-        "punch": "left"
-      }
-    },
-    "automaton_idle": {
-      "type": "clip",
-      "src": "clips/automaton_idle_sheet.png",
-      "frames": "clips/automaton_idle_frames.json"
-    },
-    "automaton_walk": {
-      "type": "clip",
-      "src": "clips/automaton_walk_sheet.png",
-      "frames": "clips/automaton_walk_frames.json"
-    },
-    "automaton_punch": {
-      "type": "clip",
-      "src": "clips/automaton_punch_sheet.png",
-      "frames": "clips/automaton_punch_frames.json"
-    },
-    "automaton_overload": {
-      "type": "clip",
-      "src": "clips/automaton_overload_sheet.png",
-      "frames": "clips/automaton_overload_frames.json"
-    },
-    "arcade_props": {
-      "type": "sheet",
-      "src": "arcade_props_sheet.png",
-      "height": 112,
-      "ref": "sage_cabinet",
-      "colors": 40,
-      "rows": [
-        [
-          "sage_cabinet",
-          "zoetrope",
-          "oracle_engine",
-          "chess_automaton",
-          "magic_lantern"
-        ]
-      ]
-    },
-    "arcadewall": {
-      "type": "texture",
-      "src": "tex_arcade_wall.png",
-      "size": [
-        192,
-        192
-      ],
-      "colors": 28,
-      "seamless": "blend"
-    },
-    "map_parchment": {
-      "type": "texture",
-      "src": "bg_map_parchment.png",
-      "size": [
-        640,
-        360
-      ],
-      "colors": 40
-    },
-    "map_icons": {
-      "type": "sheet",
-      "src": "map_icons_sheet.png",
-      "height": 26,
-      "ref": "graveyard",
-      "colors": 32,
-      "rows": [
-        [
-          "graveyard",
-          "darkwood",
-          "jack",
-          "yule",
-          "ramparts",
-          "catacombs",
-          "ossuary",
-          "arcade",
-          "library",
-          "clocktower",
-          "throne",
-          "cathedral",
-          "darkcave"
-        ]
-      ]
-    },
-    "title_logo": {
-      "type": "texture",
-      "src": "title_logo.png",
-      "key": true,
-      "cropAlpha": true,
-      "size": [
-        500,
-        null
-      ],
-      "colors": 24
-    },
-    "librarywall": {
-      "type": "texture",
-      "src": "tex_library_wall.png",
-      "size": [
-        384,
-        216
-      ],
-      "colors": 32,
-      "seamless": "blend"
-    },
-    "library_props": {
-      "type": "sheet",
-      "src": "library_props_sheet.png",
-      "height": 110,
-      "ref": "bookcase",
-      "colors": 40,
-      "rows": [
-        [
-          "bookcase",
-          "lectern",
-          "globe",
-          "ladder",
-          "tomes"
-        ]
-      ]
-    },
-    "ghost": {
-      "type": "sheet",
-      "src": "ghost_sheet.png",
-      "height": 46,
-      "ref": "float0",
-      "colors": 20,
-      "rows": [
-        [
-          "float0",
-          "float1",
-          "lunge"
-        ]
-      ],
-      "anchors": {
-        "lunge": "left"
-      }
-    },
-    "ghost_float": {
-      "type": "clip",
-      "src": "clips/ghost_float_sheet.png",
-      "frames": "clips/ghost_float_frames.json"
-    },
-    "ghost_lunge": {
-      "type": "clip",
-      "src": "clips/ghost_lunge_sheet.png",
-      "frames": "clips/ghost_lunge_frames.json"
-    },
-    "tome": {
-      "type": "sheet",
-      "src": "tome_sheet.png",
-      "height": 24,
-      "ref": "shut",
-      "colors": 20,
-      "rows": [
-        [
-          "flap0",
-          "flap1",
-          "shut",
-          "chomp"
-        ]
-      ]
-    },
-    "tome_flap": {
-      "type": "clip",
-      "src": "clips/tome_flap_sheet.png",
-      "frames": "clips/tome_flap_frames.json"
-    },
-    "archivist": {
-      "type": "sheet",
-      "src": "archivist_sheet.png",
-      "height": 120,
-      "ref": "idle",
-      "colors": 28,
-      "rows": [
-        [
-          "idle",
-          "cast",
-          "summon",
-          "shield"
-        ]
-      ]
-    },
-    "archivist_idle": {
-      "type": "clip",
-      "src": "clips/archivist_idle_sheet.png",
-      "frames": "clips/archivist_idle_frames.json"
-    },
-    "archivist_cast": {
-      "type": "clip",
-      "src": "clips/archivist_cast_sheet.png",
-      "frames": "clips/archivist_cast_frames.json"
-    },
-    "archivist_summon": {
-      "type": "clip",
-      "src": "clips/archivist_summon_sheet.png",
-      "frames": "clips/archivist_summon_frames.json"
-    },
-    "archivist_shield": {
-      "type": "clip",
-      "src": "clips/archivist_shield_sheet.png",
-      "frames": "clips/archivist_shield_frames.json"
-    },
-    "chandelier": {
-      "type": "sheet",
-      "src": "chandelier_sheet.png",
-      "height": 96,
-      "ref": "a",
-      "colors": 28,
-      "rows": [
-        [
-          "a",
-          "b"
-        ]
-      ]
-    },
-    "darkwood_trees": {
-      "type": "sheet",
-      "src": "darkwood_trees_sheet.png",
-      "height": 400,
-      "ref": "trunk_a",
-      "colors": 28,
-      "rows": [
-        [
-          "trunk_a",
-          "trunk_b",
-          "trunk_c",
-          "lantern"
-        ]
-      ]
-    },
-    "ending_1": {
-      "type": "texture",
-      "src": "ending_1.png",
-      "size": [
-        1280,
-        720
-      ],
-      "prefilter": 1.45,
-      "colors": 0
-    },
-    "ending_2": {
-      "type": "texture",
-      "src": "ending_2.png",
-      "size": [
-        1280,
-        720
-      ],
-      "prefilter": 1.45,
-      "colors": 0
-    },
-    "ending_3": {
-      "type": "texture",
-      "src": "ending_3.png",
-      "size": [
-        1280,
-        720
-      ],
-      "prefilter": 1.45,
-      "colors": 0
-    },
-    "ending_4": {
-      "type": "texture",
-      "src": "ending_4.png",
-      "size": [
-        1280,
-        720
-      ],
-      "prefilter": 1.45,
-      "colors": 0
-    },
-    "ending_5": {
-      "type": "texture",
-      "src": "ending_5.png",
-      "size": [
-        1280,
-        720
-      ],
-      "prefilter": 1.45,
-      "colors": 0
-    },
-    "ending_omni": {
-      "type": "clip",
-      "src": "clips/ending_omni_sheet.png",
-      "frames": "clips/ending_omni_frames.json"
-    },
-    "boss_gates": {
-      "type": "sheet",
-      "src": "boss_gates_sheet.png",
-      "height": 116,
-      "ref": "entry_bottom",
-      "colors": 0,
-      "rows": [
-        [
-          "entry_bottom",
-          "entry_span",
-          "jamb_base",
-          "jamb_shaft",
-          "jamb_cap"
-        ]
-      ]
-    },
-    "drawbridge_deck": {
-      "type": "sheet",
-      "src": "drawbridge_deck_sheet.png",
-      "height": 30,
-      "ref": "deck_tile_a",
-      "colors": 64,
-      "rows": [
-        [
-          "deck_tile_a",
-          "deck_tile_b",
-          "rail_tile",
-          "newel_post",
-          "hinge_drum"
-        ]
-      ],
-      "fit": {
-        "deck_tile_a": [
-          24,
-          30
-        ],
-        "deck_tile_b": [
-          22,
-          30
-        ],
-        "rail_tile": [
-          24,
-          24
-        ],
-        "newel_post": [
-          8,
-          36
-        ],
-        "hinge_drum": [
-          30,
-          31
-        ]
-      }
-    },
-    "drawbridge_support": {
-      "type": "sheet",
-      "src": "drawbridge_support_sheet.png",
-      "height": 52,
-      "ref": "pier_shaft",
-      "colors": 64,
-      "rows": [
-        [
-          "pier_cap",
-          "pier_shaft",
-          "knee_brace",
-          "windlass_wheel",
-          "chain_shackle",
-          "chain_link"
-        ]
-      ],
-      "fit": {
-        "pier_cap": [
-          42,
-          36
-        ],
-        "pier_shaft": [
-          32,
-          52
-        ],
-        "knee_brace": [
-          28,
-          36
-        ],
-        "windlass_wheel": [
-          28,
-          35
-        ],
-        "chain_shackle": [
-          14,
-          16
-        ],
-        "chain_link": [
-          22,
-          7
-        ]
-      }
-    },
-    "drawbridge_gatehouse": {
-      "type": "sheet",
-      "src": "drawbridge_gatehouse_sheet.png",
-      "height": 180,
-      "ref": "gatehouse_bastion",
-      "colors": 0,
-      "rows": [
-        [
-          "watch_pier",
-          "gatehouse_bastion",
-          "portcullis_grille",
-          "royal_banner"
-        ]
-      ],
-      "fit": {
-        "watch_pier": [
-          26,
-          84
-        ],
-        "gatehouse_bastion": [
-          114,
-          180
-        ],
-        "portcullis_grille": [
-          24,
-          36
-        ],
-        "royal_banner": [
-          26,
-          44
-        ]
-      }
-    },
-    "boss_door_props": {
-      "type": "sheet",
-      "src": "boss_door_props_sheet.png",
-      "height": 96,
-      "ref": "entry_guardian",
-      "colors": 36,
-      "rows": [
-        [
-          "entry_guardian",
-          "exit_guardian",
-          "iron_brazier",
-          "ward_stele"
-        ]
-      ]
-    },
-    "cathedralwall": {
-      "type": "texture",
-      "src": "tex_cathedral_wall.png",
-      "size": [
-        384,
-        384
-      ],
-      "colors": 40,
-      "seamless": "blend"
-    },
-    "stained_glass": {
-      "type": "sheet",
-      "src": "stained_glass_sheet.png",
-      "height": 150,
-      "ref": "rose",
-      "colors": 40,
-      "rows": [
-        [
-          "rose",
-          "hunter",
-          "moon"
-        ]
-      ]
-    },
-    "cathedral_props": {
-      "type": "sheet",
-      "src": "cathedral_props_sheet.png",
-      "height": 112,
-      "ref": "angel",
-      "colors": 40,
-      "rows": [
-        [
-          "angel",
-          "pew",
-          "candles",
-          "font",
-          "pulpit"
-        ]
-      ]
-    },
-    "gargoyle": {
-      "type": "sheet",
-      "src": "gargoyle_sheet.png",
-      "height": 36,
-      "ref": "perch",
-      "colors": 20,
-      "rows": [
-        [
-          "perch",
-          "wake",
-          "fly0",
-          "fly1"
-        ]
-      ]
-    },
-    "gargoyle_fly": {
-      "type": "clip",
-      "src": "clips/gargoyle_fly_sheet.png",
-      "frames": "clips/gargoyle_fly_frames.json"
-    },
-    "gargoyle_wake": {
-      "type": "clip",
-      "src": "clips/gargoyle_wake_sheet.png",
-      "frames": "clips/gargoyle_wake_frames.json"
-    },
-    "archon": {
-      "type": "sheet",
-      "src": "archon_sheet.png",
-      "height": 120,
-      "ref": "idle",
-      "colors": 28,
-      "rows": [
-        [
-          "idle",
-          "roar",
-          "pounce",
-          "shell"
-        ]
-      ]
-    },
-    "archon_fly": {
-      "type": "clip",
-      "src": "clips/archon_fly_sheet.png",
-      "frames": "clips/archon_fly_frames.json"
-    },
-    "archon_roar": {
-      "type": "clip",
-      "src": "clips/archon_roar_sheet.png",
-      "frames": "clips/archon_roar_frames.json"
-    },
-    "archon_pounce": {
-      "type": "clip",
-      "src": "clips/archon_pounce_sheet.png",
-      "frames": "clips/archon_pounce_frames.json"
-    },
-    "archon_shell": {
-      "type": "clip",
-      "src": "clips/archon_shell_sheet.png",
-      "frames": "clips/archon_shell_frames.json"
-    },
-    "throne_props": {
-      "type": "sheet",
-      "src": "throne_props_sheet.png",
-      "height": 190,
-      "ref": "throne",
-      "colors": 40,
-      "rows": [
-        [
-          "throne",
-          "candle_pillar",
-          "great_banner"
-        ]
-      ]
-    },
-    "cavernwall": {
-      "type": "texture",
-      "src": "tex_cavern_wall.png",
-      "size": [
-        384,
-        384
-      ],
-      "colors": 32,
-      "seamless": "blend"
-    },
-    "cavernfloor": {
-      "type": "strip",
-      "src": "tex_cavern_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 4,
-      "depth_tiles": 4,
-      "colors": 32
-    },
-    "cavern_props": {
-      "type": "sheet",
-      "src": "cavern_props_sheet.png",
-      "height": 96,
-      "ref": "stalagmite",
-      "colors": 36,
-      "rows": [
-        [
-          "stalagmite",
-          "obsidian_pillar",
-          "magma_vent",
-          "brazier"
-        ]
-      ]
-    },
-    "magmaslime": {
-      "type": "sheet",
-      "src": "magmaslime_sheet.png",
-      "height": 30,
-      "ref": "crawl0",
-      "colors": 24,
-      "rows": [
-        [
-          "crawl0",
-          "crawl1",
-          "leap",
-          "land"
-        ]
-      ]
-    },
-    "magmaslime_crawl": {
-      "type": "clip",
-      "src": "clips/magmaslime_crawl_sheet.png",
-      "frames": "clips/magmaslime_crawl_frames.json"
-    },
-    "lavagolem": {
-      "type": "sheet",
-      "src": "lavagolem_sheet.png",
-      "height": 78,
-      "ref": "walk0",
-      "colors": 28,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "walk2",
-          "hurl"
-        ]
-      ]
-    },
-    "lavagolem_walk": {
-      "type": "clip",
-      "src": "clips/lavagolem_walk_sheet.png",
-      "frames": "clips/lavagolem_walk_frames.json"
-    },
-    "lavagolem_hurl": {
-      "type": "clip",
-      "src": "clips/lavagolem_hurl_sheet.png",
-      "frames": "clips/lavagolem_hurl_frames.json"
-    },
-    "cinderimp": {
-      "type": "sheet",
-      "src": "cinderimp_sheet.png",
-      "height": 38,
-      "ref": "fly0",
-      "colors": 24,
-      "rows": [
-        [
-          "fly0",
-          "fly1",
-          "spit"
-        ]
-      ]
-    },
-    "cinderimp_fly": {
-      "type": "clip",
-      "src": "clips/cinderimp_fly_sheet.png",
-      "frames": "clips/cinderimp_fly_frames.json"
-    },
-    "cinderimp_spit": {
-      "type": "clip",
-      "src": "clips/cinderimp_spit_sheet.png",
-      "frames": "clips/cinderimp_spit_frames.json"
-    },
-    "armor": {
-      "type": "sheet",
-      "src": "armor_sheet.png",
-      "height": 74,
-      "ref": "walk0",
-      "colors": 28,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "guard",
-          "slash"
-        ]
-      ],
-      "anchors": {
-        "slash": "left"
-      }
-    },
-    "armor_walk": {
-      "type": "clip",
-      "src": "clips/armor_walk_sheet.png",
-      "frames": "clips/armor_walk_frames.json"
-    },
-    "armor_slash": {
-      "type": "clip",
-      "src": "clips/armor_slash_sheet.png",
-      "frames": "clips/armor_slash_frames.json"
-    },
-    "wraith": {
-      "type": "sheet",
-      "src": "wraith_sheet.png",
-      "height": 54,
-      "ref": "float0",
-      "colors": 24,
-      "rows": [
-        [
-          "float0",
-          "float1",
-          "shriek"
-        ]
-      ]
-    },
-    "wraith_float": {
-      "type": "clip",
-      "src": "clips/wraith_float_sheet.png",
-      "frames": "clips/wraith_float_frames.json"
-    },
-    "wraith_shriek": {
-      "type": "clip",
-      "src": "clips/wraith_shriek_sheet.png",
-      "frames": "clips/wraith_shriek_frames.json"
-    },
-    "cinderqueen": {
-      "type": "sheet",
-      "src": "cinderqueen_sheet.png",
-      "height": 116,
-      "ref": "idle",
-      "colors": 32,
-      "rows": [
-        [
-          "idle",
-          "cast",
-          "surge",
-          "erupt"
-        ]
-      ]
-    },
-    "cinderqueen_idle": {
-      "type": "clip",
-      "src": "clips/cinderqueen_idle_sheet.png",
-      "frames": "clips/cinderqueen_idle_frames.json"
-    },
-    "cinderqueen_walk": {
-      "type": "clip",
-      "src": "clips/cinderqueen_walk_sheet.png",
-      "frames": "clips/cinderqueen_walk_frames.json"
-    },
-    "cinderqueen_cast": {
-      "type": "clip",
-      "src": "clips/cinderqueen_cast_sheet.png",
-      "frames": "clips/cinderqueen_cast_frames.json"
-    },
-    "cinderqueen_surge": {
-      "type": "clip",
-      "src": "clips/cinderqueen_surge_sheet.png",
-      "frames": "clips/cinderqueen_surge_frames.json"
-    },
-    "cinderqueen_erupt": {
-      "type": "clip",
-      "src": "clips/cinderqueen_erupt_sheet.png",
-      "frames": "clips/cinderqueen_erupt_frames.json"
-    },
-    "grand_doors": {
-      "type": "sheet",
-      "src": "grand_doors_sheet.png",
-      "height": 124,
-      "ref": "open",
-      "colors": 48,
-      "rows": [
-        [
-          "open",
-          "sealed",
-          "royal"
-        ]
-      ]
-    },
-    "falling_tiles": {
-      "type": "sheet",
-      "src": "falling_tiles_sheet.png",
-      "height": 40,
-      "ref": "intact",
-      "colors": 36,
-      "rows": [
-        [
-          "intact",
-          "cracked",
-          "breaking",
-          "chunk"
-        ]
-      ]
-    },
-    "shrines": {
-      "type": "sheet",
-      "src": "exploration_shrines_sheet.png",
-      "height": 76,
-      "ref": "sanctuary_idle",
-      "colors": 64,
-      "rows": [
-        [
-          "sanctuary_idle",
-          "sanctuary_lit",
-          "vessel_full",
-          "vessel_empty"
-        ]
-      ]
-    },
-    "projectiles": {
-      "type": "sheet",
-      "src": "projectiles_sheet.png",
-      "height": 24,
-      "ref": "cog",
-      "colors": 64,
-      "rows": [
-        [
-          "bone",
-          "sickle",
-          "skull",
-          "cog"
-        ],
-        [
-          "present",
-          "iceshard",
-          "page",
-          "magmaball"
-        ]
-      ]
-    },
-    "alchemyfloor": {
-      "type": "strip",
-      "src": "tex_alchemy_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 5,
-      "depth_tiles": 4,
-      "colors": 36
-    },
-    "alchemyfloor_b": {
-      "type": "strip",
-      "src": "tex_alchemy_floor_strip_b.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 5,
-      "depth_tiles": 4,
-      "colors": 36
-    },
-    "ballroomfloor": {
-      "type": "strip",
-      "src": "tex_ballroom_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 5,
-      "depth_tiles": 4,
-      "colors": 36
-    },
-    "ballroomfloor_b": {
-      "type": "strip",
-      "src": "tex_ballroom_floor_strip_b.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 5,
-      "depth_tiles": 4,
-      "colors": 36
-    },
-    "coliseumfloor": {
-      "type": "strip",
-      "src": "tex_coliseum_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 5,
-      "depth_tiles": 4,
-      "colors": 36
-    },
-    "coliseumfloor_b": {
-      "type": "strip",
-      "src": "tex_coliseum_floor_strip_b.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 5,
-      "depth_tiles": 4,
-      "colors": 36
-    },
-    "aqueductfloor": {
-      "type": "strip",
-      "src": "tex_aqueduct_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 5,
-      "depth_tiles": 4,
-      "colors": 36
-    },
-    "aqueductfloor_b": {
-      "type": "strip",
-      "src": "tex_aqueduct_floor_strip_b.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 5,
-      "depth_tiles": 4,
-      "colors": 36
-    },
-    "skykeepfloor": {
-      "type": "strip",
-      "src": "tex_skykeep_floor_strip.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 5,
-      "depth_tiles": 4,
-      "colors": 36
-    },
-    "skykeepfloor_b": {
-      "type": "strip",
-      "src": "tex_skykeep_floor_strip_b.png",
-      "size": [
-        512,
-        null
-      ],
-      "overhang": 5,
-      "depth_tiles": 4,
-      "colors": 36
-    },
-    "alchemywall": {
-      "type": "texture",
-      "src": "tex_alchemy_wall.png",
-      "size": [
-        768,
-        384
-      ],
-      "colors": 48,
-      "seamless": "blend"
-    },
-    "ballroomwall": {
-      "type": "texture",
-      "src": "tex_ballroom_wall.png",
-      "size": [
-        768,
-        384
-      ],
-      "colors": 48,
-      "seamless": "blend"
-    },
-    "coliseumwall": {
-      "type": "texture",
-      "src": "tex_coliseum_wall.png",
-      "size": [
-        768,
-        384
-      ],
-      "colors": 48,
-      "seamless": "blend"
-    },
-    "aqueductwall": {
-      "type": "texture",
-      "src": "tex_aqueduct_wall.png",
-      "size": [
-        768,
-        384
-      ],
-      "colors": 48,
-      "seamless": "blend"
-    },
-    "skykeep_far": {
-      "type": "texture",
-      "src": "bg_skykeep_far.png",
-      "size": [
-        1280,
-        360
-      ],
-      "colors": 96
-    },
-    "skykeep_backdrop": {
-      "type": "texture",
-      "src": "bg_skykeep_mid.png",
-      "key": true,
-      "size": [
-        960,
-        360
-      ],
-      "colors": 36,
-      "seamless": "mirror"
-    },
-    "graveyard_vista": {
-      "type": "texture",
-      "src": "bg_graveyard_vista.png",
-      "key": true,
-      "size": [
-        960,
-        360
-      ],
-      "colors": 32,
-      "seamless": "mirror"
-    },
-    "mural_alchemy": {
-      "type": "texture",
-      "src": "mural_alchemy.png",
-      "size": [
-        512,
-        288
-      ],
-      "colors": 48
-    },
-    "mural_ballroom": {
-      "type": "texture",
-      "src": "mural_ballroom.png",
-      "size": [
-        512,
-        288
-      ],
-      "colors": 48
-    },
-    "mural_coliseum": {
-      "type": "texture",
-      "src": "mural_coliseum.png",
-      "size": [
-        512,
-        288
-      ],
-      "colors": 48
-    },
-    "mural_aqueduct": {
-      "type": "texture",
-      "src": "mural_aqueduct.png",
-      "size": [
-        512,
-        288
-      ],
-      "colors": 48
-    },
-    "mural_throne": {
-      "type": "texture",
-      "src": "mural_throne.png",
-      "size": [
-        512,
-        288
-      ],
-      "colors": 48
-    },
-    "mural_catacombs": {
-      "type": "texture",
-      "src": "mural_catacombs.png",
-      "size": [
-        512,
-        288
-      ],
-      "colors": 48
-    },
-    "wing_icons": {
-      "type": "sheet",
-      "src": "wing_icons_sheet.png",
-      "height": 26,
-      "ref": "alchemy",
-      "colors": 36,
-      "rows": [
-        [
-          "alchemy",
-          "ballroom",
-          "coliseum",
-          "aqueduct",
-          "skykeep"
-        ]
-      ]
-    },
-    "alchemy_props": {
-      "type": "sheet",
-      "src": "alchemy_props_sheet.png",
-      "height": 84,
-      "ref": "retort_stand",
-      "colors": 40,
-      "rows": [
-        [
-          "retort_stand",
-          "tesla_coil",
-          "elixir_rack",
-          "athanor"
-        ]
-      ]
-    },
-    "ballroom_props": {
-      "type": "sheet",
-      "src": "ballroom_props_sheet.png",
-      "height": 90,
-      "ref": "gilded_mirror",
-      "colors": 40,
-      "rows": [
-        [
-          "gilded_mirror",
-          "candelabra",
-          "velvet_drape",
-          "marble_bust"
-        ]
-      ]
-    },
-    "coliseum_props": {
-      "type": "sheet",
-      "src": "coliseum_props_sheet.png",
-      "height": 86,
-      "ref": "weapon_rack",
-      "colors": 40,
-      "rows": [
-        [
-          "weapon_rack",
-          "trophy_pillar",
-          "iron_brazier",
-          "war_standard"
-        ]
-      ]
-    },
-    "aqueduct_props": {
-      "type": "sheet",
-      "src": "aqueduct_props_sheet.png",
-      "height": 84,
-      "ref": "water_spout",
-      "colors": 40,
-      "rows": [
-        [
-          "water_spout",
-          "sluice_wheel",
-          "moss_amphora",
-          "canal_lantern"
-        ]
-      ]
-    },
-    "skykeep_props": {
-      "type": "sheet",
-      "src": "skykeep_props_sheet.png",
-      "height": 88,
-      "ref": "moon_astrolabe",
-      "colors": 40,
-      "rows": [
-        [
-          "moon_astrolabe",
-          "ivy_column",
-          "fountain_basin",
-          "star_lantern"
-        ]
-      ]
-    },
-    "hanging_props": {
-      "type": "sheet",
-      "src": "hanging_props_sheet.png",
-      "height": 64,
-      "ref": "pendulum_bob",
-      "colors": 36,
-      "rows": [
-        [
-          "pendulum_bob",
-          "gibbet_cage",
-          "hoist_wheel"
-        ]
-      ]
-    },
-    "alchemist": {
-      "type": "sheet",
-      "src": "alchemist_sheet.png",
-      "height": 116,
-      "ref": "idle",
-      "colors": 36,
-      "rows": [
-        [
-          "idle",
-          "cast",
-          "summon",
-          "shield"
-        ]
-      ]
-    },
-    "masquerade": {
-      "type": "sheet",
-      "src": "masquerade_sheet.png",
-      "height": 108,
-      "ref": "idle",
-      "colors": 36,
-      "rows": [
-        [
-          "idle",
-          "cape",
-          "cast",
-          "lunge"
-        ]
-      ],
-      "anchors": {
-        "lunge": "left"
-      }
-    },
-    "gladiator": {
-      "type": "sheet",
-      "src": "gladiator_sheet.png",
-      "height": 112,
-      "ref": "walk0",
-      "colors": 36,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "throw0",
-          "throw1"
-        ]
-      ],
-      "anchors": {
-        "throw1": "left"
-      }
-    },
-    "oracle": {
-      "type": "sheet",
-      "src": "oracle_sheet.png",
-      "height": 104,
-      "ref": "a",
-      "colors": 36,
-      "rows": [
-        [
-          "a",
-          "b",
-          "stare"
-        ]
-      ]
-    },
-    "seraph": {
-      "type": "sheet",
-      "src": "seraph_sheet.png",
-      "height": 120,
-      "ref": "idle",
-      "colors": 36,
-      "rows": [
-        [
-          "idle",
-          "roar",
-          "pounce",
-          "shell"
-        ]
-      ]
-    },
-    "stone_trim": {
-      "type": "texture",
-      "src": "tex_stone_trim.png",
-      "size": [
-        256,
-        192
-      ],
-      "colors": 64,
-      "seamless": "blend_hv"
-    },
-    "crypt_stone": {
-      "type": "texture",
-      "src": "tex_crypt_stone.png",
-      "size": [
-        256,
-        256
-      ],
-      "colors": 64,
-      "seamless": "blend_hv"
-    },
-    "marble_stone": {
-      "type": "texture",
-      "src": "tex_marble_stone.png",
-      "size": [
-        256,
-        192
-      ],
-      "colors": 64,
-      "seamless": "blend_hv"
-    },
-    "travertine_stone": {
-      "type": "texture",
-      "src": "tex_travertine_stone.png",
-      "size": [
-        256,
-        256
-      ],
-      "colors": 64,
-      "seamless": "blend_hv"
-    },
-    "aqueduct_stone": {
-      "type": "texture",
-      "src": "tex_aqueduct_stone.png",
-      "size": [
-        256,
-        256
-      ],
-      "colors": 64,
-      "seamless": "blend_hv"
-    },
-    "pillar_fluted": {
-      "type": "texture",
-      "src": "tex_pillar_fluted.png",
-      "size": [
-        96,
-        256
-      ],
-      "colors": 64,
-      "seamless": "blend_v"
-    },
-    "hero_sword": {
-      "type": "sheet",
-      "src": "hero_sword_sheet.png",
-      "height": 64,
-      "ref": "thrust0",
-      "colors": 36,
-      "rows": [
-        [
-          "slash0",
-          "slash1",
-          "slash2",
-          "thrust0",
-          "thrust1"
-        ],
-        [
-          "heavy0",
-          "heavy1",
-          "alt0",
-          "alt1",
-          "airslash"
-        ]
-      ],
-      "anchors": {
-        "slash1": "left",
-        "slash2": "left",
-        "thrust1": "left",
-        "heavy1": "left",
-        "alt1": "left",
-        "airslash": "left"
-      }
-    },
-    "hero_csword": {
-      "type": "sheet",
-      "src": "hero_csword_sheet.png",
-      "height": 64,
-      "ref": "idle_nowhip",
-      "colors": 36,
-      "rows": [
-        [
-          "stride_nowhip",
-          "cslash0",
-          "cslash1",
-          "cslash2"
-        ],
-        [
-          "idle_nowhip",
-          "crouch_nowhip",
-          "wind_nowhip",
-          "strike_nowhip"
-        ]
-      ],
-      "anchors": {
-        "cslash1": "left",
-        "cslash2": "left",
-        "strike_nowhip": "left"
-      }
-    },
-    "alchfiend": {
-      "type": "sheet",
-      "src": "alchfiend_sheet.png",
-      "height": 58,
-      "ref": "walk0",
-      "colors": 32,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "windup",
-          "lob"
-        ]
-      ]
-    },
-    "duelist": {
-      "type": "sheet",
-      "src": "duelist_sheet.png",
-      "height": 64,
-      "ref": "step0",
-      "colors": 32,
-      "rows": [
-        [
-          "step0",
-          "step1",
-          "parry",
-          "lunge"
-        ]
-      ],
-      "anchors": {
-        "lunge": "left"
-      }
-    },
-    "executioner": {
-      "type": "sheet",
-      "src": "executioner_sheet.png",
-      "height": 78,
-      "ref": "walk0",
-      "colors": 32,
-      "rows": [
-        [
-          "walk0",
-          "walk1",
-          "heave",
-          "cleave"
-        ]
-      ],
-      "anchors": {
-        "cleave": "left"
-      }
-    },
-    "merman": {
-      "type": "sheet",
-      "src": "merman_sheet.png",
-      "height": 58,
-      "ref": "stalk0",
-      "colors": 32,
-      "rows": [
-        [
-          "stalk0",
-          "stalk1",
-          "leap",
-          "spit"
-        ]
-      ]
-    },
-    "valkyrie": {
-      "type": "sheet",
-      "src": "valkyrie_sheet.png",
-      "height": 62,
-      "ref": "hover0",
-      "colors": 32,
-      "rows": [
-        [
-          "hover0",
-          "hover1",
-          "aim",
-          "dive"
-        ]
-      ]
-    },
-    "necromancer": {
-      "type": "sheet",
-      "src": "necromancer_sheet.png",
-      "height": 66,
-      "ref": "float0",
-      "colors": 32,
-      "rows": [
-        [
-          "float0",
-          "float1",
-          "chant",
-          "cast"
-        ]
-      ]
-    },
-    "weapons": {
-      "type": "clip",
-      "src": "weapons_packed.png",
-      "frames": "weapons_frames.json",
-      "out": "weapons.png"
-    },
-    "hero_dash": {
-      "type": "clip",
-      "src": "clips/hero_dash_sheet.png",
-      "frames": "clips/hero_dash_frames.json"
-    },
-    "hero_run": {
-      "type": "clip",
-      "src": "clips/hero_run_sheet.png",
-      "frames": "clips/hero_run_frames.json"
-    }
+ "assets": {
+  "wall": {
+   "type": "texture",
+   "src": "tex_wall_brick.png",
+   "size": [
+    256,
+    256
+   ],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "ground": {
+   "type": "strip",
+   "src": "tex_ground_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 8,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "floor": {
+   "type": "strip",
+   "src": "tex_castle_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 3,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "platform": {
+   "type": "texture",
+   "src": "tex_platform.png",
+   "key": true,
+   "cropAlpha": true,
+   "size": [
+    320,
+    null
+   ],
+   "colors": 24
+  },
+  "sky": {
+   "type": "texture",
+   "src": "bg_sky.png",
+   "size": [
+    640,
+    360
+   ],
+   "colors": 96
+  },
+  "mountains": {
+   "type": "texture",
+   "src": "bg_mountains.png",
+   "key": true,
+   "size": [
+    640,
+    360
+   ],
+   "colors": 40,
+   "seamless": "mirror"
+  },
+  "castle": {
+   "type": "texture",
+   "src": "bg_castle.png",
+   "key": true,
+   "size": [
+    640,
+    360
+   ],
+   "colors": 48,
+   "seamless": "mirror"
+  },
+  "forest": {
+   "type": "texture",
+   "src": "bg_forest.png",
+   "key": true,
+   "size": [
+    640,
+    360
+   ],
+   "colors": 40,
+   "seamless": "mirror"
+  },
+  "fg": {
+   "type": "texture",
+   "src": "bg_fg.png",
+   "key": true,
+   "size": [
+    640,
+    360
+   ],
+   "colors": 8,
+   "seamless": "mirror"
+  },
+  "hero": {
+   "type": "sheet",
+   "src": "hero_sheet.png",
+   "height": 64,
+   "ref": "idle",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3",
+     "walk4",
+     "walk5"
+    ],
+    [
+     "idle",
+     "jump",
+     "crouch",
+     "whip0",
+     "whip1",
+     "hurt"
+    ]
+   ],
+   "anchors": {
+    "whip0": "right",
+    "whip1": "left"
+   }
+  },
+  "skeleton": {
+   "type": "sheet",
+   "src": "skeleton_sheet.png",
+   "height": 60,
+   "ref": "walk0",
+   "colors": 24,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3"
+    ],
+    [
+     "walkb0",
+     "walkb1",
+     "walkb2",
+     "throw0",
+     "throw1"
+    ]
+   ],
+   "anchors": {
+    "throw1": "left"
+   }
+  },
+  "skeleton_walk": {
+   "type": "clip",
+   "src": "clips/skeleton_walk_sheet.png",
+   "frames": "clips/skeleton_walk_frames.json"
+  },
+  "skeleton_walkb": {
+   "type": "clip",
+   "src": "clips/skeleton_walkb_sheet.png",
+   "frames": "clips/skeleton_walkb_frames.json"
+  },
+  "skeleton_throw": {
+   "type": "clip",
+   "src": "clips/skeleton_throw_sheet.png",
+   "frames": "clips/skeleton_throw_frames.json"
+  },
+  "bat": {
+   "type": "sheet",
+   "src": "bat_sheet.png",
+   "height": 30,
+   "ref": "fly1",
+   "colors": 16,
+   "rows": [
+    [
+     "fly0",
+     "fly1",
+     "fly2"
+    ],
+    [
+     "alt0",
+     "alt1",
+     "alt2"
+    ]
+   ]
+  },
+  "bat_fly": {
+   "type": "clip",
+   "src": "clips/bat_fly_sheet.png",
+   "frames": "clips/bat_fly_frames.json"
+  },
+  "zombie": {
+   "type": "sheet",
+   "src": "zombie_sheet.png",
+   "height": 58,
+   "ref": "walk0",
+   "colors": 24,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3"
+    ]
+   ]
+  },
+  "zombie_walk": {
+   "type": "clip",
+   "src": "clips/zombie_walk_sheet.png",
+   "frames": "clips/zombie_walk_frames.json"
+  },
+  "medusa": {
+   "type": "sheet",
+   "src": "medusa_sheet.png",
+   "height": 30,
+   "ref": "a",
+   "colors": 16,
+   "rows": [
+    [
+     "a",
+     "b"
+    ]
+   ]
+  },
+  "medusa_wave": {
+   "type": "clip",
+   "src": "clips/medusa_wave_sheet.png",
+   "frames": "clips/medusa_wave_frames.json"
+  },
+  "boss": {
+   "type": "sheet",
+   "src": "boss_sheet.png",
+   "height": 136,
+   "ref": "idle0",
+   "colors": 48,
+   "rows": [
+    [
+     "idle0",
+     "idle1",
+     "windup",
+     "swing"
+    ]
+   ]
+  },
+  "boss_idle": {
+   "type": "clip",
+   "src": "clips/boss_idle_sheet.png",
+   "frames": "clips/boss_idle_frames.json"
+  },
+  "boss_windup": {
+   "type": "clip",
+   "src": "clips/boss_windup_sheet.png",
+   "frames": "clips/boss_windup_frames.json"
+  },
+  "boss_swing": {
+   "type": "clip",
+   "src": "clips/boss_swing_sheet.png",
+   "frames": "clips/boss_swing_frames.json"
+  },
+  "boss_cast": {
+   "type": "clip",
+   "src": "clips/boss_cast_sheet.png",
+   "frames": "clips/boss_cast_frames.json"
+  },
+  "items": {
+   "type": "clip",
+   "src": "items_packed.png",
+   "frames": "items_frames.json",
+   "out": "items.png"
+  },
+  "props": {
+   "type": "sheet",
+   "src": "props_sheet.png",
+   "height": 64,
+   "ref": "candelabra",
+   "colors": 32,
+   "rows": [
+    [
+     "candelabra",
+     "torch",
+     "block",
+     "spikes",
+     "tombstone",
+     "shrub"
+    ]
+   ],
+   "fit": {
+    "block": [
+     32,
+     32
+    ],
+    "spikes": [
+     64,
+     24
+    ],
+    "torch": [
+     24,
+     40
+    ]
+   }
+  },
+  "arch": {
+   "type": "sheet",
+   "src": "arch_sheet.png",
+   "height": 128,
+   "ref": "column",
+   "colors": 32,
+   "rows": [
+    [
+     "column",
+     "window",
+     "gate",
+     "banner",
+     "chain"
+    ]
+   ],
+   "fit": {
+    "gate": [
+     80,
+     96
+    ],
+    "chain": [
+     12,
+     96
+    ]
+   }
+  },
+  "catacombwall": {
+   "type": "texture",
+   "src": "tex_catacomb_wall.png",
+   "size": [
+    192,
+    192
+   ],
+   "colors": 24,
+   "seamless": "blend"
+  },
+  "catacomb": {
+   "type": "strip",
+   "src": "tex_catacomb_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 4,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "clockwall": {
+   "type": "texture",
+   "src": "tex_clock_wall.png",
+   "size": [
+    256,
+    256
+   ],
+   "colors": 28,
+   "seamless": "blend"
+  },
+  "clockfloor": {
+   "type": "strip",
+   "src": "tex_clock_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 3,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "vampire": {
+   "type": "sheet",
+   "src": "boss_vampire_sheet.png",
+   "height": 84,
+   "ref": "idle",
+   "colors": 32,
+   "rows": [
+    [
+     "idle",
+     "cape",
+     "cast"
+    ],
+    [
+     "lunge0",
+     "lunge1",
+     "hurt"
+    ]
+   ]
+  },
+  "vampire_idle": {
+   "type": "clip",
+   "src": "clips/vampire_idle_sheet.png",
+   "frames": "clips/vampire_idle_frames.json"
+  },
+  "vampire_cape": {
+   "type": "clip",
+   "src": "clips/vampire_cape_sheet.png",
+   "frames": "clips/vampire_cape_frames.json"
+  },
+  "vampire_cast": {
+   "type": "clip",
+   "src": "clips/vampire_cast_sheet.png",
+   "frames": "clips/vampire_cast_frames.json"
+  },
+  "vampire_lunge": {
+   "type": "clip",
+   "src": "clips/vampire_lunge_sheet.png",
+   "frames": "clips/vampire_lunge_frames.json"
+  },
+  "vampire_fly": {
+   "type": "clip",
+   "src": "clips/vampire_fly_sheet.png",
+   "frames": "clips/vampire_fly_frames.json"
+  },
+  "catoblepas": {
+   "type": "sheet",
+   "src": "catoblepas_sheet.png",
+   "height": 52,
+   "ref": "walk0",
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "walk2",
+     "breath"
+    ]
+   ],
+   "colors": 24,
+   "anchors": {
+    "breath": "left"
+   }
+  },
+  "catoblepas_walk": {
+   "type": "clip",
+   "src": "clips/catoblepas_walk_sheet.png",
+   "frames": "clips/catoblepas_walk_frames.json"
+  },
+  "catoblepas_breath": {
+   "type": "clip",
+   "src": "clips/catoblepas_breath_sheet.png",
+   "frames": "clips/catoblepas_breath_frames.json"
+  },
+  "pumpkin": {
+   "type": "sheet",
+   "src": "pumpkin_sheet.png",
+   "height": 30,
+   "ref": "hop0",
+   "rows": [
+    [
+     "hop0",
+     "hop1"
+    ],
+    [
+     "flame0",
+     "flame1"
+    ]
+   ],
+   "colors": 24
+  },
+  "pumpkin_flame": {
+   "type": "clip",
+   "src": "clips/pumpkin_flame_sheet.png",
+   "frames": "clips/pumpkin_flame_frames.json"
+  },
+  "dragon": {
+   "type": "sheet",
+   "src": "dragon_sheet.png",
+   "height": 44,
+   "ref": "fly0",
+   "rows": [
+    [
+     "fly0",
+     "fly1"
+    ],
+    [
+     "glide",
+     "breath"
+    ]
+   ],
+   "colors": 24,
+   "anchors": {
+    "breath": "left"
+   }
+  },
+  "dragon_fly": {
+   "type": "clip",
+   "src": "clips/dragon_fly_sheet.png",
+   "frames": "clips/dragon_fly_frames.json"
+  },
+  "dragon_breath": {
+   "type": "clip",
+   "src": "clips/dragon_breath_sheet.png",
+   "frames": "clips/dragon_breath_frames.json"
+  },
+  "pumpkinprops": {
+   "type": "sheet",
+   "src": "pumpkin_props_sheet.png",
+   "height": 76,
+   "ref": "scarecrow",
+   "rows": [
+    [
+     "jack_big",
+     "jack_small",
+     "pumpkins",
+     "scarecrow"
+    ]
+   ],
+   "colors": 32
+  },
+  "ice": {
+   "type": "sheet",
+   "src": "ice_sheet.png",
+   "height": 62,
+   "ref": "golem0",
+   "rows": [
+    [
+     "golem0",
+     "golem1"
+    ],
+    [
+     "snowman0",
+     "snowman1"
+    ]
+   ],
+   "colors": 24
+  },
+  "ice_golem": {
+   "type": "clip",
+   "src": "clips/ice_golem_sheet.png",
+   "frames": "clips/ice_golem_frames.json"
+  },
+  "wisp": {
+   "type": "sheet",
+   "src": "wisp_sheet.png",
+   "height": 28,
+   "ref": "wisp0",
+   "rows": [
+    [
+     "wisp0",
+     "wisp1"
+    ],
+    [
+     "wisp2",
+     "wisp3"
+    ]
+   ],
+   "colors": 16
+  },
+  "wisp_wisp": {
+   "type": "clip",
+   "src": "clips/wisp_wisp_sheet.png",
+   "frames": "clips/wisp_wisp_frames.json"
+  },
+  "santa": {
+   "type": "sheet",
+   "src": "santa_sheet.png",
+   "height": 92,
+   "ref": "idle",
+   "rows": [
+    [
+     "idle",
+     "throw"
+    ],
+    [
+     "lunge",
+     "hurt"
+    ]
+   ],
+   "colors": 32
+  },
+  "santa_idle": {
+   "type": "clip",
+   "src": "clips/santa_idle_sheet.png",
+   "frames": "clips/santa_idle_frames.json"
+  },
+  "santa_throw": {
+   "type": "clip",
+   "src": "clips/santa_throw_sheet.png",
+   "frames": "clips/santa_throw_frames.json"
+  },
+  "santa_lunge": {
+   "type": "clip",
+   "src": "clips/santa_lunge_sheet.png",
+   "frames": "clips/santa_lunge_frames.json"
+  },
+  "xmasprops": {
+   "type": "sheet",
+   "src": "xmas_props_sheet.png",
+   "height": 96,
+   "ref": "tree",
+   "rows": [
+    [
+     "tree",
+     "wreath",
+     "lamppost",
+     "gifts",
+     "stump"
+    ]
+   ],
+   "colors": 32
+  },
+  "forestfloor": {
+   "type": "strip",
+   "src": "tex_forest_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "snowfloor": {
+   "type": "strip",
+   "src": "tex_snow_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32,
+   "bodyScale": 0.5
+  },
+  "ground_b": {
+   "type": "strip",
+   "src": "tex_ground_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "floor_b": {
+   "type": "strip",
+   "src": "tex_castle_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 3,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "catacomb_b": {
+   "type": "strip",
+   "src": "tex_catacomb_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 4,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "clockfloor_b": {
+   "type": "strip",
+   "src": "tex_clock_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 3,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "forestfloor_b": {
+   "type": "strip",
+   "src": "tex_forest_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "wall_b": {
+   "type": "texture",
+   "src": "tex_wall_brick_b.png",
+   "size": [
+    256,
+    256
+   ],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "catacombwall_b": {
+   "type": "texture",
+   "src": "tex_catacomb_wall_b.png",
+   "size": [
+    192,
+    192
+   ],
+   "colors": 24,
+   "seamless": "blend"
+  },
+  "clockwall_b": {
+   "type": "texture",
+   "src": "tex_clock_wall_b.png",
+   "size": [
+    256,
+    256
+   ],
+   "colors": 28,
+   "seamless": "blend"
+  },
+  "platform_wood": {
+   "type": "texture",
+   "src": "tex_platform_wood.png",
+   "key": true,
+   "cropAlpha": true,
+   "size": [
+    320,
+    null
+   ],
+   "colors": 24
+  },
+  "deepforest": {
+   "type": "texture",
+   "src": "bg_deepforest.png",
+   "key": true,
+   "crop": [
+    0,
+    0.35,
+    1,
+    0.9125
+   ],
+   "size": [
+    640,
+    360
+   ],
+   "colors": 24,
+   "seamless": "mirror"
+  },
+  "winter": {
+   "type": "texture",
+   "src": "bg_winter.png",
+   "key": true,
+   "crop": [
+    0,
+    0.35,
+    1,
+    0.9125
+   ],
+   "size": [
+    640,
+    360
+   ],
+   "colors": 24,
+   "seamless": "mirror"
+  },
+  "darkwoodfloor": {
+   "type": "strip",
+   "src": "tex_darkwood_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "darkwoodfloor_b": {
+   "type": "strip",
+   "src": "tex_darkwood_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 6,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "darkwood_canopy": {
+   "type": "texture",
+   "src": "bg_darkwood_canopy.png",
+   "key": true,
+   "crop": [
+    0,
+    0.14,
+    1,
+    0.84
+   ],
+   "size": [
+    640,
+    360
+   ],
+   "colors": 24,
+   "seamless": "mirror"
+  },
+  "turtle": {
+   "type": "sheet",
+   "src": "turtle_sheet.png",
+   "height": 30,
+   "ref": "walk0",
+   "colors": 24,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3"
+    ],
+    [
+     "shell0",
+     "shell1",
+     "shell2",
+     "shell3"
+    ]
+   ]
+  },
+  "turtle_walk": {
+   "type": "clip",
+   "src": "clips/turtle_walk_sheet.png",
+   "frames": "clips/turtle_walk_frames.json"
+  },
+  "wolf": {
+   "type": "sheet",
+   "src": "wolf_sheet.png",
+   "height": 34,
+   "ref": "walk0",
+   "colors": 24,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "walk2",
+     "lunge"
+    ]
+   ]
+  },
+  "wolf_walk": {
+   "type": "clip",
+   "src": "clips/wolf_walk_sheet.png",
+   "frames": "clips/wolf_walk_frames.json"
+  },
+  "wolf_lunge": {
+   "type": "clip",
+   "src": "clips/wolf_lunge_sheet.png",
+   "frames": "clips/wolf_lunge_frames.json"
+  },
+  "sporecap": {
+   "type": "sheet",
+   "src": "sporecap_sheet.png",
+   "height": 38,
+   "ref": "walk0",
+   "colors": 24,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "puff"
+    ]
+   ]
+  },
+  "sporecap_walk": {
+   "type": "clip",
+   "src": "clips/sporecap_walk_sheet.png",
+   "frames": "clips/sporecap_walk_frames.json"
+  },
+  "sporecap_puff": {
+   "type": "clip",
+   "src": "clips/sporecap_puff_sheet.png",
+   "frames": "clips/sporecap_puff_frames.json"
+  },
+  "owl": {
+   "type": "sheet",
+   "src": "owl_sheet.png",
+   "height": 30,
+   "ref": "fly1",
+   "colors": 20,
+   "rows": [
+    [
+     "fly0",
+     "fly1",
+     "fly2"
+    ]
+   ]
+  },
+  "owl_fly": {
+   "type": "clip",
+   "src": "clips/owl_fly_sheet.png",
+   "frames": "clips/owl_fly_frames.json"
+  },
+  "treant": {
+   "type": "sheet",
+   "src": "treant_sheet.png",
+   "height": 136,
+   "ref": "idle0",
+   "colors": 32,
+   "rows": [
+    [
+     "idle0",
+     "idle1",
+     "slam",
+     "roar"
+    ]
+   ]
+  },
+  "treant_idle": {
+   "type": "clip",
+   "src": "clips/treant_idle_sheet.png",
+   "frames": "clips/treant_idle_frames.json"
+  },
+  "treant_roar": {
+   "type": "clip",
+   "src": "clips/treant_roar_sheet.png",
+   "frames": "clips/treant_roar_frames.json"
+  },
+  "treant_slam": {
+   "type": "clip",
+   "src": "clips/treant_slam_sheet.png",
+   "frames": "clips/treant_slam_frames.json"
+  },
+  "darkwood_props": {
+   "type": "sheet",
+   "src": "darkwood_props_sheet.png",
+   "height": 64,
+   "ref": "moss_lantern",
+   "colors": 32,
+   "rows": [
+    [
+     "moss_lantern",
+     "glow_shrooms",
+     "elder_stump",
+     "ancient_totem"
+    ]
+   ]
+  },
+  "hero_walk": {
+   "type": "sheet",
+   "src": "hero_walk_sheet.png",
+   "height": 63,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3",
+     "walk4",
+     "walk5"
+    ]
+   ]
+  },
+  "hero_idle": {
+   "type": "clip",
+   "src": "clips/hero_idle_sheet.png",
+   "frames": "clips/hero_idle_frames.json"
+  },
+  "hero_walk8": {
+   "type": "clip",
+   "src": "clips/hero_walk8_sheet.png",
+   "frames": "clips/hero_walk8_frames.json"
+  },
+  "hero_whip": {
+   "type": "clip",
+   "src": "clips/hero_whip_sheet.png",
+   "frames": "clips/hero_whip_frames.json"
+  },
+  "hero_cwhip": {
+   "type": "clip",
+   "src": "clips/hero_cwhip_sheet.png",
+   "frames": "clips/hero_cwhip_frames.json"
+  },
+  "hero_jump": {
+   "type": "clip",
+   "src": "clips/hero_jump_sheet.png",
+   "frames": "clips/hero_jump_frames.json"
+  },
+  "hero_hurt": {
+   "type": "clip",
+   "src": "clips/hero_hurt_sheet.png",
+   "frames": "clips/hero_hurt_frames.json"
+  },
+  "hero_fidget": {
+   "type": "clip",
+   "src": "clips/hero_fidget_sheet.png",
+   "frames": "clips/hero_fidget_frames.json"
+  },
+  "hero_turn": {
+   "type": "clip",
+   "src": "clips/hero_turn_sheet.png",
+   "frames": "clips/hero_turn_frames.json"
+  },
+  "giantbat": {
+   "type": "sheet",
+   "src": "giantbat_sheet.png",
+   "height": 78,
+   "ref": "fly1",
+   "colors": 24,
+   "rows": [
+    [
+     "fly0",
+     "fly1"
+    ],
+    [
+     "fly2",
+     "dive"
+    ]
+   ]
+  },
+  "giantbat_fly": {
+   "type": "clip",
+   "src": "clips/giantbat_fly_sheet.png",
+   "frames": "clips/giantbat_fly_frames.json"
+  },
+  "bonecaptain": {
+   "type": "sheet",
+   "src": "bonecaptain_sheet.png",
+   "height": 100,
+   "ref": "walk0",
+   "colors": 28,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "walk3"
+    ],
+    [
+     "throw0",
+     "throw1"
+    ]
+   ],
+   "anchors": {
+    "throw1": "left"
+   }
+  },
+  "bonecaptain_walk": {
+   "type": "clip",
+   "src": "clips/bonecaptain_walk_sheet.png",
+   "frames": "clips/bonecaptain_walk_frames.json"
+  },
+  "bonecaptain_throw": {
+   "type": "clip",
+   "src": "clips/bonecaptain_throw_sheet.png",
+   "frames": "clips/bonecaptain_throw_frames.json"
+  },
+  "gorgon": {
+   "type": "sheet",
+   "src": "gorgon_sheet.png",
+   "height": 96,
+   "ref": "a",
+   "colors": 28,
+   "rows": [
+    [
+     "a",
+     "b",
+     "stare"
+    ]
+   ]
+  },
+  "gorgon_idle": {
+   "type": "clip",
+   "src": "clips/gorgon_idle_sheet.png",
+   "frames": "clips/gorgon_idle_frames.json"
+  },
+  "gorgon_stare": {
+   "type": "clip",
+   "src": "clips/gorgon_stare_sheet.png",
+   "frames": "clips/gorgon_stare_frames.json"
+  },
+  "greatjack": {
+   "type": "sheet",
+   "src": "greatjack_sheet.png",
+   "height": 96,
+   "ref": "flame0",
+   "colors": 24,
+   "rows": [
+    [
+     "flame0",
+     "flame1",
+     "spit"
+    ]
+   ],
+   "anchors": {
+    "spit": "left"
+   }
+  },
+  "greatjack_flame": {
+   "type": "clip",
+   "src": "clips/greatjack_flame_sheet.png",
+   "frames": "clips/greatjack_flame_frames.json"
+  },
+  "greatjack_spit": {
+   "type": "clip",
+   "src": "clips/greatjack_spit_sheet.png",
+   "frames": "clips/greatjack_spit_frames.json"
+  },
+  "automaton": {
+   "type": "sheet",
+   "src": "automaton_sheet.png",
+   "height": 110,
+   "ref": "idle",
+   "colors": 32,
+   "rows": [
+    [
+     "idle",
+     "walk",
+     "punch",
+     "overload"
+    ]
+   ],
+   "anchors": {
+    "punch": "left"
+   }
+  },
+  "automaton_idle": {
+   "type": "clip",
+   "src": "clips/automaton_idle_sheet.png",
+   "frames": "clips/automaton_idle_frames.json"
+  },
+  "automaton_walk": {
+   "type": "clip",
+   "src": "clips/automaton_walk_sheet.png",
+   "frames": "clips/automaton_walk_frames.json"
+  },
+  "automaton_punch": {
+   "type": "clip",
+   "src": "clips/automaton_punch_sheet.png",
+   "frames": "clips/automaton_punch_frames.json"
+  },
+  "automaton_overload": {
+   "type": "clip",
+   "src": "clips/automaton_overload_sheet.png",
+   "frames": "clips/automaton_overload_frames.json"
+  },
+  "arcade_props": {
+   "type": "sheet",
+   "src": "arcade_props_sheet.png",
+   "height": 112,
+   "ref": "sage_cabinet",
+   "colors": 40,
+   "rows": [
+    [
+     "sage_cabinet",
+     "zoetrope",
+     "oracle_engine",
+     "chess_automaton",
+     "magic_lantern"
+    ]
+   ]
+  },
+  "arcadewall": {
+   "type": "texture",
+   "src": "tex_arcade_wall.png",
+   "size": [
+    192,
+    192
+   ],
+   "colors": 28,
+   "seamless": "blend"
+  },
+  "map_parchment": {
+   "type": "texture",
+   "src": "bg_map_parchment.png",
+   "size": [
+    640,
+    360
+   ],
+   "colors": 40
+  },
+  "map_icons": {
+   "type": "sheet",
+   "src": "map_icons_sheet.png",
+   "height": 26,
+   "ref": "graveyard",
+   "colors": 32,
+   "rows": [
+    [
+     "graveyard",
+     "darkwood",
+     "jack",
+     "yule",
+     "ramparts",
+     "catacombs",
+     "ossuary",
+     "arcade",
+     "library",
+     "clocktower",
+     "throne",
+     "cathedral",
+     "darkcave"
+    ]
+   ]
+  },
+  "title_logo": {
+   "type": "texture",
+   "src": "title_logo.png",
+   "key": true,
+   "cropAlpha": true,
+   "size": [
+    500,
+    null
+   ],
+   "colors": 24
+  },
+  "librarywall": {
+   "type": "texture",
+   "src": "tex_library_wall.png",
+   "size": [
+    384,
+    216
+   ],
+   "colors": 32,
+   "seamless": "blend"
+  },
+  "library_props": {
+   "type": "sheet",
+   "src": "library_props_sheet.png",
+   "height": 110,
+   "ref": "bookcase",
+   "colors": 40,
+   "rows": [
+    [
+     "bookcase",
+     "lectern",
+     "globe",
+     "ladder",
+     "tomes"
+    ]
+   ]
+  },
+  "ghost": {
+   "type": "sheet",
+   "src": "ghost_sheet.png",
+   "height": 46,
+   "ref": "float0",
+   "colors": 20,
+   "rows": [
+    [
+     "float0",
+     "float1",
+     "lunge"
+    ]
+   ],
+   "anchors": {
+    "lunge": "left"
+   }
+  },
+  "ghost_float": {
+   "type": "clip",
+   "src": "clips/ghost_float_sheet.png",
+   "frames": "clips/ghost_float_frames.json"
+  },
+  "ghost_lunge": {
+   "type": "clip",
+   "src": "clips/ghost_lunge_sheet.png",
+   "frames": "clips/ghost_lunge_frames.json"
+  },
+  "tome": {
+   "type": "sheet",
+   "src": "tome_sheet.png",
+   "height": 24,
+   "ref": "shut",
+   "colors": 20,
+   "rows": [
+    [
+     "flap0",
+     "flap1",
+     "shut",
+     "chomp"
+    ]
+   ]
+  },
+  "tome_flap": {
+   "type": "clip",
+   "src": "clips/tome_flap_sheet.png",
+   "frames": "clips/tome_flap_frames.json"
+  },
+  "archivist": {
+   "type": "sheet",
+   "src": "archivist_sheet.png",
+   "height": 120,
+   "ref": "idle",
+   "colors": 28,
+   "rows": [
+    [
+     "idle",
+     "cast",
+     "summon",
+     "shield"
+    ]
+   ]
+  },
+  "archivist_idle": {
+   "type": "clip",
+   "src": "clips/archivist_idle_sheet.png",
+   "frames": "clips/archivist_idle_frames.json"
+  },
+  "archivist_cast": {
+   "type": "clip",
+   "src": "clips/archivist_cast_sheet.png",
+   "frames": "clips/archivist_cast_frames.json"
+  },
+  "archivist_summon": {
+   "type": "clip",
+   "src": "clips/archivist_summon_sheet.png",
+   "frames": "clips/archivist_summon_frames.json"
+  },
+  "archivist_shield": {
+   "type": "clip",
+   "src": "clips/archivist_shield_sheet.png",
+   "frames": "clips/archivist_shield_frames.json"
+  },
+  "chandelier": {
+   "type": "sheet",
+   "src": "chandelier_sheet.png",
+   "height": 96,
+   "ref": "a",
+   "colors": 28,
+   "rows": [
+    [
+     "a",
+     "b"
+    ]
+   ]
+  },
+  "darkwood_trees": {
+   "type": "sheet",
+   "src": "darkwood_trees_sheet.png",
+   "height": 400,
+   "ref": "trunk_a",
+   "colors": 28,
+   "rows": [
+    [
+     "trunk_a",
+     "trunk_b",
+     "trunk_c",
+     "lantern"
+    ]
+   ]
+  },
+  "ending_1": {
+   "type": "texture",
+   "src": "ending_1.png",
+   "size": [
+    1280,
+    720
+   ],
+   "prefilter": 1.45,
+   "colors": 0
+  },
+  "ending_2": {
+   "type": "texture",
+   "src": "ending_2.png",
+   "size": [
+    1280,
+    720
+   ],
+   "prefilter": 1.45,
+   "colors": 0
+  },
+  "ending_3": {
+   "type": "texture",
+   "src": "ending_3.png",
+   "size": [
+    1280,
+    720
+   ],
+   "prefilter": 1.45,
+   "colors": 0
+  },
+  "ending_4": {
+   "type": "texture",
+   "src": "ending_4.png",
+   "size": [
+    1280,
+    720
+   ],
+   "prefilter": 1.45,
+   "colors": 0
+  },
+  "ending_5": {
+   "type": "texture",
+   "src": "ending_5.png",
+   "size": [
+    1280,
+    720
+   ],
+   "prefilter": 1.45,
+   "colors": 0
+  },
+  "ending_omni": {
+   "type": "clip",
+   "src": "clips/ending_omni_sheet.png",
+   "frames": "clips/ending_omni_frames.json"
+  },
+  "boss_gates": {
+   "type": "sheet",
+   "src": "boss_gates_sheet.png",
+   "height": 116,
+   "ref": "entry_bottom",
+   "colors": 0,
+   "rows": [
+    [
+     "entry_bottom",
+     "entry_span",
+     "jamb_base",
+     "jamb_shaft",
+     "jamb_cap"
+    ]
+   ]
+  },
+  "drawbridge_deck": {
+   "type": "sheet",
+   "src": "drawbridge_deck_sheet.png",
+   "height": 30,
+   "ref": "deck_tile_a",
+   "colors": 64,
+   "rows": [
+    [
+     "deck_tile_a",
+     "deck_tile_b",
+     "rail_tile",
+     "newel_post",
+     "hinge_drum"
+    ]
+   ],
+   "fit": {
+    "deck_tile_a": [
+     24,
+     30
+    ],
+    "deck_tile_b": [
+     22,
+     30
+    ],
+    "rail_tile": [
+     24,
+     24
+    ],
+    "newel_post": [
+     8,
+     36
+    ],
+    "hinge_drum": [
+     30,
+     31
+    ]
+   }
+  },
+  "drawbridge_support": {
+   "type": "sheet",
+   "src": "drawbridge_support_sheet.png",
+   "height": 52,
+   "ref": "pier_shaft",
+   "colors": 64,
+   "rows": [
+    [
+     "pier_cap",
+     "pier_shaft",
+     "knee_brace",
+     "windlass_wheel",
+     "chain_shackle",
+     "chain_link"
+    ]
+   ],
+   "fit": {
+    "pier_cap": [
+     42,
+     36
+    ],
+    "pier_shaft": [
+     32,
+     52
+    ],
+    "knee_brace": [
+     28,
+     36
+    ],
+    "windlass_wheel": [
+     28,
+     35
+    ],
+    "chain_shackle": [
+     14,
+     16
+    ],
+    "chain_link": [
+     22,
+     7
+    ]
+   }
+  },
+  "drawbridge_gatehouse": {
+   "type": "sheet",
+   "src": "drawbridge_gatehouse_sheet.png",
+   "height": 180,
+   "ref": "gatehouse_bastion",
+   "colors": 0,
+   "rows": [
+    [
+     "watch_pier",
+     "gatehouse_bastion",
+     "portcullis_grille",
+     "royal_banner"
+    ]
+   ],
+   "fit": {
+    "watch_pier": [
+     26,
+     84
+    ],
+    "gatehouse_bastion": [
+     114,
+     180
+    ],
+    "portcullis_grille": [
+     24,
+     36
+    ],
+    "royal_banner": [
+     26,
+     44
+    ]
+   }
+  },
+  "boss_door_props": {
+   "type": "sheet",
+   "src": "boss_door_props_sheet.png",
+   "height": 96,
+   "ref": "entry_guardian",
+   "colors": 36,
+   "rows": [
+    [
+     "entry_guardian",
+     "exit_guardian",
+     "iron_brazier",
+     "ward_stele"
+    ]
+   ]
+  },
+  "cathedralwall": {
+   "type": "texture",
+   "src": "tex_cathedral_wall.png",
+   "size": [
+    384,
+    384
+   ],
+   "colors": 40,
+   "seamless": "blend"
+  },
+  "stained_glass": {
+   "type": "sheet",
+   "src": "stained_glass_sheet.png",
+   "height": 150,
+   "ref": "rose",
+   "colors": 40,
+   "rows": [
+    [
+     "rose",
+     "hunter",
+     "moon"
+    ]
+   ]
+  },
+  "cathedral_props": {
+   "type": "sheet",
+   "src": "cathedral_props_sheet.png",
+   "height": 112,
+   "ref": "angel",
+   "colors": 40,
+   "rows": [
+    [
+     "angel",
+     "pew",
+     "candles",
+     "font",
+     "pulpit"
+    ]
+   ]
+  },
+  "gargoyle": {
+   "type": "sheet",
+   "src": "gargoyle_sheet.png",
+   "height": 36,
+   "ref": "perch",
+   "colors": 20,
+   "rows": [
+    [
+     "perch",
+     "wake",
+     "fly0",
+     "fly1"
+    ]
+   ]
+  },
+  "gargoyle_fly": {
+   "type": "clip",
+   "src": "clips/gargoyle_fly_sheet.png",
+   "frames": "clips/gargoyle_fly_frames.json"
+  },
+  "gargoyle_wake": {
+   "type": "clip",
+   "src": "clips/gargoyle_wake_sheet.png",
+   "frames": "clips/gargoyle_wake_frames.json"
+  },
+  "archon": {
+   "type": "sheet",
+   "src": "archon_sheet.png",
+   "height": 120,
+   "ref": "idle",
+   "colors": 28,
+   "rows": [
+    [
+     "idle",
+     "roar",
+     "pounce",
+     "shell"
+    ]
+   ]
+  },
+  "archon_fly": {
+   "type": "clip",
+   "src": "clips/archon_fly_sheet.png",
+   "frames": "clips/archon_fly_frames.json"
+  },
+  "archon_roar": {
+   "type": "clip",
+   "src": "clips/archon_roar_sheet.png",
+   "frames": "clips/archon_roar_frames.json"
+  },
+  "archon_pounce": {
+   "type": "clip",
+   "src": "clips/archon_pounce_sheet.png",
+   "frames": "clips/archon_pounce_frames.json"
+  },
+  "archon_shell": {
+   "type": "clip",
+   "src": "clips/archon_shell_sheet.png",
+   "frames": "clips/archon_shell_frames.json"
+  },
+  "throne_props": {
+   "type": "sheet",
+   "src": "throne_props_sheet.png",
+   "height": 190,
+   "ref": "throne",
+   "colors": 40,
+   "rows": [
+    [
+     "throne",
+     "candle_pillar",
+     "great_banner"
+    ]
+   ]
+  },
+  "cavernwall": {
+   "type": "texture",
+   "src": "tex_cavern_wall.png",
+   "size": [
+    384,
+    384
+   ],
+   "colors": 32,
+   "seamless": "blend"
+  },
+  "cavernfloor": {
+   "type": "strip",
+   "src": "tex_cavern_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 4,
+   "depth_tiles": 4,
+   "colors": 32
+  },
+  "cavern_props": {
+   "type": "sheet",
+   "src": "cavern_props_sheet.png",
+   "height": 96,
+   "ref": "stalagmite",
+   "colors": 36,
+   "rows": [
+    [
+     "stalagmite",
+     "obsidian_pillar",
+     "magma_vent",
+     "brazier"
+    ]
+   ]
+  },
+  "magmaslime": {
+   "type": "sheet",
+   "src": "magmaslime_sheet.png",
+   "height": 30,
+   "ref": "crawl0",
+   "colors": 24,
+   "rows": [
+    [
+     "crawl0",
+     "crawl1",
+     "leap",
+     "land"
+    ]
+   ]
+  },
+  "magmaslime_crawl": {
+   "type": "clip",
+   "src": "clips/magmaslime_crawl_sheet.png",
+   "frames": "clips/magmaslime_crawl_frames.json"
+  },
+  "lavagolem": {
+   "type": "sheet",
+   "src": "lavagolem_sheet.png",
+   "height": 78,
+   "ref": "walk0",
+   "colors": 28,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "walk2",
+     "hurl"
+    ]
+   ]
+  },
+  "lavagolem_walk": {
+   "type": "clip",
+   "src": "clips/lavagolem_walk_sheet.png",
+   "frames": "clips/lavagolem_walk_frames.json"
+  },
+  "lavagolem_hurl": {
+   "type": "clip",
+   "src": "clips/lavagolem_hurl_sheet.png",
+   "frames": "clips/lavagolem_hurl_frames.json"
+  },
+  "cinderimp": {
+   "type": "sheet",
+   "src": "cinderimp_sheet.png",
+   "height": 38,
+   "ref": "fly0",
+   "colors": 24,
+   "rows": [
+    [
+     "fly0",
+     "fly1",
+     "spit"
+    ]
+   ]
+  },
+  "cinderimp_fly": {
+   "type": "clip",
+   "src": "clips/cinderimp_fly_sheet.png",
+   "frames": "clips/cinderimp_fly_frames.json"
+  },
+  "cinderimp_spit": {
+   "type": "clip",
+   "src": "clips/cinderimp_spit_sheet.png",
+   "frames": "clips/cinderimp_spit_frames.json"
+  },
+  "armor": {
+   "type": "sheet",
+   "src": "armor_sheet.png",
+   "height": 74,
+   "ref": "walk0",
+   "colors": 28,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "guard",
+     "slash"
+    ]
+   ],
+   "anchors": {
+    "slash": "left"
+   }
+  },
+  "armor_walk": {
+   "type": "clip",
+   "src": "clips/armor_walk_sheet.png",
+   "frames": "clips/armor_walk_frames.json"
+  },
+  "armor_slash": {
+   "type": "clip",
+   "src": "clips/armor_slash_sheet.png",
+   "frames": "clips/armor_slash_frames.json"
+  },
+  "wraith": {
+   "type": "sheet",
+   "src": "wraith_sheet.png",
+   "height": 54,
+   "ref": "float0",
+   "colors": 24,
+   "rows": [
+    [
+     "float0",
+     "float1",
+     "shriek"
+    ]
+   ]
+  },
+  "wraith_float": {
+   "type": "clip",
+   "src": "clips/wraith_float_sheet.png",
+   "frames": "clips/wraith_float_frames.json"
+  },
+  "wraith_shriek": {
+   "type": "clip",
+   "src": "clips/wraith_shriek_sheet.png",
+   "frames": "clips/wraith_shriek_frames.json"
+  },
+  "cinderqueen": {
+   "type": "sheet",
+   "src": "cinderqueen_sheet.png",
+   "height": 116,
+   "ref": "idle",
+   "colors": 32,
+   "rows": [
+    [
+     "idle",
+     "cast",
+     "surge",
+     "erupt"
+    ]
+   ]
+  },
+  "cinderqueen_idle": {
+   "type": "clip",
+   "src": "clips/cinderqueen_idle_sheet.png",
+   "frames": "clips/cinderqueen_idle_frames.json"
+  },
+  "cinderqueen_walk": {
+   "type": "clip",
+   "src": "clips/cinderqueen_walk_sheet.png",
+   "frames": "clips/cinderqueen_walk_frames.json"
+  },
+  "cinderqueen_cast": {
+   "type": "clip",
+   "src": "clips/cinderqueen_cast_sheet.png",
+   "frames": "clips/cinderqueen_cast_frames.json"
+  },
+  "cinderqueen_surge": {
+   "type": "clip",
+   "src": "clips/cinderqueen_surge_sheet.png",
+   "frames": "clips/cinderqueen_surge_frames.json"
+  },
+  "cinderqueen_erupt": {
+   "type": "clip",
+   "src": "clips/cinderqueen_erupt_sheet.png",
+   "frames": "clips/cinderqueen_erupt_frames.json"
+  },
+  "grand_doors": {
+   "type": "sheet",
+   "src": "grand_doors_sheet.png",
+   "height": 124,
+   "ref": "open",
+   "colors": 48,
+   "rows": [
+    [
+     "open",
+     "sealed",
+     "royal"
+    ]
+   ]
+  },
+  "falling_tiles": {
+   "type": "sheet",
+   "src": "falling_tiles_sheet.png",
+   "height": 40,
+   "ref": "intact",
+   "colors": 36,
+   "rows": [
+    [
+     "intact",
+     "cracked",
+     "breaking",
+     "chunk"
+    ]
+   ]
+  },
+  "shrines": {
+   "type": "sheet",
+   "src": "exploration_shrines_sheet.png",
+   "height": 76,
+   "ref": "sanctuary_idle",
+   "colors": 64,
+   "rows": [
+    [
+     "sanctuary_idle",
+     "sanctuary_lit",
+     "vessel_full",
+     "vessel_empty"
+    ]
+   ]
+  },
+  "projectiles": {
+   "type": "sheet",
+   "src": "projectiles_sheet.png",
+   "height": 24,
+   "ref": "cog",
+   "colors": 64,
+   "rows": [
+    [
+     "bone",
+     "sickle",
+     "skull",
+     "cog"
+    ],
+    [
+     "present",
+     "iceshard",
+     "page",
+     "magmaball"
+    ]
+   ]
+  },
+  "alchemyfloor": {
+   "type": "strip",
+   "src": "tex_alchemy_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "alchemyfloor_b": {
+   "type": "strip",
+   "src": "tex_alchemy_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "ballroomfloor": {
+   "type": "strip",
+   "src": "tex_ballroom_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "ballroomfloor_b": {
+   "type": "strip",
+   "src": "tex_ballroom_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "coliseumfloor": {
+   "type": "strip",
+   "src": "tex_coliseum_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "coliseumfloor_b": {
+   "type": "strip",
+   "src": "tex_coliseum_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "aqueductfloor": {
+   "type": "strip",
+   "src": "tex_aqueduct_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "aqueductfloor_b": {
+   "type": "strip",
+   "src": "tex_aqueduct_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "skykeepfloor": {
+   "type": "strip",
+   "src": "tex_skykeep_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "skykeepfloor_b": {
+   "type": "strip",
+   "src": "tex_skykeep_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "alchemywall": {
+   "type": "texture",
+   "src": "tex_alchemy_wall.png",
+   "size": [
+    768,
+    384
+   ],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "ballroomwall": {
+   "type": "texture",
+   "src": "tex_ballroom_wall.png",
+   "size": [
+    768,
+    384
+   ],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "coliseumwall": {
+   "type": "texture",
+   "src": "tex_coliseum_wall.png",
+   "size": [
+    768,
+    384
+   ],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "aqueductwall": {
+   "type": "texture",
+   "src": "tex_aqueduct_wall.png",
+   "size": [
+    768,
+    384
+   ],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "skykeep_far": {
+   "type": "texture",
+   "src": "bg_skykeep_far.png",
+   "size": [
+    1280,
+    360
+   ],
+   "colors": 96
+  },
+  "skykeep_backdrop": {
+   "type": "texture",
+   "src": "bg_skykeep_mid.png",
+   "key": true,
+   "size": [
+    960,
+    360
+   ],
+   "colors": 36,
+   "seamless": "mirror"
+  },
+  "graveyard_vista": {
+   "type": "texture",
+   "src": "bg_graveyard_vista.png",
+   "key": true,
+   "size": [
+    960,
+    360
+   ],
+   "colors": 32,
+   "seamless": "mirror"
+  },
+  "mural_alchemy": {
+   "type": "texture",
+   "src": "mural_alchemy.png",
+   "size": [
+    512,
+    288
+   ],
+   "colors": 48
+  },
+  "mural_ballroom": {
+   "type": "texture",
+   "src": "mural_ballroom.png",
+   "size": [
+    512,
+    288
+   ],
+   "colors": 48
+  },
+  "mural_coliseum": {
+   "type": "texture",
+   "src": "mural_coliseum.png",
+   "size": [
+    512,
+    288
+   ],
+   "colors": 48
+  },
+  "mural_aqueduct": {
+   "type": "texture",
+   "src": "mural_aqueduct.png",
+   "size": [
+    512,
+    288
+   ],
+   "colors": 48
+  },
+  "mural_throne": {
+   "type": "texture",
+   "src": "mural_throne.png",
+   "size": [
+    512,
+    288
+   ],
+   "colors": 48
+  },
+  "mural_catacombs": {
+   "type": "texture",
+   "src": "mural_catacombs.png",
+   "size": [
+    512,
+    288
+   ],
+   "colors": 48
+  },
+  "wing_icons": {
+   "type": "sheet",
+   "src": "wing_icons_sheet.png",
+   "height": 26,
+   "ref": "alchemy",
+   "colors": 36,
+   "rows": [
+    [
+     "alchemy",
+     "ballroom",
+     "coliseum",
+     "aqueduct",
+     "skykeep"
+    ]
+   ]
+  },
+  "alchemy_props": {
+   "type": "sheet",
+   "src": "alchemy_props_sheet.png",
+   "height": 84,
+   "ref": "retort_stand",
+   "colors": 40,
+   "rows": [
+    [
+     "retort_stand",
+     "tesla_coil",
+     "elixir_rack",
+     "athanor"
+    ]
+   ]
+  },
+  "ballroom_props": {
+   "type": "sheet",
+   "src": "ballroom_props_sheet.png",
+   "height": 90,
+   "ref": "gilded_mirror",
+   "colors": 40,
+   "rows": [
+    [
+     "gilded_mirror",
+     "candelabra",
+     "velvet_drape",
+     "marble_bust"
+    ]
+   ]
+  },
+  "coliseum_props": {
+   "type": "sheet",
+   "src": "coliseum_props_sheet.png",
+   "height": 86,
+   "ref": "weapon_rack",
+   "colors": 40,
+   "rows": [
+    [
+     "weapon_rack",
+     "trophy_pillar",
+     "iron_brazier",
+     "war_standard"
+    ]
+   ]
+  },
+  "aqueduct_props": {
+   "type": "sheet",
+   "src": "aqueduct_props_sheet.png",
+   "height": 84,
+   "ref": "water_spout",
+   "colors": 40,
+   "rows": [
+    [
+     "water_spout",
+     "sluice_wheel",
+     "moss_amphora",
+     "canal_lantern"
+    ]
+   ]
+  },
+  "skykeep_props": {
+   "type": "sheet",
+   "src": "skykeep_props_sheet.png",
+   "height": 88,
+   "ref": "moon_astrolabe",
+   "colors": 40,
+   "rows": [
+    [
+     "moon_astrolabe",
+     "ivy_column",
+     "fountain_basin",
+     "star_lantern"
+    ]
+   ]
+  },
+  "hanging_props": {
+   "type": "sheet",
+   "src": "hanging_props_sheet.png",
+   "height": 64,
+   "ref": "pendulum_bob",
+   "colors": 36,
+   "rows": [
+    [
+     "pendulum_bob",
+     "gibbet_cage",
+     "hoist_wheel"
+    ]
+   ]
+  },
+  "alchemist": {
+   "type": "sheet",
+   "src": "alchemist_sheet.png",
+   "height": 116,
+   "ref": "idle",
+   "colors": 36,
+   "rows": [
+    [
+     "idle",
+     "cast",
+     "summon",
+     "shield"
+    ]
+   ]
+  },
+  "masquerade": {
+   "type": "sheet",
+   "src": "masquerade_sheet.png",
+   "height": 108,
+   "ref": "idle",
+   "colors": 36,
+   "rows": [
+    [
+     "idle",
+     "cape",
+     "cast",
+     "lunge"
+    ]
+   ],
+   "anchors": {
+    "lunge": "left"
+   }
+  },
+  "gladiator": {
+   "type": "sheet",
+   "src": "gladiator_sheet.png",
+   "height": 112,
+   "ref": "walk0",
+   "colors": 36,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "throw0",
+     "throw1"
+    ]
+   ],
+   "anchors": {
+    "throw1": "left"
+   }
+  },
+  "oracle": {
+   "type": "sheet",
+   "src": "oracle_sheet.png",
+   "height": 104,
+   "ref": "a",
+   "colors": 36,
+   "rows": [
+    [
+     "a",
+     "b",
+     "stare"
+    ]
+   ]
+  },
+  "seraph": {
+   "type": "sheet",
+   "src": "seraph_sheet.png",
+   "height": 120,
+   "ref": "idle",
+   "colors": 36,
+   "rows": [
+    [
+     "idle",
+     "roar",
+     "pounce",
+     "shell"
+    ]
+   ]
+  },
+  "stone_trim": {
+   "type": "texture",
+   "src": "tex_stone_trim.png",
+   "size": [
+    256,
+    192
+   ],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "crypt_stone": {
+   "type": "texture",
+   "src": "tex_crypt_stone.png",
+   "size": [
+    256,
+    256
+   ],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "marble_stone": {
+   "type": "texture",
+   "src": "tex_marble_stone.png",
+   "size": [
+    256,
+    192
+   ],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "travertine_stone": {
+   "type": "texture",
+   "src": "tex_travertine_stone.png",
+   "size": [
+    256,
+    256
+   ],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "aqueduct_stone": {
+   "type": "texture",
+   "src": "tex_aqueduct_stone.png",
+   "size": [
+    256,
+    256
+   ],
+   "colors": 64,
+   "seamless": "blend_hv"
+  },
+  "pillar_fluted": {
+   "type": "texture",
+   "src": "tex_pillar_fluted.png",
+   "size": [
+    96,
+    256
+   ],
+   "colors": 64,
+   "seamless": "blend_v"
+  },
+  "hero_sword": {
+   "type": "sheet",
+   "src": "hero_sword_sheet.png",
+   "height": 64,
+   "ref": "thrust0",
+   "colors": 36,
+   "rows": [
+    [
+     "slash0",
+     "slash1",
+     "slash2",
+     "thrust0",
+     "thrust1"
+    ],
+    [
+     "heavy0",
+     "heavy1",
+     "alt0",
+     "alt1",
+     "airslash"
+    ]
+   ],
+   "anchors": {
+    "slash1": "left",
+    "slash2": "left",
+    "thrust1": "left",
+    "heavy1": "left",
+    "alt1": "left",
+    "airslash": "left"
+   }
+  },
+  "hero_csword": {
+   "type": "sheet",
+   "src": "hero_csword_sheet.png",
+   "height": 64,
+   "ref": "idle_nowhip",
+   "colors": 36,
+   "rows": [
+    [
+     "stride_nowhip",
+     "cslash0",
+     "cslash1",
+     "cslash2"
+    ],
+    [
+     "idle_nowhip",
+     "crouch_nowhip",
+     "wind_nowhip",
+     "strike_nowhip"
+    ]
+   ],
+   "anchors": {
+    "cslash1": "left",
+    "cslash2": "left",
+    "strike_nowhip": "left"
+   }
+  },
+  "alchfiend": {
+   "type": "sheet",
+   "src": "alchfiend_sheet.png",
+   "height": 58,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "windup",
+     "lob"
+    ]
+   ]
+  },
+  "alchfiend_walk": {
+   "type": "clip",
+   "src": "clips/alchfiend_walk_sheet.png",
+   "frames": "clips/alchfiend_walk_frames.json"
+  },
+  "alchfiend_lob": {
+   "type": "clip",
+   "src": "clips/alchfiend_lob_sheet.png",
+   "frames": "clips/alchfiend_lob_frames.json"
+  },
+  "duelist": {
+   "type": "sheet",
+   "src": "duelist_sheet.png",
+   "height": 64,
+   "ref": "step0",
+   "colors": 32,
+   "rows": [
+    [
+     "step0",
+     "step1",
+     "parry",
+     "lunge"
+    ]
+   ],
+   "anchors": {
+    "lunge": "left"
+   }
+  },
+  "duelist_step": {
+   "type": "clip",
+   "src": "clips/duelist_step_sheet.png",
+   "frames": "clips/duelist_step_frames.json"
+  },
+  "duelist_lunge": {
+   "type": "clip",
+   "src": "clips/duelist_lunge_sheet.png",
+   "frames": "clips/duelist_lunge_frames.json"
+  },
+  "executioner": {
+   "type": "sheet",
+   "src": "executioner_sheet.png",
+   "height": 78,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "heave",
+     "cleave"
+    ]
+   ],
+   "anchors": {
+    "cleave": "left"
+   }
+  },
+  "executioner_walk": {
+   "type": "clip",
+   "src": "clips/executioner_walk_sheet.png",
+   "frames": "clips/executioner_walk_frames.json"
+  },
+  "executioner_cleave": {
+   "type": "clip",
+   "src": "clips/executioner_cleave_sheet.png",
+   "frames": "clips/executioner_cleave_frames.json"
+  },
+  "merman": {
+   "type": "sheet",
+   "src": "merman_sheet.png",
+   "height": 58,
+   "ref": "stalk0",
+   "colors": 32,
+   "rows": [
+    [
+     "stalk0",
+     "stalk1",
+     "leap",
+     "spit"
+    ]
+   ]
+  },
+  "merman_stalk": {
+   "type": "clip",
+   "src": "clips/merman_stalk_sheet.png",
+   "frames": "clips/merman_stalk_frames.json"
+  },
+  "merman_spit": {
+   "type": "clip",
+   "src": "clips/merman_spit_sheet.png",
+   "frames": "clips/merman_spit_frames.json"
+  },
+  "valkyrie": {
+   "type": "sheet",
+   "src": "valkyrie_sheet.png",
+   "height": 62,
+   "ref": "hover0",
+   "colors": 32,
+   "rows": [
+    [
+     "hover0",
+     "hover1",
+     "aim",
+     "dive"
+    ]
+   ]
+  },
+  "valkyrie_hover": {
+   "type": "clip",
+   "src": "clips/valkyrie_hover_sheet.png",
+   "frames": "clips/valkyrie_hover_frames.json"
+  },
+  "valkyrie_aim": {
+   "type": "clip",
+   "src": "clips/valkyrie_aim_sheet.png",
+   "frames": "clips/valkyrie_aim_frames.json"
+  },
+  "necromancer": {
+   "type": "sheet",
+   "src": "necromancer_sheet.png",
+   "height": 66,
+   "ref": "float0",
+   "colors": 32,
+   "rows": [
+    [
+     "float0",
+     "float1",
+     "chant",
+     "cast"
+    ]
+   ]
+  },
+  "necromancer_float": {
+   "type": "clip",
+   "src": "clips/necromancer_float_sheet.png",
+   "frames": "clips/necromancer_float_frames.json"
+  },
+  "necromancer_cast": {
+   "type": "clip",
+   "src": "clips/necromancer_cast_sheet.png",
+   "frames": "clips/necromancer_cast_frames.json"
+  },
+  "weapons": {
+   "type": "clip",
+   "src": "weapons_packed.png",
+   "frames": "weapons_frames.json",
+   "out": "weapons.png"
+  },
+  "hero_dash": {
+   "type": "clip",
+   "src": "clips/hero_dash_sheet.png",
+   "frames": "clips/hero_dash_frames.json"
+  },
+  "hero_run": {
+   "type": "clip",
+   "src": "clips/hero_run_sheet.png",
+   "frames": "clips/hero_run_frames.json"
+  },
+  "gravekeeper": {
+   "type": "sheet",
+   "src": "gravekeeper_sheet.png",
+   "height": 66,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "gravekeeper_walk": {
+   "type": "clip",
+   "src": "clips/gravekeeper_walk_sheet.png",
+   "frames": "clips/gravekeeper_walk_frames.json"
+  },
+  "gravekeeper_attack": {
+   "type": "clip",
+   "src": "clips/gravekeeper_attack_sheet.png",
+   "frames": "clips/gravekeeper_attack_frames.json"
+  },
+  "spriggan": {
+   "type": "sheet",
+   "src": "spriggan_sheet.png",
+   "height": 62,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ]
+  },
+  "spriggan_walk": {
+   "type": "clip",
+   "src": "clips/spriggan_walk_sheet.png",
+   "frames": "clips/spriggan_walk_frames.json"
+  },
+  "spriggan_attack": {
+   "type": "clip",
+   "src": "clips/spriggan_attack_sheet.png",
+   "frames": "clips/spriggan_attack_frames.json"
+  },
+  "scarecrow": {
+   "type": "sheet",
+   "src": "scarecrow_sheet.png",
+   "height": 74,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "scarecrow_walk": {
+   "type": "clip",
+   "src": "clips/scarecrow_walk_sheet.png",
+   "frames": "clips/scarecrow_walk_frames.json"
+  },
+  "scarecrow_attack": {
+   "type": "clip",
+   "src": "clips/scarecrow_attack_sheet.png",
+   "frames": "clips/scarecrow_attack_frames.json"
+  },
+  "arbalest": {
+   "type": "sheet",
+   "src": "arbalest_sheet.png",
+   "height": 64,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ]
+  },
+  "arbalest_walk": {
+   "type": "clip",
+   "src": "clips/arbalest_walk_sheet.png",
+   "frames": "clips/arbalest_walk_frames.json"
+  },
+  "arbalest_attack": {
+   "type": "clip",
+   "src": "clips/arbalest_attack_sheet.png",
+   "frames": "clips/arbalest_attack_frames.json"
+  },
+  "pyromancer": {
+   "type": "sheet",
+   "src": "pyromancer_sheet.png",
+   "height": 66,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "pyromancer_walk": {
+   "type": "clip",
+   "src": "clips/pyromancer_walk_sheet.png",
+   "frames": "clips/pyromancer_walk_frames.json"
+  },
+  "pyromancer_attack": {
+   "type": "clip",
+   "src": "clips/pyromancer_attack_sheet.png",
+   "frames": "clips/pyromancer_attack_frames.json"
+  },
+  "clockknight": {
+   "type": "sheet",
+   "src": "clockknight_sheet.png",
+   "height": 68,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "clockknight_walk": {
+   "type": "clip",
+   "src": "clips/clockknight_walk_sheet.png",
+   "frames": "clips/clockknight_walk_frames.json"
+  },
+  "clockknight_attack": {
+   "type": "clip",
+   "src": "clips/clockknight_attack_sheet.png",
+   "frames": "clips/clockknight_attack_frames.json"
+  },
+  "gearharpy": {
+   "type": "sheet",
+   "src": "gearharpy_sheet.png",
+   "height": 44,
+   "ref": "fly0",
+   "colors": 32,
+   "rows": [
+    [
+     "fly0",
+     "fly1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ]
+  },
+  "gearharpy_fly": {
+   "type": "clip",
+   "src": "clips/gearharpy_fly_sheet.png",
+   "frames": "clips/gearharpy_fly_frames.json"
+  },
+  "gearharpy_attack": {
+   "type": "clip",
+   "src": "clips/gearharpy_attack_sheet.png",
+   "frames": "clips/gearharpy_attack_frames.json"
+  },
+  "inkscholar": {
+   "type": "sheet",
+   "src": "inkscholar_sheet.png",
+   "height": 66,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ]
+  },
+  "inkscholar_walk": {
+   "type": "clip",
+   "src": "clips/inkscholar_walk_sheet.png",
+   "frames": "clips/inkscholar_walk_frames.json"
+  },
+  "inkscholar_attack": {
+   "type": "clip",
+   "src": "clips/inkscholar_attack_sheet.png",
+   "frames": "clips/inkscholar_attack_frames.json"
+  },
+  "censerprelate": {
+   "type": "sheet",
+   "src": "censerprelate_sheet.png",
+   "height": 74,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "censerprelate_walk": {
+   "type": "clip",
+   "src": "clips/censerprelate_walk_sheet.png",
+   "frames": "clips/censerprelate_walk_frames.json"
+  },
+  "censerprelate_attack": {
+   "type": "clip",
+   "src": "clips/censerprelate_attack_sheet.png",
+   "frames": "clips/censerprelate_attack_frames.json"
+  },
+  "bloodknight": {
+   "type": "sheet",
+   "src": "bloodknight_sheet.png",
+   "height": 82,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "bloodknight_walk": {
+   "type": "clip",
+   "src": "clips/bloodknight_walk_sheet.png",
+   "frames": "clips/bloodknight_walk_frames.json"
+  },
+  "bloodknight_attack": {
+   "type": "clip",
+   "src": "clips/bloodknight_attack_sheet.png",
+   "frames": "clips/bloodknight_attack_frames.json"
+  },
+  "waltzdancer": {
+   "type": "sheet",
+   "src": "waltzdancer_sheet.png",
+   "height": 64,
+   "ref": "float0",
+   "colors": 32,
+   "rows": [
+    [
+     "float0",
+     "float1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "waltzdancer_float": {
+   "type": "clip",
+   "src": "clips/waltzdancer_float_sheet.png",
+   "frames": "clips/waltzdancer_float_frames.json"
+  },
+  "waltzdancer_attack": {
+   "type": "clip",
+   "src": "clips/waltzdancer_attack_sheet.png",
+   "frames": "clips/waltzdancer_attack_frames.json"
+  },
+  "retiarius": {
+   "type": "sheet",
+   "src": "retiarius_sheet.png",
+   "height": 66,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "retiarius_walk": {
+   "type": "clip",
+   "src": "clips/retiarius_walk_sheet.png",
+   "frames": "clips/retiarius_walk_frames.json"
+  },
+  "retiarius_attack": {
+   "type": "clip",
+   "src": "clips/retiarius_attack_sheet.png",
+   "frames": "clips/retiarius_attack_frames.json"
+  },
+  "siren": {
+   "type": "sheet",
+   "src": "siren_sheet.png",
+   "height": 60,
+   "ref": "fly0",
+   "colors": 32,
+   "rows": [
+    [
+     "fly0",
+     "fly1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ]
+  },
+  "siren_fly": {
+   "type": "clip",
+   "src": "clips/siren_fly_sheet.png",
+   "frames": "clips/siren_fly_frames.json"
+  },
+  "siren_attack": {
+   "type": "clip",
+   "src": "clips/siren_attack_sheet.png",
+   "frames": "clips/siren_attack_frames.json"
+  },
+  "astralarcher": {
+   "type": "sheet",
+   "src": "astralarcher_sheet.png",
+   "height": 68,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ]
+  },
+  "astralarcher_walk": {
+   "type": "clip",
+   "src": "clips/astralarcher_walk_sheet.png",
+   "frames": "clips/astralarcher_walk_frames.json"
+  },
+  "astralarcher_attack": {
+   "type": "clip",
+   "src": "clips/astralarcher_attack_sheet.png",
+   "frames": "clips/astralarcher_attack_frames.json"
+  },
+  "mosstroll": {
+   "type": "sheet",
+   "src": "mosstroll_sheet.png",
+   "height": 110,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "mosstroll_walk": {
+   "type": "clip",
+   "src": "clips/mosstroll_walk_sheet.png",
+   "frames": "clips/mosstroll_walk_frames.json"
+  },
+  "mosstroll_attack": {
+   "type": "clip",
+   "src": "clips/mosstroll_attack_sheet.png",
+   "frames": "clips/mosstroll_attack_frames.json"
+  },
+  "wickerman": {
+   "type": "sheet",
+   "src": "wickerman_sheet.png",
+   "height": 112,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "wickerman_walk": {
+   "type": "clip",
+   "src": "clips/wickerman_walk_sheet.png",
+   "frames": "clips/wickerman_walk_frames.json"
+  },
+  "wickerman_attack": {
+   "type": "clip",
+   "src": "clips/wickerman_attack_sheet.png",
+   "frames": "clips/wickerman_attack_frames.json"
+  },
+  "wendigo": {
+   "type": "sheet",
+   "src": "wendigo_sheet.png",
+   "height": 110,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "wendigo_walk": {
+   "type": "clip",
+   "src": "clips/wendigo_walk_sheet.png",
+   "frames": "clips/wendigo_walk_frames.json"
+  },
+  "wendigo_attack": {
+   "type": "clip",
+   "src": "clips/wendigo_attack_sheet.png",
+   "frames": "clips/wendigo_attack_frames.json"
+  },
+  "bonegoliath": {
+   "type": "sheet",
+   "src": "bonegoliath_sheet.png",
+   "height": 114,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "bonegoliath_walk": {
+   "type": "clip",
+   "src": "clips/bonegoliath_walk_sheet.png",
+   "frames": "clips/bonegoliath_walk_frames.json"
+  },
+  "bonegoliath_attack": {
+   "type": "clip",
+   "src": "clips/bonegoliath_attack_sheet.png",
+   "frames": "clips/bonegoliath_attack_frames.json"
+  },
+  "brasstitan": {
+   "type": "sheet",
+   "src": "brasstitan_sheet.png",
+   "height": 114,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "brasstitan_walk": {
+   "type": "clip",
+   "src": "clips/brasstitan_walk_sheet.png",
+   "frames": "clips/brasstitan_walk_frames.json"
+  },
+  "brasstitan_attack": {
+   "type": "clip",
+   "src": "clips/brasstitan_attack_sheet.png",
+   "frames": "clips/brasstitan_attack_frames.json"
+  },
+  "vathulk": {
+   "type": "sheet",
+   "src": "vathulk_sheet.png",
+   "height": 108,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "vathulk_walk": {
+   "type": "clip",
+   "src": "clips/vathulk_walk_sheet.png",
+   "frames": "clips/vathulk_walk_frames.json"
+  },
+  "vathulk_attack": {
+   "type": "clip",
+   "src": "clips/vathulk_attack_sheet.png",
+   "frames": "clips/vathulk_attack_frames.json"
+  },
+  "minotaur": {
+   "type": "sheet",
+   "src": "minotaur_sheet.png",
+   "height": 114,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "minotaur_walk": {
+   "type": "clip",
+   "src": "clips/minotaur_walk_sheet.png",
+   "frames": "clips/minotaur_walk_frames.json"
+  },
+  "minotaur_attack": {
+   "type": "clip",
+   "src": "clips/minotaur_attack_sheet.png",
+   "frames": "clips/minotaur_attack_frames.json"
+  },
+  "cisterncrab": {
+   "type": "sheet",
+   "src": "cisterncrab_sheet.png",
+   "height": 102,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "cisterncrab_walk": {
+   "type": "clip",
+   "src": "clips/cisterncrab_walk_sheet.png",
+   "frames": "clips/cisterncrab_walk_frames.json"
+  },
+  "cisterncrab_attack": {
+   "type": "clip",
+   "src": "clips/cisterncrab_attack_sheet.png",
+   "frames": "clips/cisterncrab_attack_frames.json"
+  },
+  "marblecolossus": {
+   "type": "sheet",
+   "src": "marblecolossus_sheet.png",
+   "height": 116,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "marblecolossus_walk": {
+   "type": "clip",
+   "src": "clips/marblecolossus_walk_sheet.png",
+   "frames": "clips/marblecolossus_walk_frames.json"
+  },
+  "marblecolossus_attack": {
+   "type": "clip",
+   "src": "clips/marblecolossus_attack_sheet.png",
+   "frames": "clips/marblecolossus_attack_frames.json"
   }
+ }
 }

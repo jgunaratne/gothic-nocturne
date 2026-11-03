@@ -262,7 +262,9 @@ export class Level {
         const t = this.tiles[y * this.cols + x];
         if (isMaterialTile(t)) {
           if (t === prev) run++;
-          else run = y === 0 ? 2 : 0; // ceiling blocks starting at row 0 use interior fill, not floor overhang
+          else if (y === 0) run = 2; // ceiling blocks starting at row 0 use interior fill, not floor overhang
+          else if (prev === T_LAVA || prev === T_WATER || prev === T_BLOCK || (prev === T_SPIKES && t === T_SNOW)) run = 1;
+          else run = 0;
         } else run = 0;
         this.depth[y * this.cols + x] = Math.min(run, 3);
         prev = t;
@@ -955,11 +957,60 @@ export class Level {
           const sx = (tx * TILE) % info.w;
           if (d === 0) {
             ctx.drawImage(img, sx, 0, TILE, info.overhang + TILE, x, y - info.overhang, TILE, info.overhang + TILE);
+            if (t === T_SNOW) {
+              const hv = hash2(tx, ty);
+              if (!this.isSolid(tx - 1, ty)) {
+                const ic = 5 + (hv % 6);
+                ctx.fillStyle = '#637ea8';
+                ctx.fillRect(x - 2, y + 2, 3, 6);
+                ctx.fillStyle = '#c8dff8';
+                ctx.fillRect(x - 2, y - 1, 4, 4);
+                ctx.fillStyle = '#f2f8ff';
+                ctx.fillRect(x - 1, y - 2, 3, 2);
+                ctx.fillStyle = '#8fb4e0';
+                ctx.fillRect(x - 2, y + 7, 2, ic);
+                ctx.fillStyle = '#e6f3ff';
+                ctx.fillRect(x - 2, y + 6, 1, Math.max(2, ic - 2));
+              }
+              if (!this.isSolid(tx + 1, ty)) {
+                const ic = 5 + ((hv >> 3) % 6);
+                ctx.fillStyle = '#5c76a0';
+                ctx.fillRect(x + TILE - 1, y + 2, 3, 6);
+                ctx.fillStyle = '#c8dff8';
+                ctx.fillRect(x + TILE - 2, y - 1, 4, 4);
+                ctx.fillStyle = '#f2f8ff';
+                ctx.fillRect(x + TILE - 2, y - 2, 3, 2);
+                ctx.fillStyle = '#8fb4e0';
+                ctx.fillRect(x + TILE, y + 7, 2, ic);
+                ctx.fillStyle = '#e6f3ff';
+                ctx.fillRect(x + TILE, y + 6, 1, Math.max(2, ic - 2));
+              }
+            }
           } else {
             ctx.drawImage(img, sx, info.overhang + TILE * d, TILE, TILE, x, y, TILE, TILE);
             const j = hash2(tx, ty) % 100;
-            const jmax = t === T_SNOW ? 0.025 : 0.07;
+            const jmax = t === T_SNOW ? 0.04 : 0.07;
             if (j < 55) { ctx.fillStyle = `rgba(4, 3, 10, ${(0.3 + (j % 7) / 7 * 0.7) * jmax})`; ctx.fillRect(x, y, TILE, TILE); }
+          }
+          if (t === T_SNOW && d <= 2 && ty + 1 < this.rows && !this.isSolid(tx, ty + 1)) {
+            const hv = hash2(tx * 7 + 3, ty * 13 + 5);
+            // Uneven alpine slate underside teeth + hanging crystalline icicles
+            for (let k = 0; k < 4; k++) {
+              const ox = 2 + k * 8 + ((hv >> (k * 2)) & 1);
+              const rw = 5 + ((hv >> (k + 3)) & 2);
+              const rh = 1 + ((hv >> (k + 6)) & 2);
+              ctx.fillStyle = (k & 1) ? '#1a253a' : '#263652';
+              ctx.fillRect(x + ox, y + TILE - 1, rw, rh);
+              const ilen = 4 + ((hv >> (k * 3 + 1)) % 9);
+              const ix = x + ox + 1;
+              ctx.fillStyle = '#5d7ca8';
+              ctx.fillRect(ix, y + TILE, 3, Math.ceil(ilen * 0.55));
+              ctx.fillStyle = '#9ec3ec';
+              ctx.fillRect(ix, y + TILE + 1, 2, ilen - 1);
+              ctx.fillStyle = '#eaf5ff';
+              ctx.fillRect(ix, y + TILE + 1, 1, Math.max(2, ilen - 3));
+              ctx.fillRect(ix + 1, y + TILE + ilen - 1, 1, 2);
+            }
           }
         } else if (t === T_BLOCK) {
           assets.draw(ctx, 'props', 'block', x + 16, y + 32);
@@ -1004,6 +1055,8 @@ export class Level {
           }
           ctx.restore();
         }
+        if (!this.isSolid(lr.x0 - 1, lr.y)) this.drawLiquidRetainingCurb(ctx, sx - 8, sy - 6, ph + 6, true, true);
+        if (!this.isSolid(lr.x1 + 1, lr.y)) this.drawLiquidRetainingCurb(ctx, sx + pw - 2, sy - 6, ph + 6, false, true);
       }
     }
 
@@ -1392,6 +1445,33 @@ export class Level {
     if (this.movers.length) this.drawMovers3D(ctx, camX, camY, pImg, plat, platTex, time, stage3d);
   }
 
+  /** Carved stone retaining curb / coping rim for shallow reflecting basins & liquid channels. */
+  drawLiquidRetainingCurb(ctx, x, yTop, h, isLeft, volcanic = false) {
+    const rx = Math.round(x), ry = Math.round(yTop), rh = Math.max(8, Math.round(h));
+    const w = 10;
+    const base = volcanic ? '#2b2024' : '#3d4760';
+    const mid = volcanic ? '#433136' : '#586686';
+    const hi = volcanic ? '#6e5256' : '#8fa1c4';
+    const mort = volcanic ? '#120a0d' : '#161b2a';
+    // 3D receding top bevel behind coping stone
+    ctx.fillStyle = volcanic ? '#38282c' : '#4a5672';
+    ctx.fillRect(rx + (isLeft ? 1 : -1), ry - 2, w, 3);
+    // Coping cap & ashlar block body
+    ctx.fillStyle = mort;
+    ctx.fillRect(rx - 1, ry, w + 2, rh);
+    ctx.fillStyle = base;
+    ctx.fillRect(rx, ry + 1, w, rh - 2);
+    ctx.fillStyle = mid;
+    ctx.fillRect(rx + 1, ry + 1, w - 2, Math.max(3, rh - 4));
+    ctx.fillStyle = hi;
+    ctx.fillRect(rx + 1, ry, w - 2, 2);
+    ctx.fillRect(isLeft ? rx + w - 2 : rx + 1, ry + 1, 1, rh - 3);
+    if (rh >= 14) {
+      ctx.fillStyle = mort;
+      ctx.fillRect(rx, ry + Math.floor(rh * 0.5), w, 1);
+    }
+  }
+
   /**
    * Real-time reflective & refractive WebGL water pass for play-plane canals and
    * reflecting basins. Runs AFTER 3D halls, tiles, candles, bosses, and the hunter
@@ -1406,17 +1486,39 @@ export class Level {
       const wx = wr.x0 * TILE, wy = wr.y * TILE + 6;
       const pw = (wr.x1 - wr.x0 + 1) * TILE, ph = wr.hTiles * TILE - 6;
       const sx = Math.round(wx - camX), sy = Math.round(wy - camY);
-      if (sx + pw < -8 || sx > W + 8 || sy + ph < -8 || sy > H + 8) continue;
-      rects.push({ x: sx, y: sy, w: pw, h: Math.max(8, ph), alpha: null, deep: ph >= 36 });
+      if (sx + pw < -12 || sx > W + 12 || sy + ph < -8 || sy > H + 8) continue;
+      rects.push({
+        x: sx, y: sy, w: pw, h: Math.max(8, ph), alpha: null, deep: ph >= 36,
+        basin: false,
+        leftCurb: !this.isSolid(wr.x0 - 1, wr.y),
+        rightCurb: !this.isSolid(wr.x1 + 1, wr.y),
+      });
     }
     for (let i = 0; i < this.waterBasins.length; i++) {
       const b = this.waterBasins[i];
       const sx = Math.round(b.x - camX), sy = Math.round(b.y - camY);
       const pw = Math.round(b.w), ph = Math.max(8, Math.round(b.h));
-      if (sx + pw < -8 || sx > W + 8 || sy + ph < -8 || sy > H + 8) continue;
-      rects.push({ x: sx, y: sy, w: pw, h: ph, alpha: b.alpha || null, deep: ph >= 28 });
+      if (sx + pw < -14 || sx > W + 14 || sy + ph < -8 || sy > H + 8) continue;
+      rects.push({
+        x: sx, y: sy, w: pw, h: ph, alpha: b.alpha || null, deep: ph >= 28,
+        basin: !!b.curbs,
+        leftCurb: b.curbs !== false,
+        rightCurb: b.curbs !== false,
+      });
     }
     if (!rects.length) return;
+
+    // Carve dark recessed stone basin beds BEFORE uploading scene for water refraction
+    for (let i = 0; i < rects.length; i++) {
+      const r = rects[i];
+      if (!r.basin) continue;
+      ctx.fillStyle = '#0a101c';
+      ctx.fillRect(r.x - 1, r.y + 1, r.w + 2, r.h);
+      ctx.fillStyle = '#182236';
+      for (let bx = r.x + 2; bx < r.x + r.w - 4; bx += 16) {
+        ctx.fillRect(bx, r.y + r.h - 3, 13, 2);
+      }
+    }
 
     const pal = themeKey === 'darkwood'
       ? { tint: [0.10, 0.56, 0.48], deep: [0.02, 0.12, 0.11], foam: [0.72, 0.98, 0.88], alpha: 0.82, glow: 'emerald' }
@@ -1446,25 +1548,39 @@ export class Level {
           ctx.restore();
         }
       }
-      return;
+    } else {
+      // Clean 2D fallback when WebGL is unavailable
+      ctx.save();
+      for (let i = 0; i < rects.length; i++) {
+        const r = rects[i];
+        const g = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
+        g.addColorStop(0, `rgba(${Math.round(pal.tint[0] * 255)}, ${Math.round(pal.tint[1] * 255)}, ${Math.round(pal.tint[2] * 255)}, 0.58)`);
+        g.addColorStop(1, `rgba(${Math.round(pal.deep[0] * 255)}, ${Math.round(pal.deep[1] * 255)}, ${Math.round(pal.deep[2] * 255)}, 0.84)`);
+        ctx.fillStyle = g;
+        ctx.fillRect(r.x, r.y, r.w, r.h);
+        ctx.fillStyle = `rgba(${Math.round(pal.foam[0] * 255)}, ${Math.round(pal.foam[1] * 255)}, ${Math.round(pal.foam[2] * 255)}, 0.65)`;
+        for (let bx = 0; bx < r.w; bx += 14) {
+          const wv = Math.round(Math.sin(time * 3.6 + (r.x + camX + bx) * 0.07) * 1.5);
+          ctx.fillRect(r.x + bx, r.y + Math.max(0, wv), 10, 2);
+        }
+      }
+      ctx.restore();
     }
 
-    // Clean 2D fallback when WebGL is unavailable
-    ctx.save();
+    // Carved stone basin coping rims & retaining curbs framing every reflecting pool
     for (let i = 0; i < rects.length; i++) {
       const r = rects[i];
-      const g = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
-      g.addColorStop(0, `rgba(${Math.round(pal.tint[0] * 255)}, ${Math.round(pal.tint[1] * 255)}, ${Math.round(pal.tint[2] * 255)}, 0.58)`);
-      g.addColorStop(1, `rgba(${Math.round(pal.deep[0] * 255)}, ${Math.round(pal.deep[1] * 255)}, ${Math.round(pal.deep[2] * 255)}, 0.84)`);
-      ctx.fillStyle = g;
-      ctx.fillRect(r.x, r.y, r.w, r.h);
-      ctx.fillStyle = `rgba(${Math.round(pal.foam[0] * 255)}, ${Math.round(pal.foam[1] * 255)}, ${Math.round(pal.foam[2] * 255)}, 0.65)`;
-      for (let bx = 0; bx < r.w; bx += 14) {
-        const wv = Math.round(Math.sin(time * 3.6 + (r.x + camX + bx) * 0.07) * 1.5);
-        ctx.fillRect(r.x + bx, r.y + Math.max(0, wv), 10, 2);
+      if (r.basin) {
+        ctx.fillStyle = '#151a28';
+        ctx.fillRect(r.x, r.y + r.h - 1, r.w, 2);
+        ctx.fillStyle = 'rgba(145, 165, 204, 0.35)';
+        ctx.fillRect(r.x, r.y + r.h + 1, r.w, 1);
       }
+      const curbTop = r.y - 3;
+      const curbH = r.basin ? r.h + 4 : r.h + 5;
+      if (r.leftCurb) this.drawLiquidRetainingCurb(ctx, r.x - 8, curbTop, curbH, true, false);
+      if (r.rightCurb) this.drawLiquidRetainingCurb(ctx, r.x + r.w - 2, curbTop, curbH, false, false);
     }
-    ctx.restore();
   }
 
   /** Extruded & texture-mapped 3D viaduct arches, soffits & bridge piers beneath open spans. */

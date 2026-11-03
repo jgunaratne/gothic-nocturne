@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "lob0": {
+   "ax": 25.0,
+   "ay": 58.0,
+   "clipFrame": 25,
+   "h": 58,
+   "w": 46,
+   "x": 1,
+   "y": 1
+  },
+  "lob1": {
+   "ax": 24.5,
+   "ay": 56.0,
+   "clipFrame": 54,
+   "h": 56,
+   "w": 45,
+   "x": 48,
+   "y": 1
+  },
+  "lob2": {
+   "ax": 23.5,
+   "ay": 57.0,
+   "clipFrame": 62,
+   "h": 58,
+   "w": 59,
+   "x": 94,
+   "y": 1
+  },
+  "lob3": {
+   "ax": 25.0,
+   "ay": 59.0,
+   "clipFrame": 99,
+   "h": 59,
+   "w": 46,
+   "x": 154,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "alchfiend_lob_sheet.png",
+ "source": {
+  "action": "throw",
+  "anchor": "hips",
+  "clip": "alchfiend_lob.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   25,
+   54,
+   62,
+   99
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The hunchbacked plague alchemist carrying glowing green glass vials performs ONE throwing attack facing right: it draws its arm back in a wind-up, hurls its projectile forward to the right with a sharp follow-through, then returns to its ready stance. it underhand-tosses a flask gesture; no projectiles, no detached flasks, no splashes.",
+  "scale": 0.1318,
+  "select": "motion",
+  "sheet": "alchfiend",
+  "window": [
+   25,
+   99
+  ]
+ }
+}

@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 20.5,
+   "ay": 75.0,
+   "clipFrame": 12,
+   "h": 75,
+   "w": 53,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 32.5,
+   "ay": 69.0,
+   "clipFrame": 64,
+   "h": 69,
+   "w": 65,
+   "x": 55,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 26.5,
+   "ay": 91.0,
+   "clipFrame": 106,
+   "h": 91,
+   "w": 111,
+   "x": 121,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 28.5,
+   "ay": 74.0,
+   "clipFrame": 177,
+   "h": 74,
+   "w": 66,
+   "x": 233,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "censerprelate_attack_sheet.png",
+ "source": {
+  "action": "swing",
+  "anchor": "hips",
+  "clip": "censerprelate_attack.mp4",
+  "frame": "windup",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   64,
+   106,
+   177
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The tall mitred undead cathedral bishop swinging a heavy smoking brass censer on a chain performs ONE heavy swing facing right starting from a raised wind-up: it brings its weapon down and across in a wide sweeping arc, following through past its body, then recovers. it swings the chained brass censer forward in a wide heavy arc; no projectiles, no detached smoke clouds.",
+  "scale": 0.1588,
+  "select": "motion",
+  "sheet": "censerprelate",
+  "window": [
+   12,
+   177
+  ]
+ }
+}

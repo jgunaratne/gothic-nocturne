@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "spit0": {
+   "ax": 31.5,
+   "ay": 59.0,
+   "clipFrame": 30,
+   "h": 59,
+   "w": 57,
+   "x": 1,
+   "y": 1
+  },
+  "spit1": {
+   "ax": 35.0,
+   "ay": 56.0,
+   "clipFrame": 80,
+   "h": 56,
+   "w": 64,
+   "x": 59,
+   "y": 1
+  },
+  "spit2": {
+   "ax": 32.5,
+   "ay": 58.0,
+   "clipFrame": 151,
+   "h": 58,
+   "w": 60,
+   "x": 124,
+   "y": 1
+  },
+  "spit3": {
+   "ax": 33.0,
+   "ay": 57.0,
+   "clipFrame": 238,
+   "h": 57,
+   "w": 59,
+   "x": 185,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "merman_spit_sheet.png",
+ "source": {
+  "action": "spit",
+  "anchor": "hips",
+  "clip": "merman_spit.mp4",
+  "frame": "stalk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   30,
+   80,
+   151,
+   238
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The finned amphibious abyssal merman creature performs ONE spitting attack facing right: it draws its head back, then snaps forward and spits toward the right, then returns to the starting pose. no projectiles, no water jets, no detached droplets.",
+  "scale": 0.1312,
+  "select": "motion",
+  "sheet": "merman",
+  "window": [
+   30,
+   238
+  ]
+ }
+}

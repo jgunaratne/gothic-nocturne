@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 39.5,
+   "ay": 64.0,
+   "clipFrame": 13,
+   "h": 66,
+   "w": 65,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 39.0,
+   "ay": 81.0,
+   "clipFrame": 49,
+   "h": 81,
+   "w": 71,
+   "x": 67,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 49.5,
+   "ay": 67.0,
+   "clipFrame": 60,
+   "h": 70,
+   "w": 91,
+   "x": 139,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 38.0,
+   "ay": 66.0,
+   "clipFrame": 105,
+   "h": 69,
+   "w": 65,
+   "x": 231,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "waltzdancer_attack_sheet.png",
+ "source": {
+  "action": "slash",
+  "anchor": "hips",
+  "clip": "waltzdancer_attack.mp4",
+  "frame": "float0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   13,
+   49,
+   60,
+   105
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The gliding masked phantom ballroom courtesan in tattered crimson silk gown holding a silver war-fan performs ONE sword slash facing right: it raises its weapon high in a wind-up, slashes it down and across in a wide arc with a lunging step, then recovers to its guard stance. staying afloat, she snaps her bladed silver war-fan open in a graceful sweeping slash; no projectiles, no detached blades.",
+  "scale": 0.1429,
+  "select": "motion",
+  "sheet": "waltzdancer",
+  "window": [
+   13,
+   105
+  ]
+ }
+}

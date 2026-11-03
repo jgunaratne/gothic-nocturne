@@ -89,8 +89,8 @@ export function registerLayerSet(name, {
   const layers = backdropImg
     ? [
       ...(skyImg ? [] : [{ img: 'mountains', fx: 0.08, fy: 0.05, dy: -36, dark: 0.48 }]),
-      { img: backdropImg, fx: 0.14, fy: 0.06, dy: -42, dark: 0.54, topCut: 0 },
-      { img: backdropImg, fx: 0.22, fy: 0.10, dy: -26, dark: 0.40, topCut: 0 },
+      { img: 'castle', fx: 0.16, fy: 0.06, dy: -38, dark: 0.62 },
+      { img: backdropImg, fx: 0.28, fy: 0.10, dy: -24, dark: 0.26, topCut: 0 },
     ]
     : base.layers.slice();
   LAYER_SETS[name] = {

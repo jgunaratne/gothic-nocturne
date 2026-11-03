@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 18.8,
+   "ay": 63.0,
+   "clipFrame": 30,
+   "h": 63,
+   "w": 50,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 16.9,
+   "ay": 63.0,
+   "clipFrame": 32,
+   "h": 63,
+   "w": 47,
+   "x": 52,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 15.0,
+   "ay": 63.0,
+   "clipFrame": 34,
+   "h": 63,
+   "w": 44,
+   "x": 100,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 15.8,
+   "ay": 62.0,
+   "clipFrame": 36,
+   "h": 62,
+   "w": 45,
+   "x": 145,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 17.4,
+   "ay": 62.0,
+   "clipFrame": 38,
+   "h": 62,
+   "w": 46,
+   "x": 191,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 19.3,
+   "ay": 61.0,
+   "clipFrame": 40,
+   "h": 61,
+   "w": 48,
+   "x": 238,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 20.4,
+   "ay": 62.0,
+   "clipFrame": 42,
+   "h": 62,
+   "w": 49,
+   "x": 287,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 19.3,
+   "ay": 62.0,
+   "clipFrame": 44,
+   "h": 62,
+   "w": 49,
+   "x": 337,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "spriggan_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "spriggan_walk.mp4",
+  "corr": 0.31436651945114136,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 16,
+  "picks": [
+   30,
+   32,
+   34,
+   36,
+   38,
+   40,
+   42,
+   44
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The antlered wooden forest fey archer with a gnarled briar bow performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. a light stalking woodland stride, leafy cloak swaying.",
+  "scale": 0.1363,
+  "select": "period",
+  "sheet": "spriggan"
+ }
+}

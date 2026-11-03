@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 19.5,
+   "ay": 66.0,
+   "clipFrame": 27,
+   "h": 66,
+   "w": 40,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 25.0,
+   "ay": 60.0,
+   "clipFrame": 64,
+   "h": 60,
+   "w": 57,
+   "x": 42,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 35.0,
+   "ay": 65.0,
+   "clipFrame": 145,
+   "h": 65,
+   "w": 59,
+   "x": 100,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 21.0,
+   "ay": 66.0,
+   "clipFrame": 196,
+   "h": 66,
+   "w": 40,
+   "x": 160,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "retiarius_attack_sheet.png",
+ "source": {
+  "action": "throw",
+  "anchor": "hips",
+  "clip": "retiarius_attack.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   27,
+   64,
+   145,
+   196
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The crested undead Roman gladiator holding a bronze buckler and barbed javelin performs ONE throwing attack facing right: it draws its arm back in a wind-up, hurls its projectile forward to the right with a sharp follow-through, then returns to its ready stance. it lunges and thrusts its barbed javelin forward; no projectiles, no detached spears.",
+  "scale": 0.1447,
+  "select": "motion",
+  "sheet": "retiarius",
+  "window": [
+   27,
+   196
+  ]
+ }
+}

@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 17.0,
+   "ay": 63.0,
+   "clipFrame": 12,
+   "h": 63,
+   "w": 48,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 26.0,
+   "ay": 63.0,
+   "clipFrame": 72,
+   "h": 63,
+   "w": 52,
+   "x": 50,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 22.0,
+   "ay": 61.0,
+   "clipFrame": 91,
+   "h": 61,
+   "w": 56,
+   "x": 103,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 16.5,
+   "ay": 62.0,
+   "clipFrame": 212,
+   "h": 62,
+   "w": 49,
+   "x": 160,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "spriggan_attack_sheet.png",
+ "source": {
+  "action": "cast",
+  "anchor": "hips",
+  "clip": "spriggan_attack.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   72,
+   91,
+   212
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The antlered wooden forest fey archer with a gnarled briar bow performs ONE spell cast facing right: it raises both hands, gathers energy with a flourish, thrusts a hand forward to release it toward the right, then lowers its arms. it draws and releases its wooden briar bowstring toward the right; no projectiles, no detached arrows, no energy beams.",
+  "scale": 0.136,
+  "select": "motion",
+  "sheet": "spriggan",
+  "window": [
+   12,
+   212
+  ]
+ }
+}

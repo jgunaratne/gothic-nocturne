@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 35.5,
+   "ay": 78.0,
+   "clipFrame": 12,
+   "h": 78,
+   "w": 64,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 39.0,
+   "ay": 90.0,
+   "clipFrame": 55,
+   "h": 90,
+   "w": 56,
+   "x": 66,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 66.0,
+   "ay": 97.0,
+   "clipFrame": 87,
+   "h": 97,
+   "w": 105,
+   "x": 123,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 44.5,
+   "ay": 74.0,
+   "clipFrame": 143,
+   "h": 74,
+   "w": 73,
+   "x": 229,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "scarecrow_attack_sheet.png",
+ "source": {
+  "action": "slash",
+  "anchor": "hips",
+  "clip": "scarecrow_attack.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   55,
+   87,
+   143
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The cursed stilt-legged harvest scarecrow in a tattered witch hat holding a rusted scythe performs ONE sword slash facing right: it raises its weapon high in a wind-up, slashes it down and across in a wide arc with a lunging step, then recovers to its guard stance. it sweeps its rusted scythe across in a wide reaping slash; no projectiles, no detached blades.",
+  "scale": 0.1652,
+  "select": "motion",
+  "sheet": "scarecrow",
+  "window": [
+   12,
+   143
+  ]
+ }
+}

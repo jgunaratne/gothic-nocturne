@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 26.0,
+   "ay": 71.0,
+   "clipFrame": 12,
+   "h": 71,
+   "w": 51,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 32.0,
+   "ay": 48.0,
+   "clipFrame": 62,
+   "h": 48,
+   "w": 124,
+   "x": 53,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 30.0,
+   "ay": 55.0,
+   "clipFrame": 111,
+   "h": 55,
+   "w": 72,
+   "x": 178,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 30.5,
+   "ay": 68.0,
+   "clipFrame": 238,
+   "h": 68,
+   "w": 59,
+   "x": 251,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "clockknight_attack_sheet.png",
+ "source": {
+  "action": "slash",
+  "anchor": "hips",
+  "clip": "clockknight_attack.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   62,
+   111,
+   238
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The clockwork brass halberdier automaton with porcelain mask and gear pauldrons performs ONE sword slash facing right: it raises its weapon high in a wind-up, slashes it down and across in a wide arc with a lunging step, then recovers to its guard stance. it thrusts and sweeps its brass gear-halberd forward; no sparks, no projectiles.",
+  "scale": 0.1491,
+  "select": "motion",
+  "sheet": "clockknight",
+  "window": [
+   12,
+   238
+  ]
+ }
+}

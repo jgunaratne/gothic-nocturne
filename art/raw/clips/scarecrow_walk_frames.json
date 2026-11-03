@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 21.5,
+   "ay": 76.0,
+   "clipFrame": 30,
+   "h": 76,
+   "w": 65,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 21.7,
+   "ay": 77.0,
+   "clipFrame": 34,
+   "h": 78,
+   "w": 67,
+   "x": 67,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 24.7,
+   "ay": 76.0,
+   "clipFrame": 39,
+   "h": 76,
+   "w": 73,
+   "x": 135,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 23.4,
+   "ay": 74.0,
+   "clipFrame": 44,
+   "h": 75,
+   "w": 71,
+   "x": 209,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 20.2,
+   "ay": 76.0,
+   "clipFrame": 48,
+   "h": 77,
+   "w": 66,
+   "x": 281,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 21.7,
+   "ay": 78.0,
+   "clipFrame": 52,
+   "h": 79,
+   "w": 64,
+   "x": 348,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 24.7,
+   "ay": 76.0,
+   "clipFrame": 57,
+   "h": 77,
+   "w": 65,
+   "x": 413,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 24.7,
+   "ay": 74.0,
+   "clipFrame": 62,
+   "h": 74,
+   "w": 65,
+   "x": 479,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "scarecrow_walk_sheet.png",
+ "source": {
+  "action": "shamble",
+  "anchor": "mean",
+  "clip": "scarecrow_walk.mp4",
+  "corr": 0.5088263154029846,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 36,
+  "picks": [
+   30,
+   34,
+   39,
+   44,
+   48,
+   52,
+   57,
+   62
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The cursed stilt-legged harvest scarecrow in a tattered witch hat holding a rusted scythe performs a looping treadmill shamble in place facing right: stiff lurching steps, arms held out forward, head lolling, dragging one foot. It stays centred and does not travel across the screen. jerky eerie stilt-legged harvest strides, straw coat fluttering.",
+  "scale": 0.1652,
+  "select": "period",
+  "sheet": "scarecrow"
+ }
+}

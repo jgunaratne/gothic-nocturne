@@ -9,7 +9,7 @@ export const DT = 1 / 60;        // fixed simulation step
 
 // Tile ids
 /** Bumped whenever assets/ change so browsers never pair a stale atlas with new code. */
-export const ASSET_VERSION = '20261103q';
+export const ASSET_VERSION = '20261103t';
 
 export const T_EMPTY = 0;
 export const T_GROUND = 1;       // graveyard earth (strip "ground")
@@ -96,8 +96,13 @@ export const PLAYER = {
 };
 
 export const SCORE = {
-  candle: 10, zombie: 100, bat: 200, owl: 200, wolf: 250, mushroom: 250, ghost: 300, tome: 150, gargoyle: 350,
-  magmaslime: 250, cinderimp: 300, lavagolem: 450, armor: 450, wraith: 350,
+  candle: 10, zombie: 100, gravekeeper: 220, bat: 200, owl: 200, wolf: 250, mushroom: 250, spriggan: 280, mosstroll: 620,
+  scarecrow: 320, wickerman: 640, wendigo: 660, arbalest: 360, bonegoliath: 680,
+  ghost: 300, tome: 150, gargoyle: 350,
+  magmaslime: 250, cinderimp: 300, pyromancer: 400, lavagolem: 580, armor: 450, wraith: 350,
+  clockknight: 440, gearharpy: 320, brasstitan: 720, inkscholar: 420, censerprelate: 480,
+  bloodknight: 580, vathulk: 680, waltzdancer: 440, retiarius: 420, minotaur: 740,
+  siren: 400, cisterncrab: 680, astralarcher: 460, marblecolossus: 780,
   alchfiend: 380, duelist: 460, executioner: 520, merman: 380, valkyrie: 480, necromancer: 500,
   skeleton: 300, medusa: 300, boss: 3000,
   money: 500, timeBonus: 10,

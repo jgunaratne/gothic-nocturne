@@ -133,9 +133,10 @@ export class Player extends Entity {
     if (!this.attacking || this.throwing) return null;
     if (this.attackT < this.whipActive[0] || this.attackT > this.whipActive[1]) return null;
     const reach = this.whipReach || PLAYER.whipReach;
-    const yTop = this.y - (this.attackCrouch ? 34 : 52);
-    const x0 = this.facing > 0 ? this.x + 6 : this.x - 6 - reach;
-    return { x: x0, y: yTop, w: reach, h: 18 };
+    const low = !!(this.attackCrouch || this.crouching || this.attackDown);
+    const yTop = this.y - (low ? 34 : 52);
+    const x0 = this.facing > 0 ? (low ? this.x - 12 : this.x + 6) : (low ? this.x + 12 - (reach + 18) : this.x - 6 - reach);
+    return { x: x0, y: yTop, w: low ? reach + 18 : reach, h: low ? (this.y + 18 - yTop) : 18 };
   }
 
   /**
@@ -152,23 +153,25 @@ export class Player extends Entity {
 
       const reach = s.reach || w.reach || 56;
       const f = this.facing;
+      const crouch = !!(s.crouch || this.crouching);
+      const lowAim = !!(crouch || s.downAim);
       let box = null;
       switch (w.category) {
         case 'whip': {
-          const yTop = this.y - (s.crouch ? 34 : 52);
-          box = { x: f > 0 ? this.x + 6 : this.x - 6 - reach, y: yTop, w: reach, h: 18 };
+          const yTop = this.y - (crouch ? 34 : 52);
+          box = { x: f > 0 ? this.x + 6 : this.x - 6 - reach, y: yTop, w: reach, h: lowAim ? (this.y + 14 - yTop) : 18 };
           break;
         }
         case 'light_blade': {
-          // Crisp linear forward thrust at chest/shoulder height
-          const yTop = this.y - (s.crouch ? 30 : 45);
-          box = { x: f > 0 ? this.x + 4 : this.x - 4 - reach, y: yTop, w: reach, h: 16 };
+          // Crisp linear forward thrust at chest/shoulder height (sweeps floor when crouching/down-aiming)
+          const yTop = this.y - (crouch ? 30 : 45);
+          box = { x: f > 0 ? this.x + 4 : this.x - 4 - reach, y: yTop, w: reach, h: lowAim ? (this.y + 14 - yTop) : 16 };
           break;
         }
         case 'standard_blade': {
-          // Forward overhead-to-waist arc
-          const yTop = this.y - (s.crouch ? 44 : 62);
-          box = { x: f > 0 ? this.x - 4 : this.x + 4 - reach, y: yTop, w: reach + 4, h: 44 };
+          // Forward overhead-to-waist arc (reaches floor tiles when crouching/down-aiming)
+          const yTop = this.y - (crouch ? 44 : 62);
+          box = { x: f > 0 ? this.x - 4 : this.x + 4 - reach, y: yTop, w: reach + 4, h: lowAim ? (this.y + 14 - yTop) : 44 };
           break;
         }
         case 'heavy_blade': {
@@ -178,26 +181,53 @@ export class Player extends Entity {
             x: f > 0 ? this.x - backSpan : this.x + backSpan - (reach + backSpan),
             y: this.y - 78,
             w: reach + backSpan,
-            h: 78,
+            h: lowAim ? 92 : 84,
           };
           break;
         }
         case 'brawler': {
           // Tight horizontal multi-hit strike zone
-          const yTop = this.y - (s.crouch ? 32 : 46);
-          box = { x: f > 0 ? this.x + 2 : this.x - 2 - reach, y: yTop, w: reach, h: 24 };
+          const yTop = this.y - (crouch ? 32 : 46);
+          box = { x: f > 0 ? this.x + 2 : this.x - 2 - reach, y: yTop, w: reach, h: lowAim ? (this.y + 14 - yTop) : 24 };
           break;
         }
         case 'shield': {
           // Short blunt shield-bash impact zone
-          const yTop = this.y - (s.crouch ? 32 : 46);
-          box = { x: f > 0 ? this.x + 2 : this.x - 2 - reach, y: yTop, w: reach, h: 28 };
+          const yTop = this.y - (crouch ? 32 : 46);
+          box = { x: f > 0 ? this.x + 2 : this.x - 2 - reach, y: yTop, w: reach, h: lowAim ? (this.y + 14 - yTop) : 28 };
           break;
         }
         default:
           break;
       }
-      if (box) out.push({ slotState: s, weapon: w, box });
+      if (box) {
+        // Dedicated block-breaking envelope:
+        // - Crouching, holding Down, or cleaving with a blade shatters floor-set T_BLOCK hatches
+        //   directly beneath and in front of the hunter's boots.
+        // - Standing melee swings also graze floor hatches immediately ahead of the hunter's
+        //   leading boot (`+14px` forward) and overhead ceiling hatches (`y - 66`) without
+        //   altering enemy combat hitboxes.
+        const cleaveUnderFeet = lowAim || w.category === 'heavy_blade';
+        let blockBox = box;
+        if (cleaveUnderFeet) {
+          const bx = f > 0 ? Math.min(box.x, this.x - 12) : Math.min(box.x, this.x + 12 - (reach + 14));
+          const by = Math.min(box.y, this.y - 64);
+          blockBox = {
+            x: bx,
+            y: by,
+            w: Math.max(box.w, reach + 24),
+            h: Math.max(box.h, (this.y + 18) - by),
+          };
+        } else {
+          const frontW = Math.max(24, reach - 8);
+          const fx0 = f > 0 ? Math.min(box.x, this.x + 14) : Math.min(box.x, this.x - 14 - frontW);
+          const fx1 = Math.max(box.x + box.w, f > 0 ? this.x + 14 + frontW : this.x - 14);
+          const fy0 = Math.min(box.y, this.y - 66);
+          const fy1 = Math.max(box.y + box.h, this.onGround ? this.y + 12 : box.y + box.h);
+          blockBox = { x: fx0, y: fy0, w: fx1 - fx0, h: fy1 - fy0 };
+        }
+        out.push({ slotState: s, weapon: w, box, blockBox });
+      }
     }
     return out;
   }
@@ -302,7 +332,8 @@ export class Player extends Entity {
     // - Standard Blade allows free jump & forward combat step
     // - Shield slows walk slightly while held in active guard
     const isRootingSlot = (s) => s.active && s.weapon && (s.weapon.category === 'heavy_blade' || s.weapon.category === 'whip');
-    const anyBlockingCrouch = this.attacking || this.slots.some((s) => s.active && !s.guarding && s.weapon && s.weapon.category === 'heavy_blade');
+    const anyBlockingCrouch = (this.attacking && !this.attackCrouch)
+      || this.slots.some((s) => s.active && !s.guarding && !s.crouch && s.weapon && s.weapon.category === 'heavy_blade');
     const guardSlot = this.activeShieldSlot();
     const speedScale = guardSlot ? 0.72 : 1.0;
     const relicSpeedMul = Math.min(
@@ -680,6 +711,7 @@ export class Player extends Entity {
       win1: a1,
       reach,
       crouch: this.crouching,
+      downAim: !!(input && input.down && input.down.down),
       isSkill,
       guarding: weapon.category === 'shield' && (slot === 0 ? !!input.down.attack : !!input.down.offhand),
       firedProj: false,
@@ -724,6 +756,7 @@ export class Player extends Entity {
       this.attackHit = false;
       this.throwing = false;
       this.attackCrouch = this.crouching;
+      this.attackDown = s.downAim;
       if (world) world.sfx('whip');
     } else if (world) {
       if (weapon.category === 'heavy_blade') {

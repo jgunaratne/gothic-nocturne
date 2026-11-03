@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "aim0": {
+   "ax": 35.5,
+   "ay": 50.0,
+   "clipFrame": 12,
+   "h": 51,
+   "w": 67,
+   "x": 1,
+   "y": 1
+  },
+  "aim1": {
+   "ax": 38.5,
+   "ay": 58.0,
+   "clipFrame": 108,
+   "h": 54,
+   "w": 80,
+   "x": 69,
+   "y": 1
+  },
+  "aim2": {
+   "ax": 33.0,
+   "ay": 54.0,
+   "clipFrame": 176,
+   "h": 54,
+   "w": 59,
+   "x": 150,
+   "y": 1
+  },
+  "aim3": {
+   "ax": 31.0,
+   "ay": 52.0,
+   "clipFrame": 239,
+   "h": 51,
+   "w": 58,
+   "x": 210,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "valkyrie_aim_sheet.png",
+ "source": {
+  "action": "throw",
+  "anchor": "hips",
+  "clip": "valkyrie_aim.mp4",
+  "frame": "hover0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   12,
+   108,
+   176,
+   239
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The winged armoured valkyrie sentinel holding a spear and shield performs ONE throwing attack facing right: it draws its arm back in a wind-up, hurls its projectile forward to the right with a sharp follow-through, then returns to its ready stance. staying airborne, it thrusts its spear forward in a throwing motion; no projectiles, no detached spears, no energy beams.",
+  "scale": 0.1396,
+  "select": "motion",
+  "sheet": "valkyrie",
+  "window": [
+   12,
+   239
+  ]
+ }
+}

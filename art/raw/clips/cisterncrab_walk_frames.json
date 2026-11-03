@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 49.7,
+   "ay": 102.0,
+   "clipFrame": 30,
+   "h": 102,
+   "w": 108,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 47.4,
+   "ay": 102.0,
+   "clipFrame": 39,
+   "h": 102,
+   "w": 110,
+   "x": 110,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 42.0,
+   "ay": 101.0,
+   "clipFrame": 48,
+   "h": 101,
+   "w": 102,
+   "x": 221,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 46.5,
+   "ay": 102.0,
+   "clipFrame": 57,
+   "h": 102,
+   "w": 106,
+   "x": 324,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 46.1,
+   "ay": 101.0,
+   "clipFrame": 66,
+   "h": 101,
+   "w": 108,
+   "x": 431,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 42.5,
+   "ay": 102.0,
+   "clipFrame": 74,
+   "h": 102,
+   "w": 100,
+   "x": 540,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 48.8,
+   "ay": 101.0,
+   "clipFrame": 83,
+   "h": 101,
+   "w": 110,
+   "x": 641,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 42.0,
+   "ay": 101.0,
+   "clipFrame": 92,
+   "h": 101,
+   "w": 103,
+   "x": 752,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "cisterncrab_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "cisterncrab_walk.mp4",
+  "corr": 0.33934396505355835,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 71,
+  "picks": [
+   30,
+   39,
+   48,
+   57,
+   66,
+   74,
+   83,
+   92
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The colossal armoured cavern crab carrying broken Roman marble columns on its shell performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. heavy multi-legged crustacean scuttle in place, marble ruins shifting slightly.",
+  "scale": 0.2237,
+  "select": "period",
+  "sheet": "cisterncrab"
+ }
+}

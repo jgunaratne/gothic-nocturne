@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 26.0,
+   "ay": 82.0,
+   "clipFrame": 23,
+   "h": 82,
+   "w": 76,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 40.5,
+   "ay": 80.0,
+   "clipFrame": 54,
+   "h": 80,
+   "w": 71,
+   "x": 78,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 76.0,
+   "ay": 95.0,
+   "clipFrame": 65,
+   "h": 95,
+   "w": 129,
+   "x": 150,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 32.5,
+   "ay": 82.0,
+   "clipFrame": 121,
+   "h": 82,
+   "w": 91,
+   "x": 280,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "bloodknight_attack_sheet.png",
+ "source": {
+  "action": "slash",
+  "anchor": "hips",
+  "clip": "bloodknight_attack.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   23,
+   54,
+   65,
+   121
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The tall aristocratic vampire knight in crimson-and-ebony bat-wing plate wielding a crimson greatsword performs ONE sword slash facing right: it raises its weapon high in a wind-up, slashes it down and across in a wide arc with a lunging step, then recovers to its guard stance. a ferocious sweeping greatsword slash forward; no projectiles, no detached blood waves, no shockwaves.",
+  "scale": 0.1814,
+  "select": "motion",
+  "sheet": "bloodknight",
+  "window": [
+   23,
+   121
+  ]
+ }
+}

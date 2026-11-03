@@ -785,7 +785,7 @@ class TextureBank3D {
     this.buildStripPair('catacomb', 'top_catacomb', 'side_catacomb', 4, 20, 0.20);
     this.buildStripPair('clockfloor', 'top_clock', 'side_clock', 3, 28, 0.24, '#131724');
     this.buildStripPair('forestfloor', 'top_forest', 'side_forest', 6, 18, 0.18);
-    this.buildStripPair('snowfloor', 'top_snow', 'side_snow', 6, 30, 0.10);
+    this.buildStripPair('snowfloor', 'top_snow', 'side_snow', 5, 11, 0.16, '#0d1524');
     this.buildStripPair('darkwoodfloor', 'top_darkwood', 'side_darkwood', 6, 18, 0.22, '#091314');
     this.buildStripPair('cavernfloor', 'top_cavern', 'side_cavern', 4, 18, 0.22, '#140808');
     {
