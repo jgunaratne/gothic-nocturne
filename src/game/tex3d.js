@@ -84,7 +84,8 @@ export function shadeOverlay32(n, fogRgb, fogAmt = 0, brightnessScale = 1) {
   const bandIdx = Math.min(5, Math.floor(dot * 5.99));
   const fq = Math.max(0, Math.min(64, Math.round(fogAmt * 64)));
   const bq = Math.max(0, Math.min(128, Math.round(brightnessScale * 64)));
-  const key = `${bandIdx}|${fogRgb[0]},${fogRgb[1]},${fogRgb[2]}|${fq}|${bq}`;
+  const fogPacked = ((fogRgb[0] & 255) * 65536) + ((fogRgb[1] & 255) * 256) + (fogRgb[2] & 255);
+  const key = ((bandIdx * 65 + fq) * 129 + bq) * 16777216 + fogPacked;
   const hit = _shadeCache.get(key);
   if (hit) return hit;
 
@@ -199,27 +200,44 @@ export function texQuad(ctx, tex, p0, p1, p2, p3, u0, v0, u1, v1, u2, v2, u3, v3
   const minY = Math.min(p0.y, p1.y, p2.y, p3.y), maxY = Math.max(p0.y, p1.y, p2.y, p3.y);
   if (maxY < -8 || minY > H + 8 || maxY - minY < 0.45) return;
 
-  const isParallelogram =
-    Math.abs((p1.x - p0.x) - (p2.x - p3.x)) < 0.65 &&
-    Math.abs((p1.y - p0.y) - (p2.y - p3.y)) < 0.65 &&
-    Math.abs((u1 - u0) - (u2 - u3)) < 0.1 &&
-    Math.abs((v1 - v0) - (v2 - v3)) < 0.1;
-
-  if (isParallelogram) {
-    if (!applyTriTransform(tex, p0, p1, p3, u0, v0, u1, v1, u3, v3)) return;
-    ctx.fillStyle = tex.pattern;
-    ctx.beginPath();
-    ctx.moveTo(p0.x, p0.y);
-    ctx.lineTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.lineTo(p3.x, p3.y);
-    ctx.closePath();
-    ctx.fill();
-    if (shade) {
-      if (shade.dark) { ctx.fillStyle = shade.dark; ctx.fill(); }
-      if (shade.spec) { ctx.fillStyle = shade.spec; ctx.fill(); }
+  // Fast single-quad path whenever vertex 2 lies within 0.85px of the affine UV plane
+  // defined by (p0, p1, p3) — true for all coplanar constant-Z trapezoids/parallelograms
+  // AND all shallow-perspective moldings, arch rings, colonnettes & deck strips!
+  const dx1 = p1.x - p0.x, dy1 = p1.y - p0.y;
+  const dx3 = p3.x - p0.x, dy3 = p3.y - p0.y;
+  const du1 = u1 - u0, dv1 = v1 - v0;
+  const du3 = u3 - u0, dv3 = v3 - v0;
+  const det013 = du1 * dv3 - du3 * dv1;
+  if (Math.abs(dx1 * dy3 - dx3 * dy1) >= 0.30 && Math.abs(det013) >= 1e-4) {
+    const inv = 1 / det013;
+    const a = (dx1 * dv3 - dx3 * dv1) * inv;
+    const c = (du1 * dx3 - du3 * dx1) * inv;
+    const b = (dy1 * dv3 - dy3 * dv1) * inv;
+    const d = (du1 * dy3 - du3 * dy1) * inv;
+    const du2 = u2 - u0, dv2 = v2 - v0;
+    const errX = (p0.x + a * du2 + c * dv2) - p2.x;
+    const errY = (p0.y + b * du2 + d * dv2) - p2.y;
+    if (errX >= -0.85 && errX <= 0.85 && errY >= -0.85 && errY <= 0.85) {
+      const wu0 = mod(u0, tex.w);
+      const wv0 = mod(v0, tex.h);
+      _domMat.a = a; _domMat.b = b; _domMat.c = c; _domMat.d = d;
+      _domMat.e = p0.x - a * wu0 - c * wv0;
+      _domMat.f = p0.y - b * wu0 - d * wv0;
+      tex.pattern.setTransform(_domMat);
+      ctx.fillStyle = tex.pattern;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.lineTo(p3.x, p3.y);
+      ctx.closePath();
+      ctx.fill();
+      if (shade) {
+        if (shade.dark) { ctx.fillStyle = shade.dark; ctx.fill(); }
+        if (shade.spec) { ctx.fillStyle = shade.spec; ctx.fill(); }
+      }
+      return;
     }
-    return;
   }
 
   // Nudge shared diagonal (p0 -> p2) slightly toward p3 on Triangle 1 so the

@@ -350,6 +350,41 @@ export function drawHud(ctx, font, assets, world) {
     }
     ctx.restore();
   }
+
+  // Bottom-left Save Point / Post-Boss Auto-Save confirmation badge
+  if (!world.voiceCue && game && game.saveToast && game.saveToast.t < game.saveToast.dur) {
+    const st = game.saveToast;
+    const alpha = Math.max(0, Math.min(1, st.t / 0.16, (st.dur - st.t) / 0.45));
+    if (alpha > 0.02) {
+      const pulse = 0.5 + 0.5 * Math.sin((world.time || 0) * 6.5);
+      const label = st.text || 'GAME SAVED';
+      const bw = font.width(label, 1, 1, false) + 24;
+      const bx0 = 10, by0 = H - 22, bh0 = 14;
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.95;
+      ctx.fillStyle = 'rgba(14, 6, 16, 0.90)';
+      ctx.fillRect(bx0, by0, bw, bh0);
+      ctx.strokeStyle = pulse > 0.45 ? '#ffd27a' : '#ff4a6e';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(bx0 + 0.5, by0 + 0.5, bw - 1, bh0 - 1);
+      // Mini crimson save polyhedron icon
+      const cx0 = bx0 + 9, cy0 = by0 + 7;
+      ctx.fillStyle = pulse > 0.5 ? '#ffd27a' : '#ff3c64';
+      ctx.beginPath();
+      ctx.moveTo(cx0, cy0 - 4);
+      ctx.lineTo(cx0 + 3, cy0);
+      ctx.lineTo(cx0, cy0 + 4);
+      ctx.lineTo(cx0 - 3, cy0);
+      ctx.closePath();
+      ctx.fill();
+      font.draw(ctx, label, bx0 + 16, by0 + 4, {
+        color: '#f6f0de',
+        shadow,
+        gothic: false,
+      });
+      ctx.restore();
+    }
+  }
   ctx.restore();
 }
 

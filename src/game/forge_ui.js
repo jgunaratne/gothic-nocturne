@@ -115,12 +115,12 @@ export class ForgeScreens {
   updateProposal(dt, inp) {
     this.t += dt;
     this.game.updateTitleBackdrop(dt);
-    // Gamepad-only shortcuts (keyboard keys are captured by the text fields): A/B surprise me, Start forges, Back cancels.
+    // Gamepad-only shortcuts (keyboard keys are captured by the text fields): A surprise me, X field, Start forges, B/Back cancels.
     if (inp) {
       if (inp.pressed.jump) this.onKey({ code: 'Tab' });
       else if (inp.pressed.attack) this.focus = this.focus ? 0 : 1;
       else if (inp.pressed.start) this.submit();
-      else if (inp.pressed.map) this.cancel();
+      else if (inp.pressed.map || inp.pressed.sprint) this.cancel();
     }
   }
 
@@ -189,7 +189,7 @@ export class ForgeScreens {
     const pulse = 0.5 + 0.5 * Math.sin(this.t * 2.2);
     if (this.submitting) f.draw(ctx, 'SENDING THE PROPOSAL TO THE FORGE...', W / 2, 300, { scale: 2, align: 'center', color: '#ffd27a', shadow: '#5b2a3a', gothic: false });
     else f.draw(ctx, 'ENTER FORGE IT  ·  TAB SURPRISE ME  ·  ESC BACK', W / 2, 300, { scale: 2, align: 'center', color: pulse > 0.3 ? '#ffd27a' : '#c9a24a', shadow: '#5b2a3a', gothic: false });
-    f.draw(ctx, '↑↓ SWITCH FIELD     GAMEPAD · A SURPRISE ME · X/Y FIELD · START FORGE · BACK CANCEL', W / 2, 316, { align: 'center', color: '#5b6b86', gothic: false });
+    f.draw(ctx, '↑↓ SWITCH FIELD     GAMEPAD · A SURPRISE ME · X FIELD · START FORGE · B/BACK CANCEL', W / 2, 316, { align: 'center', color: '#5b6b86', gothic: false });
     if (this.error) f.draw(ctx, this.error, W / 2, 330, { align: 'center', color: '#e23c3c', shadow: '#120f1c', gothic: false });
     else f.draw(ctx, 'FORGED WINGS ARE REMEMBERED AND APPEAR ON THE CASTLE MAP FOR EVERYONE WHO PLAYS HERE', W / 2, 330, { align: 'center', color: '#5b6b86', gothic: false });
   }

@@ -955,20 +955,21 @@ export class Stage3D {
     // Horizontal current in WORLD px/s (left -> right): applied in texel space so perspective
     // naturally makes distant rows drift slower on screen than near rows (true 2.5D flow).
     const flow = cfg.flow || 0;
-    for (let y = yStart; y < H; y += 1) {
+    for (let y = yStart; y < H; y += 2) {
+      const dh = Math.min(2, H - y);
       const dy = Math.max(1, y - horizon);
       const z = focal / dy;
       const ratio = Math.min(3.0, Math.max(0.95, z * 1.08));
       const shimmer = cfg.shimmer ? Math.sin(y * 0.35 + time * 3.2) * 3.5 : 0;
       const u = mod(scroll * 0.9 + shimmer - EYE_X * ratio - time * flow, tex.width);
-      const v = mod(Math.floor(180 / Math.max(0.18, z)) + (cfg.drift ? Math.floor(time * 12) : 0), tex.height - 1);
+      const v = mod(Math.floor(180 / Math.max(0.18, z)) + (cfg.drift ? Math.floor(time * 12) : 0), tex.height - 2);
       let drawn = 0, tu = u;
       while (drawn < clipW) {
         const avail = tex.width - tu;
         const need = (clipW - drawn) * ratio;
         const take = Math.min(avail, need);
         const dw = Math.max(1, Math.ceil(take / ratio));
-        ctx.drawImage(tex, Math.floor(tu), v, Math.max(1, Math.ceil(take)), 1, drawn, y, dw, 1);
+        ctx.drawImage(tex, Math.floor(tu), v, Math.max(1, Math.ceil(take)), dh, drawn, y, dw, dh);
         drawn += dw;
         tu = 0;
       }
@@ -1761,6 +1762,58 @@ export class Stage3D {
   // ======================================================== INTERIOR 3D
   drawInterior3D(ctx, cam, time) {
     const camX = cam.rx, camY = cam.ry;
+    const rooms = this.level.rooms;
+    if (!rooms.length) return;
+    let anyVisible = false;
+    let hasClockwork = ORRERY_THEMES.has(this.stageTheme) || this.stageTheme === 'aqueduct' || this.stageTheme === 'alchemy';
+    for (let ri = 0; ri < rooms.length; ri++) {
+      const r = rooms[ri];
+      const rx = r.x0 * TILE - camX, ry = r.y0 * TILE - camY;
+      const rw = (r.x1 - r.x0 + 1) * TILE, rh = (r.y1 - r.y0 + 1) * TILE;
+      if (rx <= W && rx + rw >= 0 && ry <= H && ry + rh >= 0) {
+        anyVisible = true;
+        if (r.cylinder) hasClockwork = true;
+      }
+    }
+    if (!anyVisible) return;
+
+    if (typeof document !== 'undefined' && this.tex(this.primaryStoneKey())) {
+      const rate = hasClockwork ? 15 : 6;
+      const tBucket = Math.floor(time * rate);
+      const smooth = !!ctx.imageSmoothingEnabled;
+      if (
+        this._intCanvas &&
+        this._intCamX === camX &&
+        this._intCamY === camY &&
+        this._intTBucket === tBucket &&
+        this._intSmooth === smooth
+      ) {
+        ctx.drawImage(this._intCanvas, 0, 0);
+        return;
+      }
+      if (!this._intCanvas) {
+        this._intCanvas = document.createElement('canvas');
+        this._intCanvas.width = W;
+        this._intCanvas.height = H;
+        this._intCtx = this._intCanvas.getContext('2d');
+      }
+      const g = this._intCtx;
+      g.clearRect(0, 0, W, H);
+      g.imageSmoothingEnabled = smooth;
+      if (smooth) g.imageSmoothingQuality = 'low';
+      this._renderInteriorRooms3D(g, camX, camY, time);
+      this._intCamX = camX;
+      this._intCamY = camY;
+      this._intTBucket = tBucket;
+      this._intSmooth = smooth;
+      ctx.drawImage(this._intCanvas, 0, 0);
+      return;
+    }
+
+    this._renderInteriorRooms3D(ctx, camX, camY, time);
+  }
+
+  _renderInteriorRooms3D(ctx, camX, camY, time) {
     for (let ri = 0; ri < this.level.rooms.length; ri++) {
       const r = this.level.rooms[ri];
       const rx = r.x0 * TILE - camX, ry = r.y0 * TILE - camY;
@@ -2140,7 +2193,7 @@ export class Stage3D {
     const springY = yTop + Math.min(20, (yBot - yTop) * 0.46);
     const archRise = Math.max(6, springY - yTop - 3);
     const spShade = shadeOverlay32([0, -0.15, -1], pal.fog, 0.44, 0.78);
-    const arcSegs = 6;
+    const arcSegs = 4;
     for (let i = 0; i < arches; i++) {
       const ax0 = x0 + i * span;
       for (let s = 0; s < arcSegs; s++) {
@@ -2191,7 +2244,7 @@ export class Stage3D {
     const bBR = project3D(x1, yBot, zBack, camX, camY);
     const bCenter = project3D(midX, springY, zBack, camX, camY);
 
-    const SEGS = 12;
+    const SEGS = zFront >= 120 ? 8 : 12;
     const fArc = new Array(SEGS + 1);
     const bArc = new Array(SEGS + 1);
     const arcWX = new Array(SEGS + 1);
@@ -2730,10 +2783,12 @@ export class Stage3D {
     this.drawBox3D(ctx, camX, camY, wx - w * 0.5, shaftTop, z, w, shaftH, w,
       shaftKey, { uFit: coreUFit, bright: bShaft });
     if (w >= 18 && shaftH >= 48) {
-      this.drawBox3D(ctx, camX, camY, wx - w * 0.5 - colW * 0.68, shaftTop + 4, z + w * 0.22, colW, shaftH - 8, colW,
-        shaftKey, { uFit: colUFit, bright: bShaft * 0.94 });
-      this.drawBox3D(ctx, camX, camY, wx + w * 0.5 - colW * 0.32, shaftTop + 4, z + w * 0.22, colW, shaftH - 8, colW,
-        shaftKey, { uFit: colUFit, bright: bShaft * 0.88 });
+      if (z < 145) {
+        this.drawBox3D(ctx, camX, camY, wx - w * 0.5 - colW * 0.68, shaftTop + 4, z + w * 0.22, colW, shaftH - 8, colW,
+          shaftKey, { uFit: colUFit, bright: bShaft * 0.94 });
+        this.drawBox3D(ctx, camX, camY, wx + w * 0.5 - colW * 0.32, shaftTop + 4, z + w * 0.22, colW, shaftH - 8, colW,
+          shaftKey, { uFit: colUFit, bright: bShaft * 0.88 });
+      }
       this.drawBox3D(ctx, camX, camY, wx - colW * 0.5, shaftTop + 2, z - colW * 0.55, colW, shaftH - 4, colW,
         shaftKey, { uFit: colUFit, bright: Math.min(1, bShaft * 1.05) });
       // Mid-height moulded shaft-ring (annulet) band on tall nave piers
@@ -2764,7 +2819,7 @@ export class Stage3D {
       this._skyView = c;
       this._skyViewKey = null;
     }
-    const key = `${Math.round(camX)}|${Math.round(time * 30)}`;
+    const key = `${Math.round(camX * 0.22)}|${Math.round(time * 12)}`;
     if (this._skyViewKey === key) return this._skyView;
     this._skyViewKey = key;
     const g = this._skyView.getContext('2d');

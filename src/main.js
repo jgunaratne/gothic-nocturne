@@ -2,7 +2,8 @@
 
 import {
   W, H, DT, DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, ASSET_VERSION, PLAYER,
-  TITLE_MENU_ITEMS, TITLE_MENU_Y0, TITLE_MENU_ROW_H, SETTINGS_ITEMS, SETTINGS_TOP, SETTINGS_ROW_H,
+  TITLE_MENU_Y0, TITLE_MENU_ROW_H, TITLE_MENU_SAVE_Y0, TITLE_MENU_SAVE_ROW_H,
+  SETTINGS_ITEMS, SETTINGS_TOP, SETTINGS_ROW_H,
 } from './engine/constants.js';
 import { Input } from './engine/input.js';
 import { Assets } from './engine/assets.js';
@@ -16,7 +17,8 @@ import { STAGES } from './game/stages.js';
 import { THEMES } from './game/builder.js';
 import { drawHud, drawBanner } from './game/hud.js';
 import {
-  drawCastleMap, moveCursor, nextRoomAfter, nextAdjacentStageKey, stageIndexOf, isDiscovered, MAP_ROOMS, CELL_OWNER,
+  drawCastleMap, moveCursor, nextRoomAfter, nextAdjacentStageKey, stageIndexOf, isDiscovered,
+  exploredCellStats, MAP_ROOMS, CELL_OWNER,
 } from './game/castlemap.js';
 import { BOSS_RELICS, resolveActiveRelics } from './game/relics.js';
 import {
@@ -34,6 +36,8 @@ import {
 } from './game/souls.js';
 import { resolveEnemySpeciesKey } from './game/weapons.js';
 import { TouchControls } from './engine/touch.js';
+
+const SAVE_STORAGE_KEY = 'gothic.save.v1';
 
 class Game {
   constructor(canvas) {
@@ -104,6 +108,15 @@ class Game {
     this.mapCursor = STAGES[this.stageIndex].key;
     this.visitedStages = new Set([STAGES[this.stageIndex].key]);
     this.carryState = null;          // score/lives/hearts carried between connected stages
+    this.saveToast = null;           // { text, t, dur } HUD confirmation after saving
+    this._ephemeralSession = !!(
+      this.params.has('demo')
+      || this.params.has('ending')
+      || (this.params.has('screen') && this.params.get('screen') !== 'title')
+      || this.params.get('cleared') === 'all'
+      || this.params.get('explored') === 'all'
+    );
+    this.saveData = this.loadSaveData();
     this.editingCallsign = false;
     this.callsignDraft = '';
     this.net = new NetClient(this.params);
@@ -175,6 +188,8 @@ class Game {
       const urlStage = parseInt(this.params.get('stage') || '0', 10);
       const want = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1 : 0;
       if (want !== this.stageIndex) { this.stageIndex = want; this.stageCursor = want; this.mapCursor = STAGES[want].key; }
+      this.saveData = this.loadSaveData();
+      this.titleMenu = 0;
     }
     if (bootEl) bootEl.remove();
     this.titleWorld = new World(this, STAGES[0]);
@@ -367,9 +382,12 @@ class Game {
    */
   resetProgress() {
     for (const k of [
+      SAVE_STORAGE_KEY,
       'gothic.cleared.v3', 'gothic.discovered.v1', 'gothic.vessels.v1', 'gothic.explored.v2',
       'gothic.progression.v1', 'gothic.armory.v1', 'gothic.souls.v1', 'gothic.stage', 'gothic.difficulty', 'gothic.debug.v1',
     ]) safeStorageRemove(k);
+    this.saveData = null;
+    this.saveToast = null;
     this.cleared = 0;
     this.discovered = 1;
     this.vessels = 0;
@@ -446,6 +464,251 @@ class Game {
       m >>>= 1;
     }
     return n;
+  }
+
+  // ------------------------------------------------ Save points & castle discovery
+
+  /** True when a continuable save point or post-boss save exists. */
+  hasSaveGame() {
+    return !!this.saveData;
+  }
+
+  /** Returns `{ count, total, exactPct, roundedPct, label }` for castle map discovery. */
+  getCastleDiscoveryStats() {
+    const started = this.hasSaveGame()
+      || this.cleared !== 0
+      || this.vessels !== 0
+      || this.charLevel > START_LEVEL
+      || (this.exploredCells && this.exploredCells.size > 1);
+    return exploredCellStats(this.exploredCells, started);
+  }
+
+  /** Loads `gothic.save.v1` (or synthesizes a continuable save for legacy progress). */
+  loadSaveData() {
+    const raw = safeStorageGet(SAVE_STORAGE_KEY);
+    if (raw) {
+      try {
+        const obj = JSON.parse(raw);
+        if (obj && typeof obj === 'object' && typeof obj.stageKey === 'string') {
+          const sIdx = stageIndexOf(obj.stageKey);
+          const diffKey = DIFFICULTIES[obj.difficultyKey] ? obj.difficultyKey : this.difficultyKey;
+          const diff = DIFFICULTIES[diffKey] || DIFFICULTIES[DEFAULT_DIFFICULTY];
+          const spawnKind = (obj.spawnKind === 'sanctuary' || obj.spawnKind === 'boss_clear' || obj.spawnKind === 'stage_start')
+            ? obj.spawnKind
+            : 'sanctuary';
+          return {
+            version: 1,
+            savedAt: Number(obj.savedAt) || Date.now(),
+            stageKey: obj.stageKey,
+            stageName: (sIdx >= 0 ? STAGES[sIdx].name : obj.stageName) || 'THE CASTLE',
+            spawnKind,
+            reason: typeof obj.reason === 'string' ? obj.reason : 'CRIMSON SANCTUM',
+            difficultyKey: diffKey,
+            score: Math.max(0, parseInt(obj.score, 10) || 0),
+            lives: Math.max(diff.lives, parseInt(obj.lives, 10) || diff.lives),
+            hearts: Math.max(0, Number.isFinite(Number(obj.hearts)) ? parseInt(obj.hearts, 10) : diff.hearts),
+            subWeapon: typeof obj.subWeapon === 'string' ? obj.subWeapon : null,
+            hp: Math.max(1, parseInt(obj.hp, 10) || PLAYER.maxHp),
+            charLevel: Math.max(START_LEVEL, parseInt(obj.charLevel, 10) || this.charLevel || START_LEVEL),
+            visitedStages: Array.isArray(obj.visitedStages) ? obj.visitedStages.filter((s) => typeof s === 'string') : [],
+          };
+        }
+      } catch (e) { /* ignore malformed save */ }
+    }
+    if (!this._ephemeralSession) {
+      const legacyCleared = parseInt(safeStorageGet('gothic.cleared.v3') || '0', 10) || 0;
+      const legacyVessels = parseInt(safeStorageGet('gothic.vessels.v1') || '0', 10) || 0;
+      const hasLegacyMap = !!safeStorageGet('gothic.explored.v2') && this.exploredCells && this.exploredCells.size > 1;
+      if (legacyCleared > 0 || legacyVessels > 0 || this.charLevel > START_LEVEL || hasLegacyMap) {
+        const storedIdx = parseInt(safeStorageGet('gothic.stage') || '0', 10) || 0;
+        const idx = Math.max(0, Math.min(STAGES.length - 1, storedIdx));
+        const st = STAGES[idx] || STAGES[0];
+        const disc = !!(((this.discovered >>> idx) & 1) || ((legacyCleared >>> idx) & 1));
+        return {
+          version: 1,
+          savedAt: Date.now(),
+          stageKey: st.key,
+          stageName: st.name,
+          spawnKind: disc && idx > 0 ? 'sanctuary' : 'stage_start',
+          reason: 'CRIMSON SANCTUM',
+          difficultyKey: this.difficultyKey,
+          score: 0,
+          lives: this.difficulty.lives,
+          hearts: this.difficulty.hearts + this.getVesselCount() * 2,
+          subWeapon: null,
+          hp: PLAYER.maxHp + this.getVesselCount(),
+          charLevel: this.charLevel,
+          visitedStages: [st.key],
+        };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Records a persistent checkpoint save at a Crimson Save Sanctum or after a Boss Fight.
+   * Safe to call multiple times (e.g. boss felled -> orb/rewards claimed -> next stage entered).
+   */
+  saveCheckpoint({
+    spawnKind = 'sanctuary',
+    reason = 'CRIMSON SANCTUM',
+    world = this.world,
+    silentToast = false,
+  } = {}) {
+    const stage = (world && world.stage) || STAGES[this.stageIndex] || STAGES[0];
+    const diff = this.difficulty || DIFFICULTIES[DEFAULT_DIFFICULTY];
+    const maxHp = world && world.computeMaxHp ? world.computeMaxHp() : PLAYER.maxHp;
+    const saveObj = {
+      version: 1,
+      savedAt: Date.now(),
+      stageKey: stage.key,
+      stageName: stage.name,
+      spawnKind,
+      reason,
+      difficultyKey: this.difficultyKey,
+      score: world ? Math.max(0, Math.round(world.score || 0)) : 0,
+      lives: Math.max(diff.lives, world ? (world.lives ?? diff.lives) : diff.lives),
+      hearts: world ? Math.max(0, world.hearts ?? diff.hearts) : diff.hearts,
+      subWeapon: (world && world.player && world.player.subWeapon) || (world && world.subWeaponCarry) || null,
+      hp: maxHp,
+      charLevel: this.charLevel,
+      visitedStages: [...(this.visitedStages || [stage.key])],
+    };
+    this.saveData = saveObj;
+    if (!this._ephemeralSession) {
+      safeStorageSet(SAVE_STORAGE_KEY, JSON.stringify(saveObj));
+      safeStorageSet('gothic.difficulty', this.difficultyKey);
+      const sIdx = stageIndexOf(stage.key);
+      if (sIdx >= 0) safeStorageSet('gothic.stage', String(sIdx));
+    }
+    if (!silentToast) {
+      const disc = this.getCastleDiscoveryStats();
+      this.saveToast = {
+        text: `GAME SAVED · ${reason} · CASTLE ${disc.label}`,
+        t: 0,
+        dur: 2.9,
+      };
+    }
+    return saveObj;
+  }
+
+  /** Resumes gameplay directly from `this.saveData` (Save Point or Post-Boss Save). */
+  continueFromSave() {
+    const save = this.saveData;
+    if (!save) {
+      this.setState('difficulty');
+      this.audio.sfx('select');
+      return;
+    }
+    if (save.difficultyKey && DIFFICULTIES[save.difficultyKey]) {
+      this.chooseDifficulty(save.difficultyKey);
+    }
+    const foundIdx = stageIndexOf(save.stageKey);
+    const targetIdx = foundIdx >= 0 ? foundIdx : 0;
+    const st = STAGES[targetIdx];
+    this.visitedStages = new Set(
+      Array.isArray(save.visitedStages) && save.visitedStages.length
+        ? save.visitedStages
+        : [st.key],
+    );
+    this.visitedStages.add(st.key);
+    const kind = foundIdx >= 0 ? save.spawnKind : 'stage_start';
+    const enterFromDoorId = kind === 'sanctuary' ? 'save_point'
+      : kind === 'boss_clear' ? 'boss_clear'
+      : null;
+    const carry = {
+      score: Math.max(0, Number(save.score) || 0),
+      lives: Math.max(this.difficulty.lives, Number(save.lives) || this.difficulty.lives),
+      hearts: Math.max(0, Number.isFinite(Number(save.hearts)) ? Number(save.hearts) : this.difficulty.hearts),
+      subWeapon: save.subWeapon || null,
+      hp: Number(save.hp) || null,
+      enterFromDoorId,
+    };
+    this.carryState = carry;
+    this.startGame(targetIdx, carry);
+  }
+
+  /** Dynamic Home Screen menu items and vertical geometry (shared with TouchControls). */
+  getTitleMenuLayout() {
+    const isTouch = !!(this.touch && this.touch.active);
+    const gp = this.guardianProgress();
+    const disc = this.getCastleDiscoveryStats();
+    const huntSub = gp.felled > 0
+      ? `${isTouch ? 'TAP OR PRESS START' : 'START AT STAGE 1'} · GUARDIANS ${gp.felled}/${gp.total}${allGuardiansFelled(this.cleared) ? ' · THE COUNT AWAITS' : ''}`
+      : (isTouch ? 'TAP OR PRESS START TO BEGIN A NEW HUNT' : 'PRESS ENTER OR START TO BEGIN THE HUNT');
+    const debugOn = this.debug.unlockAreas || this.debug.unlockBosses;
+    const items = [];
+    if (this.hasSaveGame()) {
+      const sv = this.saveData;
+      const sIdx = stageIndexOf(sv.stageKey);
+      const stName = ((sIdx >= 0 ? STAGES[sIdx].name : sv.stageName) || 'THE CASTLE').replace(/^THE\s+/, '');
+      const pointTag = sv.spawnKind === 'boss_clear'
+        ? 'BOSS CLEARED'
+        : sv.spawnKind === 'stage_start'
+          ? 'ENTRANCE'
+          : 'SAVE SANCTUM';
+      const lv = String(this.charLevel || sv.charLevel || START_LEVEL).padStart(2, '0');
+      items.push({
+        id: 'continue',
+        label: 'CONTINUE',
+        sub: `${stName} (${pointTag}) · LV ${lv} · ${disc.label} CASTLE DISCOVERED`,
+      });
+    }
+    items.push(
+      { id: 'begin', label: 'BEGIN THE HUNT', sub: huntSub },
+      {
+        id: 'forge',
+        label: 'EXPAND THE CASTLE',
+        sub: `PROPOSE A NEW WING · ${this.forge.forgedCount ? `${this.forge.forgedCount} RAISED SO FAR` : 'AI-FORGED LEVEL, ART, MUSIC AND BOSS'}`,
+      },
+      {
+        id: 'controls',
+        label: 'CONTROLS',
+        sub: isTouch ? 'TOUCH D-PAD, WEAPON CLUSTER & SHORTCUTS' : 'KEYBOARD, GAMEPAD & TOUCH CONTROLS',
+      },
+      {
+        id: 'settings',
+        label: 'SETTINGS',
+        sub: debugOn ? 'RESET PROGRESS · DEBUG UNLOCKS ACTIVE' : 'RESET PROGRESS · DEBUG UNLOCKS',
+      },
+    );
+    const hasSave = this.hasSaveGame();
+    return {
+      items,
+      y0: hasSave ? TITLE_MENU_SAVE_Y0 : TITLE_MENU_Y0,
+      rowH: hasSave ? TITLE_MENU_SAVE_ROW_H : TITLE_MENU_ROW_H,
+    };
+  }
+
+  indexOfTitleAction(id) {
+    const idx = this.getTitleMenuLayout().items.findIndex((it) => it.id === id);
+    return idx >= 0 ? idx : 0;
+  }
+
+  activateTitleMenuItem(row) {
+    const menu = this.getTitleMenuLayout();
+    const item = menu.items[row] || menu.items[0];
+    if (!item) return;
+    this.titleMenu = Math.max(0, Math.min(menu.items.length - 1, row));
+    switch (item.id) {
+      case 'continue':
+        this.continueFromSave();
+        break;
+      case 'forge':
+        this.openForge('title');
+        break;
+      case 'controls':
+        this.openControls();
+        break;
+      case 'settings':
+        this.openSettings();
+        break;
+      case 'begin':
+      default:
+        this.setState('difficulty');
+        this.audio.sfx('select');
+        break;
+    }
   }
 
   /** Combat & vitality bonuses granted by the hunter's current Character Level. */
@@ -904,6 +1167,9 @@ class Game {
     if (nextIdx >= 0) {
       this.discoverStage(nextIdx);
       this.startGame(nextIdx, this.world ? this.world.carry() : this.carryState);
+      if (this.world) {
+        this.saveCheckpoint({ spawnKind: 'stage_start', reason: 'STAGE CLEAR', world: this.world });
+      }
       return;
     }
     this.carryState = this.world ? this.world.carry() : this.carryState;
@@ -988,7 +1254,11 @@ class Game {
 
   update(dt) {
     this.stateT += dt;
-    this.net.update(dt, this.buildNetSnapshot());
+    if (this.saveToast) {
+      this.saveToast.t += dt;
+      if (this.saveToast.t >= this.saveToast.dur) this.saveToast = null;
+    }
+    this.net.update(dt, this.net.enabled ? (this._netSnapFn || (this._netSnapFn = () => this.buildNetSnapshot())) : null);
     if (this.editingCallsign) {
       if (this.state === 'title' || this.state === 'controls' || this.state === 'settings' || this.state === 'difficulty' || this.state === 'stageselect') {
         this.updateTitleBackdrop(dt);
@@ -1005,20 +1275,21 @@ class Game {
     this.muteT = Math.max(0, (this.muteT || 0) - dt);
 
     switch (this.state) {
-      case 'title':
+      case 'title': {
         this.updateTitleBackdrop(dt);
         this.audio.playMusic('title');
         this.audio.stopAmbient();
-        if (inp.pressed.up) { this.titleMenu = (this.titleMenu + TITLE_MENU_ITEMS - 1) % TITLE_MENU_ITEMS; this.audio.sfx('bone'); }
-        if (inp.pressed.down) { this.titleMenu = (this.titleMenu + 1) % TITLE_MENU_ITEMS; this.audio.sfx('bone'); }
+        const menu = this.getTitleMenuLayout();
+        const nMenu = menu.items.length;
+        if (this.titleMenu >= nMenu) this.titleMenu = 0;
+        if (inp.pressed.up) { this.titleMenu = (this.titleMenu + nMenu - 1) % nMenu; this.audio.sfx('bone'); }
+        if (inp.pressed.down) { this.titleMenu = (this.titleMenu + 1) % nMenu; this.audio.sfx('bone'); }
         if (inp.pressed.forge) { this.openForge('title'); break; }
         if (inp.pressed.start || inp.pressed.jump || inp.pressed.attack) {
-          if (this.titleMenu === 1) this.openForge('title');
-          else if (this.titleMenu === 2) this.openControls();
-          else if (this.titleMenu === 3) this.openSettings();
-          else { this.setState('difficulty'); this.audio.sfx('select'); }
+          this.activateTitleMenuItem(this.titleMenu);
         }
         break;
+      }
       case 'controls':
         this.updateTitleBackdrop(dt);
         this.updateControls(dt, inp);
@@ -1035,7 +1306,7 @@ class Game {
         break;
       case 'difficulty': {
         this.updateTitleBackdrop(dt);
-        if (inp.pressed.escape) { this.setState('title'); this.audio.sfx('pause'); break; }
+        if (inp.pressed.escape || inp.pressed.sprint) { this.setState('title'); this.audio.sfx('pause'); break; }
         const n = DIFFICULTY_ORDER.length;
         if (inp.pressed.up || inp.pressed.left) { this.menuIndex = (this.menuIndex + n - 1) % n; this.audio.sfx('bone'); }
         if (inp.pressed.down || inp.pressed.right) { this.menuIndex = (this.menuIndex + 1) % n; this.audio.sfx('bone'); }
@@ -1048,7 +1319,7 @@ class Game {
       }
       case 'stageselect': {
         this.updateTitleBackdrop(dt);
-        if (inp.pressed.escape) { this.setState('difficulty'); this.audio.sfx('pause'); break; }
+        if (inp.pressed.escape || inp.pressed.sprint) { this.setState('difficulty'); this.audio.sfx('pause'); break; }
         if (inp.pressed.forge) { this.openForge('stageselect'); break; }
         let c = this.mapCursor;
         if (inp.pressed.left) c = moveCursor(c, -1, 0);
@@ -1067,12 +1338,16 @@ class Game {
         if (inp.pressed.map) { this.openMap(); break; }
         if (this.world.canSkipBossIntro && this.world.canSkipBossIntro()) {
           const introReady = !this.world.bossIntro || this.world.bossIntro.t >= 0.22 || this.world.voiceSpeaking();
-          if (inp.pressed.start || inp.pressed.escape || (introReady && (inp.pressed.jump || inp.pressed.attack || inp.pressed.offhand))) {
+          if (inp.pressed.start || inp.pressed.escape || (introReady && (inp.pressed.jump || inp.pressed.attack || inp.pressed.offhand || inp.pressed.sprint))) {
             this.world.skipBossIntro();
             break;
           }
         }
-        if (inp.pressed.start && this.world.phase === 'play') { this.setState('pause'); break; }
+        if (inp.pressed.escape && this.world.phase === 'play') { this.setState('pause'); break; }
+        if (inp.pressed.start && (this.world.phase === 'play' || this.world.phase === 'intro')) {
+          this.openArmory('play', 'armory');
+          break;
+        }
         this.world.update(dt, inp);
         break;
       case 'armory':
@@ -1087,7 +1362,7 @@ class Game {
         else if (inp.pressed.up) c = moveCursor(c, 0, -1);
         else if (inp.pressed.down) c = moveCursor(c, 0, 1);
         if (c !== this.mapCursor) { this.mapCursor = c; this.audio.sfx('bone'); }
-        if (inp.pressed.map || inp.pressed.escape) {
+        if (inp.pressed.map || inp.pressed.escape || inp.pressed.sprint) {
           this.setState('play');
           this.audio.sfx('pause');
           break;
@@ -1112,7 +1387,7 @@ class Game {
         if (inp.pressed.armory) { this.openArmory('pause', 'armory'); break; }
         if (inp.pressed.bestiary) { this.openArmory('pause', 'bestiary'); break; }
         if (inp.pressed.map) { this.openMap(); break; }
-        if (inp.pressed.start || inp.pressed.escape) { this.setState('play'); }
+        if (inp.pressed.start || inp.pressed.escape || inp.pressed.sprint) { this.setState('play'); }
         break;
       case 'clear':
         this.world.update(dt, inp);
@@ -1120,6 +1395,7 @@ class Game {
         break;
       case 'ending':
         if (this.stateT > 6 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) {
+          this.titleMenu = 0;
           this.setState('title');
           this.audio.stopMusic();
           if (this.audio.stopVoice) this.audio.stopVoice();
@@ -1135,7 +1411,11 @@ class Game {
         }
         break;
       case 'gameover':
-        if (this.stateT > 1.5 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) { this.setState('title'); this.audio.stopMusic(); }
+        if (this.stateT > 1.5 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) {
+          this.titleMenu = 0;
+          this.setState('title');
+          this.audio.stopMusic();
+        }
         break;
       default: break;
     }
@@ -1184,12 +1464,19 @@ class Game {
         this.drawClear(ctx);
         break;
       case 'ending': this.drawEnding(ctx); break;
-      case 'gameover':
+      case 'gameover': {
         this.world.draw(ctx, { hud: false });
         ctx.fillStyle = 'rgba(4, 3, 10, 0.6)'; ctx.fillRect(0, 0, W, H);
-        this.banner(['GAME OVER'], 136, { scale: 4, color: '#e23c3c', sub: this.stateT > 1.5 ? ((this.touch && this.touch.active) ? 'TAP OR PRESS START' : 'PRESS ENTER') : ' ' });
+        const isTouch = !!(this.touch && this.touch.active);
+        const goSub = this.stateT > 1.5
+          ? (this.hasSaveGame()
+            ? (isTouch ? 'TAP OR PRESS START · CONTINUE FROM LAST SAVE' : 'PRESS ENTER · CONTINUE FROM LAST SAVE ON TITLE')
+            : (isTouch ? 'TAP OR PRESS START' : 'PRESS ENTER'))
+          : ' ';
+        this.banner(['GAME OVER'], 136, { scale: 4, color: '#e23c3c', sub: goSub });
         this.font.draw(ctx, `LV ${String(this.charLevel).padStart(2, '0')} · SCORE ${String(this.world.score).padStart(7, '0')}`, W / 2, 215, { align: 'center', scale: 2, gothic: false, shadow: '#120f1c' });
         break;
+      }
       default: break;
     }
     if (this.editingCallsign) this.drawCallsignModal(ctx);
@@ -1312,12 +1599,15 @@ class Game {
 
     const f = this.font;
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
+    const hasSave = this.hasSaveGame();
     const logo = this.assets.img('title_logo');
     const reveal = Math.min(1, Math.max(0, (t - 0.3) / 1.4));
     if (logo) {
       // Blackletter logo: rises and fades in, then breathes gently with a crimson under-glow
-      const lw = 340, lh = Math.round(logo.height * (lw / logo.width));
-      const lx = Math.round((W - lw) / 2), ly = Math.round(18 + (1 - reveal) * 16 + Math.sin(t * 1.3) * 2);
+      const lw = hasSave ? 310 : 322;
+      const lh = Math.round(logo.height * (lw / logo.width));
+      const baseLogoY = hasSave ? 4 : 8;
+      const lx = Math.round((W - lw) / 2), ly = Math.round(baseLogoY + (1 - reveal) * 16 + Math.sin(t * 1.3) * 2);
       ctx.save();
       ctx.globalAlpha = reveal;
       ctx.globalCompositeOperation = 'lighter';
@@ -1334,38 +1624,84 @@ class Game {
       }
       ctx.restore();
     } else {
-      f.draw(ctx, 'GOTHIC', W / 2, 62, { scale: 6, align: 'center', color: '#e8e2c8', spacing: 2, shadow: '#5b2a3a' });
-      f.draw(ctx, 'NOCTURNE', W / 2, 118, { scale: 4, align: 'center', color: '#c23b4a', spacing: 2, shadow: '#120f1c' });
+      f.draw(ctx, 'GOTHIC', W / 2, 54, { scale: 6, align: 'center', color: '#e8e2c8', spacing: 2, shadow: '#5b2a3a' });
+      f.draw(ctx, 'NOCTURNE', W / 2, 108, { scale: 4, align: 'center', color: '#c23b4a', spacing: 2, shadow: '#120f1c' });
     }
     if (reveal >= 1) {
-      // Ornamental rule and tagline
-      ctx.fillStyle = '#8a6a3a'; ctx.fillRect(W / 2 - 150, 218, 300, 1);
-      ctx.fillStyle = '#d9b36a'; ctx.fillRect(W / 2 - 2, 216, 4, 4); ctx.fillRect(W / 2 - 150, 217, 3, 3); ctx.fillRect(W / 2 + 147, 217, 3, 3);
-      f.draw(ctx, 'A 32-BIT WHIP-CRACKING ACTION PLATFORMER', W / 2, 224, { align: 'center', color: '#a89a74', shadow: '#120f1c' });
-      const isTouch = !!(this.touch && this.touch.active);
-      // Title menu: begin the hunt, propose a new wing for the Castle Forge to raise, view Controls, or open Settings
+      // Ornamental rule + Castle Discovery Percentage readout badge
+      const ruleY = hasSave ? 199 : 204;
+      ctx.fillStyle = '#8a6a3a'; ctx.fillRect(W / 2 - 156, ruleY, 312, 1);
+      ctx.fillStyle = '#d9b36a'; ctx.fillRect(W / 2 - 2, ruleY - 2, 4, 4); ctx.fillRect(W / 2 - 156, ruleY - 1, 3, 3); ctx.fillRect(W / 2 + 153, ruleY - 1, 3, 3);
+
+      const disc = this.getCastleDiscoveryStats();
       const gp = this.guardianProgress();
-      const huntSub = gp.felled > 0
-        ? `${isTouch ? 'TAP OR PRESS START' : 'PRESS ENTER OR START'} · GUARDIANS FELLED ${gp.felled}/${gp.total}${allGuardiansFelled(this.cleared) ? ' · THE COUNT AWAITS' : ''}`
-        : (isTouch ? 'TAP OR PRESS START' : 'PRESS ENTER OR START');
+      const badgeW = 292, badgeH = 15;
+      const badgeX = Math.round((W - badgeW) * 0.5), badgeY = hasSave ? 204 : 209;
+      ctx.fillStyle = 'rgba(8, 6, 18, 0.86)';
+      ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+      ctx.strokeStyle = disc.exactPct > 0 ? '#8a6a3a' : '#3e3650';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(badgeX + 0.5, badgeY + 0.5, badgeW - 1, badgeH - 1);
+      // Subtle crimson-to-gold discovery progress bar along bottom of the badge
+      const barPad = 4;
+      const barMaxW = badgeW - barPad * 2;
+      ctx.fillStyle = '#161124';
+      ctx.fillRect(badgeX + barPad, badgeY + badgeH - 3, barMaxW, 2);
+      const fillW = Math.round(barMaxW * Math.max(0, Math.min(1, disc.exactPct / 100)));
+      if (fillW > 0) {
+        const bg = ctx.createLinearGradient(badgeX + barPad, 0, badgeX + barPad + barMaxW, 0);
+        bg.addColorStop(0, '#ff4a6e');
+        bg.addColorStop(0.6, '#ffd27a');
+        bg.addColorStop(1, '#62f2c2');
+        ctx.fillStyle = bg;
+        ctx.fillRect(badgeX + barPad, badgeY + badgeH - 3, fillW, 2);
+      }
+      const castleLine = gp.felled > 0
+        ? `CASTLE DISCOVERED ${disc.label}  ·  GUARDIANS ${gp.felled}/${gp.total}`
+        : `CASTLE DISCOVERED ${disc.label}`;
+      f.draw(ctx, castleLine, W / 2, badgeY + 3, {
+        align: 'center',
+        color: disc.exactPct >= 100 ? '#62f2c2' : (disc.exactPct > 0 ? '#ffd27a' : '#a89a74'),
+        shadow: '#05040a',
+        gothic: false,
+      });
+
+      const isTouch = !!(this.touch && this.touch.active);
       const debugOn = this.debug.unlockAreas || this.debug.unlockBosses;
-      const items = [
-        ['BEGIN THE HUNT', huntSub],
-        ['EXPAND THE CASTLE', `PROPOSE A NEW WING · ${this.forge.forgedCount ? `${this.forge.forgedCount} RAISED SO FAR` : 'AI-FORGED LEVEL, ART, MUSIC AND BOSS'}`],
-        ['CONTROLS', isTouch ? 'TOUCH D-PAD, WEAPON CLUSTER & SHORTCUTS' : 'KEYBOARD, GAMEPAD & TOUCH CONTROLS'],
-        ['SETTINGS', debugOn ? 'RESET PROGRESS · DEBUG UNLOCKS ACTIVE' : 'RESET PROGRESS · DEBUG UNLOCKS'],
-      ];
-      items.forEach(([label, sub], i) => {
+      const menu = this.getTitleMenuLayout();
+      if (this.titleMenu >= menu.items.length) this.titleMenu = 0;
+      const subY = menu.y0 + menu.rowH * menu.items.length + (hasSave ? 4 : 5);
+      menu.items.forEach((item, i) => {
         const sel = this.titleMenu === i;
-        const y = TITLE_MENU_Y0 + i * TITLE_MENU_ROW_H;
-        const col = sel ? (pulse > 0.25 ? '#ffd27a' : '#e0b45a') : (i === 3 && debugOn ? '#9a6f8a' : '#6f6a80');
-        f.draw(ctx, `${sel ? '→ ' : '  '}${label}${sel ? ' ←' : '  '}`, W / 2, y, { scale: 2, align: 'center', color: col, shadow: '#5b2a3a', gothic: false });
-        if (sel) f.draw(ctx, sub, W / 2, TITLE_MENU_Y0 + TITLE_MENU_ROW_H * TITLE_MENU_ITEMS + 3, { align: 'center', color: '#a89a74', shadow: '#120f1c', gothic: false });
+        const y = menu.y0 + i * menu.rowH;
+        const isCont = item.id === 'continue';
+        const unselCol = isCont
+          ? '#a89476'
+          : (item.id === 'settings' && debugOn ? '#9a6f8a' : '#6f6a80');
+        const selCol = isCont
+          ? (pulse > 0.25 ? '#7ef7d4' : '#56d9b4')
+          : (pulse > 0.25 ? '#ffd27a' : '#e0b45a');
+        const col = sel ? selCol : unselCol;
+        f.draw(ctx, `${sel ? '→ ' : '  '}${item.label}${sel ? ' ←' : '  '}`, W / 2, y, {
+          scale: 2,
+          align: 'center',
+          color: col,
+          shadow: isCont && sel ? '#10342e' : '#5b2a3a',
+          gothic: false,
+        });
+        if (sel) {
+          f.draw(ctx, item.sub, W / 2, subY, {
+            align: 'center',
+            color: isCont ? '#d9efe6' : '#a89a74',
+            shadow: '#120f1c',
+            gothic: false,
+          });
+        }
       });
       // Game author attribution on the home screen
       ctx.fillStyle = '#3a2e22';
-      ctx.fillRect(W / 2 - 140, 323, 280, 1);
-      f.draw(ctx, 'CREATED BY JUNIUS AND ALEX GUNARATNE', W / 2, 328, {
+      ctx.fillRect(W / 2 - 140, 321, 280, 1);
+      f.draw(ctx, 'CREATED BY JUNIUS AND ALEX GUNARATNE', W / 2, 326, {
         align: 'center',
         color: '#d9b36a',
         shadow: '#120f1c',
@@ -1396,13 +1732,13 @@ class Game {
   }
 
   closeControls() {
-    this.titleMenu = 2;
+    this.titleMenu = this.indexOfTitleAction('controls');
     this.setState('title');
     this.audio.sfx('pause');
   }
 
   updateControls(dt, inp) {
-    if (this.stateT > 0.22 && (inp.pressed.escape || inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) {
+    if (this.stateT > 0.22 && (inp.pressed.escape || inp.pressed.start || inp.pressed.jump || inp.pressed.attack || inp.pressed.sprint)) {
       this.closeControls();
     }
   }
@@ -1438,10 +1774,10 @@ class Game {
     ctx.fillRect(W / 2, py + 8, 1, 108);
 
     const moveRows = [
-      ['←/→ OR A/D', 'WALK · Q / LB BACKDASH'],
-      ['Z / SPACE', 'JUMP · ↓↑+JUMP HIGH JUMP'],
-      ['↓+JUMP GND', 'SLIDE KICK · DROP LEDGE'],
-      ['↓+JUMP AIR', 'DIAGONAL POGO DIVEKICK'],
+      ['←/→ OR A/D', 'WALK · →→ / PAD B DASH'],
+      ['Q / LB', 'BACKDASH · LODESTONE RING'],
+      ['Z/SPC/PAD A', 'JUMP · ↓↑+JUMP HIGH JUMP'],
+      ['↓+JUMP', 'SLIDE (GND) · DIVEKICK (AIR)'],
     ];
     moveRows.forEach(([k, desc], i) => {
       const ry = py + 30 + i * 21;
@@ -1467,8 +1803,8 @@ class Game {
     f.draw(ctx, 'EXPLORATION, GRIMOIRE & CASTLE FORGE', W / 2, py + 128, { align: 'center', color: '#ffd27a', shadow: '#05040a', gothic: false });
 
     const expLines = [
-      ['↑ AT PORTAL / SIGIL', 'ENTER DOORWAY, WARP MIRROR, CHEST, OR ABSORB SOUL GLYPH'],
-      ['E  GRIMOIRE / SOULS     B  BESTIARY     M  CASTLE MAP     Q  LODESTONE GRAPPLE', ''],
+      ['↑ AT SANCTUM / PORTAL', 'SAVE AT CRIMSON SANCTUM, ENTER DOORWAY, WARP MIRROR OR CHEST'],
+      ['START / E  GRIMOIRE & GEAR     B  BESTIARY     VIEW / M  MAP     ESC  PAUSE', ''],
       ['P  CASTLE FORGE     G  SALUTE     C  CALLSIGN     N  MUTE     F  POST-FX', ''],
       ['TOUCH & GAMEPAD', '8-WAY D-PAD + ACTION CLUSTER · TAP MINI-MAP, ARMORY SOCKETS OR DOORS'],
     ];
@@ -1501,7 +1837,7 @@ class Game {
 
   closeSettings() {
     this.settingsConfirmReset = false;
-    this.titleMenu = 3;
+    this.titleMenu = this.indexOfTitleAction('settings');
     this.setState('title');
     this.audio.sfx('pause');
   }
@@ -1511,7 +1847,7 @@ class Game {
       this.settingsFlash.t -= dt;
       if (this.settingsFlash.t <= 0) this.settingsFlash = null;
     }
-    if (inp.pressed.escape) { this.closeSettings(); return; }
+    if (inp.pressed.escape || inp.pressed.sprint) { this.closeSettings(); return; }
     const n = SETTINGS_ITEMS.length;
     if (inp.pressed.up) { this.settingsIndex = (this.settingsIndex + n - 1) % n; this.settingsConfirmReset = false; this.audio.sfx('bone'); }
     if (inp.pressed.down) { this.settingsIndex = (this.settingsIndex + 1) % n; this.settingsConfirmReset = false; this.audio.sfx('bone'); }
@@ -1572,8 +1908,10 @@ class Game {
 
     // Hunt summary: how far the castle has been conquered
     const gp = this.guardianProgress();
+    const disc = this.getCastleDiscoveryStats();
     const countOpen = allGuardiansFelled(this.cleared) || this.debug.unlockBosses;
-    const summary = `GUARDIANS FELLED ${String(gp.felled).padStart(2, '0')}/${String(gp.total).padStart(2, '0')}`
+    const summary = `CASTLE ${disc.label}`
+      + ` · GUARDIANS ${String(gp.felled).padStart(2, '0')}/${String(gp.total).padStart(2, '0')}`
       + ` · VESSELS ${String(this.getVesselCount()).padStart(2, '0')}/${STAGES.length}`
       + ` · LV ${String(this.charLevel).padStart(2, '0')}`
       + ` · THE COUNT ${countOpen ? 'AWAITS' : 'SEALED'}`;

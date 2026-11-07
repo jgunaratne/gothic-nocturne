@@ -115,6 +115,7 @@ export class World {
     this.subWeaponCarry = carry ? carry.subWeapon : null;
     this.carryHp = carry && carry.hp ? carry.hp : null;
     this.enterFromDoorId = carry && carry.enterFromDoorId ? carry.enterFromDoorId : null;
+    this.savedSanctuaryPos = null;
     this.timeLeft = this.difficulty.time;
     this.checkpoint = 0;
     this.time = 0;
@@ -287,18 +288,57 @@ export class World {
     this.player.noWhip = !!(w0 && !w0.isWhip);
 
     let enteredViaPassage = false;
+    let resumeBannerSub = null;
     if (this.enterFromDoorId && this.checkpoint === 0) {
-      const target = this.enterFromDoorId === 'sanctuary'
-        ? (this.warpMirror || this.sanctuary)
-        : this.passages.find((g) => g.id === this.enterFromDoorId);
-      if (target) {
-        this.player.x = target.x;
-        this.player.y = target.y;
+      if (this.enterFromDoorId === 'boss_clear') {
+        this.bossDefeated = true;
+        this.bossCleared = true;
+        this.bossRewardsClaimed = true;
+        if (this.bossExitDoor) this.bossExitDoor.openNow(this);
+        if (this.bossGateDoor) this.bossGateDoor.openNow(this, true);
+        if (d.boss) {
+          this.enemies = this.enemies.filter((e) => e.x < d.boss.camX - 100);
+        }
+        const anchorX = this.bossExitDoor ? (this.bossExitDoor.x - 48) : (this.sanctuary ? this.sanctuary.x : cx);
+        const anchorY = this.bossExitDoor ? this.bossExitDoor.y : (this.sanctuary ? this.sanctuary.y : this.player.y);
+        this.player.x = anchorX;
+        this.player.y = anchorY;
         this.player.onGround = true;
-        if (target === this.sanctuary) target.usedThisVisit = true;
+        if (this.sanctuary) this.savedSanctuaryPos = { x: this.sanctuary.x, y: this.sanctuary.y };
         enteredViaPassage = true;
+        resumeBannerSub = 'GUARDIAN FELLED · EXIT VORTEX OPEN';
+      } else if (this.enterFromDoorId === 'save_point') {
+        const target = this.sanctuary || this.warpMirror;
+        if (target) {
+          this.player.x = target.x;
+          this.player.y = target.y;
+          this.player.onGround = true;
+          if (this.sanctuary) {
+            this.sanctuary.usedThisVisit = true;
+            this.savedSanctuaryPos = { x: this.sanctuary.x, y: this.sanctuary.y };
+          }
+          enteredViaPassage = true;
+          resumeBannerSub = 'RESUMED AT CRIMSON SAVE SANCTUM';
+        }
+      } else {
+        const target = this.enterFromDoorId === 'sanctuary'
+          ? (this.warpMirror || this.sanctuary)
+          : this.passages.find((g) => g.id === this.enterFromDoorId);
+        if (target) {
+          this.player.x = target.x;
+          this.player.y = target.y;
+          this.player.onGround = true;
+          if (target === this.sanctuary) target.usedThisVisit = true;
+          enteredViaPassage = true;
+        }
       }
       this.enterFromDoorId = null;
+    } else if (this.savedSanctuaryPos && this.sanctuary && this.savedSanctuaryPos.x >= cx - 16) {
+      // Respawning on death after saving at this stage's Crimson Save Sanctum
+      this.player.x = this.sanctuary.x;
+      this.player.y = this.sanctuary.y;
+      this.player.onGround = true;
+      this.sanctuary.usedThisVisit = true;
     }
 
     const hasTurtle = d.ally === 'turtle' || this.theme.ally === 'turtle';
@@ -310,7 +350,7 @@ export class World {
       this.phase = 'play';
       this.phaseT = 0;
       this.messages = [];
-      this.showMessage(d.name, d.subtitle || 'CONNECTED AREA', 1.9);
+      this.showMessage(d.name, resumeBannerSub || d.subtitle || 'CONNECTED AREA', 2.0);
     } else {
       this.phase = 'intro';
       this.phaseT = 0;
@@ -791,6 +831,8 @@ export class World {
   onBossDefeated(boss) {
     this.bossActive = false;
     this.bossDefeated = true;
+    this.voiceCue = null;
+    if (this.audio && this.audio.stopVoice) this.audio.stopVoice();
     const a = (boss && boss.arena) || this.data.boss.arena;
     const minY = (a.ceilY != null ? a.ceilY : a.floorY - 220) + 48;
     const maxY = a.floorY - 48;
@@ -816,6 +858,14 @@ export class World {
     this.enemies = this.enemies.filter((e) => e === boss);
     this.projectiles = this.projectiles.filter((p) => p.owner !== 'enemy');
     this.fires = [];
+    if (this.lives < this.difficulty.lives) this.lives = this.difficulty.lives;
+    if (this.game && this.game.unlockStageClear) {
+      this.game.unlockStageClear();
+    }
+    this.recordExploration({ cleared: true });
+    if (this.game && this.game.saveCheckpoint) {
+      this.game.saveCheckpoint({ spawnKind: 'boss_clear', reason: 'BOSS DEFEATED', world: this });
+    }
     if (this.game && this.game.net && this.game.net.connected && !this._remoteBossClear) {
       this.game.net.sendEvent('boss_clear', {
         stageKey: this.stage.key,
@@ -886,9 +936,10 @@ export class World {
     this.updateWeather(dt);
     this.expFlashT = Math.max(0, this.expFlashT - dt);
     this.levelUpFlashT = Math.max(0, this.levelUpFlashT - dt);
-    for (const m of this.messages) m.t += dt;
-    this.messages = this.messages.filter((m) => m.t < m.dur);
-    for (const pop of this.popups) {
+    for (let i = 0; i < this.messages.length; i++) this.messages[i].t += dt;
+    compactTimed(this.messages);
+    for (let i = 0; i < this.popups.length; i++) {
+      const pop = this.popups[i];
       pop.t += dt;
       if (pop.vx) {
         pop.x += pop.vx * dt;
@@ -897,7 +948,7 @@ export class World {
       pop.y += pop.vy * dt;
       pop.vy *= 0.94;
     }
-    this.popups = this.popups.filter((pop) => pop.t < pop.dur);
+    compactTimed(this.popups);
     if (this.targetEnemy) {
       this.targetEnemy.t -= dt;
       if (this.targetEnemy.enemy && this.targetEnemy.enemy.alive) {
@@ -908,10 +959,10 @@ export class World {
     this.unionFlashT = Math.max(0, this.unionFlashT - dt);
     this.guardianWardCd = Math.max(0, this.guardianWardCd - dt);
     this.chronoFreezeT = Math.max(0, (this.chronoFreezeT || 0) - dt);
-    for (const r of this.shockRings) r.t += dt;
-    this.shockRings = this.shockRings.filter((r) => r.t < r.dur);
-    for (const wr of this.waterRipples) wr.t += dt;
-    this.waterRipples = this.waterRipples.filter((wr) => wr.t < wr.dur);
+    for (let i = 0; i < this.shockRings.length; i++) this.shockRings[i].t += dt;
+    compactTimed(this.shockRings);
+    for (let i = 0; i < this.waterRipples.length; i++) this.waterRipples[i].t += dt;
+    compactTimed(this.waterRipples);
     if (this.voiceCue) {
       this.voiceCue.t += dt;
       if (this.voiceCue.t >= this.voiceCue.dur) this.voiceCue = null;
@@ -990,7 +1041,7 @@ export class World {
     for (let i = this.data.checkpoints.length - 1; i > this.checkpoint; i--) {
       if (p.x >= this.data.checkpoints[i]) { this.checkpoint = i; break; }
     }
-    if (!this.bossActive && (!this.boss || this.boss.introPose) && live && this.data.boss && p.x >= this.data.boss.triggerX) {
+    if (!this.bossDefeated && !this.bossCleared && !this.bossActive && (!this.boss || this.boss.introPose) && live && this.data.boss && p.x >= this.data.boss.triggerX) {
       this.updateBossIntro(dt, p, input);
     }
     // Remember the last solid footing (for forgiving pit falls on Easy).
@@ -1038,7 +1089,7 @@ export class World {
 
     if (live && p.alive) {
       this.inSecretArea = false;
-      if (this.sanctuary) this.sanctuary.update(p, this);
+      if (this.sanctuary) this.sanctuary.update(dt, p, input, this);
       if (this.warpMirror) {
         this.warpMirror.update(p, input, this);
         if (this.game && this.game.state !== 'play') return;
@@ -1062,17 +1113,23 @@ export class World {
         }
       }
       this.updateGuardianSoul(dt, p);
-      this.recordExploration();
+      const expTx = p.x >> 5, expTy = p.y >> 5;
+      if (expTx !== this._expLastTx || expTy !== this._expLastTy || this.inSecretArea !== this._expLastSec) {
+        this._expLastTx = expTx;
+        this._expLastTy = expTy;
+        this._expLastSec = this.inSecretArea;
+        this.recordExploration();
+      }
       this.resolveCombat(dt);
     }
     this.updateWaterInteractions(dt);
 
-    this.enemies = this.enemies.filter((e) => !e.dead);
-    this.projectiles = this.projectiles.filter((e) => !e.dead);
-    this.items = this.items.filter((e) => !e.dead);
-    this.fires = this.fires.filter((e) => !e.dead);
-    this.candles = this.candles.filter((e) => !e.dead);
-    this.soulOrbs = this.soulOrbs.filter((e) => !e.dead);
+    compactAlive(this.enemies);
+    compactAlive(this.projectiles);
+    compactAlive(this.items);
+    compactAlive(this.fires);
+    compactAlive(this.candles);
+    compactAlive(this.soulOrbs);
 
     this.camera.update(dt, p, p.facing);
   }
@@ -1860,22 +1917,48 @@ export class World {
     this.game.markCellsExplored(cells);
   }
 
-  onSanctuaryAttuned(stone) {
+  activateSavePoint(stone, { manual = false } = {}) {
     const sIdx = Math.max(0, (this.stage.id || 1) - 1);
     const wasNew = this.game && this.game.discoverStage ? this.game.discoverStage(sIdx) : false;
     this.recordExploration({ sanctuary: true });
     const p = this.player;
-    const maxHp = p.maxHp || PLAYER.maxHp;
-    const healed = p.hp < maxHp;
+    const maxHp = this.computeMaxHp();
+    p.maxHp = maxHp;
     p.hp = maxHp;
-    this.particles.sparks(stone.x, stone.y - 28, 16, '#ff4a6e');
-    if (wasNew) {
-      this.sfx('pickup');
-      this.emitShockwave(stone.x, stone.y - 42, { maxR: 112, dur: 0.44, strength: 0.55, color: [0.96, 0.22, 0.42] });
-      this.showMessage('CRIMSON SANCTUM', 'VITALITY FULLY MENDED · PROGRESS RECORDED', 2.2);
-    } else if (healed) {
-      this.sfx('pickup');
+    if (this.lives < this.difficulty.lives) {
+      this.lives = this.difficulty.lives;
     }
+    this.savedSanctuaryPos = { x: stone.x, y: stone.y };
+    if (this.game && this.game.saveCheckpoint) {
+      this.game.saveCheckpoint({ spawnKind: 'sanctuary', reason: 'CRIMSON SANCTUM', world: this });
+    }
+    this.particles.sparks(stone.x, stone.y - 34, 20, '#ff4a6e');
+    this.particles.sparks(stone.x, stone.y - 52, 10, '#ffd27a');
+    this.emitShockwave(stone.x, stone.y - 42, {
+      maxR: manual || wasNew ? 118 : 92,
+      dur: 0.44,
+      strength: manual || wasNew ? 0.58 : 0.38,
+      color: [0.98, 0.28, 0.48],
+    });
+    this.sfx(manual || wasNew ? 'orb' : 'pickup');
+    const discStats = this.game && this.game.getCastleDiscoveryStats ? this.game.getCastleDiscoveryStats() : null;
+    const pctTag = discStats ? ` · CASTLE ${discStats.label}` : '';
+    if (wasNew || manual) {
+      this.showMessage('GAME SAVED', `CRIMSON SANCTUM · VITALITY MENDED${pctTag}`, 2.3);
+    } else {
+      this.spawnPopup(stone.x, stone.y - 68, '* GAME SAVED *', {
+        sub: `VITALITY MENDED${pctTag}`,
+        color: '#ff6a88',
+        scale: 1,
+        dur: 1.9,
+        vy: -14,
+        banner: true,
+      });
+    }
+  }
+
+  onSanctuaryAttuned(stone) {
+    this.activateSavePoint(stone, { manual: false });
   }
 
   onVesselCollected(vessel) {
@@ -1917,9 +2000,12 @@ export class World {
     this.particles.sparks(x, y, 16, sparkCol);
     this.emitShockwave(x, y - 8, { maxR: fromPedestal ? 118 : 88, dur: 0.44, strength: 0.55, color: ringCol });
     if (wasNew) {
+      const isPad = !!(this.game && this.game.input && this.game.input.isGamepad);
       const sub = autoEquippedR
-        ? 'EQUIPPED TO R-HAND (C/V/L) · E FOR ARMORY'
-        : (w.isTwoHanded ? '2-HANDED ARSENAL · PRESS E FOR ARMORY' : 'PRESS E TO EQUIP IN L / R HAND');
+        ? (isPad ? 'EQUIPPED TO R-HAND (Y/RT) · START FOR ARMORY' : 'EQUIPPED TO R-HAND (C/V/L) · E FOR ARMORY')
+        : (w.isTwoHanded
+          ? (isPad ? '2-HANDED ARSENAL · PRESS START FOR ARMORY' : '2-HANDED ARSENAL · PRESS E FOR ARMORY')
+          : (isPad ? 'PRESS START TO EQUIP IN L / R HAND' : 'PRESS E TO EQUIP IN L / R HAND'));
       if (fromPedestal) {
         this.showMessage(`ARSENAL: ${w.name}`, sub, 2.5);
       } else {
@@ -2061,12 +2147,16 @@ export class World {
     this.timeBonus = Math.ceil(this.timeLeft) * SCORE.timeBonus;
     this.heartBonus = this.hearts * 100;
     this.score += this.timeBonus + this.heartBonus;
+    if (this.lives < this.difficulty.lives) this.lives = this.difficulty.lives;
     if (this.bossExitDoor) this.bossExitDoor.openNow(this);
+    if (this.game && this.game.saveCheckpoint) {
+      this.game.saveCheckpoint({ spawnKind: 'boss_clear', reason: 'STAGE CLEAR', world: this });
+    }
     if (!silentBanner) {
       const relic = BOSS_RELICS[this.stage.key];
       const sub = relic
-        ? `${relic.name} UNLOCKED · ENTER THE EXIT VORTEX →`
-        : 'ENTER THE EXIT VORTEX ON THE RIGHT →';
+        ? `${relic.name} UNLOCKED · PROGRESS SAVED · ENTER VORTEX →`
+        : 'PROGRESS SAVED · ENTER THE EXIT VORTEX ON THE RIGHT →';
       this.showMessage('STAGE CLEAR!', sub, 3.6);
     }
   }
@@ -2103,6 +2193,9 @@ export class World {
     if (this.game.discoverStage) this.game.discoverStage(destIdx);
     this.sfx('select');
     this.game.startGame(destIdx, this.carry());
+    if (this.game.saveCheckpoint && this.game.world) {
+      this.game.saveCheckpoint({ spawnKind: 'stage_start', reason: 'STAGE CLEAR', world: this.game.world });
+    }
   }
 
   stageClear() {
@@ -2117,6 +2210,9 @@ export class World {
       this.score += this.timeBonus + this.heartBonus;
     }
     this.game.onStageClear();
+    if (this.game && this.game.saveCheckpoint) {
+      this.game.saveCheckpoint({ spawnKind: 'boss_clear', reason: 'STAGE CLEAR', world: this });
+    }
   }
 
   updateWeather(dt) {
@@ -2238,7 +2334,7 @@ export class World {
     const fxOn = !!(fxl && fxl.enabled);
     if (fxOn) {
       ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'medium';
+      ctx.imageSmoothingQuality = 'low';
     }
     // Skip outdoor sky/vista overdraw once camera has crossed inside an opaque castle hall!
     const portalX = roomX < Infinity ? Math.round(project3D(roomX - 18, 144, 40, camX, camY).x) : W;
@@ -2466,15 +2562,17 @@ export class World {
       );
       ctx.restore();
     }
-    if (this.sanctuary) this.sanctuary.drawPrompt(ctx, this.camera, this.font);
-    if (this.warpMirror) this.warpMirror.drawPrompt(ctx, this.camera, this.font);
-    if (this.passages) for (const g of this.passages) g.drawPrompt(ctx, this.camera, this.font, this);
-    if (this.bossGateDoor) this.bossGateDoor.drawPrompt(ctx, this.camera, this.font, this);
-    if (this.bossExitDoor) this.bossExitDoor.drawPrompt(ctx, this.camera, this.font, this);
-    if (this.pedestal) this.pedestal.drawPrompt(ctx, this.camera, this.font, this, this.time);
-    if (this.chests) for (const ch of this.chests) ch.drawPrompt(ctx, this.camera, this.font);
-    if (this.glyphSigils) for (const gs of this.glyphSigils) gs.drawPrompt(ctx, this.camera, this.font);
-    if (this.magnetNodes) for (const mn of this.magnetNodes) mn.drawPrompt(ctx, this.camera, this.font, this.player);
+    if (!this.messages.length) {
+      if (this.sanctuary) this.sanctuary.drawPrompt(ctx, this.camera, this.font);
+      if (this.warpMirror) this.warpMirror.drawPrompt(ctx, this.camera, this.font);
+      if (this.passages) for (const g of this.passages) g.drawPrompt(ctx, this.camera, this.font, this);
+      if (this.bossGateDoor) this.bossGateDoor.drawPrompt(ctx, this.camera, this.font, this);
+      if (this.bossExitDoor) this.bossExitDoor.drawPrompt(ctx, this.camera, this.font, this);
+      if (this.pedestal) this.pedestal.drawPrompt(ctx, this.camera, this.font, this, this.time);
+      if (this.chests) for (const ch of this.chests) ch.drawPrompt(ctx, this.camera, this.font);
+      if (this.glyphSigils) for (const gs of this.glyphSigils) gs.drawPrompt(ctx, this.camera, this.font);
+      if (this.magnetNodes) for (const mn of this.magnetNodes) mn.drawPrompt(ctx, this.camera, this.font, this.player);
+    }
     if (this.popups.length) {
       for (const pop of this.popups) {
         const alpha = Math.max(0, Math.min(1, pop.t / 0.12, (pop.dur - pop.t) / 0.36)) * (pop.maxAlpha ?? 1);
@@ -2616,6 +2714,30 @@ export class World {
       ctx.restore();
     }
   }
+}
+
+function compactAlive(arr) {
+  let w = 0;
+  for (let i = 0; i < arr.length; i++) {
+    const e = arr[i];
+    if (!e.dead) {
+      if (w !== i) arr[w] = e;
+      w++;
+    }
+  }
+  if (w !== arr.length) arr.length = w;
+}
+
+function compactTimed(arr) {
+  let w = 0;
+  for (let i = 0; i < arr.length; i++) {
+    const e = arr[i];
+    if (e.t < e.dur) {
+      if (w !== i) arr[w] = e;
+      w++;
+    }
+  }
+  if (w !== arr.length) arr.length = w;
 }
 
 /** Multi-depth snowflakes or autumn leaves spanning background to near-camera plane. */

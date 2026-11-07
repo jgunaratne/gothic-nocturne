@@ -46,6 +46,7 @@
     position: relative;
     line-height: 0;
     flex: 0 0 auto;
+    contain: layout paint;
   }
   #game {
     display: block;
@@ -53,7 +54,7 @@
     image-rendering: crisp-edges;
     background: #000;
     outline: none;
-    box-shadow: 0 0 0 1px #1b1a2a, 0 0 80px rgba(20, 10, 40, .9);
+    box-shadow: 0 0 0 1px #1b1a2a;
   }
   @media (hover: hover) and (pointer: fine) {
     #game { cursor: none; }

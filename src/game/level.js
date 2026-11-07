@@ -198,7 +198,21 @@ export class Level {
   clear(x0, x1, y0 = 0, y1 = this.rows - 1) { this.fill(x0, x1, y0, y1, T_EMPTY); }
   water(x0, x1, y0, y1) { this.fill(x0, x1, y0, y1, T_WATER); }
   platform(x0, x1, row) { this.fill(x0, x1, row, row, T_PLATFORM); }
-  set(x, y, t) { if (x >= 0 && y >= 0 && x < this.cols && y < this.rows) this.tiles[y * this.cols + x] = t; }
+  set(x, y, t) {
+    if (x >= 0 && y >= 0 && x < this.cols && y < this.rows) {
+      const idx = y * this.cols + x;
+      const prev = this.tiles[idx];
+      if (prev !== t) {
+        this.tiles[idx] = t;
+        if (this._tileChunks && (isMaterialTile(prev) || isMaterialTile(t) || prev === T_BLOCK || t === T_BLOCK || prev === T_SPIKES || t === T_SPIKES)) {
+          const cx = x >> 4, cy = y >> 4;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) this._tileChunks.delete(((cy + dy) << 12) | (cx + dx));
+          }
+        }
+      }
+    }
+  }
 
   /**
    * Registers an inclined walkable staircase between tile-boundary coordinates
@@ -255,6 +269,7 @@ export class Level {
   }
 
   recompute() {
+    if (this._tileChunks) this._tileChunks.clear();
     // Depth below the surface for same-material solid tiles (texture rows).
     for (let x = 0; x < this.cols; x++) {
       let run = 0, prev = T_EMPTY;
@@ -903,6 +918,127 @@ export class Level {
     ctx.restore();
   }
 
+  _getStaticTileChunk(cx, cy, assets, spikes, propsImg) {
+    if (cx < 0 || cy < 0) return 'empty';
+    const tx0 = cx << 4, ty0 = cy << 4;
+    if (tx0 >= this.cols || ty0 >= this.rows) return 'empty';
+    if (!this._tileChunks) this._tileChunks = new Map();
+    const key = (cy << 12) | cx;
+    const cached = this._tileChunks.get(key);
+    if (cached) return cached;
+
+    const tx1 = Math.min(this.cols - 1, tx0 + 15);
+    const ty1 = Math.min(this.rows - 1, ty0 + 15);
+    let hasStatic = false;
+    for (let ty = ty0; ty <= ty1 && !hasStatic; ty++) {
+      const rowOff = ty * this.cols;
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const t = this.tiles[rowOff + tx];
+        if (isMaterialTile(t) || t === T_BLOCK || t === T_SPIKES) {
+          if (isMaterialTile(t) && !assets.info(MATERIAL_STRIP[t])) return null;
+          if ((t === T_BLOCK || t === T_SPIKES) && !propsImg) return null;
+          hasStatic = true;
+          break;
+        }
+      }
+    }
+    if (!hasStatic) {
+      this._tileChunks.set(key, 'empty');
+      return 'empty';
+    }
+
+    const c = document.createElement('canvas');
+    c.width = 520;
+    c.height = 540;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    this._renderStaticTileRange(g, tx0, tx1, ty0, ty1, (cx << 9) - 4, (cy << 9) - 12, assets, spikes, propsImg);
+    if (this._tileChunks.size >= 48) {
+      this._tileChunks.delete(this._tileChunks.keys().next().value);
+    }
+    this._tileChunks.set(key, c);
+    return c;
+  }
+
+  _renderStaticTileRange(ctx, tx0, tx1, ty0, ty1, offX, offY, assets, spikes, propsImg) {
+    for (let ty = ty0; ty <= ty1; ty++) {
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const t = this.tiles[ty * this.cols + tx];
+        if (t === T_EMPTY || t === T_PLATFORM || t === T_CRUMBLE || t === T_GATE || t === T_BOUND || t === T_LAVA || t === T_WATER) continue;
+        const x = tx * TILE - offX, y = ty * TILE - offY;
+        if (isMaterialTile(t)) {
+          let name = MATERIAL_STRIP[t];
+          if (assets.info(name + '_b') && hash2(tx >> 3, 7) % 100 < 45) name += '_b';
+          const info = assets.info(name), img = assets.img(name);
+          if (!info) continue;
+          const d = this.depth[ty * this.cols + tx];
+          const sx = (tx * TILE) % info.w;
+          if (d === 0) {
+            ctx.drawImage(img, sx, 0, TILE, info.overhang + TILE, x, y - info.overhang, TILE, info.overhang + TILE);
+            if (t === T_SNOW) {
+              const hv = hash2(tx, ty);
+              if (!this.isSolid(tx - 1, ty)) {
+                const ic = 5 + (hv % 6);
+                ctx.fillStyle = '#637ea8';
+                ctx.fillRect(x - 2, y + 2, 3, 6);
+                ctx.fillStyle = '#c8dff8';
+                ctx.fillRect(x - 2, y - 1, 4, 4);
+                ctx.fillStyle = '#f2f8ff';
+                ctx.fillRect(x - 1, y - 2, 3, 2);
+                ctx.fillStyle = '#8fb4e0';
+                ctx.fillRect(x - 2, y + 7, 2, ic);
+                ctx.fillStyle = '#e6f3ff';
+                ctx.fillRect(x - 2, y + 6, 1, Math.max(2, ic - 2));
+              }
+              if (!this.isSolid(tx + 1, ty)) {
+                const ic = 5 + ((hv >> 3) % 6);
+                ctx.fillStyle = '#5c76a0';
+                ctx.fillRect(x + TILE - 1, y + 2, 3, 6);
+                ctx.fillStyle = '#c8dff8';
+                ctx.fillRect(x + TILE - 2, y - 1, 4, 4);
+                ctx.fillStyle = '#f2f8ff';
+                ctx.fillRect(x + TILE - 2, y - 2, 3, 2);
+                ctx.fillStyle = '#8fb4e0';
+                ctx.fillRect(x + TILE, y + 7, 2, ic);
+                ctx.fillStyle = '#e6f3ff';
+                ctx.fillRect(x + TILE, y + 6, 1, Math.max(2, ic - 2));
+              }
+            }
+          } else {
+            ctx.drawImage(img, sx, info.overhang + TILE * d, TILE, TILE, x, y, TILE, TILE);
+            const j = hash2(tx, ty) % 100;
+            const jmax = t === T_SNOW ? 0.04 : 0.07;
+            if (j < 55) { ctx.fillStyle = `rgba(4, 3, 10, ${(0.3 + (j % 7) / 7 * 0.7) * jmax})`; ctx.fillRect(x, y, TILE, TILE); }
+          }
+          if (t === T_SNOW && d <= 2 && ty + 1 < this.rows && !this.isSolid(tx, ty + 1)) {
+            const hv = hash2(tx * 7 + 3, ty * 13 + 5);
+            // Uneven alpine slate underside teeth + hanging crystalline icicles
+            for (let k = 0; k < 4; k++) {
+              const ox = 2 + k * 8 + ((hv >> (k * 2)) & 1);
+              const rw = 5 + ((hv >> (k + 3)) & 2);
+              const rh = 1 + ((hv >> (k + 6)) & 2);
+              ctx.fillStyle = (k & 1) ? '#1a253a' : '#263652';
+              ctx.fillRect(x + ox, y + TILE - 1, rw, rh);
+              const ilen = 4 + ((hv >> (k * 3 + 1)) % 9);
+              const ix = x + ox + 1;
+              ctx.fillStyle = '#5d7ca8';
+              ctx.fillRect(ix, y + TILE, 3, Math.ceil(ilen * 0.55));
+              ctx.fillStyle = '#9ec3ec';
+              ctx.fillRect(ix, y + TILE + 1, 2, ilen - 1);
+              ctx.fillStyle = '#eaf5ff';
+              ctx.fillRect(ix, y + TILE + 1, 1, Math.max(2, ilen - 3));
+              ctx.fillRect(ix + 1, y + TILE + ilen - 1, 1, 2);
+            }
+          }
+        } else if (t === T_BLOCK) {
+          assets.draw(ctx, 'props', 'block', x + 16, y + 32);
+        } else if (t === T_SPIKES && spikes && propsImg) {
+          ctx.drawImage(propsImg, spikes.x + (tx % 2) * 32, spikes.y, 32, spikes.h, x, y + TILE - spikes.h, 32, spikes.h);
+        }
+      }
+    }
+  }
+
   drawTiles(ctx, cam, assets, time = 0, stage3d = null) {
     this.drawStaticTiles(ctx, cam, assets, time);
     this.drawDynamicTiles(ctx, cam, assets, time, stage3d);
@@ -1005,82 +1141,20 @@ export class Level {
       }
     }
 
-    // 3. Crisp z = 0 front 2D terrain faces, overhangs, breakable blocks & spikes.
-    for (let ty = ty0; ty <= ty1; ty++) {
-      for (let tx = tx0; tx <= tx1; tx++) {
-        const t = this.tiles[ty * this.cols + tx];
-        if (t === T_EMPTY || t === T_PLATFORM || t === T_CRUMBLE || t === T_GATE || t === T_BOUND || t === T_LAVA || t === T_WATER) continue;
-        const x = tx * TILE - camX, y = ty * TILE - camY;
-        if (isMaterialTile(t)) {
-          let name = MATERIAL_STRIP[t];
-          if (assets.info(name + '_b') && hash2(tx >> 3, 7) % 100 < 45) name += '_b';
-          const info = assets.info(name), img = assets.img(name);
-          if (!info) continue;
-          const d = this.depth[ty * this.cols + tx];
-          const sx = (tx * TILE) % info.w;
-          if (d === 0) {
-            ctx.drawImage(img, sx, 0, TILE, info.overhang + TILE, x, y - info.overhang, TILE, info.overhang + TILE);
-            if (t === T_SNOW) {
-              const hv = hash2(tx, ty);
-              if (!this.isSolid(tx - 1, ty)) {
-                const ic = 5 + (hv % 6);
-                ctx.fillStyle = '#637ea8';
-                ctx.fillRect(x - 2, y + 2, 3, 6);
-                ctx.fillStyle = '#c8dff8';
-                ctx.fillRect(x - 2, y - 1, 4, 4);
-                ctx.fillStyle = '#f2f8ff';
-                ctx.fillRect(x - 1, y - 2, 3, 2);
-                ctx.fillStyle = '#8fb4e0';
-                ctx.fillRect(x - 2, y + 7, 2, ic);
-                ctx.fillStyle = '#e6f3ff';
-                ctx.fillRect(x - 2, y + 6, 1, Math.max(2, ic - 2));
-              }
-              if (!this.isSolid(tx + 1, ty)) {
-                const ic = 5 + ((hv >> 3) % 6);
-                ctx.fillStyle = '#5c76a0';
-                ctx.fillRect(x + TILE - 1, y + 2, 3, 6);
-                ctx.fillStyle = '#c8dff8';
-                ctx.fillRect(x + TILE - 2, y - 1, 4, 4);
-                ctx.fillStyle = '#f2f8ff';
-                ctx.fillRect(x + TILE - 2, y - 2, 3, 2);
-                ctx.fillStyle = '#8fb4e0';
-                ctx.fillRect(x + TILE, y + 7, 2, ic);
-                ctx.fillStyle = '#e6f3ff';
-                ctx.fillRect(x + TILE, y + 6, 1, Math.max(2, ic - 2));
-              }
-            }
-          } else {
-            ctx.drawImage(img, sx, info.overhang + TILE * d, TILE, TILE, x, y, TILE, TILE);
-            const j = hash2(tx, ty) % 100;
-            const jmax = t === T_SNOW ? 0.04 : 0.07;
-            if (j < 55) { ctx.fillStyle = `rgba(4, 3, 10, ${(0.3 + (j % 7) / 7 * 0.7) * jmax})`; ctx.fillRect(x, y, TILE, TILE); }
+    // 3. Crisp z = 0 front 2D terrain faces, overhangs, breakable blocks & spikes (cached in 16x16-tile chunks).
+    if (typeof document !== 'undefined') {
+      const cx0 = tx0 >> 4, cx1 = tx1 >> 4;
+      const cy0 = ty0 >> 4, cy1 = ty1 >> 4;
+      for (let cy = cy0; cy <= cy1; cy++) {
+        for (let cx = cx0; cx <= cx1; cx++) {
+          const chunk = this._getStaticTileChunk(cx, cy, assets, spikes, propsImg);
+          if (chunk && chunk !== 'empty') {
+            ctx.drawImage(chunk, (cx << 9) - 4 - camX, (cy << 9) - 12 - camY);
           }
-          if (t === T_SNOW && d <= 2 && ty + 1 < this.rows && !this.isSolid(tx, ty + 1)) {
-            const hv = hash2(tx * 7 + 3, ty * 13 + 5);
-            // Uneven alpine slate underside teeth + hanging crystalline icicles
-            for (let k = 0; k < 4; k++) {
-              const ox = 2 + k * 8 + ((hv >> (k * 2)) & 1);
-              const rw = 5 + ((hv >> (k + 3)) & 2);
-              const rh = 1 + ((hv >> (k + 6)) & 2);
-              ctx.fillStyle = (k & 1) ? '#1a253a' : '#263652';
-              ctx.fillRect(x + ox, y + TILE - 1, rw, rh);
-              const ilen = 4 + ((hv >> (k * 3 + 1)) % 9);
-              const ix = x + ox + 1;
-              ctx.fillStyle = '#5d7ca8';
-              ctx.fillRect(ix, y + TILE, 3, Math.ceil(ilen * 0.55));
-              ctx.fillStyle = '#9ec3ec';
-              ctx.fillRect(ix, y + TILE + 1, 2, ilen - 1);
-              ctx.fillStyle = '#eaf5ff';
-              ctx.fillRect(ix, y + TILE + 1, 1, Math.max(2, ilen - 3));
-              ctx.fillRect(ix + 1, y + TILE + ilen - 1, 1, 2);
-            }
-          }
-        } else if (t === T_BLOCK) {
-          assets.draw(ctx, 'props', 'block', x + 16, y + 32);
-        } else if (t === T_SPIKES) {
-          ctx.drawImage(propsImg, spikes.x + (tx % 2) * 32, spikes.y, 32, spikes.h, x, y + TILE - spikes.h, 32, spikes.h);
         }
       }
+    } else {
+      this._renderStaticTileRange(ctx, tx0, tx1, ty0, ty1, camX, camY, assets, spikes, propsImg);
     }
 
     // 3b. Sunken molten lava pools (receding 3D magma surface + convective WebGL lava shader + warm glow).

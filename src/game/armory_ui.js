@@ -152,7 +152,8 @@ export class WeaponPedestal {
     const accent = elem ? elem.color : (w.trimColor || '#ffd27a');
     const bob = Math.round(Math.sin(time * 3.4) * (taken ? 1.5 : 3));
     const cy = sy - 66 + bob;
-    const tag = taken ? `${w.name} · PRESS E FOR ARMORY` : `CLAIM ${w.name}`;
+    const isPad = !!(world && world.game && world.game.input && world.game.input.isGamepad);
+    const tag = taken ? `${w.name} · PRESS ${isPad ? 'START' : 'E'} FOR ARMORY` : `CLAIM ${w.name}`;
     const lw = font.width(tag, 1, 1, false) + 12;
     const lx = Math.max(6, Math.min(W - lw - 6, Math.round(sx - lw * 0.5)));
     const ly = Math.max(46, cy - 26);
@@ -234,7 +235,7 @@ export class ArmoryScreen {
 
   update(dt, inp) {
     this.flashT = Math.max(0, this.flashT - dt);
-    if (inp.pressed.armory || inp.pressed.escape || inp.pressed.start || (this.tab === 'bestiary' && inp.pressed.bestiary)) {
+    if (inp.pressed.armory || inp.pressed.escape || inp.pressed.start || inp.pressed.sprint || (this.tab === 'bestiary' && inp.pressed.bestiary)) {
       this.game.setState(this.returnState || 'play');
       this.game.audio.sfx('pause');
       return;
@@ -461,12 +462,13 @@ export class ArmoryScreen {
       });
     }
 
+    const isPad = !!(g.input && g.input.isGamepad);
     const setIdx = g.activeLoadout ? 1 : 0;
     ctx.fillStyle = 'rgba(20, 28, 38, 0.94)';
     ctx.fillRect(332, 5, 76, 20);
     ctx.strokeStyle = setIdx === 0 ? '#ffd27a' : '#62f2c2';
     ctx.strokeRect(332.5, 5.5, 75, 19);
-    f.draw(ctx, `[R] SET ${setIdx === 0 ? 'A' : 'B'}`, 370, 11, {
+    f.draw(ctx, `[${isPad ? 'LT' : 'R'}] SET ${setIdx === 0 ? 'A' : 'B'}`, 370, 11, {
       align: 'center', color: setIdx === 0 ? '#ffd27a' : '#62f2c2', shadow, gothic: false,
     });
 
@@ -501,8 +503,8 @@ export class ArmoryScreen {
     const wR = locked2H ? null : (WEAPONS[g.handR] || null);
     const res = g.getActiveResonance();
 
-    this._drawHandSocket(ctx, 16, 36, 212, 42, 'HAND L · [X / K]', wL, strInfo.total, false);
-    this._drawHandSocket(ctx, 412, 36, 212, 42, 'HAND R · [C / V / L]', wR, strInfo.total, locked2H);
+    this._drawHandSocket(ctx, 16, 36, 212, 42, isPad ? 'HAND L · [X / RB]' : 'HAND L · [X / K]', wL, strInfo.total, false);
+    this._drawHandSocket(ctx, 412, 36, 212, 42, isPad ? 'HAND R · [Y / RT]' : 'HAND R · [C / V / L]', wR, strInfo.total, locked2H);
 
     const bx = 234, by = 36, bw = 172, bh = 42;
     ctx.fillStyle = res ? 'rgba(34, 24, 46, 0.95)' : 'rgba(12, 10, 22, 0.92)';
@@ -687,15 +689,18 @@ export class ArmoryScreen {
     }
 
     const btnY = iy + 204;
-    this._drawActionBtn(ctx, ix + 12, btnY, 168, 24, '[X / K] EQUIP HAND L', '#ffd27a', g.handL === sw.id);
+    this._drawActionBtn(ctx, ix + 12, btnY, 168, 24, isPad ? '[X / RB] EQUIP HAND L' : '[X / K] EQUIP HAND L', '#ffd27a', g.handL === sw.id);
+    const rKey = isPad ? 'Y / A' : 'C / V';
     const rLabel = sw.isTwoHanded
-      ? '[C / V] EQUIP 2H GRIP'
-      : (g.handR === sw.id ? '[C / V] UNEQUIP R' : '[C / V / L] EQUIP HAND R');
+      ? `[${rKey}] EQUIP 2H GRIP`
+      : (g.handR === sw.id ? `[${rKey}] UNEQUIP R` : (isPad ? '[Y / A] EQUIP HAND R' : '[C / V / L] EQUIP HAND R'));
     this._drawActionBtn(ctx, ix + 190, btnY, 168, 24, rLabel, '#62f2c2', !sw.isTwoHanded && g.handR === sw.id);
 
     const footText = this.flashT > 0
       ? this.flashMsg
-      : `ARSENAL ${list.length}/${WEAPON_ORDER.length} · ←/→ TABS · R SWAP SET · X HAND L · C/V HAND R · E CLOSE`;
+      : (isPad
+        ? `ARSENAL ${list.length}/${WEAPON_ORDER.length} · ←/→ TABS · LT SWAP SET · X HAND L · Y/A HAND R · START/B CLOSE`
+        : `ARSENAL ${list.length}/${WEAPON_ORDER.length} · ←/→ TABS · R SWAP SET · X HAND L · C/V HAND R · START/E CLOSE`);
     f.draw(ctx, footText, W / 2, 336, {
       align: 'center', color: this.flashT > 0 ? '#ffd27a' : '#9aa8c4', shadow, gothic: false,
     });
@@ -791,10 +796,13 @@ export class ArmoryScreen {
     f.draw(ctx, '· AMBER ENCHANT: PASSIVE STAT & CRIT BLESSING', ix + 16, iy + 151, { color: '#ffe08a', shadow, gothic: false });
     f.draw(ctx, '· GLYPH UNION: [↑ + L-HAND + R-HAND] (5 HEARTS)', ix + 16, iy + 165, { color: '#d8b4ff', shadow, gothic: false });
 
+    const isPad = !!(g.input && g.input.isGamepad);
     const ownedCount = SOUL_ORDER.filter((k) => (g.soulRanks[k] || 0) > 0).length;
     const foot = this.flashT > 0
       ? this.flashMsg
-      : `SOULS ${ownedCount}/${SOUL_ORDER.length} · ←/→ TABS · ↑↓ SELECT · X/SPACE ATTUNE · E CLOSE`;
+      : (isPad
+        ? `SOULS ${ownedCount}/${SOUL_ORDER.length} · ←/→ TABS · ↑↓ SELECT · A/X/Y ATTUNE · START/B CLOSE`
+        : `SOULS ${ownedCount}/${SOUL_ORDER.length} · ←/→ TABS · ↑↓ SELECT · X/SPACE ATTUNE · START/E CLOSE`);
     f.draw(ctx, foot, W / 2, 336, {
       align: 'center', color: this.flashT > 0 ? '#ffd27a' : '#9aa8c4', shadow, gothic: false,
     });
@@ -876,10 +884,13 @@ export class ArmoryScreen {
       : 'NONE';
     f.draw(ctx, `SOUL GLYPH: ${soulStr}`, ix + 16, iy + 168, { color: '#c8a8ff', shadow, gothic: false });
 
+    const isPad = !!(g.input && g.input.isGamepad);
     const catalogued = BESTIARY_ORDER.filter((k) => g.bestiarySeen && g.bestiarySeen.has(k)).length;
     f.draw(
       ctx,
-      `CATALOGUED ${catalogued}/${BESTIARY_ORDER.length} FIENDS · ←/→ TABS · ↑↓ BROWSE · B / E CLOSE`,
+      isPad
+        ? `CATALOGUED ${catalogued}/${BESTIARY_ORDER.length} FIENDS · ←/→ TABS · ↑↓ BROWSE · START / B CLOSE`
+        : `CATALOGUED ${catalogued}/${BESTIARY_ORDER.length} FIENDS · ←/→ TABS · ↑↓ BROWSE · B / E / START CLOSE`,
       W / 2,
       336,
       { align: 'center', color: '#9aa8c4', shadow, gothic: false },

@@ -522,15 +522,24 @@ export class NetClient {
 
     // Outbound state throttle (20 Hz active, ~3 Hz when completely stationary)
     if (snapshot) {
-      this._lastSnapshot = snapshot;
+      if (!this.connected) {
+        if (!this._lastSnapshot) {
+          this._lastSnapshot = typeof snapshot === 'function' ? snapshot() : snapshot;
+        }
+        return;
+      }
       this._sendAcc += dt;
-      const key = `${snapshot.stageKey}|${Math.round(snapshot.x)}|${Math.round(snapshot.y)}|${snapshot.anim}|${snapshot.facing}|${snapshot.attackT >= 0 ? 1 : 0}|${snapshot.wId || ''}|${snapshot.screen}`;
+      if (this._sendAcc < 0.05) return;
+      const snapObj = typeof snapshot === 'function' ? snapshot() : snapshot;
+      if (!snapObj) return;
+      this._lastSnapshot = snapObj;
+      const key = `${snapObj.stageKey}|${Math.round(snapObj.x)}|${Math.round(snapObj.y)}|${snapObj.anim}|${snapObj.facing}|${snapObj.attackT >= 0 ? 1 : 0}|${snapObj.wId || ''}|${snapObj.screen}`;
       const changed = key !== this._lastSentKey;
       const interval = changed ? 0.05 : 0.35;
-      if (this.connected && this._sendAcc >= interval) {
+      if (this._sendAcc >= interval) {
         this._sendAcc = 0;
         this._lastSentKey = key;
-        this._sendRaw({ t: 'state', s: snapshot });
+        this._sendRaw({ t: 'state', s: snapObj });
       }
     }
   }

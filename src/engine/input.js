@@ -23,7 +23,7 @@ const KEYMAP = {
 };
 
 const ACTIONS = [
-  'left', 'right', 'up', 'down', 'jump', 'attack', 'offhand', 'dash', 'swap', 'bestiary', 'armory',
+  'left', 'right', 'up', 'down', 'jump', 'sprint', 'attack', 'offhand', 'dash', 'swap', 'bestiary', 'armory',
   'start', 'map', 'mute', 'fx', 'forge', 'salute', 'callsign',
 ];
 
@@ -40,6 +40,9 @@ export class Input {
     this.script = null;
     this.onFirstInteraction = null;
     this._interacted = false;
+    this.hasGamepad = false;
+    this._inputMode = 'keyboard';
+    this._keyboardUsed = false;
     // Text-entry capture (Castle Forge proposal, multiplayer callsign): while
     // `typing`, raw keydown events go to `onTypeKey(e)` instead of the action map.
     this.typing = false;
@@ -50,6 +53,8 @@ export class Input {
       if (this.onFirstInteraction) this.onFirstInteraction();
     };
     window.addEventListener('keydown', (e) => {
+      this._keyboardUsed = true;
+      this._inputMode = 'keyboard';
       noteInteraction();
       if (this.typing && this.onTypeKey) {
         // When typing through the mobile software-keyboard proxy <input>, let
@@ -98,24 +103,30 @@ export class Input {
   pollGamepad() {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const p = pads && Array.from(pads).find((g) => g && g.connected);
+    this.hasGamepad = !!p;
     const s = {};
     if (p) {
+      if (!this._keyboardUsed && this._inputMode === 'keyboard') {
+        this._inputMode = 'gamepad';
+      }
       const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
       const b = (i) => !!(p.buttons[i] && p.buttons[i].pressed);
       s.left = ax < -0.5 || b(14);
       s.right = ax > 0.5 || b(15);
       s.up = ay < -0.5 || b(12);
       s.down = ay > 0.5 || b(13);
-      s.jump = b(0) || b(1);
+      s.jump = b(0);                             // A -> Jump
+      s.sprint = b(1);                           // B -> Forward Dash / Sprint (same as double-tap forward)
       s.attack = b(2) || b(5);                   // X / RB -> Hand_L (Slot 0)
       s.offhand = b(3) || b(7);                  // Y / RT -> Hand_R (Slot 1)
       s.dash = b(4);                             // LB -> Backdash / Slide / Magnes Tether
       s.swap = b(6);                             // LT -> Dual Loadout A/B Instant Swap
-      s.start = b(9);
+      s.start = b(9);                            // Start / Menu -> Equipment Grimoire (in play) / Confirm (menus)
       s.map = b(8);           // Back / View / Select toggles Castle Map
       s.fx = b(10);           // left-stick click toggles shaders
       s.mute = b(11);         // right-stick click toggles mute
       if (Object.values(s).some(Boolean)) {
+        this._inputMode = 'gamepad';
         if (!this._interacted) { this._interacted = true; this.onFirstInteraction && this.onFirstInteraction(); }
       }
     }
@@ -194,6 +205,9 @@ export class Input {
     this.pressed.escape = escNow && !this._escapeDown;
     this._escapeDown = escNow;
   }
+
+  /** True when a gamepad/Steam Deck controller is the active input device. */
+  get isGamepad() { return this._inputMode === 'gamepad'; }
 
   /** True if any action was pressed this frame. */
   get anyPressed() { return ACTIONS.some((a) => this.pressed[a]); }

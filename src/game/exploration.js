@@ -125,8 +125,10 @@ function findVaultFloor(level, minCol, maxCol, usedCols) {
 }
 
 /**
- * Ornate Sanctuary Waystone: heals +4 HP once per visit and attunes the area
- * for Fast Travel on the `M` Castle Exploration Map.
+ * Ornate Crimson Save Sanctum (`SanctuaryStone`): restores full HP, records a
+ * persistent save point (auto-saves on first touch per visit and re-saves anytime
+ * when pressing `↑`), sets the in-stage respawn anchor, and attunes the region
+ * on the `M` Castle Exploration Map.
  */
 export class SanctuaryStone {
   constructor(x, y) {
@@ -134,17 +136,39 @@ export class SanctuaryStone {
     this.y = y;
     this.usedThisVisit = false;
     this.near = false;
+    this.saveFlash = 0;
+    this.saveCooldown = 0;
   }
 
   get box() { return { x: this.x - 18, y: this.y - 72, w: 36, h: 72 }; }
 
-  update(player, world) {
+  update(dt, player, input, world) {
+    // Backwards-compatible signature fallback if called as update(player, world)
+    if (typeof dt === 'object' && dt !== null) {
+      world = player;
+      player = dt;
+      dt = 1 / 60;
+      input = null;
+    }
+    this.saveFlash = Math.max(0, this.saveFlash - dt * 1.8);
+    this.saveCooldown = Math.max(0, this.saveCooldown - dt);
     const dx = Math.abs(player.x - this.x);
     const dy = Math.abs(player.y - this.y);
     this.near = dx < 36 && dy < 44;
     if (dx < 24 && dy < 32 && !this.usedThisVisit) {
       this.usedThisVisit = true;
-      world.onSanctuaryAttuned(this);
+      this.saveFlash = 1;
+      this.saveCooldown = 0.75;
+      if (world && world.activateSavePoint) world.activateSavePoint(this, { manual: false });
+      else if (world && world.onSanctuaryAttuned) world.onSanctuaryAttuned(this);
+      return;
+    }
+    if (this.near && player.onGround && this.saveCooldown <= 0 && input && input.pressed && input.pressed.up) {
+      this.usedThisVisit = true;
+      this.saveFlash = 1;
+      this.saveCooldown = 0.9;
+      if (world && world.activateSavePoint) world.activateSavePoint(this, { manual: true });
+      else if (world && world.onSanctuaryAttuned) world.onSanctuaryAttuned(this);
     }
   }
 
@@ -153,6 +177,7 @@ export class SanctuaryStone {
     const sy = Math.round(this.y - cam.ry);
     if (sx < -56 || sx > W + 56 || sy < -32 || sy > H + 84) return;
     const pulse = 0.5 + 0.5 * Math.sin(time * 4.2);
+    const flash = this.saveFlash || 0;
     const assets = world && world.assets;
     const sIdx = world && world.stage ? Math.max(0, (world.stage.id || 1) - 1) : 0;
     const disc = world && world.game ? ((world.game.discovered >>> sIdx) & 1) : 1;
@@ -161,18 +186,27 @@ export class SanctuaryStone {
 
     ctx.save();
     // Crimson Save Sanctum aura & sacred polyhedron light rays
-    const g = ctx.createRadialGradient(sx, sy - 40, 3, sx, sy - 40, lit ? 48 : 30);
-    g.addColorStop(0, `rgba(232, 46, 86, ${((lit ? 0.34 : 0.14) + 0.14 * pulse).toFixed(3)})`);
-    g.addColorStop(0.55, `rgba(176, 22, 64, ${(lit ? 0.16 : 0.06).toFixed(3)})`);
+    const auraR = (lit ? 48 : 30) + Math.round(flash * 22);
+    const g = ctx.createRadialGradient(sx, sy - 40, 3, sx, sy - 40, auraR);
+    g.addColorStop(0, `rgba(245, ${Math.round(52 + flash * 140)}, ${Math.round(92 + flash * 60)}, ${Math.min(0.85, (lit ? 0.34 : 0.14) + 0.14 * pulse + flash * 0.38).toFixed(3)})`);
+    g.addColorStop(0.55, `rgba(176, 22, 64, ${Math.min(0.55, (lit ? 0.16 : 0.06) + flash * 0.22).toFixed(3)})`);
     g.addColorStop(1, 'rgba(176, 22, 64, 0)');
     ctx.fillStyle = g;
-    ctx.fillRect(sx - 50, sy - 90, 100, 96);
+    ctx.fillRect(sx - 64, sy - 104, 128, 112);
+
+    if (flash > 0.04) {
+      ctx.strokeStyle = `rgba(255, 214, 138, ${(flash * 0.78).toFixed(3)})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(sx, sy - 46, Math.round(12 + (1 - flash) * 34), 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     if (assets && assets.frame('shrines', frameName)) {
       assets.draw(ctx, 'shrines', frameName, sx, sy);
       // Floating crimson save polyhedron above the shrine
-      const pyPoly = Math.round(sy - 56 + Math.sin(time * 3.2) * 3);
-      ctx.fillStyle = lit ? '#ff3c64' : '#8a2442';
+      const pyPoly = Math.round(sy - 56 + Math.sin(time * 3.2) * 3 - flash * 4);
+      ctx.fillStyle = flash > 0.25 ? '#ffd27a' : (lit ? '#ff3c64' : '#8a2442');
       ctx.beginPath();
       ctx.moveTo(sx, pyPoly - 9);
       ctx.lineTo(sx + 6, pyPoly);
@@ -187,8 +221,8 @@ export class SanctuaryStone {
         if (fxl && fxl.enabled) {
           fxl.addAttack({
             x: sx, y: pyPoly,
-            rx: 14, ry: 20, dirX: 0, dirY: -1, mode: 0, seed: this.x * 0.017,
-            core: [1.0, 0.88, 0.92], rim: [0.96, 0.16, 0.34], alpha: 0.58 + 0.18 * pulse,
+            rx: 14 + flash * 8, ry: 20 + flash * 8, dirX: 0, dirY: -1, mode: 0, seed: this.x * 0.017,
+            core: [1.0, 0.90, 0.92], rim: [0.96, 0.16 + flash * 0.45, 0.34], alpha: Math.min(1, 0.58 + 0.18 * pulse + flash * 0.3),
           });
         }
       }
@@ -199,7 +233,7 @@ export class SanctuaryStone {
     // Fallback geometry for headless unit tests without full sprite sheets
     ctx.fillStyle = '#361c28';
     ctx.fillRect(sx - 6, sy - 36, 12, 36);
-    ctx.fillStyle = '#ff3c64';
+    ctx.fillStyle = flash > 0.25 ? '#ffd27a' : '#ff3c64';
     ctx.fillRect(sx - 2, sy - 26, 4, 8);
     ctx.restore();
   }
@@ -208,18 +242,21 @@ export class SanctuaryStone {
     if (!this.near) return;
     const sx = Math.round(this.x - cam.rx);
     const sy = Math.round(this.y - cam.ry);
-    const lbl = 'CRIMSON SAVE SANCTUM · HP RESTORED';
+    const justSaved = this.saveCooldown > 0.15;
+    const lbl = justSaved
+      ? '* GAME SAVED · VITALITY MENDED *'
+      : '↑ SAVE GAME · CRIMSON SAVE SANCTUM';
     const lw = font.width(lbl, 1, 1, false) + 10;
     const lx = Math.max(6, Math.min(W - lw - 6, Math.round(sx - lw / 2)));
     const ly = Math.max(48, sy - 86);
     ctx.save();
     ctx.fillStyle = 'rgba(18, 6, 12, 0.92)';
     ctx.fillRect(lx, ly, lw, 12);
-    ctx.strokeStyle = '#ff4a6e';
+    ctx.strokeStyle = justSaved ? '#ffd27a' : '#ff4a6e';
     ctx.strokeRect(lx + 0.5, ly + 0.5, lw - 1, 11);
     font.draw(ctx, lbl, lx + Math.round(lw / 2), ly + 2, {
       align: 'center',
-      color: '#ffd6e0',
+      color: justSaved ? '#ffd27a' : '#ffd6e0',
       shadow: '#05040a',
       gothic: false,
     });

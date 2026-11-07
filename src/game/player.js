@@ -60,10 +60,12 @@ export class Player extends Entity {
     this.dashTapDir = 0;           // last tapped horizontal direction (double-tap detection)
     this.dashTapT = 0;             // seconds since that tap (counts down)
     this.dashTrail = [];           // (legacy) afterimage ghosts, unused by the run
-    this.runT = 0;                 // seconds spent in the current double-tap sprint (0 = not running)
+    this.runT = 0;                 // seconds spent in the current double-tap / controller-B sprint (0 = not running)
     this.runDir = 0;               // sprint direction (+1 / -1)
     this.runDist = 0;              // distance covered this sprint (drives the run-cycle frame)
     this.runFrame = 0;
+    this.sprintBurstT = 0;         // minimum forward dash burst when tapping controller Dash from standstill
+    this._sprintAutoSteer = false; // true while a standstill controller Dash drives forward without stick input
 
     // Classic Castle-Explorer Movement Suite: Backdash, Low Slide, Aerial Divekick, Super Jump & Magnes
     this.backdashT = 0;            // remaining backdash time (cancellable after 0.085s)
@@ -371,37 +373,58 @@ export class Player extends Entity {
     }
 
     // -----------------------------------------------------------------------
-    // Double-tap forward RUN: two taps of the same direction within RUN_TAP_WINDOW
-    // break into a sustained sprint (RUN_SPEED) for as long as that direction is held,
-    // opening with a short launch burst, dust & a whoosh.
+    // Forward DASH / RUN (double-tap Left/Right OR controller `B` / `sprint` button):
+    // breaks into a sustained sprint (RUN_SPEED) opening with a launch burst, dust & whoosh.
     // -----------------------------------------------------------------------
     this.dashTapT = Math.max(0, this.dashTapT - dt);
+    this.sprintBurstT = Math.max(0, (this.sprintBurstT || 0) - dt);
     if (this.dashTapT <= 0) this.dashTapDir = 0;
+    if (ctl && this.backdashT > 0 && (PLAYER.backdashTime - this.backdashT) >= 0.085 && input.pressed.sprint) {
+      this.backdashT = 0;
+    }
+    const isRunHeld = () => {
+      const holdingDir = (this.runDir > 0 && input.down.right && !input.down.left)
+        || (this.runDir < 0 && input.down.left && !input.down.right);
+      const oppositeDir = (this.runDir > 0 && input.down.left && !input.down.right)
+        || (this.runDir < 0 && input.down.right && !input.down.left);
+      if (holdingDir) this._sprintAutoSteer = false;
+      const holding = ctl && !oppositeDir && (holdingDir || (this._sprintAutoSteer && input.down.sprint) || this.sprintBurstT > 0);
+      const blocked = this.hurtT > 0 || this.crouching || (this._sprintAutoSteer && this.onGround && input.down.down);
+      return holding && !blocked;
+    };
+    if (this.runT > 0 && !isRunHeld()) {
+      this.runT = 0;
+      this._sprintAutoSteer = false;
+      this.sprintBurstT = 0;
+    }
     if (ctl) {
+      const canRun = this.runT <= 0 && this.onGround && this.hurtT <= 0 && !this.crouching && this.backdashT <= 0 && this.slideT <= 0;
       const tap = input.pressed.right ? 1 : input.pressed.left ? -1 : 0;
       if (tap !== 0) {
-        const canRun = this.runT <= 0 && this.onGround && this.hurtT <= 0 && !this.crouching;
         if (tap === this.dashTapDir && this.dashTapT > 0 && canRun) {
-          this.runT = 0.0001;
-          this.runDir = tap;
-          this.runDist = 0;
-          this.dashTapDir = 0; this.dashTapT = 0;
-          this.facing = tap;
-          this.turnT = 0;
-          world.sfx('dash');
-          world.particles.dust(this.x - tap * 8, this.y, 6);
-          if (world.camera && world.camera.shake) world.camera.shake(1.2, 0.07);
+          this._startSprint(tap, world, false);
         } else {
           this.dashTapDir = tap;
           this.dashTapT = PLAYER.runTapWindow;
         }
       }
+      if (this.runT <= 0 && canRun && !input.down.down) {
+        if (input.pressed.sprint) {
+          const dir = axis !== 0 ? axis : (this.facing || 1);
+          this._startSprint(dir, world, axis === 0);
+        } else if (input.down.sprint && axis !== 0) {
+          this._startSprint(axis, world, false);
+        }
+      }
     }
     if (this.runT > 0) {
-      const holding = ctl && ((this.runDir > 0 && input.down.right && !input.down.left) || (this.runDir < 0 && input.down.left && !input.down.right));
-      const blocked = this.hurtT > 0 || this.crouching;
-      if (!holding || blocked) this.runT = 0;
-      else this.runT += dt;
+      if (!isRunHeld()) {
+        this.runT = 0;
+        this._sprintAutoSteer = false;
+        this.sprintBurstT = 0;
+      } else {
+        this.runT += dt;
+      }
     }
     const running = this.runT > 0;
     // Legacy dash-burst fields kept at rest (afterimage trail no longer used by the run).
@@ -501,6 +524,8 @@ export class Player extends Entity {
     ) {
       this._clearSlots();
       this.runT = 0;
+      this._sprintAutoSteer = false;
+      this.sprintBurstT = 0;
       this.crouching = false;
       this.h = PLAYER.height;
       this.backdashT = PLAYER.backdashTime;
@@ -584,7 +609,7 @@ export class Player extends Entity {
               this.onStair = ts;
               this.riding = null;
             }
-          } else if (ts.passThrough && axis === downDir && !input.down.up) {
+          } else if (ts.passThrough && (axis === downDir || (running && this.runDir === downDir)) && !input.down.up) {
             const beyondCol = ts.ascDir > 0
               ? Math.floor((ts.topX - 4) / TILE)
               : Math.floor((ts.topX + 4) / TILE);
@@ -1170,9 +1195,28 @@ export class Player extends Entity {
       }
     }
   }
+  _startSprint(dir, world, autoSteer = false) {
+    this.runT = 0.0001;
+    this.runDir = dir;
+    this.runDist = 0;
+    this.dashTapDir = 0;
+    this.dashTapT = 0;
+    this._sprintAutoSteer = !!autoSteer;
+    this.sprintBurstT = autoSteer ? PLAYER.dashTime : 0;
+    this.facing = dir;
+    this.turnT = 0;
+    if (world) {
+      world.sfx('dash');
+      if (world.particles) world.particles.dust(this.x - dir * 8, this.y, 6);
+      if (world.camera && world.camera.shake) world.camera.shake(1.2, 0.07);
+    }
+  }
+
   _startSlide(relicSpeedMul, world) {
     this._clearSlots();
     this.runT = 0;
+    this._sprintAutoSteer = false;
+    this.sprintBurstT = 0;
     this.slideT = PLAYER.slideTime;
     this.slideCd = 0.24;
     if (this._slideHitMap) this._slideHitMap.clear();

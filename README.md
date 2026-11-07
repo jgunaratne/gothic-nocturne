@@ -88,23 +88,24 @@ Opening the URL in multiple browsers or across machines on the network automatic
 | Action | Keyboard | Gamepad | Mobile / Touch |
 | --- | --- | --- | --- |
 | Move / crouch | ← → / ↓ (WASD) | Left stick / D-pad | Virtual 8-way D-pad |
-| Jump (hold for height; `↓ ↑ + Jump` High Jump with Night Wings) | Z, J or Space | A / B | **JUMP** button (hold for height) |
+| Forward Dash / Sprint | Double-tap ← or → | B (or double-tap ← / →) | Double-tap ◀ / ▶ on D-pad |
+| Jump (hold for height; `↓ ↑ + Jump` High Jump with Night Wings) | Z, J or Space | A | **JUMP** button (hold for height) |
 | Backdash & Backdash-Cancel / Lodestone Grapple | Q or Backspace | LB | Air `▲` near Lodestone Ring |
-| Low Crouch-Slide Kick / Aerial Diagonal Pogo Divekick | `↓` + Jump (ground / air) or `↓` + Q | `↓` + A/B | D-pad **▼** + **JUMP** |
+| Low Crouch-Slide Kick / Aerial Diagonal Pogo Divekick | `↓` + Jump (ground / air) or `↓` + Q | `↓` + A (or `↓` + LB on ground) | D-pad **▼** + **JUMP** |
 | Left Hand (`Hand_L` / Slot 0 — defaults to Whip) | X or K | X / RB | **L-HAND** button |
 | Right Hand (`Hand_R` / Slot 1 — blade, shield, catalyst, ring) | C, V, L or Shift | Y / RT | **R-HAND** button (shown when armed) |
 | Dual Loadout Hot-Swap (`SET A` ↔ `SET B`) | R | LT | Grimoire `SET A` / `SET B` toggle |
 | Cast Crimson Bullet Soul (`2♥`) / Arcane Glyph Union (`5♥`) | `↑` + Right Hand / `↑` + `L` + `R` | `↑` + Y / `↑` + X + Y | `▲` + **R-HAND** / **L+R** |
 | Hidden Weapon Command Skill (30-frame motion) | `↓ ↘ →` + Hand button | `↓ ↘ →` + Hand button | `↓ ↘ →` + **L-HAND** / **R-HAND** |
 | Cross-Hand Combo Resonance & Shield-Rod Sacred Call | `Hand_L` + `Hand_R` together | `X` + `Y` / `RB` + `RT` | **L-HAND** + **R-HAND** together |
-| Hunter's Grimoire (`Armory` · `Souls` · `Bestiary`) | E / I (or `B` for Bestiary) | — | **GEAR** pill or tap HUD `L` / `R` sockets |
-| Enter passageways / Warp Portals / Chests / Glyph Sigils | ↑ (at portal, chest, or sigil) | ↑ | D-pad **▲**, portal prompt pill, or tap portal |
+| Hunter's Grimoire (`Armory` · `Souls` · `Bestiary`) | E / I / Enter (or `B` for Bestiary) | Start (Menu) | **GEAR** pill or tap HUD `L` / `R` sockets |
+| Save Game at Crimson Save Sanctum / Enter Portals / Chests / Sigils | ↑ (at Crimson Save Sanctum, portal, chest, or sigil) | ↑ | D-pad **▲**, prompt pill, or tap Sanctum / portal |
 | Throw sub-weapon (costs 1 heart) | ↑ + Left Hand | ↑ + Left Hand | **SUB** button (or tap HUD sub-weapon box) |
 | Castle Exploration Map (live location & fast travel) | M or Tab | Back / Select / View | **MAP** pill or tap HUD Mini-Map (tap rooms to inspect / warp) |
 | Expand the Castle (propose a new wing) | P, or the title menu | title menu | **FORGE** pill or tap **EXPAND THE CASTLE** (opens OS keyboard) |
 | Salute / greet nearby hunters | G | — | **SALUTE** pill |
 | Edit Hunter Callsign (on Title / Map / Pause) | C | — | **NAME** pill or tap online status line |
-| Pause / start (or skip boss voice intro) | Enter, Space or Esc | Start | **PAUSE** / **START** pill (auto-pauses on background) |
+| Pause / start (or skip boss voice intro) | Esc (Enter / Space / Esc skips intro) | Start (menus / skip intro) | **PAUSE** / **START** pill (auto-pauses on background) |
 | Mute | N or U | Right stick click (R3) | **SOUND** pill |
 | Toggle shaders (bloom, grading, scanlines) | F | Left stick click (L3) | **FX ON** pill (**FULL** toggles fullscreen) |
 
@@ -159,7 +160,7 @@ All eighteen stages fit together as an interlocking **72×27 architectural cell 
 
 - **Press `M` (or `Tab` / Gamepad Select) Anytime**: Opens the full-screen **Castle Exploration Map** during gameplay, highlighting explored cells with internal doorway thresholds (`MAP XX% · RELICS XX/18 · VESSELS XX/18`), **Crimson Save Sanctums**, **Golden Warp Chambers**, **Royal Boss Halls**, and **Hidden Breakable-Wall Secret Chambers** alongside a pulsing **`YOU` location beacon** projected 1:1 (`20×5` tiles = `640×160 px` per map cell via `src/game/grid_composer.js` & `src/game/level_schema.js`).
 - **Physical Passage Gateways (`↑`) & One-Way Shortcut Gates**: Carved Gothic portals inside every stage connect directly into neighbouring regions, while multi-story gallery detours lead behind vertical iron **Shortcut Switch Gates** whose brass gear levers permanently unseal ground-floor routes.
-- **Decoupled Crimson Save Sanctums & Golden Warp Portals**: Stepping into a **Crimson Save Sanctum** fully mends vitality and records progress, while each region's **Golden Astral Warp Portal** (`↑`) attunes fast travel across the `M` map.
+- **Decoupled Crimson Save Sanctums, Post-Boss Auto-Save & Home Screen Continue**: Stepping into a **Crimson Save Sanctum** (or pressing `↑` / tapping it anytime) fully mends vitality, updates your stage respawn anchor, and records a persistent save point (`gothic.save.v1`). Defeating a stage boss, claiming the boss orb, and stepping through the exit vortex into the next stage also auto-save immediately. On the Home Screen, a **Castle Discovered (`XX.X%`)** readout badge and **`CONTINUE`** option let you resume directly from your last Save Sanctum or post-boss checkpoint with saved score, hearts, sub-weapon, lives, level, and castle map progress, while each region's **Golden Astral Warp Portal** (`↑`) attunes fast travel across the `M` map.
 - **Low Crawl Slide Vaults, Lodestone Rings & Breakable Secret Walls**: Low `1-tile` (`32 px`) masonry lintels guard **Emerald Reliquary Chests** reachable via the **Low Crouch-Slide Kick**, suspended **Lodestone Rings** (`Q` / `↑` in mid-air) slingshot the hunter across wide chasms and vertical tower shafts, and fissured perimeter walls shatter open to reveal hidden `1×1` secret chambers with **Gold Reliquary Chests** alongside the **18 Ancient Life Vessels**.
 
 ## Tactical Soul Glyphs & Hunter's Bestiary (`src/game/souls.js`)

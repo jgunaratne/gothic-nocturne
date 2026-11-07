@@ -68,6 +68,7 @@ import socket
 import ssl
 import sys
 import threading
+import time
 import urllib.parse
 
 DEFAULT_UPSTREAM = os.environ.get("GOTHIC_UPSTREAM", "https://gothic.gunaratne.com")
@@ -416,6 +417,8 @@ def discover_and_sync(upstream_url: str, site_dir: str, state_file: str, mode: s
 
     if new_asset_ver:
         state["asset_version"] = new_asset_ver
+    if mode in ("full", "verify"):
+        state["verified_at"] = time.time()
     save_state(state_file, state)
     print(f"[gothic-sync] mode={mode} complete: {updated_count} file(s) updated, {len(asset_rels)} assets tracked (ASSET_VERSION={new_asset_ver}).")
     return True
@@ -673,11 +676,14 @@ def main():
         discover_and_sync(args.upstream, args.site_dir, args.state_file, mode="boot")
 
     if args.serve:
-        threading.Thread(
-            target=discover_and_sync,
-            args=(args.upstream, args.site_dir, args.state_file, "verify", 6),
-            daemon=True,
-        ).start()
+        def delayed_verify():
+            time.sleep(45.0)
+            st = load_state(args.state_file)
+            if time.time() - float(st.get("verified_at") or 0) < 21600:
+                return
+            discover_and_sync(args.upstream, args.site_dir, args.state_file, "verify", 2)
+
+        threading.Thread(target=delayed_verify, daemon=True).start()
         srv = ReusableThreadingHTTPServer((args.host, args.port), make_handler(args.site_dir, args.upstream))
         print(f"[gothic-edge] Serving local SSD cache on http://{args.host}:{args.port}/", flush=True)
         try:
@@ -748,6 +754,12 @@ URL="${GOTHIC_URL:-http://127.0.0.1:${PORT}/?touch=0}"
   --no-default-browser-check \
   --disable-session-crashed-bubble \
   --disable-infobars \
+  --disable-background-networking \
+  --disable-component-update \
+  --enable-gpu-rasterization \
+  --enable-zero-copy \
+  --ignore-gpu-blocklist \
+  --enable-features=CanvasOopRasterization,VaapiVideoDecoder \
   --disable-features=TranslateUI \
   --autoplay-policy=no-user-gesture-required \
   --window-size=1280,800 \
@@ -1236,16 +1248,17 @@ flatpak info --show-permissions com.google.Chrome | grep -E "udev|filesystems" |
 
 All primary controls work out of the box with Steam's **Gamepad with Mouse Trackpad** template:
 - **D-Pad / Left Stick**: Move, Crouch, Enter doorways (`↑`)
-- **`A` / `B`**: Jump (hold for height; `↓` + `A` slide/divekick)
+- **`B`**: Forward Dash / Sprint (same as double-tapping `←` / `→`)
+- **`A`**: Jump (hold for height; `↓` + `A` slide/divekick)
 - **`X` / `RB`**: Left Hand Weapon (Whip) · `↑` + `X` throws Sub-Weapon
 - **`Y` / `RT`**: Right Hand Weapon · `↑` + `Y` casts Crimson Soul
 - **`LB`**: Backdash / Lodestone Grapple · **`LT`**: Swap Loadout (`SET A` ↔ `SET B`)
-- **`View` (Top-Left)**: Castle Map · **`Menu` (Top-Right)**: Pause / Start
+- **`View` (Top-Left)**: Castle Map · **`Menu / Start` (Top-Right)**: Equipment / Hunter's Grimoire (`Armory` · `Souls` · `Bestiary`; `←`/`→` switch tabs, `X`/`RB` Hand L, `Y`/`RT`/`A` Hand R, `LT` swap Set A/B, `Menu`/`B` close)
 - **`L3`**: Toggle PostFX Shaders · **`R3`**: Mute Audio
 
 **Optional Rear Grip Paddle Bindings** (via the **Controller icon** on the Gothic Nocturne game page):
-- **`L4` → `E` key**: Open Hunter's Grimoire (`Armory` · `Souls` · `Bestiary`)
+- **`L4` → `Esc` key**: Hard Pause (mutes music)
 - **`R4` → `G` key**: Salute nearby multiplayer hunters
-- **`L5` → `B` key**: Open Bestiary directly
+- **`L5` → `B` key**: Open Bestiary tab directly
 - **`R5` → `P` key**: Open Castle Forge (press **STEAM + X** for the on-screen keyboard)
 - **Exit Game**: Press the physical **STEAM** button → **Exit Game**.

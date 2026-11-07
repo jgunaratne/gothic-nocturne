@@ -182,11 +182,24 @@ export function cellsToRevealAt(stageKey, normX = 0, {
   return out;
 }
 
-export function exploredPercent(exploredSet) {
-  if (!exploredSet || TOTAL_MAP_CELLS === 0) return 0;
+export function exploredCellStats(exploredSet, started = true) {
+  if (!exploredSet || TOTAL_MAP_CELLS === 0) {
+    return { count: 0, total: TOTAL_MAP_CELLS || 0, exactPct: 0, roundedPct: 0, label: '0.0%' };
+  }
   let n = 0;
   for (const k of exploredSet) if (CELL_OWNER.has(k)) n++;
-  return Math.min(100, Math.round((n / TOTAL_MAP_CELLS) * 100));
+  if (!started && n <= 1) {
+    return { count: 0, total: TOTAL_MAP_CELLS, exactPct: 0, roundedPct: 0, label: '0.0%' };
+  }
+  const raw = Math.min(100, (n / TOTAL_MAP_CELLS) * 100);
+  const roundedPct = Math.min(100, Math.round(raw));
+  const exactPct = n >= TOTAL_MAP_CELLS ? 100 : Math.min(99.9, Math.round(raw * 10) / 10);
+  const label = exactPct >= 100 ? '100%' : `${exactPct.toFixed(1)}%`;
+  return { count: n, total: TOTAL_MAP_CELLS, exactPct, roundedPct, label };
+}
+
+export function exploredPercent(exploredSet) {
+  return exploredCellStats(exploredSet, true).roundedPct;
 }
 
 /** Moves the cursor along the map in direction (dx, dy), preferring connected rooms. */

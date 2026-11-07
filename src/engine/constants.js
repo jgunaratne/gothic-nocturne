@@ -156,15 +156,17 @@ export const DIFFICULTY_ORDER = ['easy', 'normal', 'hard'];
 export const DEFAULT_DIFFICULTY = 'normal';
 
 // ---------------------------------------------------------------- title & settings menus
-/** Title menu rows: BEGIN THE HUNT · EXPAND THE CASTLE · CONTROLS · SETTINGS. */
+/** Title menu rows (4 when fresh; 5 when CONTINUE is present). */
 export const TITLE_MENU_ITEMS = 4;
-/** Title menu geometry (shared with the touch controller's hit-testing). */
-export const TITLE_MENU_Y0 = 236;
+/** Title menu geometry defaults (dynamic layout resolved via Game.getTitleMenuLayout()). */
+export const TITLE_MENU_Y0 = 228;
 export const TITLE_MENU_ROW_H = 18;
+export const TITLE_MENU_SAVE_Y0 = 223;
+export const TITLE_MENU_SAVE_ROW_H = 16;
 
 /** Settings screen rows (title menu → SETTINGS). */
 export const SETTINGS_ITEMS = [
-  { id: 'resetProgress', label: 'RESET PROGRESS', desc: 'ERASE CLEARED BOSSES, CHARTED MAP, VESSELS, LEVEL & ARMORY · BACK TO A FRESH HUNT' },
+  { id: 'resetProgress', label: 'RESET PROGRESS', desc: 'ERASE SAVE POINT, CLEARED BOSSES, CHARTED MAP, VESSELS, LEVEL & ARMORY · FRESH HUNT' },
   { id: 'unlockAreas', label: 'DEBUG · UNLOCK ALL AREAS', desc: 'EVERY PASSAGE SEAL STANDS OPEN AND THE WHOLE CASTLE MAP IS CHARTED FOR FAST TRAVEL' },
   { id: 'unlockBosses', label: 'DEBUG · UNLOCK BOSSES', desc: "EVERY BOSS GATE DOOR RISES ON APPROACH AND THE COUNT'S THRONE HALL IS OPEN" },
   { id: 'back', label: 'BACK TO TITLE', desc: 'SETTINGS ARE REMEMBERED ON THIS DEVICE' },

@@ -37,9 +37,12 @@ float vnoise(vec2 p) {
   return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 float fbm(vec2 p) {
-  float v = 0.0, a = 0.5;
-  for (int i = 0; i < 4; i++) { v += a * vnoise(p); p = p * 2.03 + vec2(17.0, 9.0); a *= 0.5; }
+  float v = 0.0, a = 0.535;
+  for (int i = 0; i < 3; i++) { v += a * vnoise(p); p = p * 2.03 + vec2(17.0, 9.0); a *= 0.5; }
   return v;
+}
+float fbm2(vec2 p) {
+  return 0.667 * vnoise(p) + 0.333 * vnoise(p * 2.03 + vec2(17.0, 9.0));
 }
 `;
 
@@ -116,14 +119,19 @@ uniform float uAlpha;
 ${NOISE}
 
 // All wave terms travel left -> right (+x) as a horizontal current across the 2.5D plane
-// (no toward-camera drift): phase k*x - w*t, noise sampled at x - v*t.
-float waveField(vec2 w, float t) {
-  float h = 0.0;
-  h += sin(w.x * 0.075 + w.y * 0.130 - t * 2.15) * 0.36;
-  h += sin(w.x * 0.115 + w.y * 0.195 - t * 1.72) * 0.24;
-  h += (fbm(vec2(w.x / 34.0 - t * 0.62, w.y / 28.0 + t * 0.05)) - 0.5) * 0.85;
-  h += (vnoise(vec2(w.x / 11.0 - t * 1.35, w.y / 9.5 + t * 0.08)) - 0.5) * 0.32;
-  return h;
+// (no toward-camera drift): analytic sin/cos swell slopes + 2-octave FBM finite differences.
+vec3 waveHAndGrad(vec2 w, float t) {
+  float p1 = w.x * 0.075 + w.y * 0.130 - t * 2.15;
+  float p2 = w.x * 0.115 + w.y * 0.195 - t * 1.72;
+  float c1 = cos(p1), c2 = cos(p2);
+  vec2 np = vec2(w.x / 34.0 - t * 0.62, w.y / 28.0 + t * 0.05);
+  float nC = fbm2(np);
+  float nX = fbm2(np + vec2(1.8 / 34.0, 0.0));
+  float nZ = fbm2(np + vec2(0.0, 1.8 / 28.0));
+  float h = sin(p1) * 0.36 + sin(p2) * 0.24 + (nC - 0.5) * 0.95;
+  float gx = c1 * (0.36 * 0.075) + c2 * (0.24 * 0.115) + (nX - nC) * (0.95 / 1.8);
+  float gz = c1 * (0.36 * 0.130) + c2 * (0.24 * 0.195) + (nZ - nC) * (0.95 / 1.8);
+  return vec3(h, gx, gz);
 }
 
 float causticNet(vec2 p, float t) {
@@ -162,12 +170,10 @@ void main() {
     return;
   }
 
-  // Finite-difference 3D wave normal in world-water coordinates
-  float eps = 1.6;
-  float hC = waveField(vec2(wx, wz), uTime);
-  float hX = waveField(vec2(wx + eps, wz), uTime);
-  float hZ = waveField(vec2(wx, wz + eps), uTime);
-  vec2 grad = vec2(hX - hC, hZ - hC) / eps;
+  // Analytic + 2-octave FBM 3D wave normal in world-water coordinates
+  vec3 wg = waveHAndGrad(vec2(wx, wz), uTime);
+  float hC = wg.x;
+  vec2 grad = wg.yz;
   vec3 norm = normalize(vec3(-grad.x * 2.3, 1.0, -grad.y * 2.1));
 
   // View vector from camera down onto the water plane -> Schlick Fresnel
@@ -567,7 +573,7 @@ void main() {
   float seed = uSeed;
 
   // Meandering viscous centerline + surging molten globs & flaring plunge apron
-  float sway = (fbm(vec2(seed * 7.3, v * 3.4 - t * 0.58)) - 0.5) * 0.16;
+  float sway = (fbm2(vec2(seed * 7.3, v * 3.4 - t * 0.58)) - 0.5) * 0.16;
   float dx = (u - 0.5 - sway) * 2.0;
   float lobe = fbm(vec2(seed * 3.1 + 2.4, v * 5.6 - t * 1.08));
   float crag = vnoise(vec2(dx * 2.5 + seed * 11.7, v * 13.5 - t * 1.62));
@@ -581,8 +587,8 @@ void main() {
   float flowY = v * 6.8 - t * 1.48 + radialDrag;
 
   // Domain-warped convective magma coordinates + branching incandescent fissure ridges
-  float warpX = (fbm(vec2(dx * 2.1 + seed * 5.7, flowY * 0.82)) - 0.5) * 0.58;
-  float warpY = (fbm(vec2(dx * 2.5 - seed * 4.1 + 9.2, flowY * 0.88 + 4.3)) - 0.5) * 0.68;
+  float warpX = (fbm2(vec2(dx * 2.1 + seed * 5.7, flowY * 0.82)) - 0.5) * 0.58;
+  float warpY = (fbm2(vec2(dx * 2.5 - seed * 4.1 + 9.2, flowY * 0.88 + 4.3)) - 0.5) * 0.68;
   vec2 mp = vec2(dx * 2.7 + warpX + seed * 13.0, flowY + warpY);
 
   float nBroad = fbm(mp);
@@ -592,7 +598,7 @@ void main() {
 
   // Spillover lip glare at top + violent churning magma plunge boil at base
   float lipHeat = (1.0 - smoothstep(0.0, 0.12, v)) * (0.52 + 0.48 * vnoise(vec2(dx * 4.8 + seed, t * 2.4)));
-  float boilN = fbm(vec2(dx * 3.2 + seed * 2.3, (v - 0.82) * 10.5 - t * 2.3));
+  float boilN = fbm2(vec2(dx * 3.2 + seed * 2.3, (v - 0.82) * 10.5 - t * 2.3));
   float plungeHeat = smoothstep(0.78, 0.99, v) * (0.36 + 0.78 * boilN);
 
   float coreBias = 1.0 - smoothstep(0.14, 0.96, r);
@@ -1231,6 +1237,198 @@ void main() {
 }
 `;
 
+// Batched multi-flame vertex/fragment shaders so up to 24 flames render in 1 draw + 1 blit.
+const FIRE_BATCH_VERT = `
+${SHADER_PREC}
+attribute vec2 aPos;
+attribute vec2 aLocal;
+attribute vec4 aColor;
+uniform vec2 uRes;
+varying vec2 vLocal;
+varying vec4 vColor;
+void main() {
+  vLocal = aLocal;
+  vColor = aColor;
+  gl_Position = vec4((aPos.x / uRes.x) * 2.0 - 1.0, 1.0 - (aPos.y / uRes.y) * 2.0, 0.0, 1.0);
+}
+`;
+
+const FIRE_BATCH_FRAG = `
+${SHADER_PREC}
+varying vec2 vLocal;
+varying vec4 vColor;
+uniform float uTime;
+${NOISE}
+void main() {
+  vec2 d = vLocal;
+  if (abs(d.x) > 1.2 || d.y < -0.05 || d.y > 1.2) discard;
+  float seed = vColor.w;
+  float n = fbm(vec2(d.x * 1.6 + seed, d.y * 2.2 - uTime * (2.4 + fract(seed) * 1.5) + seed * 3.0));
+  float width = mix(1.0, 0.18, d.y) * (0.75 + 0.5 * n);
+  float body = 1.0 - smoothstep(width * 0.55, width, abs(d.x + (n - 0.5) * 0.5 * d.y));
+  float tip = 1.0 - smoothstep(0.65 + 0.3 * n, 1.05, d.y);
+  float a = body * tip * smoothstep(-0.05, 0.1, d.y);
+  if (a <= 0.02) discard;
+  float core = smoothstep(0.35, 0.95, a) * (1.0 - d.y * 0.7);
+  vec3 col = mix(vColor.rgb * 0.8, vec3(1.0, 0.96, 0.78), core);
+  a = floor(a * 4.0) / 4.0 * 0.95;
+  gl_FragColor = vec4(col * a, a);
+}
+`;
+
+// Batched attack & shockwave-ring shaders so multi-projectile volleys flush in 1 draw + 1 blit.
+const ATTACK_BATCH_VERT = `
+${SHADER_PREC}
+attribute vec2 aPos;
+attribute vec4 aLocalSize; // lx, ly, rx, ry
+attribute vec2 aMeta;      // mode, seed
+attribute vec4 aCore;      // core.rgb, alpha
+attribute vec3 aRim;       // rim.rgb
+uniform vec2 uRes;
+varying vec4 vLocalSize;
+varying vec2 vMeta;
+varying vec4 vCore;
+varying vec3 vRim;
+void main() {
+  vLocalSize = aLocalSize;
+  vMeta = aMeta;
+  vCore = aCore;
+  vRim = aRim;
+  gl_Position = vec4((aPos.x / uRes.x) * 2.0 - 1.0, 1.0 - (aPos.y / uRes.y) * 2.0, 0.0, 1.0);
+}
+`;
+
+const ATTACK_BATCH_FRAG = `
+${SHADER_PREC}
+varying vec4 vLocalSize;
+varying vec2 vMeta;
+varying vec4 vCore;
+varying vec3 vRim;
+uniform float uTime;
+${NOISE}
+void main() {
+  float lx = vLocalSize.x;
+  float ly = vLocalSize.y;
+  float rx = vLocalSize.z;
+  float ry = vLocalSize.w;
+  float mode = vMeta.x;
+  float seed = vMeta.y;
+  vec3 uCoreCol = vCore.rgb;
+  float uAlpha = vCore.a;
+  vec3 uRimCol = vRim;
+
+  if (mode < 0.5) {
+    float r = max(1.0, rx);
+    float headR = length(vec2(lx, ly)) / r;
+    float tailLen = max(1.0, ry);
+    float tailT = clamp(-lx / tailLen, 0.0, 1.0);
+    float tailW = r * mix(0.82, 0.08, tailT);
+    float n = fbm(vec2(lx * 0.11 - uTime * 7.5 + seed, ly * 0.14 + seed * 2.1));
+    float orb = 1.0 - smoothstep(0.25, 1.05, headR - (n - 0.5) * 0.28);
+    float wake = (lx < r * 0.25)
+      ? (1.0 - smoothstep(tailW * 0.25, max(1.0, tailW), abs(ly + (n - 0.5) * r * 0.55 * tailT))) * (1.0 - tailT) * 0.85
+      : 0.0;
+    float e = max(orb, wake);
+    if (e <= 0.03) discard;
+    vec3 col = mix(uRimCol, uCoreCol, smoothstep(0.32, 0.88, e));
+    float a = floor(clamp(e * uAlpha, 0.0, 1.0) * 5.0) / 5.0;
+    gl_FragColor = vec4(col * a, a);
+  } else if (mode < 1.5) {
+    float halfL = max(1.0, rx);
+    float halfH = max(1.0, ry);
+    if (abs(lx) > halfL || abs(ly) > halfH * 1.35) discard;
+    float along = lx / halfL;
+    float wave1 = sin(lx * 0.26 - uTime * 22.0 + seed) * (halfH * 0.34);
+    float wave2 = -sin(lx * 0.26 - uTime * 22.0 + seed + 1.5) * (halfH * 0.34);
+    float s1 = exp(-abs(ly - wave1) / (halfH * 0.28));
+    float s2 = exp(-abs(ly - wave2) / (halfH * 0.28)) * 0.8;
+    float spine = exp(-abs(ly) / (halfH * 0.32));
+    float tip = 1.0 - smoothstep(0.65, 1.0, abs(along));
+    float pulse = 0.78 + 0.22 * sin(lx * 0.45 - uTime * 30.0);
+    float e = clamp((max(s1, s2) * 0.85 + spine * 0.75) * tip * pulse, 0.0, 1.2);
+    if (e <= 0.04) discard;
+    vec3 col = mix(uRimCol, uCoreCol, smoothstep(0.38, 0.92, e));
+    float a = floor(clamp(e * uAlpha, 0.0, 1.0) * 5.0) / 5.0;
+    gl_FragColor = vec4(col * a, a);
+  } else if (mode < 2.5) {
+    vec2 rel = vec2(lx, ly);
+    float r = max(1.0, rx);
+    float d = length(rel) / r;
+    if (d > 1.15) discard;
+    vec2 p = rel / max(8.0, r * 0.48);
+    float swirl = fbm(p + vec2(uTime * 0.9 + seed, -uTime * 0.65)) * 0.65
+                + fbm(p * 2.1 - vec2(uTime * 1.4, seed)) * 0.35;
+    float body = (1.0 - smoothstep(0.35, 1.05, d)) * smoothstep(0.24, 0.76, swirl);
+    float spark = smoothstep(0.76, 0.90, vnoise(p * 3.4 + uTime * 2.0)) * (1.0 - d);
+    float a = clamp((body * 0.78 + spark * 0.55) * uAlpha, 0.0, 0.95);
+    if (a <= 0.02) discard;
+    vec3 col = mix(uRimCol, uCoreCol, clamp(swirl * 0.8 + spark * 0.9, 0.0, 1.0));
+    a = floor(a * 5.0) / 5.0;
+    gl_FragColor = vec4(col * a, a);
+  } else {
+    float r = max(1.0, rx);
+    vec2 q = vec2(lx, ly);
+    vec2 arcC = vec2(-r * 0.32, 0.0);
+    float rad = length(q - arcC);
+    float ang = atan(q.y, q.x - arcC.x);
+    float arcMask = 1.0 - smoothstep(0.82, 1.28, abs(ang));
+    float ring = exp(-abs(rad - r * 0.82) / max(1.5, r * 0.16));
+    float wisp = fbm(vec2(q.x * 0.16 - uTime * 9.0 + seed, q.y * 0.16));
+    float trail = (lx < r * 0.45 && abs(ly) < r * 0.95)
+      ? exp(-abs(rad - r * 0.66) / max(2.0, r * 0.34)) * wisp * 0.65 * arcMask
+      : 0.0;
+    float e = clamp(ring * arcMask + trail, 0.0, 1.2);
+    if (e <= 0.04) discard;
+    vec3 col = mix(uRimCol, uCoreCol, smoothstep(0.4, 0.92, e));
+    float a = floor(clamp(e * uAlpha, 0.0, 1.0) * 5.0) / 5.0;
+    gl_FragColor = vec4(col * a, a);
+  }
+}
+`;
+
+const RING_BATCH_VERT = `
+${SHADER_PREC}
+attribute vec2 aPos;
+attribute vec4 aRelRing;   // dx, dy, radius, thickness
+attribute vec4 aColor;     // r, g, b, alpha
+uniform vec2 uRes;
+varying vec4 vRelRing;
+varying vec4 vColor;
+void main() {
+  vRelRing = aRelRing;
+  vColor = aColor;
+  gl_Position = vec4((aPos.x / uRes.x) * 2.0 - 1.0, 1.0 - (aPos.y / uRes.y) * 2.0, 0.0, 1.0);
+}
+`;
+
+const RING_BATCH_FRAG = `
+${SHADER_PREC}
+varying vec4 vRelRing;
+varying vec4 vColor;
+uniform float uTime;
+${NOISE}
+void main() {
+  vec2 d = vec2(vRelRing.x, vRelRing.y * 1.45);
+  float dist = length(d);
+  float rad = vRelRing.z;
+  float band = max(2.5, vRelRing.w);
+  float crest = exp(-pow((dist - rad) / band, 2.0));
+  float wake = (dist < rad)
+    ? exp(-max(0.0, rad - dist) / max(6.0, band * 2.4)) * 0.32
+    : 0.0;
+  float energy = max(crest, wake);
+  if (energy <= 0.04) discard;
+  float ang = atan(d.y, d.x);
+  float jag = 0.68 + 0.32 * vnoise(vec2(ang * 6.0 + uTime * 7.0, rad * 0.09));
+  float q = floor(clamp(energy * jag, 0.0, 1.0) * 5.0) / 5.0;
+  float a = q * vColor.a;
+  if (a <= 0.015) discard;
+  vec3 hot = min(vec3(1.0), vColor.rgb * 1.35 + vec3(0.28, 0.24, 0.20));
+  vec3 col = mix(vColor.rgb, hot, smoothstep(0.68, 0.98, crest) * vColor.a);
+  gl_FragColor = vec4(col * a, a);
+}
+`;
+
 const RETRO_BG_FRAG = `
 ${SHADER_PREC}
 varying vec2 vUv;
@@ -1351,6 +1549,17 @@ export class FxLayers {
     this.pSpark.aLocal = gl.getAttribLocation(this.pSpark.p, 'aLocal');
     this.pSpark.aColor = gl.getAttribLocation(this.pSpark.p, 'aColor');
     this.pSpark.aMeta = gl.getAttribLocation(this.pSpark.p, 'aMeta');
+    this.pFireBatch = this.program(FIRE_BATCH_VERT, FIRE_BATCH_FRAG);
+    this.pFireBatch.aLocal = gl.getAttribLocation(this.pFireBatch.p, 'aLocal');
+    this.pFireBatch.aColor = gl.getAttribLocation(this.pFireBatch.p, 'aColor');
+    this.pAttackBatch = this.program(ATTACK_BATCH_VERT, ATTACK_BATCH_FRAG);
+    this.pAttackBatch.aLocalSize = gl.getAttribLocation(this.pAttackBatch.p, 'aLocalSize');
+    this.pAttackBatch.aMeta = gl.getAttribLocation(this.pAttackBatch.p, 'aMeta');
+    this.pAttackBatch.aCore = gl.getAttribLocation(this.pAttackBatch.p, 'aCore');
+    this.pAttackBatch.aRim = gl.getAttribLocation(this.pAttackBatch.p, 'aRim');
+    this.pRingBatch = this.program(RING_BATCH_VERT, RING_BATCH_FRAG);
+    this.pRingBatch.aRelRing = gl.getAttribLocation(this.pRingBatch.p, 'aRelRing');
+    this.pRingBatch.aColor = gl.getAttribLocation(this.pRingBatch.p, 'aColor');
     // Snapshot texture of the 2D scene canvas for real-time water reflection & refraction
     const snapTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, snapTex);
@@ -1510,6 +1719,11 @@ export class FxLayers {
    */
   retroBackground(ctx) {
     if (!this.enabled) return;
+    const pix = this.bgPixel != null ? this.bgPixel : 1.0;
+    const levels = this.bgLevels != null ? this.bgLevels : 32.0;
+    // Fast path: at native 1x1 texel grid & >=32 palette levels, skip the full-frame
+    // 2D->WebGL->2D roundtrip stall (saves 1 full-screen upload + 4-tap pass + blit/frame).
+    if (pix <= 1.01 && levels >= 31.5) return;
     if (!this.uploadScene(ctx)) return;
     const gl = this.gl;
     const cw = this.canvas.width, ch = this.canvas.height;
@@ -1525,9 +1739,8 @@ export class FxLayers {
     gl.bindTexture(gl.TEXTURE_2D, this.sceneSnapTex);
     gl.uniform1i(prog.u.uScene, 0);
     gl.uniform2f(prog.u.uRes, W, H);
-    // Pixel look only (no blur): native 1x1 scene-px grid + 32-level palette (sharp).
-    gl.uniform1f(prog.u.uPix, this.bgPixel != null ? this.bgPixel : 1.0);
-    gl.uniform1f(prog.u.uLevels, this.bgLevels != null ? this.bgLevels : 32.0);
+    gl.uniform1f(prog.u.uPix, pix);
+    gl.uniform1f(prog.u.uLevels, levels);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
@@ -1641,17 +1854,94 @@ export class FxLayers {
     this.flames.push({ x, y, w, h, color, seed });
   }
 
-  /** Draws every queued flame as its own small quad (cost ~ flame area) and clears the queue. */
+  /** Draws all queued flames in a single scissored VBO pass + 1 additive blit, then clears the queue. */
   flushFlames(ctx) {
     const list = this.flames;
-    this.flames = [];
-    if (!this.enabled || !list.length) return;
-    for (const f of list) {
-      this.run(ctx, this.pFire, { x: f.x - f.w * 0.7, y: f.y - f.h * 1.25, w: f.w * 1.4, h: f.h * 1.3 + 4 }, (gl, u) => {
-        gl.uniform4f(u.uFlame, f.x, f.y, f.w, f.h);
-        gl.uniform4f(u.uFlameCol, f.color[0], f.color[1], f.color[2], f.seed);
-      }, 'lighter');
+    if (!list.length) return;
+    if (!this.enabled) { list.length = 0; return; }
+    const gl = this.gl;
+    if (gl.isContextLost && gl.isContextLost()) { this.ok = false; this.enabled = false; list.length = 0; return; }
+    const k = this.scale, cw = this.canvas.width, ch = this.canvas.height;
+    const prog = this.pFireBatch;
+    const buf = this.sparkFloats;
+    const count = list.length;
+    let minX = W, minY = H, maxX = 0, maxY = 0;
+    let vi = 0;
+
+    for (let i = 0; i < count; i++) {
+      const f = list[i];
+      const hw = Math.max(0.5, f.w * 0.5);
+      const fh = Math.max(0.5, f.h);
+      const x0 = f.x - f.w * 0.7;
+      const x1 = f.x + f.w * 0.7;
+      const y0 = f.y - f.h * 1.25;
+      const y1 = y0 + f.h * 1.3 + 4;
+      if (x0 < minX) minX = x0;
+      if (y0 < minY) minY = y0;
+      if (x1 > maxX) maxX = x1;
+      if (y1 > maxY) maxY = y1;
+
+      const u0 = (x0 - f.x) / hw, u1 = (x1 - f.x) / hw;
+      const v0 = (f.y - y0) / fh, v1 = (f.y - y1) / fh;
+      const cr = f.color[0], cg = f.color[1], cb = f.color[2], sd = f.seed;
+
+      const wv = (vx, vy, lu, lv) => {
+        buf[vi] = vx; buf[vi + 1] = vy;
+        buf[vi + 2] = lu; buf[vi + 3] = lv;
+        buf[vi + 4] = cr; buf[vi + 5] = cg; buf[vi + 6] = cb; buf[vi + 7] = sd;
+        vi += 8;
+      };
+      wv(x0, y0, u0, v0);
+      wv(x1, y0, u1, v0);
+      wv(x0, y1, u0, v1);
+      wv(x0, y1, u0, v1);
+      wv(x1, y0, u1, v0);
+      wv(x1, y1, u1, v1);
     }
+    list.length = 0;
+
+    const bx = Math.max(0, Math.floor(minX)), by = Math.max(0, Math.floor(minY));
+    const bw = Math.min(W - bx, Math.ceil(maxX - bx)), bh = Math.min(H - by, Math.ceil(maxY - by));
+    if (bw <= 0 || bh <= 0) return;
+
+    const sx = Math.floor(bx * k), sy = Math.floor(by * k);
+    const sw = Math.min(cw - sx, Math.ceil(bw * k) + 1);
+    const sh = Math.min(ch - sy, Math.ceil(bh * k) + 1);
+
+    gl.viewport(0, 0, cw, ch);
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(sx, ch - sy - sh, sw, sh);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+    gl.useProgram(prog.p);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.sparkVbo);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, buf.subarray(0, vi));
+
+    const stride = 8 * 4;
+    gl.enableVertexAttribArray(prog.aPos);
+    gl.vertexAttribPointer(prog.aPos, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(prog.aLocal);
+    gl.vertexAttribPointer(prog.aLocal, 2, gl.FLOAT, false, stride, 8);
+    gl.enableVertexAttribArray(prog.aColor);
+    gl.vertexAttribPointer(prog.aColor, 4, gl.FLOAT, false, stride, 16);
+
+    gl.uniform2f(prog.u.uRes, W, H);
+    gl.uniform1f(prog.u.uTime, this.time);
+    gl.drawArrays(gl.TRIANGLES, 0, count * 6);
+
+    gl.disableVertexAttribArray(prog.aLocal);
+    gl.disableVertexAttribArray(prog.aColor);
+    gl.disable(gl.BLEND);
+    gl.disable(gl.SCISSOR_TEST);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.canvas, sx, sy, sw, sh, Math.round(sx / k), Math.round(sy / k), Math.round(sw / k), Math.round(sh / k));
+    ctx.restore();
   }
 
   /** Rippling Arctic Aurora Borealis curtain across upper sky (Stage 4: Frozen Yule). */
@@ -1777,30 +2067,176 @@ export class FxLayers {
     }, 'lighter');
   }
 
-  /** Flushes all queued enemy/boss shader attacks and shockwave rings. */
+  /** Flushes all queued enemy/boss shader attacks and shockwave rings in batched VBO passes. */
   flushAttacks(ctx) {
     const atk = this.attacks;
     const rng = this.rings;
-    this.attacks = [];
-    this.rings = [];
-    if (!this.enabled) return;
-    for (const a of atk) {
-      const box = { x: a.x - a.pad, y: a.y - a.pad, w: a.pad * 2, h: a.pad * 2 };
-      this.run(ctx, this.pAttack, box, (gl, u) => {
-        gl.uniform4f(u.uCenter, a.x, a.y, a.rx, a.ry);
-        gl.uniform4f(u.uDirSeed, a.dirX, a.dirY, a.mode, a.seed);
-        gl.uniform3f(u.uCoreCol, a.core[0], a.core[1], a.core[2]);
-        gl.uniform3f(u.uRimCol, a.rim[0], a.rim[1], a.rim[2]);
-        gl.uniform1f(u.uAlpha, a.alpha);
-      }, a.composite);
+    if (!atk.length && !rng.length) return;
+    if (!this.enabled) { atk.length = 0; rng.length = 0; return; }
+    const gl = this.gl;
+    if (gl.isContextLost && gl.isContextLost()) { this.ok = false; this.enabled = false; atk.length = 0; rng.length = 0; return; }
+    const k = this.scale, cw = this.canvas.width, ch = this.canvas.height;
+    const buf = this.sparkFloats;
+
+    if (atk.length) {
+      const prog = this.pAttackBatch;
+      let startIdx = 0;
+      while (startIdx < atk.length) {
+        const comp = atk[startIdx].composite || 'lighter';
+        let endIdx = startIdx + 1;
+        while (endIdx < atk.length && (atk[endIdx].composite || 'lighter') === comp) endIdx++;
+
+        let minX = W, minY = H, maxX = 0, maxY = 0;
+        let vi = 0;
+        const batchCount = endIdx - startIdx;
+        for (let i = startIdx; i < endIdx; i++) {
+          const a = atk[i];
+          const x0 = a.x - a.pad, y0 = a.y - a.pad;
+          const x1 = a.x + a.pad, y1 = a.y + a.pad;
+          if (x0 < minX) minX = x0;
+          if (y0 < minY) minY = y0;
+          if (x1 > maxX) maxX = x1;
+          if (y1 > maxY) maxY = y1;
+
+          let fx = 1, fy = 0;
+          if (!(a.mode >= 1.5 && a.mode < 2.5)) {
+            const dLen = Math.hypot(a.dirX, a.dirY);
+            if (dLen > 0.001) { fx = a.dirX / dLen; fy = a.dirY / dLen; }
+          }
+          const c0 = a.core[0], c1 = a.core[1], c2 = a.core[2], al = a.alpha;
+          const r0 = a.rim[0], r1 = a.rim[1], r2 = a.rim[2];
+          const wv = (vx, vy) => {
+            const rx = vx - a.x, ry = vy - a.y;
+            buf[vi] = vx; buf[vi + 1] = vy;
+            buf[vi + 2] = rx * fx + ry * fy;
+            buf[vi + 3] = -rx * fy + ry * fx;
+            buf[vi + 4] = a.rx; buf[vi + 5] = a.ry;
+            buf[vi + 6] = a.mode; buf[vi + 7] = a.seed;
+            buf[vi + 8] = c0; buf[vi + 9] = c1; buf[vi + 10] = c2; buf[vi + 11] = al;
+            buf[vi + 12] = r0; buf[vi + 13] = r1; buf[vi + 14] = r2;
+            vi += 15;
+          };
+          wv(x0, y0); wv(x1, y0); wv(x0, y1);
+          wv(x0, y1); wv(x1, y0); wv(x1, y1);
+        }
+
+        const bx = Math.max(0, Math.floor(minX)), by = Math.max(0, Math.floor(minY));
+        const bw = Math.min(W - bx, Math.ceil(maxX - bx)), bh = Math.min(H - by, Math.ceil(maxY - by));
+        if (bw > 0 && bh > 0) {
+          const sx = Math.floor(bx * k), sy = Math.floor(by * k);
+          const sw = Math.min(cw - sx, Math.ceil(bw * k) + 1);
+          const sh = Math.min(ch - sy, Math.ceil(bh * k) + 1);
+          gl.viewport(0, 0, cw, ch);
+          gl.enable(gl.SCISSOR_TEST);
+          gl.scissor(sx, ch - sy - sh, sw, sh);
+          gl.clearColor(0, 0, 0, 0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          gl.enable(gl.BLEND);
+          gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+          gl.useProgram(prog.p);
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.sparkVbo);
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, buf.subarray(0, vi));
+          const stride = 15 * 4;
+          gl.enableVertexAttribArray(prog.aPos);
+          gl.vertexAttribPointer(prog.aPos, 2, gl.FLOAT, false, stride, 0);
+          gl.enableVertexAttribArray(prog.aLocalSize);
+          gl.vertexAttribPointer(prog.aLocalSize, 4, gl.FLOAT, false, stride, 8);
+          gl.enableVertexAttribArray(prog.aMeta);
+          gl.vertexAttribPointer(prog.aMeta, 2, gl.FLOAT, false, stride, 24);
+          gl.enableVertexAttribArray(prog.aCore);
+          gl.vertexAttribPointer(prog.aCore, 4, gl.FLOAT, false, stride, 32);
+          gl.enableVertexAttribArray(prog.aRim);
+          gl.vertexAttribPointer(prog.aRim, 3, gl.FLOAT, false, stride, 48);
+
+          gl.uniform2f(prog.u.uRes, W, H);
+          gl.uniform1f(prog.u.uTime, this.time);
+          gl.drawArrays(gl.TRIANGLES, 0, batchCount * 6);
+
+          gl.disableVertexAttribArray(prog.aLocalSize);
+          gl.disableVertexAttribArray(prog.aMeta);
+          gl.disableVertexAttribArray(prog.aCore);
+          gl.disableVertexAttribArray(prog.aRim);
+          gl.disable(gl.BLEND);
+          gl.disable(gl.SCISSOR_TEST);
+
+          ctx.save();
+          ctx.globalCompositeOperation = comp;
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(this.canvas, sx, sy, sw, sh, Math.round(sx / k), Math.round(sy / k), Math.round(sw / k), Math.round(sh / k));
+          ctx.restore();
+        }
+        startIdx = endIdx;
+      }
+      atk.length = 0;
     }
-    for (const r of rng) {
-      const box = { x: r.x - r.pad, y: r.y - r.pad * 0.85, w: r.pad * 2, h: r.pad * 1.7 };
-      this.run(ctx, this.pShockRing, box, (gl, u) => {
-        gl.uniform4f(u.uRing, r.x, r.y, r.radius, r.thickness);
-        gl.uniform3f(u.uColor, r.color[0], r.color[1], r.color[2]);
-        gl.uniform1f(u.uAlpha, r.alpha);
-      }, 'lighter');
+
+    if (rng.length) {
+      const prog = this.pRingBatch;
+      const count = rng.length;
+      let minX = W, minY = H, maxX = 0, maxY = 0;
+      let vi = 0;
+      for (let i = 0; i < count; i++) {
+        const r = rng[i];
+        const x0 = r.x - r.pad, x1 = r.x + r.pad;
+        const y0 = r.y - r.pad * 0.85, y1 = y0 + r.pad * 1.7;
+        if (x0 < minX) minX = x0;
+        if (y0 < minY) minY = y0;
+        if (x1 > maxX) maxX = x1;
+        if (y1 > maxY) maxY = y1;
+        const cr = r.color[0], cg = r.color[1], cb = r.color[2], al = r.alpha;
+        const wv = (vx, vy) => {
+          buf[vi] = vx; buf[vi + 1] = vy;
+          buf[vi + 2] = vx - r.x; buf[vi + 3] = vy - r.y;
+          buf[vi + 4] = r.radius; buf[vi + 5] = r.thickness;
+          buf[vi + 6] = cr; buf[vi + 7] = cg; buf[vi + 8] = cb; buf[vi + 9] = al;
+          vi += 10;
+        };
+        wv(x0, y0); wv(x1, y0); wv(x0, y1);
+        wv(x0, y1); wv(x1, y0); wv(x1, y1);
+      }
+      rng.length = 0;
+
+      const bx = Math.max(0, Math.floor(minX)), by = Math.max(0, Math.floor(minY));
+      const bw = Math.min(W - bx, Math.ceil(maxX - bx)), bh = Math.min(H - by, Math.ceil(maxY - by));
+      if (bw > 0 && bh > 0) {
+        const sx = Math.floor(bx * k), sy = Math.floor(by * k);
+        const sw = Math.min(cw - sx, Math.ceil(bw * k) + 1);
+        const sh = Math.min(ch - sy, Math.ceil(bh * k) + 1);
+        gl.viewport(0, 0, cw, ch);
+        gl.enable(gl.SCISSOR_TEST);
+        gl.scissor(sx, ch - sy - sh, sw, sh);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+        gl.useProgram(prog.p);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.sparkVbo);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, buf.subarray(0, vi));
+        const stride = 10 * 4;
+        gl.enableVertexAttribArray(prog.aPos);
+        gl.vertexAttribPointer(prog.aPos, 2, gl.FLOAT, false, stride, 0);
+        gl.enableVertexAttribArray(prog.aRelRing);
+        gl.vertexAttribPointer(prog.aRelRing, 4, gl.FLOAT, false, stride, 8);
+        gl.enableVertexAttribArray(prog.aColor);
+        gl.vertexAttribPointer(prog.aColor, 4, gl.FLOAT, false, stride, 24);
+
+        gl.uniform2f(prog.u.uRes, W, H);
+        gl.uniform1f(prog.u.uTime, this.time);
+        gl.drawArrays(gl.TRIANGLES, 0, count * 6);
+
+        gl.disableVertexAttribArray(prog.aRelRing);
+        gl.disableVertexAttribArray(prog.aColor);
+        gl.disable(gl.BLEND);
+        gl.disable(gl.SCISSOR_TEST);
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(this.canvas, sx, sy, sw, sh, Math.round(sx / k), Math.round(sy / k), Math.round(sw / k), Math.round(sh / k));
+        ctx.restore();
+      }
     }
   }
 

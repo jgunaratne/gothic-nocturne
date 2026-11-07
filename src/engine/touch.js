@@ -349,6 +349,10 @@ export class TouchControls {
         else if (s === 'armory') this.input.pulse('armory');
         else if (s === 'forge') { this.blurTextProxy(); g.forgeUI.cancel(); }
         else if (s === 'forging' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'stageselect') this.input.pulseEscape();
+        else if (s === 'play') {
+          if (g.world && g.world.canSkipBossIntro && g.world.canSkipBossIntro()) this.input.pulse('start');
+          else this.input.pulseEscape();
+        }
         else this.input.pulse('start');
         break;
       case 'armory':
@@ -407,8 +411,15 @@ export class TouchControls {
       this.input.pulse('up');
       return;
     }
-    if (w.sanctuary && w.sanctuary.near) {
+    if (w.warpMirror && w.warpMirror.near) {
       g.openMap();
+      return;
+    }
+    if (w.sanctuary && w.sanctuary.near) {
+      w.sanctuary.usedThisVisit = true;
+      w.sanctuary.saveFlash = 1;
+      w.sanctuary.saveCooldown = 0.9;
+      w.activateSavePoint(w.sanctuary, { manual: true });
     }
   }
 
@@ -769,19 +780,15 @@ export class TouchControls {
           this.focusTextProxy();
           return true;
         }
-        if (gx >= 130 && gx <= W - 130 && gy >= TITLE_MENU_Y0 - 4 && gy < TITLE_MENU_Y0 + TITLE_MENU_ROW_H * TITLE_MENU_ITEMS + 2) {
-          const row = Math.max(0, Math.min(TITLE_MENU_ITEMS - 1, Math.floor((gy - (TITLE_MENU_Y0 - 4)) / TITLE_MENU_ROW_H)));
-          g.titleMenu = row;
-          if (row === 1) {
-            g.openForge('title');
+        const menu = g.getTitleMenuLayout
+          ? g.getTitleMenuLayout()
+          : { items: new Array(TITLE_MENU_ITEMS), y0: TITLE_MENU_Y0, rowH: TITLE_MENU_ROW_H };
+        const nRows = menu.items.length;
+        if (gx >= 116 && gx <= W - 116 && gy >= menu.y0 - 4 && gy < menu.y0 + menu.rowH * nRows + 2) {
+          const row = Math.max(0, Math.min(nRows - 1, Math.floor((gy - (menu.y0 - 4)) / menu.rowH)));
+          if (g.activateTitleMenuItem) {
+            g.activateTitleMenuItem(row);
             if (g.state === 'forge') this.focusTextProxy();
-          } else if (row === 2) {
-            g.openControls();
-          } else if (row === 3) {
-            g.openSettings();
-          } else {
-            g.setState('difficulty');
-            g.audio.sfx('select');
           }
           return true;
         }
@@ -967,11 +974,24 @@ export class TouchControls {
               }
             }
           }
+          if (w.warpMirror && w.warpMirror.near) {
+            const sx = w.warpMirror.x - w.camera.rx;
+            const sy = w.warpMirror.y - w.camera.ry;
+            if (Math.abs(gx - sx) <= 48 && gy >= sy - 98 && gy <= sy + 12) {
+              this.vibrate(8);
+              g.openMap();
+              return true;
+            }
+          }
           if (w.sanctuary && w.sanctuary.near) {
             const sx = w.sanctuary.x - w.camera.rx;
             const sy = w.sanctuary.y - w.camera.ry;
             if (Math.abs(gx - sx) <= 48 && gy >= sy - 96 && gy <= sy + 12) {
-              g.openMap();
+              this.vibrate(8);
+              w.sanctuary.usedThisVisit = true;
+              w.sanctuary.saveFlash = 1;
+              w.sanctuary.saveCooldown = 0.9;
+              w.activateSavePoint(w.sanctuary, { manual: true });
               return true;
             }
           }
@@ -1173,8 +1193,13 @@ export class TouchControls {
             }
           }
         }
+        if (!promptText && w.warpMirror && w.warpMirror.near) {
+          promptText = '✦ WARP PORTAL · TAP FOR FAST TRAVEL';
+          dpadUpHint = true;
+        }
         if (!promptText && w.sanctuary && w.sanctuary.near) {
-          promptText = '✦ SANCTUARY · TAP FOR FAST TRAVEL';
+          promptText = '✦ SAVE SANCTUM · TAP TO SAVE GAME';
+          dpadUpHint = true;
         }
       } else if (s === 'title' && this.orient === 'portrait') {
         promptText = '↻ ROTATE FOR WIDESCREEN · TAP TO BEGIN';

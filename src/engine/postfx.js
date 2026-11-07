@@ -30,7 +30,7 @@ varying vec2 vUv;
 uniform sampler2D uScene;
 uniform float uThreshold;
 void main() {
-  vec3 c = texture2D(uScene, vUv).rgb;
+  vec3 c = texture2D(uScene, vec2(vUv.x, 1.0 - vUv.y)).rgb;
   float l = dot(c, vec3(0.299, 0.587, 0.114));
   float k = smoothstep(uThreshold, uThreshold + 0.35, l);
   // Saturated glows (amber flame, emerald spore, violet magic) bloom a little more than grey highlights.
@@ -94,7 +94,7 @@ vec3 sampleSharp(vec2 uv) {
   vec2 dudv = uSceneRes / max(uRes, vec2(1.0));
   vec2 f = clamp((pix - seam) / dudv + 0.5, 0.0, 1.0);
   vec2 suv = (seam - 0.5 + f) / uSceneRes;
-  return texture2D(uScene, suv).rgb;
+  return texture2D(uScene, vec2(suv.x, 1.0 - suv.y)).rgb;
 }
 
 void main() {
@@ -144,36 +144,50 @@ void main() {
   col = 1.0 - (1.0 - col) * (1.0 - bloom * bloomAmt);
 
   // Screen-space pixel-art normal-mapped dynamic point-light rim & specular illumination:
-  // samples 1-scene-texel luminance relief so stone bevels, fluted pillars & armor catch
-  // flickering torch, sconce, brazier & spell glints without blurring pixel art.
+  // early-culls pixels outside all active point-light radii before sampling 4 Sobel neighbor texels!
   if (uLightCount > 0.5) {
-    vec2 tx = 1.0 / uSceneRes;
-    vec2 centerUv = (floor(clamp(uv, vec2(0.001), vec2(0.999)) * uSceneRes) + 0.5) * tx;
-    float lL = dot(texture2D(uScene, centerUv - vec2(tx.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-    float lR = dot(texture2D(uScene, centerUv + vec2(tx.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-    float lD = dot(texture2D(uScene, centerUv - vec2(0.0, tx.y)).rgb, vec3(0.299, 0.587, 0.114));
-    float lU = dot(texture2D(uScene, centerUv + vec2(0.0, tx.y)).rgb, vec3(0.299, 0.587, 0.114));
-    vec2 grad = vec2(lL - lR, lD - lU);
-    vec3 surfN = normalize(vec3(grad * 3.4, 1.0));
-    float bevel = clamp(length(grad) * 2.8, 0.0, 1.0);
     vec2 aspectL = vec2(uSceneRes.x / uSceneRes.y, 1.0);
-    vec3 dynLight = vec3(0.0);
+    bool inReach = false;
     for (int i = 0; i < 6; i++) {
       vec4 lp = uLights[i];
       if (lp.w > 0.005) {
         vec2 toL = (lp.xy - uv) * aspectL;
-        float dL = length(toL);
-        if (dL < lp.z) {
-          float att = pow(1.0 - dL / max(0.01, lp.z), 2.0) * lp.w;
-          vec3 Ldir = normalize(vec3(toL, 0.22));
-          float ndl = max(0.0, dot(surfN, Ldir));
-          vec3 Hdir = normalize(Ldir + vec3(0.0, 0.0, 1.0));
-          float spec = pow(max(0.0, dot(surfN, Hdir)), 14.0) * bevel;
-          dynLight += uLightCols[i] * att * (0.12 + ndl * (0.30 + 0.52 * bevel) + spec * 0.52);
+        if (dot(toL, toL) < lp.z * lp.z) {
+          inReach = true;
+          break;
         }
       }
     }
-    col += dynLight * (0.26 + 0.74 * col);
+    if (inReach) {
+      vec2 tx = 1.0 / uSceneRes;
+      vec2 centerUv = (floor(clamp(uv, vec2(0.001), vec2(0.999)) * uSceneRes) + 0.5) * tx;
+      vec2 sceneUv = vec2(centerUv.x, 1.0 - centerUv.y);
+      float lL = dot(texture2D(uScene, sceneUv - vec2(tx.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+      float lR = dot(texture2D(uScene, sceneUv + vec2(tx.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+      float lD = dot(texture2D(uScene, sceneUv + vec2(0.0, tx.y)).rgb, vec3(0.299, 0.587, 0.114));
+      float lU = dot(texture2D(uScene, sceneUv - vec2(0.0, tx.y)).rgb, vec3(0.299, 0.587, 0.114));
+      vec2 grad = vec2(lL - lR, lD - lU);
+      vec3 surfN = normalize(vec3(grad * 3.4, 1.0));
+      float bevel = clamp(length(grad) * 2.8, 0.0, 1.0);
+      vec3 dynLight = vec3(0.0);
+      for (int i = 0; i < 6; i++) {
+        vec4 lp = uLights[i];
+        if (lp.w > 0.005) {
+          vec2 toL = (lp.xy - uv) * aspectL;
+          float d2 = dot(toL, toL);
+          if (d2 < lp.z * lp.z) {
+            float dL = sqrt(d2);
+            float att = pow(1.0 - dL / max(0.01, lp.z), 2.0) * lp.w;
+            vec3 Ldir = normalize(vec3(toL, 0.22));
+            float ndl = max(0.0, dot(surfN, Ldir));
+            vec3 Hdir = normalize(Ldir + vec3(0.0, 0.0, 1.0));
+            float spec = pow(max(0.0, dot(surfN, Hdir)), 14.0) * bevel;
+            dynLight += uLightCols[i] * att * (0.12 + ndl * (0.30 + 0.52 * bevel) + spec * 0.52);
+          }
+        }
+      }
+      col += dynLight * (0.26 + 0.74 * col);
+    }
   }
 
   // Chrono Pocketwatch temporal stasis wave: crystalline cyan-gold clockwork ripple
@@ -383,12 +397,17 @@ export class PostFX {
 
   toggle() { this.setEnabled(!this.enabled); return this.enabled; }
 
-  /** Matches the FX canvas to the 2D canvas' CSS size (device pixels; capped at 2x on mobile GPUs). */
+  /** Matches the FX canvas to the 2D canvas' CSS size (device pixels; capped at 2x on mobile/large displays). */
   fit() {
     if (!this.ok) return;
-    const dpr = Math.min(this.mobileDprCap ? 2 : 3, window.devicePixelRatio || 1);
     const cw = parseFloat(this.src.style.width) || this.src.width;
     const chh = parseFloat(this.src.style.height) || this.src.height;
+    const maxDpr = (this.mobileDprCap || cw >= 1200) ? 2 : 3;
+    const dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
+    if (cw === this._lastCssW && chh === this._lastCssH && dpr === this._lastDpr) return;
+    this._lastCssW = cw;
+    this._lastCssH = chh;
+    this._lastDpr = dpr;
     this.out.style.width = cw + 'px';
     this.out.style.height = chh + 'px';
     const w = Math.max(1, Math.round(cw * dpr)), h = Math.max(1, Math.round(chh * dpr));
@@ -462,10 +481,10 @@ export class PostFX {
       gl.vertexAttribPointer(prog.aPos, 2, gl.FLOAT, false, 0, 0);
     };
 
-    // Upload the 2D frame
+    // Upload the 2D frame with UNPACK_FLIP_Y_WEBGL = false so Chromium/ANGLE keeps the zero-copy GPU fast path
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.sceneTex);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.src);
 
     // 1. Bright pass -> A
@@ -476,19 +495,17 @@ export class PostFX {
     gl.uniform1f(this.pBright.u.uThreshold, 0.52);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    // 2. Blur A -> B (horizontal), B -> A (vertical), twice for a wide soft halo
+    // 2. Single-iteration wide separable hardware-bilinear Gaussian blur: A -> B (H), B -> A (V)
     bind(this.pBlur);
     gl.uniform1i(this.pBlur.u.uTex, 0);
-    for (let i = 0; i < 2; i++) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbB.fb);
-      gl.bindTexture(gl.TEXTURE_2D, this.fbA.tex);
-      gl.uniform2f(this.pBlur.u.uDir, 1 / this.bw, 0);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbA.fb);
-      gl.bindTexture(gl.TEXTURE_2D, this.fbB.tex);
-      gl.uniform2f(this.pBlur.u.uDir, 0, 1 / this.bh);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbB.fb);
+    gl.bindTexture(gl.TEXTURE_2D, this.fbA.tex);
+    gl.uniform2f(this.pBlur.u.uDir, 1.38 / this.bw, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbA.fb);
+    gl.bindTexture(gl.TEXTURE_2D, this.fbB.tex);
+    gl.uniform2f(this.pBlur.u.uDir, 0, 1.38 / this.bh);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     // 3. Composite to screen
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
