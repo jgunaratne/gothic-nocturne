@@ -1,10 +1,11 @@
-// Dual-Hand Equipment Matrix, Tactical Soul Glyphs & Hunter's Bestiary Grimoire:
+// Dual-Hand Equipment Matrix, Tactical Soul Glyphs, Bestiary & Settings Grimoire:
 // - `WeaponPedestal`: physical gothic stone altar holding each stage's signature weapon
-// - `ArmoryScreen`: 3-Tab Gothic Grimoire (`E` / `I` / `B` / Touch `GEAR`):
+// - `ArmoryScreen`: 4-Tab Gothic Grimoire (`START` / `E` / `I` / `B` / Touch `GEAR`):
 //     1. ARMORY: Ambidextrous Hand_L & Hand_R sockets, Dual Loadout A/B swap (`R`),
 //        Stat Deficit Gate math, Shield Rod Sacred Call & Set Resonance
 //     2. SOULS: Crimson Bullet, Cobalt Guardian & Amber Enchant Soul Glyphs (`Lv 1..9`)
-//     3. BESTIARY: Monster Compendium with kill counts, weaknesses, weapon & soul drops.
+//     3. BESTIARY: Monster Compendium with kill counts, weaknesses, weapon & soul drops
+//     4. SETTINGS: Audio, Shaders, Callsign, Debug Unlocks, Reset & Exit to Home Screen.
 
 import { W, H } from '../engine/constants.js';
 import { getFxLayers } from '../engine/fxlayers.js';
@@ -19,8 +20,61 @@ import {
   getEnemyDisplayInfo,
 } from './souls.js';
 import { formatCompactExp } from './progression.js';
+import { STAGES } from './stages.js';
 
-const TABS = ['armory', 'souls', 'bestiary'];
+const TABS = ['armory', 'souls', 'bestiary', 'settings'];
+
+const ARMORY_SETTINGS_ROWS = [
+  {
+    id: 'exitHome',
+    label: 'EXIT TO HOME',
+    sub: 'BACK TO START SCREEN',
+    title: 'EXIT TO HOME SCREEN',
+    desc: 'LEAVE THE CURRENT HUNT AND RETURN TO THE HOME START SCREEN. YOUR ARSENAL, SOULS, BESTIARY, LEVEL, VESSELS, AND LAST SANCTUM SAVE ARE KEPT.',
+  },
+  {
+    id: 'mute',
+    label: 'SOUND & MUSIC',
+    sub: 'SCORE, VOICE & SFX',
+    title: 'SYMPHONIC AUDIO & VOICE',
+    desc: 'TOGGLE SYMPHONIC STAGE & BOSS MUSIC, SPOKEN GUARDIAN VOICE LINES, AND COMBAT SOUND EFFECTS (SHORTCUT: KEY N OR R3).',
+  },
+  {
+    id: 'postfx',
+    label: 'POST-FX SHADERS',
+    sub: 'BLOOM & CRT LIGHTING',
+    title: '2.5D SHADERS & LIGHTING',
+    desc: 'TOGGLE DYNAMIC WEBGL TORCHLIGHT, ELEMENTAL GLOW LAYERS, LIGHTNING BLOOM, AND CRT SCANLINES (SHORTCUT: KEY F OR L3).',
+  },
+  {
+    id: 'callsign',
+    label: 'HUNTER CALLSIGN',
+    sub: 'CO-OP REALM IDENTITY',
+    title: 'MULTIPLAYER CALLSIGN',
+    desc: 'CHANGE THE CALLSIGN DISPLAYED ABOVE YOUR HUNTER IN THE SHARED CASTLE REALM AND ON CO-OP BANNERS.',
+  },
+  {
+    id: 'unlockAreas',
+    label: 'UNLOCK ALL AREAS',
+    sub: 'DEBUG GATEWAYS & MAP',
+    title: 'DEBUG: UNLOCK ALL AREAS',
+    desc: 'OPEN EVERY GUARDIAN PASSAGE GATEWAY AND CHART ALL CASTLE MAP WAYSTONES FOR FREE EXPLORATION AND TESTING.',
+  },
+  {
+    id: 'unlockBosses',
+    label: 'UNLOCK ALL BOSSES',
+    sub: 'DEBUG THRONE & SEALS',
+    title: 'DEBUG: UNLOCK ALL BOSSES',
+    desc: 'UNSEAL EVERY GUARDIAN BOSS DOOR AND OPEN THE SOVEREIGN THRONE ROOM WITHOUT FELLING ALL GUARDIANS FIRST.',
+  },
+  {
+    id: 'resetProgress',
+    label: 'RESET PROGRESS',
+    sub: 'ERASE SAVE & ARSENAL',
+    title: 'RESET ALL PROGRESS',
+    desc: 'ERASES SAVED CHECKPOINTS, CLEARED BOSSES, VESSELS, LEVEL, ARSENAL, AND SOULS, THEN RETURNS TO THE HOME SCREEN.',
+  },
+];
 
 export class WeaponPedestal {
   constructor(weaponId, x, y) {
@@ -179,6 +233,8 @@ export class ArmoryScreen {
     this.soulScroll = 0;
     this.bestiaryCursor = 0;
     this.bestiaryScroll = 0;
+    this.settingsCursor = 0;
+    this.confirmReset = false;
     this.returnState = 'play';
     this.flashMsg = '';
     this.flashT = 0;
@@ -192,6 +248,7 @@ export class ArmoryScreen {
     const idx = list.indexOf(curL);
     this.cursor = idx >= 0 ? idx : 0;
     this.ensureVisible(list.length);
+    this.confirmReset = false;
     this.flashT = 0;
   }
 
@@ -235,17 +292,25 @@ export class ArmoryScreen {
 
   update(dt, inp) {
     this.flashT = Math.max(0, this.flashT - dt);
-    if (inp.pressed.armory || inp.pressed.escape || inp.pressed.start || inp.pressed.sprint || (this.tab === 'bestiary' && inp.pressed.bestiary)) {
+    const kbdEnterOnSettings = this.tab === 'settings' && inp.pressed.start && !inp.pressed.escape && !inp.isGamepad;
+    if (
+      !kbdEnterOnSettings
+      && (inp.pressed.armory || inp.pressed.escape || inp.pressed.start || inp.pressed.sprint || (this.tab === 'bestiary' && inp.pressed.bestiary))
+    ) {
+      this.confirmReset = false;
       this.game.setState(this.returnState || 'play');
       this.game.audio.sfx('pause');
       return;
     }
     if (inp.pressed.bestiary && this.tab !== 'bestiary') {
+      this.confirmReset = false;
       this.tab = 'bestiary';
       this.game.audio.sfx('select');
+      if (this.game.touch && this.game.touch.active) this.game.touch.syncUI(true);
       return;
     }
     if (inp.pressed.map && this.game.world) {
+      this.confirmReset = false;
       this.game.openMap();
       return;
     }
@@ -254,17 +319,37 @@ export class ArmoryScreen {
       this.toast(`SWITCHED TO ${this.game.activeLoadout === 0 ? 'LOADOUT SET A' : 'LOADOUT SET B'}`);
       return;
     }
-    // Left / Right switch between ARMORY · SOULS · BESTIARY tabs
+    // Left / Right switch between ARMORY · SOULS · BESTIARY · SETTINGS tabs
     if (inp.pressed.left) {
+      this.confirmReset = false;
       const ti = (TABS.indexOf(this.tab) + TABS.length - 1) % TABS.length;
       this.tab = TABS[ti];
       this.game.audio.sfx('bone');
+      if (this.game.touch && this.game.touch.active) this.game.touch.syncUI(true);
       return;
     }
     if (inp.pressed.right) {
+      this.confirmReset = false;
       const ti = (TABS.indexOf(this.tab) + 1) % TABS.length;
       this.tab = TABS[ti];
       this.game.audio.sfx('bone');
+      if (this.game.touch && this.game.touch.active) this.game.touch.syncUI(true);
+      return;
+    }
+
+    if (this.tab === 'settings') {
+      const sn = ARMORY_SETTINGS_ROWS.length;
+      if (inp.pressed.up) {
+        this.settingsCursor = (this.settingsCursor + sn - 1) % sn;
+        this.confirmReset = false;
+        this.game.audio.sfx('bone');
+      } else if (inp.pressed.down) {
+        this.settingsCursor = (this.settingsCursor + 1) % sn;
+        this.confirmReset = false;
+        this.game.audio.sfx('bone');
+      } else if (kbdEnterOnSettings || inp.pressed.jump || inp.pressed.attack || inp.pressed.offhand) {
+        this._activateSettingsRow(this.settingsCursor, false);
+      }
       return;
     }
 
@@ -356,26 +441,131 @@ export class ArmoryScreen {
     this.game.audio.sfx('select');
   }
 
+  _setTab(nextTab) {
+    if (!TABS.includes(nextTab)) return;
+    this.confirmReset = false;
+    this.tab = nextTab;
+    this.game.audio.sfx('bone');
+    if (this.game.touch && this.game.touch.active) this.game.touch.syncUI(true);
+  }
+
+  _activateSettingsRow(idx, fromPointer = false) {
+    const row = ARMORY_SETTINGS_ROWS[idx];
+    if (!row) return;
+    const g = this.game;
+    this.settingsCursor = idx;
+    switch (row.id) {
+      case 'exitHome':
+        this.confirmReset = false;
+        g.returnToTitle();
+        break;
+      case 'mute': {
+        this.confirmReset = false;
+        const muted = g.audio.toggleMute();
+        this.toast(muted ? 'AUDIO MUTED' : 'SYMPHONIC AUDIO & VOICE ON');
+        if (!muted) g.audio.sfx('select');
+        if (g.touch && g.touch.active) g.touch.syncUI(true);
+        break;
+      }
+      case 'postfx': {
+        this.confirmReset = false;
+        const on = g.postfx.toggle();
+        const fl = getFxLayers();
+        if (fl) fl.setEnabled(on);
+        this.toast(on ? '2.5D SHADERS & LIGHTING ON' : '2.5D SHADERS OFF');
+        g.audio.sfx(on ? 'select' : 'bone');
+        if (g.touch && g.touch.active) g.touch.syncUI(true);
+        break;
+      }
+      case 'callsign':
+        this.confirmReset = false;
+        g.openCallsignEditor();
+        if (fromPointer && g.touch && g.touch.active) g.touch.focusTextProxy();
+        break;
+      case 'unlockAreas':
+      case 'unlockBosses': {
+        this.confirmReset = false;
+        const on = !(g.debug && g.debug[row.id]);
+        g.setDebugFlag(row.id, on);
+        this.toast(`${row.label} ${on ? 'ENABLED' : 'DISABLED'}`);
+        g.audio.sfx(on ? 'select' : 'bone');
+        break;
+      }
+      case 'resetProgress':
+        if (!this.confirmReset) {
+          this.confirmReset = true;
+          this.toast('PRESS AGAIN TO ERASE ALL PROGRESS & RETURN HOME');
+          g.audio.sfx('block');
+          return;
+        }
+        this.confirmReset = false;
+        g.resetProgress();
+        g.audio.sfx('orb');
+        g.returnToTitle();
+        break;
+      default:
+        break;
+    }
+  }
+
   handlePoint(gx, gy) {
     // Top tab pills (`y < 32`)
     if (gy < 32) {
-      if (gx >= 16 && gx < 118) { this.tab = 'armory'; this.game.audio.sfx('bone'); return true; }
-      if (gx >= 120 && gx < 224) { this.tab = 'souls'; this.game.audio.sfx('bone'); return true; }
-      if (gx >= 226 && gx < 330) { this.tab = 'bestiary'; this.game.audio.sfx('bone'); return true; }
-      if (gx >= 334 && gx < 414 && this.game.swapLoadout) {
+      if (gx >= 12 && gx < 82) { this._setTab('armory'); return true; }
+      if (gx >= 82 && gx < 150) { this._setTab('souls'); return true; }
+      if (gx >= 150 && gx < 232) { this._setTab('bestiary'); return true; }
+      if (gx >= 232 && gx < 315) { this._setTab('settings'); return true; }
+      if (gx >= 316 && gx < 398 && this.game.swapLoadout) {
         this.game.swapLoadout(this.game.world);
+        this.toast(`SWITCHED TO ${this.game.activeLoadout === 0 ? 'LOADOUT SET A' : 'LOADOUT SET B'}`);
         return true;
       }
       if (gx > 490) {
+        this.confirmReset = false;
         this.game.setState(this.returnState || 'play');
         this.game.audio.sfx('pause');
         return true;
       }
     }
     if (gy > 328 && gx > 470) {
+      this.confirmReset = false;
       this.game.setState(this.returnState || 'play');
       this.game.audio.sfx('pause');
       return true;
+    }
+    if (this.tab === 'settings') {
+      if (gx >= 16 && gx <= 246 && gy >= 42 && gy < 42 + ARMORY_SETTINGS_ROWS.length * 39) {
+        const idx = Math.floor((gy - 42) / 39);
+        if (idx >= 0 && idx < ARMORY_SETTINGS_ROWS.length) {
+          if (ARMORY_SETTINGS_ROWS[idx].id === 'resetProgress' && this.settingsCursor !== idx) {
+            this.settingsCursor = idx;
+            this.confirmReset = false;
+            this.game.audio.sfx('bone');
+          } else {
+            this._activateSettingsRow(idx, true);
+          }
+          return true;
+        }
+      }
+      // Bottom action buttons in right-hand settings card: [RESUME HUNT] and [EXIT TO START]
+      if (gy >= 280 && gy <= 312) {
+        if (gx >= 266 && gx <= 434) {
+          this.confirmReset = false;
+          this.game.setState(this.returnState || 'play');
+          this.game.audio.sfx('pause');
+          return true;
+        }
+        if (gx >= 444 && gx <= 612) {
+          this.confirmReset = false;
+          this.game.returnToTitle();
+          return true;
+        }
+      }
+      if (gx >= 254 && gx <= 624 && gy >= 42 && gy <= 140) {
+        this._activateSettingsRow(this.settingsCursor, true);
+        return true;
+      }
+      return false;
     }
     if (this.tab === 'souls') {
       const sList = this.ownedSoulList();
@@ -440,16 +630,17 @@ export class ArmoryScreen {
     ctx.fillStyle = 'rgba(5, 4, 14, 0.91)';
     ctx.fillRect(0, 0, W, H);
 
-    // Header band + 3 Grimoire Tabs + Set A/B Toggle
+    // Header band + 4 Grimoire Tabs + Set A/B Toggle
     ctx.fillStyle = 'rgba(16, 12, 30, 0.96)';
     ctx.fillRect(0, 0, W, 30);
     ctx.fillStyle = '#6e5838';
     ctx.fillRect(0, 29, W, 1);
 
     const tabDefs = [
-      ['armory', 'ARMORY', 16, 98],
-      ['souls', 'SOULS', 118, 98],
-      ['bestiary', 'BESTIARY', 220, 106],
+      ['armory', 'ARMORY', 12, 68],
+      ['souls', 'SOULS', 84, 64],
+      ['bestiary', 'BESTIARY', 152, 78],
+      ['settings', 'SETTINGS', 234, 78],
     ];
     for (const [tk, lbl, tx, tw] of tabDefs) {
       const act = this.tab === tk;
@@ -465,10 +656,10 @@ export class ArmoryScreen {
     const isPad = !!(g.input && g.input.isGamepad);
     const setIdx = g.activeLoadout ? 1 : 0;
     ctx.fillStyle = 'rgba(20, 28, 38, 0.94)';
-    ctx.fillRect(332, 5, 76, 20);
+    ctx.fillRect(318, 5, 76, 20);
     ctx.strokeStyle = setIdx === 0 ? '#ffd27a' : '#62f2c2';
-    ctx.strokeRect(332.5, 5.5, 75, 19);
-    f.draw(ctx, `[${isPad ? 'LT' : 'R'}] SET ${setIdx === 0 ? 'A' : 'B'}`, 370, 11, {
+    ctx.strokeRect(318.5, 5.5, 75, 19);
+    f.draw(ctx, `[${isPad ? 'LT' : 'R'}] SET ${setIdx === 0 ? 'A' : 'B'}`, 356, 11, {
       align: 'center', color: setIdx === 0 ? '#ffd27a' : '#62f2c2', shadow, gothic: false,
     });
 
@@ -479,7 +670,7 @@ export class ArmoryScreen {
     f.draw(
       ctx,
       `LV ${String(strInfo.level).padStart(2, '0')} · EXP ${xpTxt} · STR ${String(strInfo.total).padStart(2, '0')}`,
-      624,
+      626,
       11,
       { align: 'right', color: '#9ef5dc', shadow, gothic: false },
     );
@@ -491,6 +682,11 @@ export class ArmoryScreen {
     }
     if (this.tab === 'bestiary') {
       this._drawBestiaryTab(ctx);
+      ctx.restore();
+      return;
+    }
+    if (this.tab === 'settings') {
+      this._drawSettingsTab(ctx);
       ctx.restore();
       return;
     }
@@ -897,6 +1093,216 @@ export class ArmoryScreen {
     );
   }
 
+  _getSettingsRowState(row) {
+    const g = this.game;
+    switch (row.id) {
+      case 'exitHome':
+        return { badge: 'HOME', color: '#ffd27a', status: 'ACTION · RETURN TO HOME START SCREEN' };
+      case 'mute': {
+        const on = !(g.audio && g.audio.muted);
+        return {
+          badge: on ? 'ON' : 'MUTED',
+          color: on ? '#62f2c2' : '#ff8a98',
+          status: on ? 'AUDIO ACTIVE · MUSIC, VOICE & SFX ON' : 'AUDIO MUTED · PRESS TO RESTORE SOUND',
+        };
+      }
+      case 'postfx': {
+        const on = !!(g.postfx && g.postfx.enabled);
+        return {
+          badge: on ? 'ON' : 'OFF',
+          color: on ? '#62f2c2' : '#8a9ab5',
+          status: on ? 'SHADERS ACTIVE · TORCHLIGHT & BLOOM ON' : 'SHADERS OFF · RAW PIXEL CANVAS',
+        };
+      }
+      case 'callsign': {
+        const name = (g.net && g.net.name) ? g.net.name : 'HUNTER';
+        return {
+          badge: 'EDIT',
+          color: '#9ef5dc',
+          status: `CURRENT CALLSIGN: ${name}`,
+        };
+      }
+      case 'unlockAreas': {
+        const on = !!(g.debug && g.debug.unlockAreas);
+        return {
+          badge: on ? 'ON' : 'OFF',
+          color: on ? '#62f2c2' : '#8a9ab5',
+          status: on ? 'DEBUG ACTIVE · ALL AREAS & WAYSTONES OPEN' : 'STANDARD PROGRESSION · RELICS OPEN GATES',
+        };
+      }
+      case 'unlockBosses': {
+        const on = !!(g.debug && g.debug.unlockBosses);
+        return {
+          badge: on ? 'ON' : 'OFF',
+          color: on ? '#62f2c2' : '#8a9ab5',
+          status: on ? 'DEBUG ACTIVE · ALL BOSS DOORS UNSEALED' : 'STANDARD PROGRESSION · GUARDIANS SEAL KEEP',
+        };
+      }
+      case 'resetProgress':
+        return this.confirmReset
+          ? { badge: 'CONFIRM', color: '#ff5a6e', status: '! CONFIRM RESET: ACTIVATE AGAIN TO ERASE ALL PROGRESS !' }
+          : { badge: 'RESET', color: '#ffb0a0', status: '2-STEP SAFETY · ERASES SAVE, ARSENAL, SOULS & LEVEL' };
+      default:
+        return { badge: 'OK', color: '#ffd27a', status: '' };
+    }
+  }
+
+  _drawSettingsTab(ctx) {
+    const g = this.game;
+    const f = g.font;
+    const shadow = '#05040a';
+    const isPad = !!(g.input && g.input.isGamepad);
+
+    // Left panel: Settings & Session Options list
+    ctx.fillStyle = 'rgba(10, 8, 22, 0.94)';
+    ctx.fillRect(16, 38, 230, 284);
+    ctx.strokeStyle = '#3e3556';
+    ctx.strokeRect(16.5, 38.5, 229, 283);
+
+    for (let i = 0; i < ARMORY_SETTINGS_ROWS.length; i++) {
+      const row = ARMORY_SETTINGS_ROWS[i];
+      const st = this._getSettingsRowState(row);
+      const selected = i === this.settingsCursor;
+      const confirming = row.id === 'resetProgress' && this.confirmReset;
+      const ry = 42 + i * 39;
+
+      if (selected) {
+        ctx.fillStyle = confirming ? 'rgba(84, 24, 34, 0.90)' : 'rgba(64, 46, 88, 0.88)';
+        ctx.fillRect(18, ry, 226, 35);
+        ctx.strokeStyle = confirming ? '#ff5a6e' : '#ffd27a';
+        ctx.strokeRect(18.5, ry + 0.5, 225, 34);
+      } else if (i % 2 === 1) {
+        ctx.fillStyle = 'rgba(20, 16, 36, 0.55)';
+        ctx.fillRect(18, ry, 226, 35);
+      }
+
+      const labelCol = confirming ? '#ff8a98' : (selected ? '#ffffff' : (row.id === 'exitHome' ? '#ffd27a' : '#e8e2c8'));
+      f.draw(ctx, row.label, 24, ry + 7, { color: labelCol, shadow, gothic: false });
+      const subText = confirming ? 'PRESS AGAIN TO CONFIRM!' : row.sub;
+      f.draw(ctx, subText, 24, ry + 19, {
+        color: confirming ? '#ffb0a0' : '#7e8aa8', shadow, gothic: false,
+      });
+
+      const bx = 180, bw = 58, bh = 15, by = ry + 10;
+      ctx.fillStyle = '#120e22';
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.strokeStyle = st.color;
+      ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+      f.draw(ctx, st.badge, bx + Math.round(bw / 2), by + 4, {
+        align: 'center', color: st.color, shadow, gothic: false,
+      });
+    }
+
+    // Right panel: Selected Option Inspector + Hunt Checkpoint Summary + Quick Action Buttons
+    const selRow = ARMORY_SETTINGS_ROWS[this.settingsCursor] || ARMORY_SETTINGS_ROWS[0];
+    const selState = this._getSettingsRowState(selRow);
+    const ix = 254, iy = 38, iw = 370, ih = 284;
+    ctx.fillStyle = 'rgba(12, 10, 26, 0.96)';
+    ctx.fillRect(ix, iy, iw, ih);
+    ctx.strokeStyle = selRow.id === 'resetProgress' && this.confirmReset ? '#ff5a6e' : '#6e5838';
+    ctx.strokeRect(ix + 0.5, iy + 0.5, iw - 1, ih - 1);
+
+    f.draw(ctx, selRow.title, ix + 14, iy + 12, {
+      scale: 2, gothic: false, color: selState.color, shadow,
+    });
+    f.draw(ctx, selState.status, ix + 14, iy + 34, {
+      color: '#9ef5dc', shadow, gothic: false,
+    });
+
+    const descText = selRow.id === 'resetProgress' && this.confirmReset
+      ? 'WARNING: THIS CANNOT BE UNDONE! YOUR CALLSIGN AND SHARED CASTLE FORGE WINGS ARE KEPT, ALL OTHER PROGRESS WILL BE ERASED.'
+      : selRow.desc;
+    const descLines = f.wrap(descText, iw - 28, 1, 1, false).slice(0, 4);
+    descLines.forEach((ln, li) => {
+      f.draw(ctx, ln, ix + 14, iy + 52 + li * 13, { color: '#dce4f5', shadow, gothic: false });
+    });
+
+    // Hunt & Save Checkpoint summary card
+    const bx = ix + 12, by = iy + 110, bw = iw - 24, bh = 122;
+    ctx.fillStyle = 'rgba(18, 15, 36, 0.90)';
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = '#524678';
+    ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+
+    const curStage = (g.world && g.world.stage) || STAGES[g.stageIndex] || STAGES[0];
+    const diffName = (g.difficulty && g.difficulty.name) || 'NORMAL';
+    const callsign = (g.net && g.net.name) || 'HUNTER';
+    const disc = g.getCastleDiscoveryStats ? g.getCastleDiscoveryStats() : { label: '0.0%' };
+    const gp = g.guardianProgress ? g.guardianProgress() : { felled: 0, total: 20 };
+    const vessels = g.getVesselCount ? g.getVesselCount() : 0;
+
+    f.draw(ctx, 'CURRENT HUNT & SANCTUM CHECKPOINT', bx + 8, by + 8, {
+      color: '#ffd27a', shadow, gothic: false,
+    });
+    f.draw(ctx, `REGION: ${curStage.name}`, bx + 8, by + 24, {
+      color: '#f6f0de', shadow, gothic: false,
+    });
+    f.draw(ctx, `FATE: ${diffName}  ·  CALLSIGN: ${callsign}`, bx + 8, by + 38, {
+      color: '#9eb0d0', shadow, gothic: false,
+    });
+    f.draw(
+      ctx,
+      `CASTLE ${disc.label} · BOSSES ${gp.felled}/${gp.total} · VESSELS ${vessels}/${STAGES.length}`,
+      bx + 8,
+      by + 52,
+      { color: '#9ef5dc', shadow, gothic: false },
+    );
+
+    ctx.fillStyle = '#362e52';
+    ctx.fillRect(bx + 8, by + 67, bw - 16, 1);
+
+    if (g.hasSaveGame && g.hasSaveGame() && g.saveData) {
+      const sv = g.saveData;
+      const stLabel = String(sv.stageName || 'THE CASTLE').replace(/^THE\s+/, '');
+      const kindLbl = sv.spawnKind === 'boss_clear' ? 'BOSS CLEAR' : sv.spawnKind === 'stage_start' ? 'ENTRANCE' : 'SANCTUM';
+      f.draw(ctx, `SAVED CHECKPOINT: ${stLabel} (${kindLbl})`, bx + 8, by + 74, {
+        color: '#7ef5c8', shadow, gothic: false,
+      });
+    } else {
+      f.draw(ctx, 'SAVED CHECKPOINT: NONE RECORDED YET', bx + 8, by + 74, {
+        color: '#ffb088', shadow, gothic: false,
+      });
+    }
+    f.draw(ctx, 'ARSENAL, SOULS, BESTIARY & LEVEL AUTO-SAVE.', bx + 8, by + 90, {
+      color: '#8a9ab5', shadow, gothic: false,
+    });
+    f.draw(ctx, 'PRAY AT A CRIMSON SANCTUM TO SAVE STAGE SPAWN.', bx + 8, by + 103, {
+      color: '#7e8aa8', shadow, gothic: false,
+    });
+
+    // Always-accessible Resume Hunt & Exit to Home Start Screen buttons
+    const btnY = iy + 242;
+    this._drawActionBtn(
+      ctx,
+      ix + 12,
+      btnY,
+      168,
+      28,
+      isPad ? '[START / B] RESUME HUNT' : '[ESC / E] RESUME HUNT',
+      '#62f2c2',
+      false,
+    );
+    this._drawActionBtn(
+      ctx,
+      ix + 190,
+      btnY,
+      168,
+      28,
+      '[HOME] EXIT TO START',
+      '#ffd27a',
+      selRow.id === 'exitHome',
+    );
+
+    const foot = this.flashT > 0
+      ? this.flashMsg
+      : (isPad
+        ? 'SETTINGS · ←/→ TABS · ↑↓ SELECT · A/X ACTIVATE · START/B RESUME HUNT'
+        : 'SETTINGS · ←/→ TABS · ↑↓ SELECT · ENTER/SPACE ACTIVATE · ESC/E RESUME');
+    f.draw(ctx, foot, W / 2, 336, {
+      align: 'center', color: this.flashT > 0 ? '#ffd27a' : '#9aa8c4', shadow, gothic: false,
+    });
+  }
+
   _drawHandSocket(ctx, x, y, w, h, title, weapon, playerStr, locked2H) {
     const f = this.game.font;
     const shadow = '#05040a';
@@ -941,7 +1347,7 @@ export class ArmoryScreen {
     ctx.fillRect(x, y, w, h);
     ctx.strokeStyle = active ? accent : '#4e4668';
     ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-    this.game.font.draw(ctx, label, x + Math.round(w / 2), y + 8, {
+    this.game.font.draw(ctx, label, x + Math.round(w / 2), y + Math.round((h - 8) / 2), {
       align: 'center', color: accent, shadow: '#05040a', gothic: false,
     });
   }

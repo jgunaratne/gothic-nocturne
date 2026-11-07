@@ -740,7 +740,7 @@ export class TouchControls {
     const target = this.stageWrap || this.canvas;
     if (!target) return;
     target.addEventListener('pointerdown', (e) => {
-      if (!this.active && e.pointerType !== 'touch') return;
+      if (!this.active && e.pointerType !== 'touch' && this.game.state !== 'armory') return;
       if (e.pointerType === 'touch') this.enable();
       this.game.audio.unlock();
       const rect = this.canvas.getBoundingClientRect();
@@ -1142,11 +1142,19 @@ export class TouchControls {
         this._setClass('subDim', this.btns.sub, 'is-empty', true);
       }
     } else if (s === 'armory') {
-      this._setText('whipLbl', this.whipLabel, 'EQUIP L');
-      this._setText('jumpLbl', this.jumpLabel, 'EQUIP R');
-      this._setHidden('offHide', this.btns.offhand, false);
-      this._setText('offLbl', this.offhandLabel, 'EQUIP R');
-      this._setText('offMeta', this.offhandMeta, 'SLOT 1');
+      const tab = g.armoryUI ? g.armoryUI.tab : 'armory';
+      if (tab === 'armory') {
+        this._setText('whipLbl', this.whipLabel, 'EQUIP L');
+        this._setText('jumpLbl', this.jumpLabel, 'EQUIP R');
+        this._setHidden('offHide', this.btns.offhand, false);
+        this._setText('offLbl', this.offhandLabel, 'EQUIP R');
+        this._setText('offMeta', this.offhandMeta, 'SLOT 1');
+      } else {
+        const lbl = tab === 'souls' ? 'ATTUNE' : 'OK';
+        this._setText('whipLbl', this.whipLabel, lbl);
+        this._setText('jumpLbl', this.jumpLabel, lbl);
+        this._setHidden('offHide', this.btns.offhand, true);
+      }
       this._setText('subLbl', this.subLabel, 'BACK');
       this._setText('subMeta', this.subMeta, 'ESC');
       this._setClass('subArmed', this.btns.sub, 'is-armed', false);

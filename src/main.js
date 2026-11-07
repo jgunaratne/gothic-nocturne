@@ -927,6 +927,19 @@ class Game {
     this.audio.sfx('select');
   }
 
+  /** Exits an active hunt cleanly back to the Home Start Screen, preserving saved progress. */
+  returnToTitle() {
+    if (this.editingCallsign) this.closeCallsignEditor(false);
+    if (this.audio.stopVoice) this.audio.stopVoice();
+    this.audio.stopAmbient();
+    if (this.audio.musicPaused) this.audio.resumeMusic();
+    this.titleMenu = 0;
+    this.setState('title');
+    this.audio.playMusic('title');
+    this.audio.sfx('pause');
+    if (this.touch && this.touch.active) this.touch.syncUI(true);
+  }
+
   /** Opens the in-canvas Hunter Callsign editor (`C` on menus/map/pause). */
   openCallsignEditor() {
     this.editingCallsign = true;

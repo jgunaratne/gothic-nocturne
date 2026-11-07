@@ -98,7 +98,7 @@ Opening the URL in multiple browsers or across machines on the network automatic
 | Cast Crimson Bullet Soul (`2♥`) / Arcane Glyph Union (`5♥`) | `↑` + Right Hand / `↑` + `L` + `R` | `↑` + Y / `↑` + X + Y | `▲` + **R-HAND** / **L+R** |
 | Hidden Weapon Command Skill (30-frame motion) | `↓ ↘ →` + Hand button | `↓ ↘ →` + Hand button | `↓ ↘ →` + **L-HAND** / **R-HAND** |
 | Cross-Hand Combo Resonance & Shield-Rod Sacred Call | `Hand_L` + `Hand_R` together | `X` + `Y` / `RB` + `RT` | **L-HAND** + **R-HAND** together |
-| Hunter's Grimoire (`Armory` · `Souls` · `Bestiary`) | E / I / Enter (or `B` for Bestiary) | Start (Menu) | **GEAR** pill or tap HUD `L` / `R` sockets |
+| Hunter's Grimoire (`Armory` · `Souls` · `Bestiary` · `Settings` / Exit to Home) | E / I / Enter (or `B` for Bestiary) | Start (Menu) | **GEAR** pill or tap HUD `L` / `R` sockets |
 | Save Game at Crimson Save Sanctum / Enter Portals / Chests / Sigils | ↑ (at Crimson Save Sanctum, portal, chest, or sigil) | ↑ | D-pad **▲**, prompt pill, or tap Sanctum / portal |
 | Throw sub-weapon (costs 1 heart) | ↑ + Left Hand | ↑ + Left Hand | **SUB** button (or tap HUD sub-weapon box) |
 | Castle Exploration Map (live location & fast travel) | M or Tab | Back / Select / View | **MAP** pill or tap HUD Mini-Map (tap rooms to inspect / warp) |

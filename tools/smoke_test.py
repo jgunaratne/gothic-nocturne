@@ -10,6 +10,7 @@ scenes = [('title', '?skip=40'), ('map', '?screen=stageselect&skip=20'), ('endin
           ('armory', '?screen=armory&weapons=all&handL=herald_shield_rod&handR=pyre_shield&skip=20'),
           ('souls', '?screen=souls&souls=all&skip=20'),
           ('bestiary', '?screen=bestiary&bestiary=all&souls=all&weapons=all&skip=20'),
+          ('armory-settings', '?screen=armory&tab=settings&weapons=all&souls=all&skip=20'),
           ('dual-wield', '?screen=play&weapons=all&souls=all&handL=zephyr_galeblade&handR=heraldic_buckler&skip=60'),
           ('forge', '?screen=forge&skip=30'), ('forging-local', '?forge=Smoke%20Test%20Wing&local=1&skip=30')]
 for i in range(1, N_STAGES + 1):
