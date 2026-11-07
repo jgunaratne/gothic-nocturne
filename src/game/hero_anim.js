@@ -259,6 +259,16 @@ export function heroFrame(assets, s) {
     case 'jump':
       if (has('hero_jump')) return pick('hero_jump', jumpName(s.vy));
       return pick('hero', 'jump');
+    case 'divekick':
+      if (has('hero_jump')) return pick('hero_jump', 'fall1');
+      return pick('hero', 'jump');
+    case 'backdash':
+      if (has('hero_dash')) return pick('hero_dash', (s.backdashT || 0) > 0.14 ? 'dash5' : 'dash6');
+      if (has('hero_jump')) return pick('hero_jump', 'rise1');
+      return pick('hero', 'jump');
+    case 'slide':
+      if (has('hero_csword')) return pick('hero_csword', 'cslash2');
+      return pick('hero', 'crouch');
     case 'dash': {
       const k = s.dashK != null ? s.dashK : (s.dashT != null ? s.dashT / PLAYER.dashTime : 0.5);
       if (has('hero_dash')) return pick('hero_dash', dashName(k));
@@ -314,6 +324,9 @@ export function fidgetLength(assets) {
 /** Squash / stretch for the hunter sprite: { sx, sy } or null when at rest. */
 export function heroScale(s) {
   if (s.state === 'dead' || s.state === 'attack' || s.state === 'hurt') return null;
+  if (s.state === 'slide') return { sx: 1.18, sy: 0.84 };
+  if (s.state === 'backdash') return { sx: 1.08, sy: 0.93 };
+  if (s.state === 'divekick') return { sx: 0.92, sy: 1.12 };
   if (s.state === 'run') {
     // Launch stretch that relaxes into a steady 4% forward lean-stretch while sprinting.
     const t = s.runT != null ? s.runT : 1;
@@ -409,10 +422,11 @@ export function lashPoints(reach, lash, segments = 14) {
     drop = fall * fall * 28;
     len *= 1 - 0.12 * fall * fall;
   }
+  const aimDy = lash.aimDy || 0;
   for (let i = 0; i <= segments; i++) {
     const s = i / segments;
     const wave = amp * Math.sin(2 * Math.PI * (s * 1.4 - k * speed)) * (mode === 'extend' ? (1 - s) : s);
-    const y = wave - lift * Math.sin(Math.PI * s) + drop * Math.pow(s, 2.4);
+    const y = wave - lift * Math.sin(Math.PI * s) + drop * Math.pow(s, 2.4) + aimDy * Math.pow(s, 1.25);
     pts.push([Math.round(len * s), Math.round(y)]);
   }
   return pts;

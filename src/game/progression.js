@@ -47,7 +47,10 @@ export const STAGE_RANKS = {
   coliseum: 19,
   clocktower: 20,
   skykeep: 21,
-  throne: 23,
+  conservatory: 11,
+  dungeon: 15,
+  observatory: 22,
+  throne: 24,
 };
 
 /**

@@ -2,7 +2,7 @@
 // scripting and draw order. The Game (main.js) drives it and layers menus.
 
 import {
-  W, H, TILE, T_GATE, T_BLOCK, SCORE, PLAYER,
+  W, H, TILE, T_EMPTY, T_PLATFORM, T_GATE, T_BLOCK, SCORE, PLAYER,
 } from '../engine/constants.js';
 import { setClipClock } from './anim_clips.js';
 import { Camera } from '../engine/camera.js';
@@ -24,8 +24,11 @@ import { BOSS_RELICS, FORGED_RELIC_EFFECTS } from './relics.js';
 import { computeExpYield, enemyExpProfile, stageRankFor } from './progression.js';
 import { drawRemotePlayers, drawRemotePlayerLabels, drawRemoteEdgeIndicators } from './net_player.js';
 import {
-  WEAPONS, ELEMENT_META, computeStrengthBreakdown, computeWeaponHit, rollEnemyWeaponDrop,
+  WEAPONS, ELEMENT_META, computeStrengthBreakdown, computeWeaponHit, rollEnemyWeaponDrop, getWeaponIconCanvas,
 } from './weapons.js';
+import {
+  SOUL_GLYPHS, SOUL_TYPES, SoulOrb, computeEnchantBonuses, rollEnemySoulDrop, getEnemyDisplayInfo,
+} from './souls.js';
 
 /** Frame sequences while a posed boss idles / speaks (idle pose vs. gesture). */
 const BOSS_TALK_FRAMES = {
@@ -44,13 +47,16 @@ const BOSS_TALK_FRAMES = {
   count: { idle: ['idle'], talk: ['idle', 'cast', 'cape', 'idle', 'cast'] },
 };
 
-/** Sheet-specific overrides for dedicated Castle Wing boss sheets (`Stages 14–18`). */
+/** Sheet-specific overrides for dedicated Castle Wing boss sheets (`Stages 14–21`). */
 const BOSS_SHEET_TALK_FRAMES = {
   alchemist: { idle: ['idle'], talk: ['idle', 'cast', 'summon', 'idle', 'shield'] },
   masquerade: { idle: ['idle', 'cape'], talk: ['idle', 'cape', 'cast', 'lunge', 'cape'] },
   gladiator: { idle: ['walk0'], talk: ['walk0', 'throw0', 'walk1', 'throw1', 'walk0'] },
   oracle: { idle: ['a', 'b'], talk: ['a', 'stare', 'b', 'a', 'stare'] },
   seraph: { idle: ['idle', 'roar'], talk: ['idle', 'roar', 'pounce', 'roar', 'shell'] },
+  mandragora: { idle: ['idle'], talk: ['idle', 'cast', 'summon', 'idle', 'shield'] },
+  inquisitor: { idle: ['walk0'], talk: ['walk0', 'throw0', 'walk1', 'throw1', 'walk0'] },
+  astromancer: { idle: ['idle', 'cape'], talk: ['idle', 'cape', 'cast', 'lunge', 'cape'] },
 };
 
 /** Idle pose frame shown while a boss speaks (for sheets without a 'walk0'). */
@@ -59,6 +65,7 @@ const BOSS_POSE_FRAME = {
   cinderqueen: 'idle', automaton: 'idle', archivist: 'idle', archon: 'roar',
   devilsanta: 'idle', count: 'idle', reaper: 'idle0', reaperlord: 'idle0',
   alchemist: 'idle', masquerade: 'idle', gladiator: 'walk0', oracle: 'a', seraph: 'idle',
+  mandragora: 'idle', inquisitor: 'walk0', astromancer: 'idle',
 };
 
 export const BOSS_LINES = {
@@ -87,15 +94,16 @@ export class World {
     this.data = data;
     this.stage = data;
     this.theme = THEMES[data.theme] || THEMES.graveyard;
-    // Forged wings inherit their base theme's 3D vistas, shader grading & cloud banks.
-    this.fxTheme = this.theme.base || data.theme || 'graveyard';
+    // Forged wings inherit their base theme's 3D vistas, shader grading & cloud banks;
+    // built-in Castle Wings use their own bespoke shader grade & god-ray palette.
+    this.fxTheme = this.theme.forged ? (this.theme.base || 'graveyard') : (data.theme || this.theme.base || 'graveyard');
     this.difficulty = game.difficulty;
     this.relics = game.getActiveRelics ? game.getActiveRelics() : new Set();
     this.level = new Level(data);
     this.stage3d = new Stage3D(this.assets, this.level, this.fxTheme, data);
     this.parallax = new Parallax(this.assets, this.level.height, this.theme.layers || 'outdoor');
-    if (this.theme.base) {
-      const skyFx = (this.theme.forged && this.fxTheme === 'yule') ? 'graveyard' : this.fxTheme;
+    if (this.theme.forged && this.theme.base) {
+      const skyFx = this.fxTheme === 'yule' ? 'graveyard' : this.fxTheme;
       this.parallax.setFxTheme(skyFx);   // cloud banks, aurora & god rays of the base realm
     }
     this.particles = new Particles();
@@ -126,6 +134,15 @@ export class World {
     this.levelUpFlashT = 0;
     this.shockRings = [];        // {x, y, t, dur, maxR, color}
     this.waterRipples = [];      // {x, y, t, dur, amp}
+    this.soulOrbs = [];          // floating Tactical Soul / Glyph absorption orbs
+    this.targetEnemy = null;     // { enemy, info, hp, maxHp, t } bottom-right HUD target plate
+    this.guardianAngle = 0;      // orbital angle for Cobalt Guardian Glyphs
+    this.guardianWardCd = 0;     // recharge timer for Sentinel Buckler Ward
+    this.guardianHitCd = new Map();
+    this.unionFlashT = 0;
+    this.unionColor = '#ffd27a';
+    this.chronoFreezeT = 0;
+    this._dynLights = [];
     this._fogWorldY = null;      // world-space terrain elevation for ground mist (never player.y!)
     this.phase = 'intro';        // intro | play | dying | respawn | clear | gameover
     this.phaseT = 0;
@@ -174,7 +191,8 @@ export class World {
   computeMaxHp() {
     const vesselBonus = this.game && this.game.getVesselCount ? this.game.getVesselCount() : 0;
     const lvBonus = this.game && this.game.getLevelBonuses ? this.game.getLevelBonuses().maxHpBonus : 0;
-    return (this.hasRelic('cathedral') ? 20 : PLAYER.maxHp) + vesselBonus + this.relicBonus('maxHp') + lvBonus;
+    const enchBonus = computeEnchantBonuses(this.game).maxHpBonus || 0;
+    return (this.hasRelic('cathedral') ? 20 : PLAYER.maxHp) + vesselBonus + this.relicBonus('maxHp') + lvBonus + enchBonus;
   }
 
   getAttackMult() {
@@ -200,7 +218,9 @@ export class World {
     this.items = [];
     this.projectiles = [];
     this.fires = [];
+    this.soulOrbs = [];
     this.waterRipples = [];
+    this.chronoFreezeT = 0;
     this._fogWorldY = null;
     this.spawners = d.spawners.map((s) => new Spawner(s));
     this.boss = null;
@@ -216,7 +236,7 @@ export class World {
     this.stage3d = new Stage3D(this.assets, this.level, this.fxTheme, d);
     this.level.updateMechanics(0, this.time, null, null);
     for (const c of d.candles) {
-      this.candles.push(new Candle(c[0] * TILE + TILE / 2, c[1] * TILE, c[2] || null));
+      this.candles.push(new Candle(c[0] * TILE + TILE / 2, c[1] * TILE, c[2] || null, c[3] || 'candelabra'));
     }
     for (const e of d.enemies) {
       const en = createEnemy(e);
@@ -224,14 +244,22 @@ export class World {
     }
     const exp = populateExploration(this);
     this.sanctuary = exp.sanctuary;
+    this.warpMirror = exp.warpMirror || null;
     this.passages = exp.passages;
     this.vessel = exp.vessel;
     this.pedestal = exp.pedestal;
+    this.magnetNodes = exp.magnetNodes || [];
+    this.switchGates = exp.switchGates || [];
+    this.chests = exp.chests || [];
+    this.glyphSigils = exp.glyphSigils || [];
+    this.secretWalls = exp.secretWalls || [];
     this.bossExitDoor = exp.bossExitDoor || null;
     this.bossGateDoor = exp.bossGateDoor || null;
     this.landmarks = [
       this.sanctuary,
+      this.warpMirror,
       ...(this.passages || []),
+      ...(this.switchGates || []),
       this.vessel,
       this.pedestal,
       this.bossExitDoor,
@@ -261,7 +289,7 @@ export class World {
     let enteredViaPassage = false;
     if (this.enterFromDoorId && this.checkpoint === 0) {
       const target = this.enterFromDoorId === 'sanctuary'
-        ? this.sanctuary
+        ? (this.warpMirror || this.sanctuary)
         : this.passages.find((g) => g.id === this.enterFromDoorId);
       if (target) {
         this.player.x = target.x;
@@ -277,6 +305,7 @@ export class World {
     this.ally = hasTurtle ? new TurtleAlly(this.player.x + 28, this.player.y) : null;
     this.camera.snapTo(this.player.x, this.player.y);
     this.syncBossGateToPlayer();
+    this.syncDrawbridgeToPlayer();
     if (enteredViaPassage) {
       this.phase = 'play';
       this.phaseT = 0;
@@ -310,6 +339,29 @@ export class World {
     if (!door || !this.player) return;
     door.refreshStatus(this);
     if (this.player.x > door.x) door.openNow(this, true);
+  }
+
+  /**
+   * Ensures Stage 1's Grand Drawbridge & Portcullis stand sealed if the hunter spawns
+   * or respawns inside the castle beyond the entrance foyer trigger.
+   */
+  syncDrawbridgeToPlayer() {
+    const d = this.level && this.level.drawbridge;
+    if (!d || !this.player || d.triggerX == null) return;
+    if (this.player.x >= d.triggerX) {
+      d.state = 'closed';
+      d.raise = 1;
+      d.portcullis = 1;
+      d._portcullisSlammed = true;
+      const gateCol = d.gateCol != null ? d.gateCol : d.x1 + 1;
+      for (let r = 0; r < d.row; r++) {
+        if (this.level.tile(gateCol, r) === T_EMPTY) this.level.set(gateCol, r, T_GATE);
+      }
+      for (let tx = d.x0; tx <= d.x1; tx++) {
+        if (this.level.tile(tx, d.row) === T_PLATFORM) this.level.set(tx, d.row, T_EMPTY);
+      }
+      this.level.recompute();
+    }
   }
   /** Registers an enemy, scaling health, contact force & boss tempo by stage rank and difficulty. */
   spawnEnemy(e) {
@@ -348,7 +400,32 @@ export class World {
     }
   }
 
+  canThrowSubWeapon(player) {
+    if (!player || !player.subWeapon) return false;
+    if (player.subWeapon === 'stopwatch') {
+      const cost = this.hasRelic('arcade') ? 3 : 5;
+      return this.hearts >= cost && (this.chronoFreezeT || 0) <= 0.2;
+    }
+    return this.hearts > 0;
+  }
+
   throwSubWeapon(player) {
+    if (player.subWeapon === 'stopwatch') {
+      const cost = this.hasRelic('arcade') ? 3 : 5;
+      if (this.hearts < cost) return;
+      this.hearts = Math.max(0, this.hearts - cost);
+      this.chronoFreezeT = 3.2;
+      this.sfx('orb');
+      this.emitShockwave(player.x, player.y - 34, {
+        maxR: 220,
+        dur: 0.55,
+        strength: 0.95,
+        color: [0.45, 0.92, 1.0],
+      });
+      this.particles.sparks(player.x, player.y - 34, 16, '#7ef7ff');
+      player.skillBanner = { text: '✦ CHRONO POCKETWATCH · TIME STOP! ✦', color: '#7ef7ff', t: 1.5 };
+      return;
+    }
     if (this.hasRelic('arcade')) {
       if (!this.freeThrow) this.hearts = Math.max(0, this.hearts - 1);
       this.freeThrow = !this.freeThrow;
@@ -365,9 +442,58 @@ export class World {
     this.onPlayerProjectile(player.subWeapon, px, py, player.facing);
   }
 
-  spawnPopup(x, y, text, { sub = null, color = '#ffe9a0', scale = 1, dur = 1.15, vy = -26, banner = false, maxAlpha = 1 } = {}) {
-    if (this.popups.length >= 16) this.popups.shift();
-    this.popups.push({ x, y, vy, text, sub, color, scale, t: 0, dur, banner, maxAlpha });
+  spawnPopup(x, y, text, { sub = null, color = '#ffe9a0', scale = 1, dur = 1.15, vy = -26, vx = 0, banner = false, maxAlpha = 1 } = {}) {
+    if (this.popups.length >= 24) this.popups.shift();
+    this.popups.push({ x, y, vx, vy, text, sub, color, scale, t: 0, dur, banner, maxAlpha });
+  }
+
+  /** Spawns a crisp floating RPG damage number with subtle horizontal arc bounce. */
+  spawnDamageNumber(x, y, dmg, { crit = false, tag = null, deficit = false, playerHurt = false } = {}) {
+    const val = Math.max(1, Math.round(dmg));
+    const jitterX = (Math.random() - 0.5) * 16;
+    let color = '#f6f1e4';
+    let sub = null;
+    if (playerHurt) {
+      color = '#ff4d6d';
+    } else if (crit) {
+      color = '#ffd84d';
+      sub = tag === 'weak' ? 'CRIT · WEAK!' : 'CRIT!';
+    } else if (deficit) {
+      color = '#ff8878';
+      sub = '0.5X STR';
+    } else if (tag === 'weak') {
+      color = '#6bf2ff';
+      sub = 'WEAK!';
+    } else if (tag === 'resist') {
+      color = '#93a0b8';
+      sub = 'RESIST';
+    }
+    this.spawnPopup(x + jitterX, y - 6, playerHurt ? `-${val}` : `${val}`, {
+      sub,
+      color,
+      scale: crit ? 2 : 1,
+      dur: crit ? 0.92 : 0.72,
+      vy: crit ? -46 : -36,
+      vx: jitterX * 1.6,
+    });
+  }
+
+  noteEnemyDamaged(enemy, dmg, hitMeta = {}) {
+    if (!enemy) return;
+    if (this.game && this.game.noteBestiarySeen) this.game.noteBestiarySeen(enemy);
+    const cx = enemy.x;
+    const cy = enemy.y - (enemy.h || 40);
+    this.spawnDamageNumber(cx, cy, dmg, hitMeta);
+    if (enemy !== this.boss) {
+      const info = getEnemyDisplayInfo(enemy);
+      this.targetEnemy = {
+        enemy,
+        info,
+        hp: Math.max(0, Math.ceil(enemy.hp || 0)),
+        maxHp: Math.max(1, Math.ceil(enemy.maxHp || enemy.hp || 1)),
+        t: 2.8,
+      };
+    }
   }
 
   /**
@@ -423,6 +549,7 @@ export class World {
   }
 
   onEnemyKilled(enemy) {
+    if (this.game && this.game.noteBestiaryKill) this.game.noteBestiaryKill(enemy);
     if (enemy !== this.boss) {
       this.awardEnemyExp(enemy);
       if (!this.game || this.game.titleWorld !== this) {
@@ -430,7 +557,26 @@ export class World {
         if (dropWid) {
           this.spawnItem(`weapon:${dropWid}`, enemy.x, enemy.y - 16);
         }
+        const soulId = rollEnemySoulDrop(enemy, this.game);
+        if (soulId) {
+          this.soulOrbs.push(new SoulOrb(soulId, enemy.x, enemy.y - Math.max(18, (enemy.h || 36) * 0.5)));
+        }
+        // Crimson Blood-Katana drinks slain monster blood to permanently temper its edge!
+        const w0 = this.getHandWeapon(0);
+        const w1 = this.getHandWeapon(1);
+        if (((w0 && w0.bloodScaling) || (w1 && w1.bloodScaling)) && this.game && this.game.addBloodStack) {
+          const stacks = this.game.addBloodStack();
+          this.particles.sparks(this.player.x, this.player.y - 34, 6, '#ff3858');
+          if (stacks % 4 === 0) {
+            this.spawnPopup(this.player.x, this.player.y - 62, `BLOOD EDGE +${(stacks * 0.25).toFixed(1)}`, {
+              color: '#ff5274', dur: 0.9, vy: -22,
+            });
+          }
+        }
       }
+    }
+    if (this.targetEnemy && this.targetEnemy.enemy === enemy) {
+      this.targetEnemy.hp = 0;
     }
     // SOUL HARVEST relic (Catacombs): every 6 enemies slain restores +1 HP and +1 Heart!
     if (this.hasRelic('catacombs') && enemy !== this.boss) {
@@ -444,8 +590,173 @@ export class World {
     }
   }
 
+  onSoulAbsorbed(soulId, x, y) {
+    const g = SOUL_GLYPHS[soulId];
+    if (!g || !this.game || !this.game.absorbSoul) return;
+    const res = this.game.absorbSoul(soulId);
+    const meta = SOUL_TYPES[g.type] || SOUL_TYPES.bullet;
+    this.sfx('orb');
+    this.player.maxHp = this.computeMaxHp();
+    if (this.player.alive) {
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + 1);
+    }
+    this.particles.sparks(x, y, 16, meta.color);
+    this.emitShockwave(x, y, { maxR: 96, dur: 0.42, strength: 0.55, color: meta.rim });
+    this.spawnPopup(x, y - 24, `✦ SOUL: ${g.name} LV.${res.rank} ✦`, {
+      sub: res.wasNew ? `${meta.short} GLYPH EQUIPPED · E FOR GRIMOIRE` : 'GLYPH POTENCY RANKED UP!',
+      color: meta.color,
+      dur: 1.9,
+      vy: -18,
+      banner: true,
+    });
+  }
+
+  canCastBulletSoul() {
+    if (!this.game || !this.game.equippedSouls || !this.game.equippedSouls.bullet) return false;
+    const g = SOUL_GLYPHS[this.game.equippedSouls.bullet];
+    if (!g) return false;
+    const cost = this.hasRelic('arcade') ? 1 : (g.heartCost || 2);
+    return this.hearts >= cost;
+  }
+
+  castBulletSoul(player) {
+    if (!this.game || !this.game.equippedSouls) return;
+    const soulId = this.game.equippedSouls.bullet;
+    const g = SOUL_GLYPHS[soulId];
+    if (!g) return;
+    const cost = this.hasRelic('arcade') ? 1 : (g.heartCost || 2);
+    this.hearts = Math.max(0, this.hearts - cost);
+    const rank = (this.game.soulRanks && this.game.soulRanks[soulId]) || 1;
+    const strTotal = computeStrengthBreakdown(this).total;
+    const pwr = (g.basePower || 3.8) + (rank - 1) * (g.rankScale || 0.35) + strTotal * 0.16;
+    const px = player.x + player.facing * 16;
+    const py = player.y - (player.crouching ? 26 : 40);
+    player.skillBanner = { text: `✦ ${g.short} LV.${rank} ✦`, color: '#ff5874', t: 0.95 };
+    this.sfx('throw');
+    this.particles.sparks(px, py, 10, '#ff5874');
+
+    const spawnSoulProj = (type, ox = 0, oy = 0, vxOvr = null, vyOvr = null, mult = 1) => {
+      const pr = new Projectile(type, px + ox, py + oy, player.facing, 'player');
+      if (vxOvr != null) pr.vx = vxOvr;
+      if (vyOvr != null) pr.vy = vyOvr;
+      pr.damage = Math.max(2, Math.round(pwr * mult * 10) / 10);
+      pr.weaponMeta = { physical: g.physical || 'blunt', element: g.element || null, armorPiercing: true, deficit: false };
+      this.spawnProjectile(pr);
+      return pr;
+    };
+
+    switch (soulId) {
+      case 'nova_ray':
+        spawnSoulProj('nova_beam', player.facing * 24, 0, player.facing * 620, 0, 1.15);
+        this.camera.shake(2.4, 0.12);
+        break;
+      case 'severed_helm':
+        spawnSoulProj('dullahan_helm', 0, -4, null, -18, 1.0);
+        break;
+      case 'bone_pyre':
+        spawnSoulProj('fireball', 0, -8, player.facing * 290, -16, 0.85);
+        spawnSoulProj('abyss_sphere', 0, 6, player.facing * 185, -80, 0.95);
+        break;
+      case 'talisman_bolt':
+        for (let i = 0; i < 2; i++) {
+          const colX = player.x + player.facing * (56 + i * 54);
+          const fRow = this.level.surfaceRow(Math.floor(colX / TILE));
+          const fy = (fRow >= 0 ? fRow * TILE : player.y) - 46;
+          spawnSoulProj('seal_pillar', (colX - px), (fy - py), 0, 0, 0.95);
+        }
+        this.camera.shake(2.6, 0.14);
+        break;
+      case 'phantom_axes':
+        spawnSoulProj('axe', 0, -6, player.facing * 175, -455, 0.9);
+        spawnSoulProj('axe', 0, -6, player.facing * 245, -395, 0.9);
+        break;
+      case 'glacial_spear':
+        for (const vy of [-78, 0, 78]) spawnSoulProj('catalyst_frost', 0, 0, player.facing * 360, vy, 0.8);
+        break;
+      case 'hellfire_triad':
+        for (const vy of [-58, 0, 58]) spawnSoulProj('hellfire', 0, 0, player.facing * 255, vy, 0.82);
+        break;
+      case 'petrify_gaze':
+      default:
+        spawnSoulProj('gaze', 0, 0, player.facing * 440, 0, 1.05);
+        break;
+    }
+  }
+
+  onMovementWake(player, kind) {
+    if (!this.game || !this.game.equippedSouls) return;
+    const guardId = this.game.equippedSouls.guardian;
+    const rank = (this.game.soulRanks && this.game.soulRanks[guardId]) || 1;
+    const strTotal = computeStrengthBreakdown(this).total;
+    if (guardId === 'wraith_shroud' && (kind === 'backdash' || kind === 'slide' || kind === 'divekick')) {
+      const pr = new Projectile('catalyst_void', player.x, player.y - 26, -player.facing, 'player');
+      pr.vx = 0; pr.vy = 0; pr.life = 0.36; pr.w = 34; pr.h = 34; pr.voidSeek = false;
+      pr.damage = Math.round((2.2 + rank * 0.3 + strTotal * 0.12) * 10) / 10;
+      pr.weaponMeta = { physical: 'cut', element: 'void', armorPiercing: true, deficit: false };
+      this.spawnProjectile(pr);
+    } else if (guardId === 'bat_echo' && (kind === 'doublejump' || kind === 'superjump')) {
+      this.emitShockwave(player.x, player.y - 24, { maxR: 88, dur: 0.36, strength: 0.45, color: [0.45, 0.86, 1.0] });
+      const rad = 84;
+      const dmg = Math.max(2, Math.round(2.0 + rank * 0.28 + strTotal * 0.12));
+      for (const e of this.enemies) {
+        if (!e.alive) continue;
+        if (Math.hypot(e.x - player.x, (e.y - e.h * 0.5) - (player.y - 24)) <= rad) {
+          e.takeHit(dmg, player.x, this);
+          this.noteEnemyDamaged(e, dmg, { tag: 'weak' });
+        }
+      }
+    }
+  }
+
+  triggerGlyphUnion(player, wL, wR) {
+    this.hearts = Math.max(0, this.hearts - 5);
+    const elem = (wL && wL.element) || (wR && wR.element) || 'holy';
+    const eMeta = ELEMENT_META[elem] || ELEMENT_META.holy;
+    this.unionFlashT = 0.55;
+    this.unionColor = eMeta.color;
+    player.invuln = Math.max(player.invuln, 0.85);
+    player.skillBanner = { text: `✦ GLYPH UNION · ${eMeta.label} JUDGEMENT! ✦`, color: eMeta.color, t: 1.55 };
+    this.sfx('orb');
+    this.camera.shake(5.5, 0.34);
+    this.hitStop = Math.max(this.hitStop, 0.11);
+    this.emitShockwave(player.x, player.y - 34, { maxR: 210, dur: 0.62, strength: 1.15, color: eMeta.core });
+    this.particles.sparks(player.x, player.y - 34, 28, eMeta.color);
+
+    const strTotal = computeStrengthBreakdown(this).total;
+    const diffMult = (this.difficulty.playerDamage || 1) * this.getAttackMult();
+    const unionWeapon = { baseDamage: 8.5, scaling: 0.36, reqStr: 0, physical: 'cut', element: elem };
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      if (Math.hypot(e.x - player.x, (e.y - e.h * 0.5) - (player.y - 34)) <= 225) {
+        const hit = computeWeaponHit(unionWeapon, strTotal, e, { diffMult });
+        this._hitArmorPiercing = true;
+        e.takeHit(hit.damage, player.x, this, { armorPiercing: true });
+        this._hitArmorPiercing = false;
+        this.noteEnemyDamaged(e, hit.damage, { crit: true, tag: hit.tag });
+      }
+    }
+    for (const pr of this.projectiles) {
+      if (pr.owner === 'enemy' && Math.hypot(pr.x - player.x, pr.y - (player.y - 34)) <= 220) {
+        pr.dead = true;
+        this.particles.sparks(pr.x, pr.y, 4, '#ffffff');
+      }
+    }
+    for (let i = -2; i <= 2; i++) {
+      const bolt = elem === 'frost' ? 'catalyst_frost' : elem === 'volt' ? 'volt_lance' : elem === 'void' ? 'catalyst_void' : 'holy_wave';
+      const pr = new Projectile(bolt, player.x + player.facing * 14, player.y - 36, player.facing, 'player');
+      pr.vy = i * 58;
+      pr.damage = Math.max(4, Math.round(4 + strTotal * 0.22));
+      this.spawnProjectile(pr);
+    }
+  }
+
   /** Post-FX hooks (consumed by main.js each frame). */
-  onPlayerHurt(dmg) { this.fxHurt = Math.min(1, 0.45 + dmg * 0.12); }
+  onPlayerHurt(dmg) {
+    this.fxHurt = Math.min(1, 0.45 + dmg * 0.12);
+    if (this.player) {
+      this.spawnDamageNumber(this.player.x, this.player.y - 52, dmg, { playerHurt: true });
+    }
+  }
   onBossRoar() {
     this.fxRoar = 0.8;
     if (this.boss) {
@@ -579,10 +890,24 @@ export class World {
     this.messages = this.messages.filter((m) => m.t < m.dur);
     for (const pop of this.popups) {
       pop.t += dt;
+      if (pop.vx) {
+        pop.x += pop.vx * dt;
+        pop.vx *= 0.92;
+      }
       pop.y += pop.vy * dt;
-      pop.vy *= 0.96;
+      pop.vy *= 0.94;
     }
     this.popups = this.popups.filter((pop) => pop.t < pop.dur);
+    if (this.targetEnemy) {
+      this.targetEnemy.t -= dt;
+      if (this.targetEnemy.enemy && this.targetEnemy.enemy.alive) {
+        this.targetEnemy.hp = Math.max(0, Math.ceil(this.targetEnemy.enemy.hp || 0));
+      }
+      if (this.targetEnemy.t <= 0) this.targetEnemy = null;
+    }
+    this.unionFlashT = Math.max(0, this.unionFlashT - dt);
+    this.guardianWardCd = Math.max(0, this.guardianWardCd - dt);
+    this.chronoFreezeT = Math.max(0, (this.chronoFreezeT || 0) - dt);
     for (const r of this.shockRings) r.t += dt;
     this.shockRings = this.shockRings.filter((r) => r.t < r.dur);
     for (const wr of this.waterRipples) wr.t += dt;
@@ -666,7 +991,7 @@ export class World {
       if (p.x >= this.data.checkpoints[i]) { this.checkpoint = i; break; }
     }
     if (!this.bossActive && (!this.boss || this.boss.introPose) && live && this.data.boss && p.x >= this.data.boss.triggerX) {
-      this.updateBossIntro(dt, p);
+      this.updateBossIntro(dt, p, input);
     }
     // Remember the last solid footing (for forgiving pit falls on Easy).
     if (p.onGround && p.alive && !p.riding) {
@@ -683,22 +1008,29 @@ export class World {
       } else { p.hp = 0; p.die(this); }
     }
 
-    // Enemies
-    for (const s of this.spawners) s.update(dt, this);
+    // Enemies (frozen or slowed during Chrono Pocketwatch time-stop)
+    const chronoFrozen = (this.chronoFreezeT || 0) > 0;
+    if (!chronoFrozen) {
+      for (const s of this.spawners) s.update(dt, this);
+    }
     const camL = this.camera.x - 160, camR = this.camera.x + W + 160;
     const enemyTimeScale = this.difficulty.enemyTimeScale || 1;
     const bossTimeScale = this.difficulty.bossTimeScale || 1;
     for (const e of this.enemies) {
       if (e === this.boss || e.active || (e.x > camL && e.x < camR)) {
         e.active = true;
-        const eDt = e.deathT >= 0 ? dt
+        let eDt = e.deathT >= 0 ? dt
           : (e === this.boss ? (e.state === 'enter' ? dt : dt * bossTimeScale) : dt * enemyTimeScale);
-        e.update(eDt, lvl, this);
+        if (chronoFrozen && e.deathT < 0) {
+          eDt = e === this.boss ? eDt * 0.28 : 0;
+        }
+        if (eDt > 0) e.update(eDt, lvl, this);
       }
     }
     for (const pr of this.projectiles) pr.update(dt, lvl, this);
     for (const it of this.items) it.update(dt, lvl, this);
     for (const f of this.fires) f.update(dt);
+    for (const so of this.soulOrbs) so.update(dt, this);
     if (this.ally) {
       if (live) this.ally.update(dt, lvl, this);
       else { this.ally.vx = 0; this.ally.physics(lvl, dt); }
@@ -707,8 +1039,17 @@ export class World {
     if (live && p.alive) {
       this.inSecretArea = false;
       if (this.sanctuary) this.sanctuary.update(p, this);
+      if (this.warpMirror) {
+        this.warpMirror.update(p, input, this);
+        if (this.game && this.game.state !== 'play') return;
+      }
       if (this.vessel) this.vessel.update(p, this);
       if (this.pedestal) this.pedestal.update(p, this);
+      if (this.magnetNodes) for (const mn of this.magnetNodes) mn.update(p, this);
+      if (this.switchGates) for (const sg of this.switchGates) sg.update(dt, p, this);
+      if (this.chests) for (const ch of this.chests) ch.update(dt, p, input, this);
+      if (this.glyphSigils) for (const gs of this.glyphSigils) gs.update(dt, p, input, this);
+      if (this.secretWalls) for (const sw of this.secretWalls) sw.update(p, this);
       if (this.bossGateDoor) this.bossGateDoor.update(dt, p, input, this);
       if (this.bossExitDoor) {
         this.bossExitDoor.update(dt, p, input, this);
@@ -720,6 +1061,7 @@ export class World {
           if (this.game && this.game.world && this.game.world !== this) return;
         }
       }
+      this.updateGuardianSoul(dt, p);
       this.recordExploration();
       this.resolveCombat(dt);
     }
@@ -730,6 +1072,7 @@ export class World {
     this.items = this.items.filter((e) => !e.dead);
     this.fires = this.fires.filter((e) => !e.dead);
     this.candles = this.candles.filter((e) => !e.dead);
+    this.soulOrbs = this.soulOrbs.filter((e) => !e.dead);
 
     this.camera.update(dt, p, p.facing);
   }
@@ -762,13 +1105,23 @@ export class World {
       broken++;
       this.particles.shards(tx * TILE + 16, ty * TILE + 24, 12, '#8a9ab5', (ty + 1) * TILE);
       if (drop) this.spawnItem(drop, tx * TILE + 16, ty * TILE + 20);
-      if (propagate && isFloorHatch) {
-        for (const dir of [-1, 1]) {
+      if (propagate) {
+        if (isFloorHatch) {
+          for (const dir of [-1, 1]) {
+            for (let step = 1; step <= 3; step++) {
+              const nx = tx + dir * step;
+              if (lvl.tile(nx, ty) !== T_BLOCK) break;
+              if (lvl.isSolid(nx, ty - 1) || lvl.isSolid(nx, ty + 1)) break;
+              queue.push({ tx: nx, ty, propagate: false });
+            }
+          }
+        }
+        // Cascade vertically along 3-tile breakable perimeter secret wall seams!
+        for (const vDir of [-1, 1]) {
           for (let step = 1; step <= 3; step++) {
-            const nx = tx + dir * step;
-            if (lvl.tile(nx, ty) !== T_BLOCK) break;
-            if (lvl.isSolid(nx, ty - 1) || lvl.isSolid(nx, ty + 1)) break;
-            queue.push({ tx: nx, ty, propagate: false });
+            const ny = ty + vDir * step;
+            if (lvl.tile(tx, ny) !== T_BLOCK) break;
+            queue.push({ tx, ty: ny, propagate: false });
           }
         }
       }
@@ -781,10 +1134,66 @@ export class World {
     return broken;
   }
 
+  updateGuardianSoul(dt, player) {
+    if (!this.game || !this.game.equippedSouls || !player || !player.alive) return;
+    const guardId = this.game.equippedSouls.guardian;
+    if (!guardId || !SOUL_GLYPHS[guardId]) return;
+    const rank = (this.game.soulRanks && this.game.soulRanks[guardId]) || 1;
+    this.guardianAngle += dt * 3.8;
+    for (const [e, cd] of this.guardianHitCd.entries()) {
+      if (cd - dt <= 0 || !e.alive) this.guardianHitCd.delete(e);
+      else this.guardianHitCd.set(e, cd - dt);
+    }
+    if (guardId === 'sovereign_ring') {
+      const count = rank >= 7 ? 4 : rank >= 4 ? 3 : 2;
+      const rad = 36;
+      const strTotal = computeStrengthBreakdown(this).total;
+      const dmg = Math.max(1, Math.round(1.6 + rank * 0.25 + strTotal * 0.10));
+      for (let i = 0; i < count; i++) {
+        const a = this.guardianAngle + (i * Math.PI * 2) / count;
+        const bx = player.x + Math.cos(a) * rad;
+        const by = (player.y - 30) + Math.sin(a) * (rad * 0.78);
+        const dBox = { x: bx - 8, y: by - 8, w: 16, h: 16 };
+        for (const e of this.enemies) {
+          if (!e.alive || this.guardianHitCd.has(e)) continue;
+          if (rectsOverlap(dBox, e.box())) {
+            this.guardianHitCd.set(e, 0.42);
+            e.takeHit(dmg, bx, this);
+            this.noteEnemyDamaged(e, dmg, {});
+            this.particles.sparks(bx, by, 4, '#58c8ff');
+          }
+        }
+        for (const pr of this.projectiles) {
+          if (!pr.dead && pr.owner === 'enemy' && pr.type !== 'gaze' && pr.type !== 'nova_beam' && rectsOverlap(dBox, pr.box)) {
+            pr.dead = true;
+            this.particles.sparks(bx, by, 4, '#ffffff');
+            this.sfx('hit');
+          }
+        }
+      }
+    } else if (guardId === 'aegis_familiar' && this.guardianWardCd <= 0) {
+      const fx = player.x + player.facing * 24;
+      const fy = player.y - 32;
+      const fBox = { x: fx - 12, y: fy - 16, w: 24, h: 32 };
+      for (const pr of this.projectiles) {
+        if (!pr.dead && pr.owner === 'enemy' && pr.type !== 'gaze' && rectsOverlap(fBox, pr.box)) {
+          pr.dead = true;
+          this.guardianWardCd = Math.max(3.8, 7.6 - rank * 0.42);
+          this.sfx('block');
+          this.particles.sparks(fx, fy, 8, '#58c8ff');
+          this.spawnPopup(fx, fy - 14, 'AEGIS!', { color: '#58c8ff', dur: 0.65, vy: -20 });
+          break;
+        }
+      }
+    }
+  }
+
   resolveCombat() {
     const p = this.player;
     const lvl = this.level;
     const strTotal = computeStrengthBreakdown(this).total;
+    const ench = computeEnchantBonuses(this.game);
+    const critChance = 0.08 + (ench.critBonus || 0);
     const flatBonus = (this.hasRelic('jack') ? 1 : 0) + this.relicBonus('whip');
     const diffMult = (this.difficulty.playerDamage || 1) * this.getAttackMult();
 
@@ -812,11 +1221,26 @@ export class World {
           this.particles.sparks(c.x, c.y - 40, 6, '#ffd27a');
           this.addScore(SCORE.candle);
           this.spawnItem(c.drop || rollDrop(), c.x, c.y - 40);
+          if (slotState.isDivekick) p.onDivekickBounce(this);
+        }
+      }
+
+      if (this.switchGates) {
+        for (const sg of this.switchGates) {
+          if (sg.tryStrikeLever(box, this)) hitSomething = true;
+        }
+      }
+      if (this.chests) {
+        for (const ch of this.chests) {
+          if (ch.tryStrikeOpen(box, this)) hitSomething = true;
         }
       }
 
       if (this.shatterBlocksInRect(strike.blockBox || box) > 0) {
         hitSomething = true;
+        if (this.secretWalls) {
+          for (const sw of this.secretWalls) sw.checkShattered(this);
+        }
       }
 
       const multiHits = (slotState.isSkill && weapon.skill && weapon.skill.multiHit) || weapon.multiHit || 1;
@@ -835,17 +1259,25 @@ export class World {
             count: (prevInfo ? prevInfo.count : 0) + 1,
             lastT: slotState.timer,
           });
-          const hit = computeWeaponHit(weapon, strTotal, e, { skillMult, flatBonus, diffMult });
+          const bloodBonus = weapon.bloodScaling && this.game ? Math.min(6, (this.game.bloodBladeStacks || 0) * 0.25) : 0;
+          const isCrit = Math.random() < critChance;
+          const critMult = isCrit ? 1.5 : 1.0;
+          const hit = computeWeaponHit(weapon, strTotal, e, {
+            skillMult: skillMult * critMult,
+            flatBonus: flatBonus + bloodBonus,
+            diffMult,
+          });
           this._hitArmorPiercing = !!weapon.armorPiercing;
           e.takeHit(hit.damage, p.x, this, { armorPiercing: !!weapon.armorPiercing });
           this._hitArmorPiercing = false;
+          if (slotState.isDivekick) p.onDivekickBounce(this);
 
           if (e !== this.boss && !e.flies && e.alive && weapon.knockback >= 180) {
             e.vx = (p.x < e.x ? 1 : -1) * weapon.knockback;
             e.knockT = Math.max(e.knockT || 0, 0.22);
           }
-          if (slotState.isSkill && weapon.skill && weapon.skill.siphonHp && p.alive) {
-            p.hp = Math.min(p.maxHp || PLAYER.maxHp, p.hp + weapon.skill.siphonHp);
+          if (((slotState.isSkill && weapon.skill && weapon.skill.siphonHp) || (isCrit && ench.siphonChance && Math.random() < ench.siphonChance)) && p.alive) {
+            p.hp = Math.min(p.maxHp || PLAYER.maxHp, p.hp + 1);
           }
 
           const elemCol = weapon.element && ELEMENT_META[weapon.element]
@@ -853,20 +1285,8 @@ export class World {
             : (this.hasRelic('jack') ? '#ff9a3c' : '#ffe9a0');
           const cx = Math.max(hitBox.x, Math.min(hitBox.x + hitBox.w, p.facing > 0 ? box.x + box.w * 0.85 : box.x + box.w * 0.15));
           const cy = Math.max(hitBox.y, Math.min(hitBox.y + hitBox.h, box.y + box.h * 0.5));
-          this.particles.sparks(cx, cy, weapon.category === 'heavy_blade' ? 9 : 5, elemCol);
-
-          if (!e._lastTagT || this.time - e._lastTagT > 0.65) {
-            if (hit.deficit) {
-              e._lastTagT = this.time;
-              this.spawnPopup(e.x, e.y - e.h - 6, `${hit.damage} (0.5X STR)`, { color: '#ff7a6e', dur: 0.85, vy: -22 });
-            } else if (hit.tag === 'weak') {
-              e._lastTagT = this.time;
-              this.spawnPopup(e.x, e.y - e.h - 6, 'WEAK!', { color: '#7ef7d4', dur: 0.78, vy: -24 });
-            } else if (hit.tag === 'resist') {
-              e._lastTagT = this.time;
-              this.spawnPopup(e.x, e.y - e.h - 6, 'RESIST', { color: '#9aa8c4', dur: 0.75, vy: -20 });
-            }
-          }
+          this.particles.sparks(cx, cy, weapon.category === 'heavy_blade' || isCrit ? 9 : 5, isCrit ? '#ffd84d' : elemCol);
+          this.noteEnemyDamaged(e, hit.damage, { crit: isCrit, tag: hit.tag, deficit: hit.deficit });
 
           if (this.game && this.game.net && this.game.net.connected) {
             this.game.net.sendEvent('hit', {
@@ -907,8 +1327,9 @@ export class World {
           const projScale = (this.difficulty.playerDamage || 1) * (pr.isRemote ? 1 : this.getAttackMult());
           let finalDmg = Math.round(pr.damage * projScale * 10) / 10;
           if (pr.weaponMeta) {
+            const isCrit = Math.random() < critChance;
             const hit = computeWeaponHit(
-              { baseDamage: pr.damage, scaling: 0, reqStr: 0, physical: pr.weaponMeta.physical, element: pr.weaponMeta.element },
+              { baseDamage: pr.damage * (isCrit ? 1.5 : 1), scaling: 0, reqStr: 0, physical: pr.weaponMeta.physical, element: pr.weaponMeta.element },
               strTotal,
               e,
               { diffMult: projScale },
@@ -920,20 +1341,10 @@ export class World {
             if (pr.weaponMeta.siphonHp && p.alive) {
               p.hp = Math.min(p.maxHp || PLAYER.maxHp, p.hp + pr.weaponMeta.siphonHp);
             }
-            if (!e._lastTagT || this.time - e._lastTagT > 0.65) {
-              if (pr.weaponMeta.deficit) {
-                e._lastTagT = this.time;
-                this.spawnPopup(e.x, e.y - e.h - 6, `${finalDmg} (0.5X STR)`, { color: '#ff7a6e', dur: 0.85, vy: -22 });
-              } else if (hit.tag === 'weak') {
-                e._lastTagT = this.time;
-                this.spawnPopup(e.x, e.y - e.h - 6, 'WEAK!', { color: '#7ef7d4', dur: 0.78, vy: -24 });
-              } else if (hit.tag === 'resist') {
-                e._lastTagT = this.time;
-                this.spawnPopup(e.x, e.y - e.h - 6, 'RESIST', { color: '#9aa8c4', dur: 0.75, vy: -20 });
-              }
-            }
+            this.noteEnemyDamaged(e, finalDmg, { crit: isCrit, tag: hit.tag, deficit: pr.weaponMeta.deficit });
           } else {
             e.takeHit(finalDmg, pr.x, this);
+            this.noteEnemyDamaged(e, finalDmg, {});
           }
           if (pr.pierce > 0) pr.pierce--; else pr.dead = true;
           if (pr.type === 'holy_water') { this.spawnFire(pr.x, Math.floor((e.y) / TILE) * TILE); pr.dead = true; }
@@ -988,6 +1399,10 @@ export class World {
     const rankProjScale = 1 + Math.max(0, stageRankFor(this.stage) - 1) * 0.04 * rankScale;
     for (const pr of this.projectiles) {
       if (pr.owner === 'enemy' && !pr.dead && rectsOverlap(pr.box, pb)) {
+        // Backdash startup graze evasion slips cleanly past projectiles!
+        if (p.grazeT > 0 && pr.type !== 'gaze') {
+          continue;
+        }
         // Active Shield Socket blocks frontal enemy projectiles with a metallic clang!
         if (shSlot && pr.type !== 'gaze' && (pr.x - p.x) * p.facing > 0) {
           pr.dead = true;
@@ -1054,7 +1469,7 @@ export class World {
       case 'heart_big': this.hearts = Math.min(99, this.hearts + 5); this.sfx('heart'); break;
       case 'money': this.addScore(SCORE.money); this.sfx('pickup'); break;
       case 'meat': p.hp = Math.min(maxHp, p.hp + (this.hasRelic('cathedral') ? 12 : 8)); this.sfx('pickup'); break;
-      case 'dagger': case 'axe': case 'holy_water':
+      case 'dagger': case 'axe': case 'holy_water': case 'cross': case 'stopwatch':
         p.subWeapon = type; this.subWeaponCarry = type; this.sfx('pickup'); break;
       case 'orb': this.claimBossClearRewards(); break;
       default: break;
@@ -1081,14 +1496,39 @@ export class World {
     return !!(this.voiceCue && this.voiceCue.boss && this.voiceCue.t < this.voiceCue.dur);
   }
 
+  /** True during the pre-battle boss camera glide, title banner, and Daikon voice intro. */
+  inBossIntro() {
+    return !!(this.bossIntro && this.bossIntro.stage !== 'done' && !this.bossActive);
+  }
+
+  /** True whenever a boss intro sequence or boss speech subtitle can be skipped by the player. */
+  canSkipBossIntro() {
+    return this.inBossIntro() || !!(this.bossActive && this.voiceSpeaking());
+  }
+
+  /** Immediately silences boss voice playback, dismisses intro subtitles, and begins the boss fight. */
+  skipBossIntro() {
+    if (this.audio && this.audio.stopVoice) this.audio.stopVoice();
+    this.voiceCue = null;
+    this.messages = [];
+    this.bossSpoken = true;
+    this.sfx('select');
+    if (this.inBossIntro()) {
+      this.bossIntro.stage = 'done';
+      this.bossHold = false;
+      if (this.player) this.player.jumpBuffer = 0;
+      this.startBoss();
+    }
+  }
+
   /**
    * Boss intro, in order: (1) camera glides smoothly into the arena while the
    * iron gate drops behind the hunter and the boss NAME banner appears,
    * (2) once the banner has been read the boss speaks its Daikon line with a
-   * subtitle, (3) when the line ends the boss enters and the battle begins.
+   * subtitle, (3) when the line ends (or the player skips it) the battle begins.
    * The hunter is cushioned gently at the arena threshold throughout.
    */
-  updateBossIntro(dt, p) {
+  updateBossIntro(dt, p, input = null) {
     const b = this.data.boss;
     this.bossHold = true;
     if (p.x > b.triggerX + 20) {
@@ -1123,6 +1563,12 @@ export class World {
     }
     const intro = this.bossIntro;
     intro.t += dt;
+    if (intro.t >= 0.18 && input && input.pressed && (
+      input.pressed.start || input.pressed.escape || input.pressed.jump || input.pressed.attack || input.pressed.offhand
+    )) {
+      this.skipBossIntro();
+      return;
+    }
     // (The vertical Boss Gate Door slams shut behind the hunter on its own — see BossGateDoor.update.)
     // Posed boss: fade in, breathe and gesture while it speaks; never acts or takes hits until the battle starts.
     if (this.boss && this.boss.introPose) {
@@ -1214,8 +1660,8 @@ export class World {
 
   voiceSpaceForStage() {
     const k = this.stage.theme || this.fxTheme;
-    if (k === 'aqueduct' || k === 'ossuary' || k === 'catacombs' || k === 'darkcave') return 'cistern';
-    if (k === 'cathedral' || k === 'throne' || k === 'ballroom' || k === 'library') return 'cathedral';
+    if (k === 'aqueduct' || k === 'ossuary' || k === 'catacombs' || k === 'darkcave' || k === 'dungeon') return 'cistern';
+    if (k === 'cathedral' || k === 'throne' || k === 'ballroom' || k === 'library' || k === 'conservatory' || k === 'observatory') return 'cathedral';
     if (this.theme && this.theme.outdoor) return 'courtyard';
     return 'hall';
   }
@@ -1421,12 +1867,12 @@ export class World {
     const p = this.player;
     const maxHp = p.maxHp || PLAYER.maxHp;
     const healed = p.hp < maxHp;
-    p.hp = Math.min(maxHp, p.hp + 4);
-    this.particles.sparks(stone.x, stone.y - 24, 12, '#62f2c2');
+    p.hp = maxHp;
+    this.particles.sparks(stone.x, stone.y - 28, 16, '#ff4a6e');
     if (wasNew) {
       this.sfx('pickup');
-      this.emitShockwave(stone.x, stone.y - 38, { maxR: 108, dur: 0.44, strength: 0.55, color: [0.35, 0.96, 0.82] });
-      this.showMessage('SANCTUARY ATTUNED', 'PRESS M ANYTIME TO VIEW THE CASTLE MAP', 2.2);
+      this.emitShockwave(stone.x, stone.y - 42, { maxR: 112, dur: 0.44, strength: 0.55, color: [0.96, 0.22, 0.42] });
+      this.showMessage('CRIMSON SANCTUM', 'VITALITY FULLY MENDED · PROGRESS RECORDED', 2.2);
     } else if (healed) {
       this.sfx('pickup');
     }
@@ -1541,6 +1987,10 @@ export class World {
           this.particles.sparks(pr.x, pr.y, 4, res.hex || '#ffffff');
         }
       }
+    }
+    if (res.healHp && player.alive) {
+      const cap = player.maxHp || PLAYER.maxHp;
+      player.hp = Math.min(cap, player.hp + res.healHp);
     }
     if (hitAny && res.siphonHp && player.alive) {
       const cap = player.maxHp || PLAYER.maxHp;
@@ -1801,8 +2251,13 @@ export class World {
         ctx.rect(0, 0, outClipW, H);
         ctx.clip();
       }
-      // 1a. Sky dome + celestial 3D aurora (behind mountains & trees) + clouds + lightning
-      this.parallax.drawSky(ctx, cam, flash, this.boltX, this.boltSeed, (c) => this.stage3d.drawSky3D(c, cam, t));
+      // 1a. Sky dome + celestial eclipse / 3D aurora (behind mountains & trees) + clouds + lightning
+      this.parallax.drawSky(ctx, cam, flash, this.boltX, this.boltSeed, (c) => {
+        if (fxOn && (this.fxTheme === 'skykeep' || this.fxTheme === 'graveyard')) {
+          fxl.celestialEclipse(c, camX, this.fxTheme, this.fxTheme === 'skykeep' ? 0.88 : 0.62);
+        }
+        this.stage3d.drawSky3D(c, cam, t);
+      });
       // 1b. Far horizon ridges, panoramic vistas & distant castle crags (`fx < 0.25`)
       this.parallax.drawBackRange(ctx, cam, flash, 0, 0.25, false);
       // 1c. Mid-far 3D Gothic Keep (`fx = 0.26`), behind wheeling bat flocks & near trees
@@ -1828,6 +2283,9 @@ export class World {
       ctx.fillStyle = this.theme.bg || '#05040a';
       ctx.fillRect(0, 0, W, H);
       this.stage3d.drawAbyss3D(ctx, cam, t);
+      if (fxOn && this.stage.theme === 'observatory') {
+        fxl.celestialEclipse(ctx, camX, 'observatory', 0.92);
+      }
     } else {
       ctx.fillStyle = '#06050c';
       ctx.fillRect(0, 0, W, H);
@@ -1865,6 +2323,10 @@ export class World {
 
     // 4a. Static architectural terrain (viaducts, 3D decks, z = 0 tiles & static balconies)
     this.level.drawStaticTiles(ctx, cam, this.assets, t);
+    if (fxOn && !showOutdoor && ['cathedral', 'throne', 'ballroom', 'conservatory', 'observatory', 'library'].includes(this.stage.theme || this.fxTheme)) {
+      const floorScreenY = Math.round(this.computeFogWorldY(camX) - camY);
+      fxl.stainedFloor(ctx, camX, floorScreenY, this.fxTheme, 0.88);
+    }
 
     // 4b. Wall-recessed monumental doorways, vertical boss doors, sanctuary waystone & vessel altar + wall sconce flames.
     // Drawn BEFORE dynamic platforms (`drawDynamicTiles`) so moving lifts, ferries, gear gondolas,
@@ -1873,8 +2335,14 @@ export class World {
     if (this.bossGateDoor) this.bossGateDoor.draw(ctx, cam, this.font, this, t);
     if (this.bossExitDoor) this.bossExitDoor.draw(ctx, cam, this.font, this, t);
     if (this.sanctuary) this.sanctuary.draw(ctx, cam, this.font, t, this);
+    if (this.warpMirror) this.warpMirror.draw(ctx, cam, this.font, t, this);
     if (this.vessel) this.vessel.draw(ctx, cam, this.font, this, t);
     if (this.pedestal) this.pedestal.draw(ctx, cam, this.font, this, t);
+    if (this.magnetNodes) for (const mn of this.magnetNodes) mn.draw(ctx, cam, t, this.assets);
+    if (this.switchGates) for (const sg of this.switchGates) sg.draw(ctx, cam, this.font, t, this.assets);
+    if (this.chests) for (const ch of this.chests) ch.draw(ctx, cam, t, this.assets);
+    if (this.glyphSigils) for (const gs of this.glyphSigils) gs.draw(ctx, cam, t, this.assets);
+    if (this.secretWalls) for (const sw of this.secretWalls) sw.draw(ctx, cam, t, this.assets);
     if (fxl) {
       fxl.flushFlames(ctx);
       fxl.flushAttacks(ctx);
@@ -1896,6 +2364,9 @@ export class World {
     const peersHere = this.game && this.game.net ? this.game.net.peersInStage(this.stage.key) : null;
     if (peersHere && peersHere.length) drawRemotePlayers(ctx, this, peersHere, t);
     this.player.draw(ctx, this.assets, camX, camY);
+    if (this.level.drawbridge) this.level.drawDrawbridgeForeground(ctx, cam, this.assets, t);
+    this.drawGuardianSoul(ctx, camX, camY, t, fxl);
+    for (const so of this.soulOrbs) so.draw(ctx, camX, camY, t, fxl, this.assets);
     for (const pr of this.projectiles) pr.draw(ctx, this.assets, camX, camY);
     if (this.shockRings.length) {
       for (const r of this.shockRings) {
@@ -1996,10 +2467,14 @@ export class World {
       ctx.restore();
     }
     if (this.sanctuary) this.sanctuary.drawPrompt(ctx, this.camera, this.font);
+    if (this.warpMirror) this.warpMirror.drawPrompt(ctx, this.camera, this.font);
     if (this.passages) for (const g of this.passages) g.drawPrompt(ctx, this.camera, this.font, this);
     if (this.bossGateDoor) this.bossGateDoor.drawPrompt(ctx, this.camera, this.font, this);
     if (this.bossExitDoor) this.bossExitDoor.drawPrompt(ctx, this.camera, this.font, this);
     if (this.pedestal) this.pedestal.drawPrompt(ctx, this.camera, this.font, this, this.time);
+    if (this.chests) for (const ch of this.chests) ch.drawPrompt(ctx, this.camera, this.font);
+    if (this.glyphSigils) for (const gs of this.glyphSigils) gs.drawPrompt(ctx, this.camera, this.font);
+    if (this.magnetNodes) for (const mn of this.magnetNodes) mn.drawPrompt(ctx, this.camera, this.font, this.player);
     if (this.popups.length) {
       for (const pop of this.popups) {
         const alpha = Math.max(0, Math.min(1, pop.t / 0.12, (pop.dur - pop.t) / 0.36)) * (pop.maxAlpha ?? 1);
@@ -2045,6 +2520,99 @@ export class World {
       ctx.save();
       ctx.globalAlpha = Math.max(0, k);
       this.game.banner([m.text], 150, { scale: 3, sub: m.sub }, ctx);
+      ctx.restore();
+    }
+  }
+
+  /** Collects up to 6 screen-space point lights for PostFX normal-mapped stone & sprite rim illumination. */
+  gatherDynamicLights() {
+    const out = this._dynLights || (this._dynLights = []);
+    out.length = 0;
+    const camX = this.camera.rx, camY = this.camera.ry;
+    const pushL = (wx, wy, radius, intensity, r, g, b) => {
+      if (out.length >= 6) return;
+      const nx = (wx - camX) / W;
+      const ny = (wy - camY) / H;
+      if (nx < -0.25 || nx > 1.25 || ny < -0.25 || ny > 1.25) return;
+      out.push({ nx, ny, radius, intensity, r, g, b });
+    };
+    if (this.player && this.player.alive) {
+      const flicker = 0.92 + 0.08 * Math.sin(this.time * 9.5);
+      pushL(this.player.x + this.player.facing * 6, this.player.y - 30, 0.34, 0.36 * flicker, 1.0, 0.78, 0.44);
+    }
+    if (this.boss && this.boss.alive) {
+      pushL(this.boss.x, this.boss.y - (this.boss.h || 72) * 0.5, 0.38, 0.42, 0.96, 0.42, 0.68);
+    }
+    if (this.sanctuary) {
+      pushL(this.sanctuary.x, this.sanctuary.y - 42, 0.36, 0.44, 1.0, 0.28, 0.46);
+    }
+    if (this.warpMirror) {
+      pushL(this.warpMirror.x, this.warpMirror.y - 46, 0.36, 0.44, 0.64, 0.48, 1.0);
+    }
+    for (let i = 0; i < this.fires.length && out.length < 6; i++) {
+      const f = this.fires[i];
+      if (!f.dead) pushL(f.x, f.y - 16, 0.28, 0.48, 0.42, 0.86, 1.0);
+    }
+    const stride = Math.max(1, Math.floor(this.candles.length / 4));
+    for (let i = 0; i < this.candles.length && out.length < 6; i += stride) {
+      const c = this.candles[i];
+      if (c.dead || Math.abs(c.x - (camX + W * 0.5)) > W * 0.6) continue;
+      const flk = 0.88 + 0.12 * Math.sin(this.time * 11.0 + c.x * 0.05);
+      pushL(c.x, c.y - 42, 0.26, 0.32 * flk, 1.0, 0.64, 0.26);
+    }
+    return out;
+  }
+
+  drawGuardianSoul(ctx, camX, camY, time, fxLayers) {
+    if (!this.game || !this.game.equippedSouls || !this.player || !this.player.alive) return;
+    const guardId = this.game.equippedSouls.guardian;
+    const rank = (this.game.soulRanks && this.game.soulRanks[guardId]) || 1;
+    const px = Math.round(this.player.x - camX);
+    const py = Math.round(this.player.y - camY);
+
+    if (guardId === 'sovereign_ring') {
+      const count = rank >= 7 ? 4 : rank >= 4 ? 3 : 2;
+      const rad = 36;
+      const dagFr = this.assets && this.assets.frame ? this.assets.frame('items', 'dagger') : null;
+      const itemsImg = this.assets && this.assets.img ? this.assets.img('items') : null;
+      for (let i = 0; i < count; i++) {
+        const a = this.guardianAngle + (i * Math.PI * 2) / count;
+        const bx = Math.round(px + Math.cos(a) * rad);
+        const by = Math.round((py - 30) + Math.sin(a) * (rad * 0.78));
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.rotate(a + Math.PI * 0.5);
+        if (dagFr && itemsImg) {
+          ctx.drawImage(
+            itemsImg,
+            dagFr.x, dagFr.y, dagFr.w, dagFr.h,
+            -Math.round(dagFr.w * 0.5), -Math.round(dagFr.h * 0.5), dagFr.w, dagFr.h,
+          );
+        }
+        ctx.restore();
+      }
+    } else if (guardId === 'aegis_familiar' && this.guardianWardCd <= 0) {
+      const fx = Math.round(px + this.player.facing * 24);
+      const fy = Math.round(py - 32 + Math.sin(time * 4.5) * 3);
+      const icon = getWeaponIconCanvas('heraldic_buckler');
+      if (icon) {
+        ctx.save();
+        ctx.globalAlpha = 0.92;
+        ctx.drawImage(icon, Math.round(fx - icon.width * 0.5), Math.round(fy - icon.height * 0.5));
+        ctx.restore();
+      }
+    }
+
+    if (this.unionFlashT > 0) {
+      const uk = this.unionFlashT / 0.55;
+      ctx.save();
+      ctx.globalAlpha = uk * 0.72;
+      ctx.strokeStyle = this.unionColor || '#ffd27a';
+      ctx.lineWidth = 2;
+      const rr = Math.round((1 - uk) * 95 + 24);
+      ctx.beginPath();
+      ctx.arc(px, py - 34, rr, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.restore();
     }
   }

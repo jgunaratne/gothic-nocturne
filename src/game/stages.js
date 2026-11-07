@@ -1,5 +1,5 @@
-// The eighteen stages of Gothic Nocturne: long, true-2D screen-matched
-// Metroidvania biomes (380–760 tiles / 19–38 screens wide, multi-story vertical
+// The twenty-one stages of Gothic Nocturne: long, true-2D screen-matched
+// gothic action-exploration biomes (380–760 tiles / 19–38 screens wide, multi-story vertical
 // galleries, grand staircases, watchtower shafts, and sunken undercrofts)
 // compiled 1:1 (`20 x 5` tiles = `640 x 160 px` per map cell) from `MAP_ROOMS`
 // and `MAP_DOORS` on the 72 x 27 Castle Exploration Map.
@@ -48,7 +48,7 @@ function buildJackOLantern() {
     theme: 'forest',
     seed: 17,
     roster: {
-      ground: [['scarecrow', 'normal'], ['pumpkin', 'normal'], ['skeleton', 'axe']],
+      ground: [['scarecrow', 'normal'], ['fleaman', 'normal'], ['pumpkin', 'normal'], ['skeleton', 'axe']],
       heavy: [['wickerman', 'normal'], ['scarecrow', 'normal']],
       sniper: [['scarecrow', 'normal'], ['pumpkin', 'normal']],
       aerial: [['lantern', 'normal'], ['bat', 'fire']],
@@ -72,8 +72,8 @@ function buildFrozenYule() {
     theme: 'yule',
     seed: 23,
     roster: {
-      ground: [['snowman', 'normal'], ['skeleton', 'frost'], ['wolf', 'alpha']],
-      heavy: [['wendigo', 'normal'], ['icegolem', 'normal']],
+      ground: [['snowman', 'normal'], ['jiangshi', 'normal'], ['skeleton', 'frost'], ['wolf', 'alpha']],
+      heavy: [['wendigo', 'normal'], ['icegolem', 'normal'], ['jiangshi', 'normal']],
       sniper: [['skeleton', 'frost'], ['snowman', 'normal']],
       aerial: [['wisp', 'normal'], ['dragon', 'frost']],
       spawner: 'wisp',
@@ -96,9 +96,9 @@ function buildRamparts() {
     theme: 'ramparts',
     seed: 31,
     roster: {
-      ground: [['arbalest', 'normal'], ['skeleton', 'axe'], ['armor', 'normal']],
-      heavy: [['executioner', 'normal'], ['armor', 'crimson']],
-      sniper: [['arbalest', 'normal'], ['skeleton', 'axe']],
+      ground: [['arbalest', 'normal'], ['skeleton', 'axe'], ['armor', 'normal'], ['fleaman', 'normal']],
+      heavy: [['dullahan', 'normal'], ['executioner', 'normal'], ['armor', 'crimson']],
+      sniper: [['arbalest', 'normal'], ['bonepillar', 'normal'], ['skeleton', 'axe']],
       aerial: [['gargoyle', 'normal'], ['bat', 'normal']],
       spawner: 'bat',
     },
@@ -120,9 +120,9 @@ function buildCatacombs() {
     theme: 'catacombs',
     seed: 41,
     roster: {
-      ground: [['zombie', 'ghoul'], ['skeleton', 'red'], ['zombie', 'plague'], ['skeleton', 'blood']],
-      heavy: [['bonegoliath', 'normal'], ['executioner', 'normal']],
-      sniper: [['skeleton', 'red'], ['skeleton', 'blood']],
+      ground: [['zombie', 'ghoul'], ['novaskeleton', 'normal'], ['fleaman', 'normal'], ['skeleton', 'red']],
+      heavy: [['bonegoliath', 'normal'], ['bonepillar', 'normal'], ['executioner', 'normal']],
+      sniper: [['novaskeleton', 'normal'], ['bonepillar', 'normal'], ['skeleton', 'blood']],
       aerial: [['necromancer', 'normal'], ['wraith', 'normal'], ['ghost', 'normal']],
       spawner: 'zombie',
     },
@@ -168,9 +168,9 @@ function buildOssuary() {
     theme: 'ossuary',
     seed: 61,
     roster: {
-      ground: [['merman', 'normal'], ['skeleton', 'blood'], ['zombie', 'ghoul'], ['skeleton', 'red']],
-      heavy: [['bonegoliath', 'normal'], ['catoblepas', 'normal']],
-      sniper: [['merman', 'normal'], ['skeleton', 'blood']],
+      ground: [['merman', 'normal'], ['novaskeleton', 'normal'], ['skeleton', 'blood'], ['zombie', 'ghoul']],
+      heavy: [['bonegoliath', 'normal'], ['bonepillar', 'normal'], ['catoblepas', 'normal']],
+      sniper: [['novaskeleton', 'normal'], ['bonepillar', 'normal'], ['merman', 'normal']],
       aerial: [['medusa', 'normal'], ['necromancer', 'normal'], ['wraith', 'banshee']],
       spawner: 'medusa',
     },
@@ -194,9 +194,9 @@ function buildArcade() {
     seed: 71,
     roster: {
       ground: [['clockknight', 'normal'], ['duelist', 'normal'], ['armor', 'normal']],
-      heavy: [['brasstitan', 'normal'], ['clockknight', 'normal']],
+      heavy: [['brasstitan', 'normal'], ['dullahan', 'normal'], ['clockknight', 'normal']],
       sniper: [['clockknight', 'normal'], ['arbalest', 'normal']],
-      aerial: [['gearharpy', 'normal'], ['gargoyle', 'normal']],
+      aerial: [['rulersword', 'normal'], ['gearharpy', 'normal'], ['gargoyle', 'normal']],
       spawner: 'gearharpy',
     },
     boss: {
@@ -217,10 +217,10 @@ function buildLibrary() {
     theme: 'library',
     seed: 79,
     roster: {
-      ground: [['inkscholar', 'normal'], ['duelist', 'normal'], ['armor', 'normal']],
-      heavy: [['armor', 'crimson'], ['inkscholar', 'normal']],
+      ground: [['inkscholar', 'normal'], ['jiangshi', 'normal'], ['duelist', 'normal'], ['armor', 'normal']],
+      heavy: [['dullahan', 'normal'], ['armor', 'crimson'], ['inkscholar', 'normal']],
       sniper: [['inkscholar', 'normal'], ['tome', 'normal']],
-      aerial: [['tome', 'normal'], ['ghost', 'normal'], ['necromancer', 'normal']],
+      aerial: [['rulersword', 'normal'], ['tome', 'normal'], ['ghost', 'normal'], ['necromancer', 'normal']],
       spawner: 'tome',
     },
     boss: {
@@ -241,8 +241,8 @@ function buildCathedral() {
     theme: 'cathedral',
     seed: 89,
     roster: {
-      ground: [['censerprelate', 'normal'], ['armor', 'normal'], ['skeleton', 'blood']],
-      heavy: [['censerprelate', 'normal'], ['armor', 'crimson'], ['executioner', 'normal']],
+      ground: [['censerprelate', 'normal'], ['dullahan', 'normal'], ['armor', 'normal'], ['skeleton', 'blood']],
+      heavy: [['dullahan', 'normal'], ['censerprelate', 'normal'], ['executioner', 'normal']],
       sniper: [['censerprelate', 'normal'], ['arbalest', 'normal']],
       aerial: [['gargoyle', 'obsidian'], ['valkyrie', 'normal'], ['wraith', 'normal']],
       spawner: 'gargoyle',
@@ -266,10 +266,10 @@ function buildClockTower() {
     theme: 'clocktower',
     seed: 97,
     roster: {
-      ground: [['clockknight', 'normal'], ['arbalest', 'normal'], ['skeleton', 'axe']],
-      heavy: [['brasstitan', 'normal'], ['clockknight', 'normal']],
-      sniper: [['arbalest', 'normal'], ['clockknight', 'normal']],
-      aerial: [['gearharpy', 'normal'], ['medusa', 'normal'], ['gargoyle', 'obsidian']],
+      ground: [['clockknight', 'normal'], ['novaskeleton', 'normal'], ['arbalest', 'normal'], ['fleaman', 'normal']],
+      heavy: [['brasstitan', 'normal'], ['dullahan', 'normal'], ['clockknight', 'normal']],
+      sniper: [['novaskeleton', 'normal'], ['arbalest', 'normal'], ['clockknight', 'normal']],
+      aerial: [['rulersword', 'normal'], ['gearharpy', 'normal'], ['medusa', 'normal'], ['gargoyle', 'obsidian']],
       spawner: 'medusa',
     },
     boss: {
@@ -290,10 +290,10 @@ function buildThroneHall() {
     theme: 'throne',
     seed: 107,
     roster: {
-      ground: [['bloodknight', 'normal'], ['duelist', 'normal'], ['armor', 'crimson'], ['skeleton', 'blood']],
-      heavy: [['bloodknight', 'normal'], ['executioner', 'normal'], ['armor', 'crimson']],
-      sniper: [['censerprelate', 'normal'], ['skeleton', 'blood'], ['dragon', 'normal']],
-      aerial: [['wraith', 'banshee'], ['necromancer', 'normal'], ['dragon', 'normal'], ['bat', 'normal']],
+      ground: [['bloodknight', 'normal'], ['dullahan', 'normal'], ['novaskeleton', 'normal'], ['duelist', 'normal']],
+      heavy: [['dullahan', 'normal'], ['bloodknight', 'normal'], ['bonepillar', 'normal']],
+      sniper: [['novaskeleton', 'normal'], ['bonepillar', 'normal'], ['dragon', 'normal']],
+      aerial: [['rulersword', 'normal'], ['wraith', 'banshee'], ['necromancer', 'normal'], ['dragon', 'normal']],
       spawner: 'wraith',
       spawnerVariant: 'banshee',
     },
@@ -315,8 +315,8 @@ function buildAlchemyLab() {
     theme: 'alchemy',
     seed: 113,
     roster: {
-      ground: [['alchfiend', 'normal'], ['zombie', 'plague'], ['inkscholar', 'normal']],
-      heavy: [['vathulk', 'normal'], ['alchfiend', 'normal']],
+      ground: [['alchfiend', 'normal'], ['novaskeleton', 'normal'], ['jiangshi', 'normal'], ['inkscholar', 'normal']],
+      heavy: [['vathulk', 'normal'], ['dullahan', 'normal'], ['alchfiend', 'normal']],
       sniper: [['alchfiend', 'normal'], ['inkscholar', 'normal']],
       aerial: [['ghost', 'normal'], ['tome', 'normal'], ['necromancer', 'normal']],
       spawner: 'ghost',
@@ -343,10 +343,10 @@ function buildPhantomBallroom() {
     theme: 'ballroom',
     seed: 127,
     roster: {
-      ground: [['duelist', 'normal'], ['bloodknight', 'normal']],
-      heavy: [['bloodknight', 'normal'], ['duelist', 'normal']],
+      ground: [['duelist', 'normal'], ['jiangshi', 'normal'], ['bloodknight', 'normal']],
+      heavy: [['dullahan', 'normal'], ['bloodknight', 'normal'], ['jiangshi', 'normal']],
       sniper: [['duelist', 'normal'], ['waltzdancer', 'normal']],
-      aerial: [['waltzdancer', 'normal'], ['ghost', 'normal'], ['wraith', 'banshee']],
+      aerial: [['rulersword', 'normal'], ['waltzdancer', 'normal'], ['ghost', 'normal'], ['wraith', 'banshee']],
       spawner: 'waltzdancer',
     },
     boss: {
@@ -371,8 +371,8 @@ function buildBloodColiseum() {
     theme: 'coliseum',
     seed: 139,
     roster: {
-      ground: [['retiarius', 'normal'], ['skeleton', 'blood'], ['armor', 'crimson']],
-      heavy: [['minotaur', 'normal'], ['executioner', 'normal']],
+      ground: [['retiarius', 'normal'], ['fleaman', 'normal'], ['skeleton', 'blood'], ['armor', 'crimson']],
+      heavy: [['minotaur', 'normal'], ['dullahan', 'normal'], ['bonepillar', 'normal']],
       sniper: [['retiarius', 'normal'], ['skeleton', 'axe']],
       aerial: [['dragon', 'normal'], ['gargoyle', 'obsidian']],
       spawner: 'bat',
@@ -428,10 +428,10 @@ function buildFloatingGarden() {
     theme: 'skykeep',
     seed: 163,
     roster: {
-      ground: [['astralarcher', 'normal'], ['duelist', 'normal']],
-      heavy: [['marblecolossus', 'normal'], ['astralarcher', 'normal']],
-      sniper: [['astralarcher', 'normal'], ['valkyrie', 'normal']],
-      aerial: [['valkyrie', 'normal'], ['owl', 'normal']],
+      ground: [['astralarcher', 'normal'], ['dullahan', 'normal'], ['duelist', 'normal']],
+      heavy: [['marblecolossus', 'normal'], ['dullahan', 'normal'], ['astralarcher', 'normal']],
+      sniper: [['astralarcher', 'normal'], ['novaskeleton', 'normal'], ['valkyrie', 'normal']],
+      aerial: [['rulersword', 'normal'], ['valkyrie', 'normal'], ['owl', 'normal']],
       spawner: 'valkyrie',
     },
     boss: {
@@ -447,11 +447,96 @@ function buildFloatingGarden() {
   });
 }
 
+// ---------------------------------------------------------------- stage 19: the blighted conservatory
+function buildBlightedConservatory() {
+  return composeGridStage({
+    id: 19,
+    key: 'conservatory',
+    name: 'THE BLIGHTED CONSERVATORY',
+    subtitle: 'CARNIVOROUS GLASSHOUSE & NIGHTSHADE',
+    theme: 'conservatory',
+    seed: 173,
+    roster: {
+      ground: [['sporecap', 'normal'], ['spriggan', 'normal'], ['alchfiend', 'normal']],
+      heavy: [['mosstroll', 'normal'], ['dullahan', 'normal'], ['vathulk', 'normal']],
+      sniper: [['alchfiend', 'normal'], ['sporecap', 'normal'], ['astralarcher', 'normal']],
+      aerial: [['medusa', 'normal'], ['owl', 'normal'], ['rulersword', 'normal']],
+      spawner: 'medusa',
+    },
+    boss: {
+      type: 'archivist',
+      name: 'THE NIGHTSHADE QUEEN',
+      spawnHeight: 88,
+      sheet: 'mandragora',
+      aura: 'rgba(255, 92, 168, 0.28)',
+      voice: 'wing_conservatory_voice',
+      line: 'BREATHE DEEP OF MY CRIMSON BLOSSOMS, LITTLE HUNTER... YOUR BONES SHALL FERTILIZE MY GARDEN FOREVER!',
+    },
+  });
+}
+
+// ---------------------------------------------------------------- stage 20: the iron inquisition
+function buildIronInquisition() {
+  return composeGridStage({
+    id: 20,
+    key: 'dungeon',
+    name: 'THE IRON INQUISITION',
+    subtitle: 'TORTURE VAULTS & EXECUTIONER GAOL',
+    theme: 'dungeon',
+    seed: 181,
+    roster: {
+      ground: [['jiangshi', 'normal'], ['fleaman', 'normal'], ['executioner', 'normal']],
+      heavy: [['executioner', 'normal'], ['dullahan', 'normal'], ['bonepillar', 'normal']],
+      sniper: [['bonepillar', 'normal'], ['necromancer', 'normal'], ['bloodknight', 'normal']],
+      aerial: [['wraith', 'normal'], ['necromancer', 'normal'], ['rulersword', 'normal']],
+      spawner: 'fleaman',
+    },
+    boss: {
+      type: 'bonecaptain',
+      name: 'THE GRAND INQUISITOR',
+      spawnHeight: 0,
+      sheet: 'inquisitor',
+      aura: 'rgba(255, 82, 66, 0.28)',
+      voice: 'wing_dungeon_voice',
+      line: 'CONFESS YOUR TRESPASS UPON THE RACK, HERETIC... BY IRON AND FLAME, I SENTENCE YOU TO DEATH!',
+    },
+  });
+}
+
+// ---------------------------------------------------------------- stage 21: the astral observatory
+function buildAstralObservatory() {
+  return composeGridStage({
+    id: 21,
+    key: 'observatory',
+    name: 'THE ASTRAL OBSERVATORY',
+    subtitle: 'CELESTIAL ORRERY & ECLIPSE DOME',
+    theme: 'observatory',
+    seed: 191,
+    roster: {
+      ground: [['astralarcher', 'normal'], ['novaskeleton', 'normal'], ['duelist', 'normal']],
+      heavy: [['marblecolossus', 'normal'], ['dullahan', 'normal'], ['novaskeleton', 'normal']],
+      sniper: [['novaskeleton', 'normal'], ['astralarcher', 'normal'], ['valkyrie', 'normal']],
+      aerial: [['rulersword', 'normal'], ['valkyrie', 'normal'], ['waltzdancer', 'normal']],
+      spawner: 'rulersword',
+    },
+    boss: {
+      type: 'count',
+      name: 'THE ECLIPSE ASTROMANCER',
+      spawnHeight: 0,
+      sheet: 'astromancer',
+      aura: 'rgba(124, 232, 255, 0.28)',
+      voice: 'wing_observatory_voice',
+      line: 'I HAVE READ YOUR FLEETING STAR IN THE HEAVENS, MORTAL... KNEEL BEFORE THE TOTAL ECLIPSE!',
+    },
+  });
+}
+
 export const STAGES = [
   stage1, buildDarkwood(), buildJackOLantern(), buildFrozenYule(), buildRamparts(),
   buildCatacombs(), buildDarkCave(), buildOssuary(), buildArcade(), buildLibrary(),
   buildCathedral(), buildClockTower(), buildThroneHall(),
   buildAlchemyLab(), buildPhantomBallroom(), buildBloodColiseum(), buildSunkenAqueduct(), buildFloatingGarden(),
+  buildBlightedConservatory(), buildIronInquisition(), buildAstralObservatory(),
 ].map((s, i) => Object.assign(s, { id: i + 1 }));
 
 /** Stage lookup by map key. */

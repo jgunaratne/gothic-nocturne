@@ -5,6 +5,7 @@
 import {
   TILE, T_GROUND, T_STONE, T_CATACOMB, T_CLOCK, T_FOREST, T_SNOW, T_DARKWOOD, T_CAVERN,
   T_ALCHEMY, T_BALLROOM, T_COLISEUM, T_AQUEDUCT, T_SKYKEEP,
+  T_CONSERVATORY, T_DUNGEON, T_OBSERVATORY,
   T_LAVA, T_WATER, T_BLOCK, T_SPIKES,
 } from '../engine/constants.js';
 import { WING_PROP_FRAMES } from './castle_wings_assets.js';
@@ -31,6 +32,9 @@ export const THEMES = {
   coliseum: { base: 'ramparts', outdoor: false, layers: null, material: T_COLISEUM, wall: 'coliseumwall', wallParallax: 0.65, dark: 0.24, music: 'coliseum', bg: '#12080a', decor: 'coliseum', accent: '#ff6e54', platform: 'platform', props: { sheet: 'coliseum_props', frames: WING_PROP_FRAMES.coliseum } },
   aqueduct: { base: 'ossuary', outdoor: false, layers: null, material: T_AQUEDUCT, wall: 'aqueductwall', wallParallax: 0.60, dark: 0.26, music: 'aqueduct', bg: '#050c14', decor: 'aqueduct', accent: '#52d6ff', platform: 'platform', props: { sheet: 'aqueduct_props', frames: WING_PROP_FRAMES.aqueduct } },
   skykeep: { base: 'ramparts', outdoor: true, layers: 'skykeep', material: T_SKYKEEP, wall: 'wall', wallParallax: 1, dark: 0.26, music: 'skykeep', bg: '#0a1022', decor: 'skykeep', accent: '#c8f0ff', platform: 'platform', weather: 'fireflies', props: { sheet: 'skykeep_props', frames: WING_PROP_FRAMES.skykeep } },
+  conservatory: { base: 'darkwood', outdoor: false, layers: null, material: T_CONSERVATORY, wall: 'conservatorywall', wallParallax: 0.68, dark: 0.24, music: 'conservatory', bg: '#070f14', decor: 'conservatory', accent: '#ff5ca8', platform: 'platform_wood', weather: 'fireflies', props: { sheet: 'conservatory_props', frames: WING_PROP_FRAMES.conservatory } },
+  dungeon: { base: 'catacombs', outdoor: false, layers: null, material: T_DUNGEON, wall: 'dungeonwall', wallParallax: 0.62, dark: 0.30, music: 'dungeon', bg: '#09060b', decor: 'dungeon', accent: '#ff5242', platform: 'platform', weather: 'embers', props: { sheet: 'dungeon_props', frames: WING_PROP_FRAMES.dungeon } },
+  observatory: { base: 'cathedral', outdoor: false, layers: null, material: T_OBSERVATORY, wall: 'observatorywall', wallParallax: 0.68, dark: 0.22, music: 'observatory', bg: '#060a1c', decor: 'observatory', accent: '#7ce8ff', platform: 'platform', weather: 'fireflies', props: { sheet: 'observatory_props', frames: WING_PROP_FRAMES.observatory } },
 };
 
 const px = (tx) => tx * TILE + TILE / 2;

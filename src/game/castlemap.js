@@ -175,7 +175,8 @@ export function cellsToRevealAt(stageKey, normX = 0, {
     for (const [bc, brw] of r.boss) out.push(`${bc},${brw}`);
     for (const [sc, srw] of r.spine) out.push(`${sc},${srw}`);
     for (const [ec, erw] of r.extra) {
-      if (`${ec},${erw}` !== r.secretKey || vesselFound) out.push(`${ec},${erw}`);
+      if (`${ec},${erw}` !== r.secretKey && `${ec},${erw}` !== r.bonusSecretKey) out.push(`${ec},${erw}`);
+      else if (`${ec},${erw}` === r.secretKey && vesselFound) out.push(`${ec},${erw}`);
     }
   }
   return out;
@@ -323,6 +324,63 @@ function countBits(mask, max = 18) {
 }
 
 /**
+ * Returns true if two adjacent cells `(c1, r1)` and `(c2, r2)` inside the SAME
+ * region `rm` share an open physical passage/stairwell/hatch rather than a solid
+ * internal masonry wall or sealed floor.
+ */
+function isInternalEdgeOpen(rm, key, c1, r1, c2, r2) {
+  const k1 = `${c1},${r1}`;
+  const k2 = `${c2},${r2}`;
+  if (rm.bossSet.has(k1) && rm.bossSet.has(k2)) return true;
+
+  // Breakable-wall hidden chamber (`bonusSecretKey`) ONLY connects horizontally to `bonusSecretFromKey`
+  if (rm.bonusSecretKey && (k1 === rm.bonusSecretKey || k2 === rm.bonusSecretKey)) {
+    const other = k1 === rm.bonusSecretKey ? k2 : k1;
+    return r1 === r2 && other === rm.bonusSecretFromKey;
+  }
+
+  // Ancient Vessel chamber (`secretKey`) ONLY connects vertically (floor hatch or high balcony), never horizontally
+  if (k1 === rm.secretKey || k2 === rm.secretKey) {
+    return c1 === c2;
+  }
+
+  // Isolated high-balcony doorway pockets only connect vertically to the hall below, never horizontally
+  if (r1 === r2) {
+    const isHighDoorCell = (ck) => MAP_DOORS.some((d) => (
+      (d.a === key && d.highA && `${d.cellA[0]},${d.cellA[1]}` === ck)
+      || (d.b === key && d.highB && `${d.cellB[0]},${d.cellB[1]}` === ck)
+    ));
+    if (isHighDoorCell(k1) || isHighDoorCell(k2)) return false;
+  }
+
+  return true;
+}
+
+/**
+ * Draws an internal partition between two adjacent cells of the same stage:
+ * - Solid 1px wall if sealed (`!open`),
+ * - Crisp 2px corner jambs with a 4px open doorway/stairwell notch if connected (`open`).
+ */
+function drawInternalCellThreshold(ctx, x1, y1, x2, y2, wallColor, jambColor, open) {
+  if (!open) {
+    ctx.fillStyle = wallColor;
+    if (y1 === y2) ctx.fillRect(x1, y1, x2 - x1 + 1, 1);
+    else ctx.fillRect(x1, y1, 1, y2 - y1 + 1);
+    return;
+  }
+  ctx.fillStyle = jambColor;
+  if (y1 === y2) {
+    // Horizontal edge (stairwell / skylight between r and r + 1): 2px corner jambs, 4px center opening
+    ctx.fillRect(x1, y1, 2, 1);
+    ctx.fillRect(x2 - 1, y1, 2, 1);
+  } else {
+    // Vertical edge (corridor threshold between c and c + 1): 2px top/bottom jambs, 4px center doorway
+    ctx.fillRect(x1, y1, 1, 2);
+    ctx.fillRect(x1, y2 - 1, 1, 2);
+  }
+}
+
+/**
  * Draws a wall segment from (x1, y1) to (x2, y2) on an 8px cell edge, leaving
  * a crisp 3px doorway notch (or glowing relic-gate bar) if `door` is provided.
  */
@@ -446,7 +504,7 @@ export function drawCastleMap(ctx, font, assets, {
     ctx.fillRect(MAP_X, MAP_Y + r * CELL_SIZE, GRID_COLS * CELL_SIZE, 1);
   }
 
-  // Pass 1: Draw all room cell interiors (merging adjacent same-room cells seamlessly)
+  // Pass 1: Draw all room cell interiors (Crimson Save Sanctums, Golden Warp Chambers, Boss Halls, Hidden Vaults)
   for (const [key, rm] of Object.entries(MAP_ROOMS)) {
     const sIdx = stageIndexOf(key);
     const st = STAGES[sIdx];
@@ -456,39 +514,49 @@ export function drawCastleMap(ctx, font, assets, {
     const disc = isDiscovered(key, cleared, discovered) || key === currentStageKey;
     const vesselFound = sIdx >= 0 && !!((vessels >>> sIdx) & 1);
     const sel = key === cursor;
+    const isVisibleCell = (ck) => (ck === rm.bonusSecretKey ? expSet.has(ck) : true);
 
     for (const [c, rw] of rm.allCells) {
       const ck = `${c},${rw}`;
+      if (!isVisibleCell(ck)) continue;
       const cx = MAP_X + c * CELL_SIZE;
       const cy = MAP_Y + rw * CELL_SIZE;
-      const isExp = expSet.has(ck) || done;
+      const isBonusSec = ck === rm.bonusSecretKey;
+      const isExp = isBonusSec ? expSet.has(ck) : (expSet.has(ck) || done);
       const isBoss = rm.bossSet.has(ck);
       const isSanc = ck === rm.sanctuaryKey;
+      const isWarp = ck === rm.warpKey;
       const isSec = ck === rm.secretKey;
 
       let fill = 'rgba(18, 22, 36, 0.44)';
       if (isExp) {
-        if (isBoss) fill = done ? '#3d368a' : '#962238';
-        else if (isSanc) fill = '#19756a';
-        else if (isSec) fill = vesselFound ? '#966c1c' : '#6c4e18';
+        if (isBoss) fill = done ? '#3d368a' : '#7a2266';
+        else if (isSanc) fill = '#cc2244';
+        else if (isWarp) fill = '#cc8e14';
+        else if (isBonusSec) fill = '#268c64';
+        else if (isSec) fill = vesselFound ? '#1f877a' : '#165e56';
         else fill = '#1e4ea8';
       } else if (disc) {
-        if (isBoss) fill = 'rgba(110, 28, 44, 0.48)';
-        else if (isSanc) fill = 'rgba(24, 96, 88, 0.45)';
-        else if (isSec) fill = vesselFound ? '#8a6218' : 'rgba(110, 82, 26, 0.34)';
+        if (isBoss) fill = 'rgba(104, 28, 92, 0.48)';
+        else if (isSanc) fill = 'rgba(168, 28, 58, 0.48)';
+        else if (isWarp) fill = 'rgba(176, 122, 20, 0.46)';
+        else if (isSec) fill = vesselFound ? '#1c7a6e' : 'rgba(24, 96, 88, 0.40)';
         else fill = 'rgba(28, 42, 74, 0.64)';
       }
 
-      const joinL = rm.cellSet.has(`${c - 1},${rw}`) ? 0 : 1;
-      const joinT = rm.cellSet.has(`${c},${rw - 1}`) ? 0 : 1;
+      const leftKey = `${c - 1},${rw}`;
+      const topKey = `${c},${rw - 1}`;
+      const joinL = (rm.cellSet.has(leftKey) && isVisibleCell(leftKey)) ? 0 : 1;
+      const joinT = (rm.cellSet.has(topKey) && isVisibleCell(topKey)) ? 0 : 1;
       ctx.fillStyle = fill;
       ctx.fillRect(cx + joinL, cy + joinT, CELL_SIZE - joinL, CELL_SIZE - joinT);
 
       // Crisp inner architectural ceiling highlight along exterior room ceilings
-      if (isExp && !rm.cellSet.has(`${c},${rw - 1}`)) {
-        ctx.fillStyle = isBoss ? 'rgba(255, 160, 175, 0.28)'
-          : isSanc ? 'rgba(158, 245, 220, 0.34)'
-          : isSec ? 'rgba(255, 224, 130, 0.34)'
+      if (isExp && !(rm.cellSet.has(topKey) && isVisibleCell(topKey))) {
+        ctx.fillStyle = isBoss ? 'rgba(220, 165, 255, 0.28)'
+          : isSanc ? 'rgba(255, 168, 186, 0.42)'
+          : isWarp ? 'rgba(255, 236, 150, 0.44)'
+          : (isBonusSec || isSec) ? 'rgba(158, 255, 224, 0.36)'
           : 'rgba(120, 178, 255, 0.25)';
         ctx.fillRect(cx + joinL, cy + 1, CELL_SIZE - joinL, 1);
       } else if (sel && !isExp) {
@@ -502,15 +570,34 @@ export function drawCastleMap(ctx, font, assets, {
         ctx.fillRect(cx + 1, cy + CELL_SIZE - 2, CELL_SIZE - 1, 1);
       }
 
-      // Sanctuary Waystone cross glyph (crisp inside 8x8 cell)
+      // Crimson Save Sanctum polyhedron/cross glyph
       if (isSanc && (disc || isExp)) {
-        ctx.fillStyle = isExp ? '#affff0' : '#58b8a8';
+        ctx.fillStyle = isExp ? '#ffe4ec' : '#d86882';
         ctx.fillRect(cx + 3, cy + 2, 2, 5);
         ctx.fillRect(cx + 2, cy + 3, 4, 3);
         if (isExp) {
           ctx.fillStyle = '#ffffff';
-          ctx.fillRect(cx + 3, cy + 4, 2, 1);
+          ctx.fillRect(cx + 3, cy + 3, 2, 2);
         }
+      }
+
+      // Golden Warp Chamber astral portal diamond
+      if (isWarp && (disc || isExp)) {
+        ctx.fillStyle = isExp ? '#9ef5ff' : '#d8a848';
+        ctx.fillRect(cx + 3, cy + 2, 2, 4);
+        ctx.fillRect(cx + 2, cy + 3, 4, 2);
+        if (isExp) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(cx + 3, cy + 3, 2, 2);
+        }
+      }
+
+      // Hidden Breakable-Wall Bonus Chamber reliquary chest pip
+      if (isBonusSec && isExp) {
+        ctx.fillStyle = '#ffd84d';
+        ctx.fillRect(cx + 2, cy + 3, 4, 3);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(cx + 3, cy + 3, 2, 1);
       }
 
       // Secret Vessel pip
@@ -521,7 +608,7 @@ export function drawCastleMap(ctx, font, assets, {
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(cx + 3, cy + 3, 2, 2);
         } else {
-          ctx.fillStyle = `rgba(255, 200, 90, ${0.42 + 0.42 * pulse})`;
+          ctx.fillStyle = `rgba(158, 255, 224, ${0.42 + 0.42 * pulse})`;
           ctx.fillRect(cx + 3, cy + 3, 2, 2);
         }
       }
@@ -556,36 +643,54 @@ export function drawCastleMap(ctx, font, assets, {
     }
   }
 
-  // Pass 2: Draw crisp architectural perimeter walls + open/gated doorway notches
+  // Pass 2: Draw crisp architectural perimeter walls, external gates & internal room doorway ticks
   for (const [key, rm] of Object.entries(MAP_ROOMS)) {
     const done = isCleared(key, cleared);
     const disc = isDiscovered(key, cleared, discovered) || key === currentStageKey;
     const sel = key === cursor;
+    const isVisibleCell = (ck) => (ck === rm.bonusSecretKey ? expSet.has(ck) : true);
 
     for (const [c, rw] of rm.allCells) {
       const ck = `${c},${rw}`;
-      const isExp = expSet.has(ck) || done;
+      if (!isVisibleCell(ck)) continue;
+      const isBonusSec = ck === rm.bonusSecretKey;
+      const isExp = isBonusSec ? expSet.has(ck) : (expSet.has(ck) || done);
       const wall = sel
         ? `rgba(255, 218, 130, ${0.76 + 0.24 * pulse})`
         : isExp ? '#dce8ff' : disc ? '#5b7099' : '#2a334a';
+      const jamb = sel
+        ? 'rgba(255, 224, 148, 0.56)'
+        : isExp ? 'rgba(198, 222, 255, 0.50)' : disc ? 'rgba(96, 120, 164, 0.42)' : 'rgba(46, 58, 84, 0.35)';
       const cx = MAP_X + c * CELL_SIZE;
       const cy = MAP_Y + rw * CELL_SIZE;
 
-      if (!rm.cellSet.has(`${c},${rw - 1}`)) {
+      const nUp = `${c},${rw - 1}`;
+      const nDn = `${c},${rw + 1}`;
+      const nLt = `${c - 1},${rw}`;
+      const nRt = `${c + 1},${rw}`;
+
+      if (!(rm.cellSet.has(nUp) && isVisibleCell(nUp))) {
         const door = DOOR_EDGES.get(edgeKey(c, rw, c, rw - 1));
         drawCellWall(ctx, cx, cy, cx + CELL_SIZE, cy, wall, door, relicSet);
       }
-      if (!rm.cellSet.has(`${c},${rw + 1}`)) {
+      if (!(rm.cellSet.has(nDn) && isVisibleCell(nDn))) {
         const door = DOOR_EDGES.get(edgeKey(c, rw, c, rw + 1));
         drawCellWall(ctx, cx, cy + CELL_SIZE, cx + CELL_SIZE, cy + CELL_SIZE, wall, door, relicSet);
+      } else if (!(rm.bossSet.has(ck) && rm.bossSet.has(nDn))) {
+        const open = isInternalEdgeOpen(rm, key, c, rw, c, rw + 1);
+        drawInternalCellThreshold(ctx, cx, cy + CELL_SIZE, cx + CELL_SIZE, cy + CELL_SIZE, wall, jamb, open);
       }
-      if (!rm.cellSet.has(`${c - 1},${rw}`)) {
+
+      if (!(rm.cellSet.has(nLt) && isVisibleCell(nLt))) {
         const door = DOOR_EDGES.get(edgeKey(c, rw, c - 1, rw));
         drawCellWall(ctx, cx, cy, cx, cy + CELL_SIZE, wall, door, relicSet);
       }
-      if (!rm.cellSet.has(`${c + 1},${rw}`)) {
+      if (!(rm.cellSet.has(nRt) && isVisibleCell(nRt))) {
         const door = DOOR_EDGES.get(edgeKey(c, rw, c + 1, rw));
         drawCellWall(ctx, cx + CELL_SIZE, cy, cx + CELL_SIZE, cy + CELL_SIZE, wall, door, relicSet);
+      } else if (!(rm.bossSet.has(ck) && rm.bossSet.has(nRt))) {
+        const open = isInternalEdgeOpen(rm, key, c, rw, c + 1, rw);
+        drawInternalCellThreshold(ctx, cx + CELL_SIZE, cy, cx + CELL_SIZE, cy + CELL_SIZE, wall, jamb, open);
       }
     }
   }
@@ -719,9 +824,10 @@ export function drawCastleMap(ctx, font, assets, {
   const ky = gy0 + gh + 3;
   const keyItems = [
     ['#1e4ea8', 'EXPLORED'],
-    ['#19756a', 'SANCTUARY'],
-    ['#962238', 'BOSS'],
-    ['#ffe680', 'VESSEL'],
+    ['#cc2244', 'SAVE'],
+    ['#cc8e14', 'WARP'],
+    ['#7a2266', 'BOSS'],
+    ['#1f877a', 'VESSEL'],
     ['#b48cff', 'RELIC GATE'],
   ];
   let kx = gx0 + 6;
@@ -729,7 +835,7 @@ export function drawCastleMap(ctx, font, assets, {
     ctx.fillStyle = sw;
     ctx.fillRect(kx, ky + 1, 6, 6);
     font.draw(ctx, lbl, kx + 9, ky, { color: '#9aa8c4', shadow: '#05040a', gothic: false });
-    kx += 9 + font.width(lbl, 1, 1, false) + 14;
+    kx += 9 + font.width(lbl, 1, 1, false) + 12;
   }
   font.draw(ctx, 'ARROWS INSPECT', gx0 + gw - 4, ky, { align: 'right', color: '#7f8ea8', shadow: '#05040a', gothic: false });
 
@@ -772,7 +878,7 @@ export function drawCastleMap(ctx, font, assets, {
     if (cursor === currentStageKey) {
       font.draw(ctx, 'CURRENT AREA · M / ESC / ENTER RESUME', rx, ly + 21, { align: 'right', color: '#9ef5dc', shadow: '#05040a', gothic: false });
     } else if (canWarp) {
-      font.draw(ctx, 'ENTER WARP TO SANCTUARY · M RESUME', rx, ly + 21, { align: 'right', color: pulse > 0.3 ? '#ffd27a' : '#b89448', shadow: '#05040a', gothic: false });
+      font.draw(ctx, 'ENTER WARP TO PORTAL · M RESUME', rx, ly + 21, { align: 'right', color: pulse > 0.3 ? '#ffd27a' : '#b89448', shadow: '#05040a', gothic: false });
     } else {
       font.draw(ctx, 'UNCHARTED · EXPLORE NEIGHBOURING AREAS', rx, ly + 21, { align: 'right', color: '#7c8498', shadow: '#05040a', gothic: false });
     }
@@ -868,26 +974,54 @@ export function drawMiniMap(ctx, font, world, x, y) {
       const sy = y + 2 + dr * cs;
       if (!ownerKey) continue;
       const rm = MAP_ROOMS[ownerKey];
+      const isVisibleCell = (keyCell) => (keyCell === rm.bonusSecretKey ? expSet.has(keyCell) : true);
+      if (!isVisibleCell(ck)) continue;
       const sIdx = stageIndexOf(ownerKey);
       const done = isCleared(ownerKey, cleared);
-      const isExp = expSet.has(ck) || done || (gc === loc.col && gr === loc.row);
+      const isBonusSec = ck === rm.bonusSecretKey;
+      const isExp = isBonusSec ? expSet.has(ck) : (expSet.has(ck) || done || (gc === loc.col && gr === loc.row));
       const vesselFound = sIdx >= 0 && !!((vessels >>> sIdx) & 1);
       if (isExp) {
-        if (rm.bossSet.has(ck)) ctx.fillStyle = done ? '#463fa0' : '#a8263e';
-        else if (ck === rm.sanctuaryKey) ctx.fillStyle = '#1d8578';
-        else if (ck === rm.secretKey) ctx.fillStyle = vesselFound ? '#b88622' : '#705218';
+        if (rm.bossSet.has(ck)) ctx.fillStyle = done ? '#463fa0' : '#842470';
+        else if (ck === rm.sanctuaryKey) ctx.fillStyle = '#d42648';
+        else if (ck === rm.warpKey) ctx.fillStyle = '#d49618';
+        else if (isBonusSec) ctx.fillStyle = '#288e66';
+        else if (ck === rm.secretKey) ctx.fillStyle = vesselFound ? '#228c7e' : '#18645a';
         else ctx.fillStyle = '#2458be';
       } else {
         ctx.fillStyle = ownerKey === stageKey ? 'rgba(42, 62, 108, 0.68)' : 'rgba(26, 34, 58, 0.45)';
       }
       ctx.fillRect(sx, sy, cs, cs);
 
-      // Crisp exterior mini-walls
+      // Crisp exterior mini-walls & internal doorway corner ticks
+      const nUp = `${gc},${gr - 1}`;
+      const nDn = `${gc},${gr + 1}`;
+      const nLt = `${gc - 1},${gr}`;
+      const nRt = `${gc + 1},${gr}`;
       ctx.fillStyle = isExp ? '#cad8ff' : '#4a5a7a';
-      if (!rm.cellSet.has(`${gc},${gr - 1}`)) ctx.fillRect(sx, sy, cs, 1);
-      if (!rm.cellSet.has(`${gc},${gr + 1}`)) ctx.fillRect(sx, sy + cs - 1, cs, 1);
-      if (!rm.cellSet.has(`${gc - 1},${gr}`)) ctx.fillRect(sx, sy, 1, cs);
-      if (!rm.cellSet.has(`${gc + 1},${gr}`)) ctx.fillRect(sx + cs - 1, sy, 1, cs);
+      if (!(rm.cellSet.has(nUp) && isVisibleCell(nUp))) ctx.fillRect(sx, sy, cs, 1);
+      if (!(rm.cellSet.has(nDn) && isVisibleCell(nDn))) ctx.fillRect(sx, sy + cs - 1, cs, 1);
+      else if (!(rm.bossSet.has(ck) && rm.bossSet.has(nDn))) {
+        if (isInternalEdgeOpen(rm, ownerKey, gc, gr, gc, gr + 1)) {
+          ctx.fillStyle = isExp ? 'rgba(196, 220, 255, 0.48)' : 'rgba(74, 90, 122, 0.40)';
+          ctx.fillRect(sx, sy + cs - 1, 1, 1);
+          ctx.fillRect(sx + cs - 1, sy + cs - 1, 1, 1);
+        } else {
+          ctx.fillRect(sx, sy + cs - 1, cs, 1);
+        }
+      }
+      ctx.fillStyle = isExp ? '#cad8ff' : '#4a5a7a';
+      if (!(rm.cellSet.has(nLt) && isVisibleCell(nLt))) ctx.fillRect(sx, sy, 1, cs);
+      if (!(rm.cellSet.has(nRt) && isVisibleCell(nRt))) ctx.fillRect(sx + cs - 1, sy, 1, cs);
+      else if (!(rm.bossSet.has(ck) && rm.bossSet.has(nRt))) {
+        if (isInternalEdgeOpen(rm, ownerKey, gc, gr, gc + 1, gr)) {
+          ctx.fillStyle = isExp ? 'rgba(196, 220, 255, 0.48)' : 'rgba(74, 90, 122, 0.40)';
+          ctx.fillRect(sx + cs - 1, sy, 1, 1);
+          ctx.fillRect(sx + cs - 1, sy + cs - 1, 1, 1);
+        } else {
+          ctx.fillRect(sx + cs - 1, sy, 1, cs);
+        }
+      }
     }
   }
 

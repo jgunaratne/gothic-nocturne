@@ -3528,7 +3528,518 @@ export class MarbleColossus extends Colossus {
 }
 
 /** Wall-pacing spawner factory used by Spawner for float-in enemies. */
+export class DullahanKnight extends Enemy {
+  constructor(x, y, min, max) {
+    super(x, y);
+    this.w = 28; this.h = 74; this.hp = 12;
+    this.score = SCORE.dullahan || 620;
+    this.touchDamage = 4;
+    this.sheet = 'dullahan'; this.frame = 'walk0';
+    this.minX = min; this.maxX = max; this.facing = -1;
+    this.state = 'walk'; this.stateT = 0; this.animT = 0;
+    this.actCd = 1.15 + Math.random() * 0.6;
+  }
+
+  meleeBox() {
+    if (this.state !== 'attack' || !this._meleeMode || this.stateT < 0.24 || this.stateT > 0.50) return null;
+    const reach = 56;
+    return { x: this.facing > 0 ? this.x + 6 : this.x - 6 - reach, y: this.y - 64, w: reach, h: 52 };
+  }
+
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    const dx = p.x - this.x;
+    const near = p.alive && Math.abs(dx) < 340 && Math.abs(p.y - this.y) < 110;
+    this.stateT += dt;
+    this.actCd = Math.max(0, this.actCd - dt);
+    if (this.knock) { this.vx = this.knock * 45; this.knock = 0; this.knockT = 0.08; }
+    if (this.knockT > 0) { this.knockT -= dt; this.physics(level, dt); return; }
+
+    if (this.state === 'walk') {
+      if (near) this.facing = dx >= 0 ? 1 : -1;
+      const speed = near ? 52 : 36;
+      const nextX = this.x + this.facing * speed * dt;
+      const atEdge = (this.facing > 0 && nextX > this.maxX) || (this.facing < 0 && nextX < this.minX);
+      if (atEdge || this.blockedAhead(level)) { if (!near) this.facing = -this.facing; this.vx = 0; }
+      else this.vx = this.facing * speed;
+      this.animT += Math.abs(this.vx) > 1 ? dt * 5.0 : 0;
+      this.frame = Math.floor(this.animT) % 2 ? 'walk1' : 'walk0';
+      if (near && this.onGround && this.actCd <= 0 && Math.abs(dx) < 285) {
+        this.state = 'attack';
+        this.stateT = 0;
+        this.vx = 0;
+        this.fired = false;
+        this._meleeMode = Math.abs(dx) < 118;
+      }
+    } else {
+      this.frame = this.stateT < 0.28 ? 'windup' : 'attack';
+      if (!this.fired && this.stateT >= 0.28) {
+        this.fired = true;
+        this.facing = dx >= 0 ? 1 : -1;
+        if (this._meleeMode) {
+          this.vx = this.facing * 175;
+          enemySfx(world, this, 'knight_slash');
+          world.particles.sparks(this.x + this.facing * 28, this.y - 42, 8, '#c88cff');
+        } else {
+          const helm = new Projectile('dullahan_helm', this.x + this.facing * 18, this.y - 44, this.facing, 'enemy');
+          world.spawnProjectile(helm);
+          enemySfx(world, this, 'throw');
+          world.particles.sparks(this.x + this.facing * 18, this.y - 44, 7, '#52f8e8');
+        }
+      }
+      if (this.onGround && this.stateT > 0.38) this.vx *= 0.80;
+      if (this.stateT > 0.74) {
+        this.vx = 0;
+        this.state = 'walk';
+        this.actCd = (1.65 + Math.random() * 0.65) * world.difficulty.throwCooldown;
+      }
+    }
+    this.physics(level, dt);
+    if (this.y > level.height + 60) this.dead = true;
+  }
+
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 16, '#58427a', this.y);
+    world.particles.sparks(this.x, this.y - 40, 12, '#52f8e8');
+  }
+}
+
+export class SpectralSovereign extends Enemy {
+  constructor(x, y, dir = -1) {
+    super(x, y);
+    this.flies = true;
+    this.w = 24; this.h = 58; this.hp = 10;
+    this.score = SCORE.rulersword || 660;
+    this.touchDamage = 3;
+    this.sheet = 'rulersword'; this.frame = 'float0';
+    this.facing = dir;
+    this.homeX = x; this.homeY = y;
+    this.state = 'orbit'; this.stateT = 0;
+    this.ringAngle = Math.random() * Math.PI * 2;
+    this.bladesLeft = 6;
+    this.shotCd = 1.2 + Math.random() * 0.6;
+  }
+
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    const dx = p.x - this.x;
+    const dy = (p.y - 34) - (this.y - 28);
+    const near = p.alive && Math.abs(dx) < 340 && Math.abs(dy) < 160;
+    this.stateT += dt;
+    this.ringAngle += dt * (this.state === 'charge' ? 7.5 : 3.2);
+    this.shotCd = Math.max(0, this.shotCd - dt);
+
+    if (this.state === 'orbit') {
+      if (near) {
+        this.facing = dx >= 0 ? 1 : -1;
+        const wantX = p.x - this.facing * 125;
+        const wantY = p.y - 32 + Math.sin(this.ringAngle * 0.7) * 22;
+        this.vx += (Math.max(-95, Math.min(95, (wantX - this.x) * 1.4)) - this.vx) * Math.min(1, 4 * dt);
+        this.vy += (Math.max(-85, Math.min(85, (wantY - this.y) * 1.6)) - this.vy) * Math.min(1, 4 * dt);
+      } else {
+        this.vx *= 0.92;
+        this.vy = Math.sin(this.ringAngle) * 24;
+      }
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      this.frame = Math.floor(this.ringAngle * 1.5) % 2 ? 'float1' : 'float0';
+
+      if (near && this.shotCd <= 0) {
+        if (this.bladesLeft > 0) {
+          this.bladesLeft--;
+          const sx = this.x + Math.cos(this.ringAngle) * 24;
+          const sy = (this.y - 28) + Math.sin(this.ringAngle) * 24;
+          const ang = Math.atan2((p.y - 30) - sy, p.x - sx);
+          const dg = new Projectile('dagger', sx, sy, Math.cos(ang) >= 0 ? 1 : -1, 'enemy');
+          dg.vx = Math.cos(ang) * 290;
+          dg.vy = Math.sin(ang) * 290;
+          dg.damage = 3;
+          world.spawnProjectile(dg);
+          world.particles.sparks(sx, sy, 5, '#7ae8ff');
+          enemySfx(world, this, 'throw');
+          this.shotCd = (1.15 + Math.random() * 0.45) * world.difficulty.throwCooldown;
+        } else {
+          this.state = 'charge';
+          this.stateT = 0;
+          this.vx = 0; this.vy = 0;
+        }
+      }
+    } else if (this.state === 'charge') {
+      this.facing = dx >= 0 ? 1 : -1;
+      this.frame = 'windup';
+      if (this.stateT >= 0.42) {
+        this.state = 'lunge';
+        this.stateT = 0;
+        this.vx = this.facing * 295;
+        this.vy = Math.max(-90, Math.min(90, dy * 1.4));
+        enemySfx(world, this, 'sword_thrust');
+      }
+    } else {
+      this.frame = 'attack';
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      this.vx *= 0.94;
+      if (this.stateT >= 0.48) {
+        this.bladesLeft = 6;
+        this.state = 'orbit';
+        this.stateT = 0;
+        this.shotCd = 1.4 * world.difficulty.throwCooldown;
+        world.particles.sparks(this.x, this.y - 28, 10, '#ffd27a');
+      }
+    }
+  }
+
+  draw(ctx, assets, camX, camY) {
+    super.draw(ctx, assets, camX, camY);
+    if (this.deathT >= 0 || this.bladesLeft <= 0) return;
+    const cx = Math.round(this.x - camX);
+    const cy = Math.round(this.y - camY - 28);
+    ctx.save();
+    for (let i = 0; i < this.bladesLeft; i++) {
+      const a = this.ringAngle + (i * Math.PI * 2) / 6;
+      const bx = Math.round(cx + Math.cos(a) * 26);
+      const by = Math.round(cy + Math.sin(a) * 22);
+      ctx.save();
+      ctx.translate(bx, by);
+      ctx.rotate(a + Math.PI * 0.5);
+      ctx.fillStyle = '#7ae8ff';
+      ctx.fillRect(-2, -8, 4, 12);
+      ctx.fillStyle = '#ffd27a';
+      ctx.fillRect(-4, 2, 8, 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-1, -9, 2, 10);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y - 20, 14, '#dce8ff', this.y);
+    world.particles.sparks(this.x, this.y - 28, 14, '#7ae8ff');
+  }
+}
+
+export class NovaSkeleton extends Enemy {
+  constructor(x, y, min, max) {
+    super(x, y);
+    this.w = 22; this.h = 62; this.hp = 9;
+    this.score = SCORE.novaskeleton || 540;
+    this.touchDamage = 3;
+    this.sheet = 'novaskeleton'; this.frame = 'walk0';
+    this.minX = min; this.maxX = max; this.facing = -1;
+    this.state = 'walk'; this.stateT = 0; this.animT = 0;
+    this.beamCd = 1.35 + Math.random() * 0.7;
+  }
+
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    const dx = p.x - this.x;
+    const near = p.alive && Math.abs(dx) < 360 && Math.abs(p.y - this.y) < 88;
+    this.stateT += dt;
+    this.beamCd = Math.max(0, this.beamCd - dt);
+    if (this.knock) { this.vx = this.knock * 70; this.knock = 0; this.knockT = 0.10; }
+    if (this.knockT > 0) { this.knockT -= dt; this.physics(level, dt); return; }
+
+    if (this.state === 'walk') {
+      if (near) this.facing = dx >= 0 ? 1 : -1;
+      const speed = 46;
+      const nextX = this.x + this.facing * speed * dt;
+      const atEdge = (this.facing > 0 && nextX > this.maxX) || (this.facing < 0 && nextX < this.minX);
+      if (atEdge || this.blockedAhead(level)) { if (!near) this.facing = -this.facing; this.vx = 0; }
+      else this.vx = this.facing * speed;
+      this.animT += Math.abs(this.vx) > 1 ? dt * 5.4 : 0;
+      this.frame = Math.floor(this.animT) % 2 ? 'walk1' : 'walk0';
+      if (near && this.onGround && this.beamCd <= 0 && Math.abs(dx) > 54) {
+        this.state = 'charge';
+        this.stateT = 0;
+        this.vx = 0;
+        this.fired = false;
+        enemySfx(world, this, 'ice_shard');
+      }
+    } else {
+      this.vx = 0;
+      this.frame = this.stateT < 0.52 ? 'windup' : 'attack';
+      if (this.stateT < 0.52 && Math.random() < 0.6) {
+        world.particles.sparks(this.x + this.facing * 14, this.y - 38, 1, '#38f2ff');
+      }
+      if (!this.fired && this.stateT >= 0.52) {
+        this.fired = true;
+        for (let seg = 0; seg < 3; seg++) {
+          const bm = new Projectile('nova_beam', this.x + this.facing * (34 + seg * 54), this.y - 38, this.facing, 'enemy');
+          world.spawnProjectile(bm);
+        }
+        world.particles.sparks(this.x + this.facing * 20, this.y - 38, 10, '#7efcff');
+        enemySfx(world, this, 'throw');
+      }
+      if (this.stateT > 0.86) {
+        this.state = 'walk';
+        this.beamCd = (1.95 + Math.random() * 0.7) * world.difficulty.throwCooldown;
+      }
+    }
+    this.physics(level, dt);
+    if (this.y > level.height + 60) this.dead = true;
+  }
+
+  draw(ctx, assets, camX, camY) {
+    // Crisp aiming telegraph beam line during charge (`0..0.52s`) so players can crouch/slide/jump!
+    if (this.deathT < 0 && this.state === 'charge' && this.stateT < 0.52) {
+      const sx = Math.round(this.x - camX + this.facing * 14);
+      const sy = Math.round(this.y - camY - 38);
+      const pulse = 0.35 + 0.65 * Math.abs(Math.sin(this.stateT * 28));
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = '#38f2ff';
+      ctx.fillRect(this.facing > 0 ? sx : sx - 240, sy - 1, 240, 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(sx - 2, sy - 2, 5, 5);
+      ctx.restore();
+    }
+    super.draw(ctx, assets, camX, camY);
+  }
+
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 12, '#e8e2c8', this.y);
+    world.particles.sparks(this.x, this.y - 32, 10, '#38f2ff');
+  }
+}
+
+export class FleaStalker extends Enemy {
+  constructor(x, y, min, max) {
+    super(x, y);
+    this.w = 22; this.h = 32; this.hp = 4;
+    this.score = SCORE.fleaman || 290;
+    this.touchDamage = 2;
+    this.sheet = 'fleaman'; this.frame = 'crouch0';
+    this.minX = min; this.maxX = max; this.facing = -1;
+    this.hopCd = 0.35 + Math.random() * 0.4;
+    this.hopCount = 0;
+  }
+
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    const dx = p.x - this.x;
+    const near = p.alive && Math.abs(dx) < 320 && Math.abs(p.y - this.y) < 120;
+    if (this.knock) { this.vx = this.knock * 115; this.vy = -140; this.onGround = false; this.knock = 0; this.knockT = 0.14; }
+    if (this.knockT > 0) { this.knockT -= dt; this.physics(level, dt); return; }
+
+    if (this.onGround) {
+      this.vx *= 0.72;
+      this.frame = this.hopCd < 0.14 && near ? 'windup' : 'crouch0';
+      this.hopCd -= dt;
+      if (near && this.hopCd <= 0) {
+        this.hopCount++;
+        const highVault = (this.hopCount % 3) === 0;
+        let dir = dx >= 0 ? 1 : -1;
+        if (Math.abs(dx) < 42 && !highVault) dir = -dir; // cheeky retreat hop!
+        const nextX = this.x + dir * 70;
+        if ((dir > 0 && nextX > this.maxX) || (dir < 0 && nextX < this.minX)) dir = -dir;
+        this.facing = dx >= 0 ? 1 : -1;
+        this.vx = dir * (highVault ? 195 : 145);
+        this.vy = highVault ? -435 : -275;
+        this.onGround = false;
+        this.hopCd = (highVault ? 0.58 : 0.34) * (world.difficulty.throwCooldown || 1);
+        enemySfx(world, this, 'pumpkin_hop');
+      }
+    } else {
+      this.frame = this.vy > 40 ? 'attack' : 'hop0';
+    }
+    this.physics(level, dt);
+    if (this.y > level.height + 60) this.dead = true;
+  }
+
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 8, '#6e829c', this.y);
+  }
+}
+
+export class BoneReliquary extends Enemy {
+  constructor(x, y) {
+    super(x, y);
+    this.w = 30; this.h = 80; this.hp = 13;
+    this.score = SCORE.bonepillar || 480;
+    this.touchDamage = 3;
+    this.sheet = 'bonepillar'; this.frame = 'idle0';
+    this.facing = -1;
+    this.state = 'idle'; this.stateT = 0;
+    this.volleyIdx = 0;
+    this.shotCd = 1.25 + Math.random() * 0.6;
+  }
+
+  takeHit(dmg, fromX, world) {
+    const res = super.takeHit(dmg, fromX, world);
+    this.knock = 0; // Heavy iron-anchored dragon skull tower never slides!
+    return res;
+  }
+
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    const dx = p.x - this.x;
+    const near = p.alive && Math.abs(dx) < 350 && Math.abs(p.y - this.y) < 110;
+    if (near) this.facing = dx >= 0 ? 1 : -1;
+    this.stateT += dt;
+    this.shotCd = Math.max(0, this.shotCd - dt);
+
+    if (this.state === 'idle') {
+      this.frame = this.shotCd < 0.42 && near ? 'idle1' : 'idle0';
+      if (near && this.shotCd <= 0) {
+        this.state = 'fire';
+        this.stateT = 0;
+        this.fired = false;
+        this.volleyIdx++;
+      }
+    } else {
+      this.frame = this.stateT < 0.34 ? 'windup' : 'attack';
+      if (!this.fired && this.stateT >= 0.34) {
+        this.fired = true;
+        const highLane = (this.volleyIdx % 2) === 1;
+        if (highLane) {
+          // Upper dragon skull belches standing-height fireball (crouch/slide safe!)
+          const fb = new Projectile('fireball', this.x + this.facing * 18, this.y - 62, this.facing, 'enemy');
+          fb.gravity = 0; fb.vx = this.facing * 245;
+          world.spawnProjectile(fb);
+          world.particles.embers(this.x + this.facing * 18, this.y - 62, 6);
+        } else {
+          // Lower dragon skull rolls a bouncing dark abyssal sphere along the floor (jump/divekick safe!)
+          const mo = new Projectile('abyss_sphere', this.x + this.facing * 18, this.y - 20, this.facing, 'enemy');
+          world.spawnProjectile(mo);
+          world.particles.sparks(this.x + this.facing * 18, this.y - 20, 6, '#c88cff');
+        }
+        enemySfx(world, this, 'fire');
+      }
+      if (this.stateT >= 0.72) {
+        this.state = 'idle';
+        this.shotCd = (1.55 + Math.random() * 0.55) * world.difficulty.throwCooldown;
+      }
+    }
+    this.vx = 0;
+    this.physics(level, dt);
+  }
+
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 18, '#e8e2c8', this.y);
+    world.particles.embers(this.x, this.y - 42, 12);
+  }
+}
+
+export class JiangshiHopper extends Enemy {
+  constructor(x, y, min, max) {
+    super(x, y);
+    this.w = 24; this.h = 64; this.hp = 11;
+    this.score = SCORE.jiangshi || 560;
+    this.touchDamage = 3;
+    this.sheet = 'jiangshi'; this.frame = 'hop0';
+    this.minX = min; this.maxX = max; this.facing = -1;
+    this.state = 'hop'; this.stateT = 0;
+    this.hopPause = 0.35;
+    this.hopsSinceCast = 0;
+    this.sealX = x;
+    this.sealY = y;
+  }
+
+  update(dt, level, world) {
+    if (this.deathT >= 0) { this.updateDeath(dt); return; }
+    this.flash = Math.max(0, this.flash - dt);
+    const p = world.player;
+    const dx = p.x - this.x;
+    const near = p.alive && Math.abs(dx) < 340 && Math.abs(p.y - this.y) < 115;
+    this.stateT += dt;
+    if (this.knock) { this.vx = this.knock * 60; this.knock = 0; this.knockT = 0.09; }
+    if (this.knockT > 0) { this.knockT -= dt; this.physics(level, dt); return; }
+
+    if (this.state === 'hop') {
+      if (this.onGround) {
+        this.vx = 0;
+        this.frame = 'hop0';
+        this.hopPause -= dt;
+        if (this.hopPause <= 0) {
+          if (near) this.facing = dx >= 0 ? 1 : -1;
+          if (near && this.hopsSinceCast >= 3 && Math.abs(dx) < 250) {
+            this.state = 'cast';
+            this.stateT = 0;
+            this.fired = false;
+            this.hopsSinceCast = 0;
+            const col = Math.floor(p.x / TILE);
+            const sRow = level.surfaceRow(col);
+            this.sealX = p.x;
+            this.sealY = (sRow >= 0 ? sRow * TILE : p.y);
+            enemySfx(world, this, 'wraith_shriek');
+          } else {
+            let dir = this.facing;
+            const nextX = this.x + dir * 56;
+            if ((dir > 0 && nextX > this.maxX) || (dir < 0 && nextX < this.minX) || this.blockedAhead(level)) {
+              dir = -dir;
+              this.facing = dir;
+            }
+            this.vx = dir * 112;
+            this.vy = -295;
+            this.onGround = false;
+            this.hopsSinceCast++;
+            this.hopPause = 0.34 * (world.difficulty.throwCooldown || 1);
+            enemySfx(world, this, 'land');
+          }
+        }
+      } else {
+        this.frame = 'hop1';
+      }
+    } else {
+      this.vx = 0;
+      this.frame = this.stateT < 0.46 ? 'windup' : 'attack';
+      if (!this.fired && this.stateT >= 0.46) {
+        this.fired = true;
+        const sp = new Projectile('seal_pillar', this.sealX, this.sealY - 46, this.facing, 'enemy');
+        world.spawnProjectile(sp);
+        world.particles.sparks(this.sealX, this.sealY - 12, 12, '#ffd25a');
+        enemySfx(world, this, 'thunder');
+      }
+      if (this.stateT >= 0.82) {
+        this.state = 'hop';
+        this.hopPause = 0.45;
+      }
+    }
+    this.physics(level, dt);
+    if (this.y > level.height + 60) this.dead = true;
+  }
+
+  draw(ctx, assets, camX, camY) {
+    // Glowing golden talisman floor sigil warning before lightning pillar erupts!
+    if (this.deathT < 0 && this.state === 'cast' && this.stateT < 0.46) {
+      const sx = Math.round(this.sealX - camX);
+      const sy = Math.round(this.sealY - camY);
+      ctx.save();
+      ctx.globalAlpha = 0.55 + 0.45 * Math.abs(Math.sin(this.stateT * 24));
+      ctx.fillStyle = '#ffd25a';
+      ctx.fillRect(sx - 14, sy - 3, 28, 3);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(sx - 6, sy - 5, 12, 2);
+      ctx.restore();
+    }
+    super.draw(ctx, assets, camX, camY);
+  }
+
+  kill(world) {
+    super.kill(world);
+    world.particles.shards(this.x, this.y, 12, '#4a3a78', this.y);
+    world.particles.sparks(this.x, this.y - 38, 10, '#ffd25a');
+  }
+}
+
 function makeFloater(type, x, y, dir, variant) {
+  if (type === 'rulersword') return new SpectralSovereign(x, y, dir);
   if (type === 'lantern') return new Pumpkin(x, y, dir, 'lantern');
   if (type === 'wisp') return new FrostWisp(x, y, dir);
   if (type === 'ghost') return new Phantom(x, y, dir);
@@ -3599,13 +4110,19 @@ export function createEnemy(e) {
     case 'minotaur': return new Minotaur(cx, groundY, minX, maxX);
     case 'cisterncrab': return new CisternCrab(cx, groundY, minX, maxX);
     case 'marblecolossus': return new MarbleColossus(cx, groundY, minX, maxX);
+    case 'dullahan': return new DullahanKnight(cx, groundY, minX, maxX);
+    case 'rulersword': return new SpectralSovereign(cx, e.ty * TILE + 16, -1);
+    case 'novaskeleton': return new NovaSkeleton(cx, groundY, minX, maxX);
+    case 'fleaman': return new FleaStalker(cx, groundY, minX, maxX);
+    case 'bonepillar': return new BoneReliquary(cx, groundY);
+    case 'jiangshi': return new JiangshiHopper(cx, groundY, minX, maxX);
     default: return null;
   }
 }
 
 const FLOATER_SPAWNS = new Set([
   'medusa', 'lantern', 'wisp', 'ghost', 'wraith', 'cinderimp', 'valkyrie', 'necromancer',
-  'gearharpy', 'waltzdancer', 'siren',
+  'gearharpy', 'waltzdancer', 'siren', 'rulersword',
 ]);
 
 export class Spawner {

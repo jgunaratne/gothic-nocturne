@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 13.3,
+   "ay": 65.0,
+   "clipFrame": 30,
+   "h": 66,
+   "w": 28,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 16.4,
+   "ay": 65.0,
+   "clipFrame": 34,
+   "h": 65,
+   "w": 39,
+   "x": 30,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 23.6,
+   "ay": 64.0,
+   "clipFrame": 37,
+   "h": 64,
+   "w": 50,
+   "x": 70,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 18.7,
+   "ay": 64.0,
+   "clipFrame": 41,
+   "h": 65,
+   "w": 42,
+   "x": 121,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 14.7,
+   "ay": 65.0,
+   "clipFrame": 44,
+   "h": 66,
+   "w": 32,
+   "x": 164,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 16.4,
+   "ay": 65.0,
+   "clipFrame": 48,
+   "h": 66,
+   "w": 30,
+   "x": 197,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 24.7,
+   "ay": 64.0,
+   "clipFrame": 52,
+   "h": 64,
+   "w": 47,
+   "x": 228,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 22.7,
+   "ay": 64.0,
+   "clipFrame": 55,
+   "h": 64,
+   "w": 39,
+   "x": 276,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "novaskeleton_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "novaskeleton_walk.mp4",
+  "corr": 0.4734273850917816,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 29,
+  "picks": [
+   30,
+   34,
+   37,
+   41,
+   44,
+   48,
+   52,
+   55
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The glowing cyan-ribbed cosmic skeleton warrior in dark obsidian shoulder armor performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. menacing skeletal stride in place.",
+  "scale": 0.1429,
+  "select": "period",
+  "sheet": "novaskeleton"
+ }
+}

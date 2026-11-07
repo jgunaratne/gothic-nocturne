@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 12.5,
+   "ay": 62.0,
+   "clipFrame": 51,
+   "h": 62,
+   "w": 29,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 35.0,
+   "ay": 59.0,
+   "clipFrame": 61,
+   "h": 59,
+   "w": 65,
+   "x": 31,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 33.5,
+   "ay": 60.0,
+   "clipFrame": 105,
+   "h": 60,
+   "w": 79,
+   "x": 97,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 16.0,
+   "ay": 63.0,
+   "clipFrame": 121,
+   "h": 63,
+   "w": 36,
+   "x": 177,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "jiangshi_attack_sheet.png",
+ "source": {
+  "action": "lunge",
+  "anchor": "hips",
+  "clip": "jiangshi_attack.mp4",
+  "frame": "hop0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   51,
+   61,
+   105,
+   121
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The undead nobleman in midnight-indigo robes and mandarin hat with a paper talisman on its forehead performs ONE lunge attack facing right: it coils back in anticipation, springs forward with its limbs and claws extended, then recovers to the starting pose. thrusts both long-clawed hands forward in a fierce double-claw strike; no projectiles, no energy beams.",
+  "scale": 0.1447,
+  "select": "motion",
+  "sheet": "jiangshi",
+  "window": [
+   51,
+   121
+  ]
+ }
+}

@@ -8,8 +8,8 @@ import { getFxLayers } from '../engine/fxlayers.js';
 import { WEAPONS, ELEMENT_META, getWeaponIconCanvas } from './weapons.js';
 
 const DROP_TABLE = [
-  ['heart_small', 0.62], ['heart_big', 0.16], ['money', 0.12], ['dagger', 0.04],
-  ['axe', 0.03], ['holy_water', 0.03],
+  ['heart_small', 0.57], ['heart_big', 0.16], ['money', 0.12], ['dagger', 0.04],
+  ['axe', 0.03], ['holy_water', 0.03], ['cross', 0.03], ['stopwatch', 0.02],
 ];
 
 export function rollDrop(rng = Math.random) {
@@ -21,9 +21,11 @@ export function rollDrop(rng = Math.random) {
 // ---------------------------------------------------------------- candles
 
 export class Candle {
-  constructor(x, y, drop = null) {
+  constructor(x, y, drop = null, kind = 'candelabra') {
     this.x = x; this.y = y;          // bottom-centre
-    this.w = 18; this.h = 60;
+    this.kind = kind || 'candelabra';
+    this.w = this.kind === 'candelabra' ? 18 : 22;
+    this.h = this.kind === 'sconce' ? 36 : (this.kind === 'lantern' ? 42 : 60);
     this.drop = drop;
     this.dead = false;
     this.phase = Math.random() * 10;
@@ -31,10 +33,34 @@ export class Candle {
   get box() { return { x: this.x - this.w / 2, y: this.y - this.h, w: this.w, h: this.h }; }
 
   draw(ctx, assets, camX, camY, time) {
-    const x = this.x - camX, y = this.y - camY;
+    const x = Math.round(this.x - camX), y = Math.round(this.y - camY);
+    const fx = getFxLayers();
+    if (this.kind === 'sconce') {
+      if (assets && assets.frame('exploration_props', 'wall_sconce') && assets.img('exploration_props')) {
+        assets.draw(ctx, 'exploration_props', 'wall_sconce', x, y);
+      } else if (assets) {
+        assets.draw(ctx, 'props', 'torch', x, y);
+      }
+      drawFlameGlow(ctx, x, y - 28, time + this.phase, 24, 0.72);
+      if (fx) fx.addFlame(x, y - 25, 7, 13, [1.0, 0.62, 0.20], this.phase);
+      return;
+    }
+    if (this.kind === 'lantern') {
+      const sway = Math.round(Math.sin(time * 2.2 + this.phase) * 1.5);
+      if (assets && assets.frame('arch', 'chain') && assets.img('arch')) {
+        assets.draw(ctx, 'arch', 'chain', x, y - 34);
+      }
+      if (assets && assets.frame('exploration_props', 'hanging_lantern') && assets.img('exploration_props')) {
+        assets.draw(ctx, 'exploration_props', 'hanging_lantern', x + sway, y);
+      } else if (assets) {
+        assets.draw(ctx, 'props', 'candelabra', x + sway, y);
+      }
+      drawFlameGlow(ctx, x + sway, y - 16, time + this.phase, 26, 0.74);
+      if (fx) fx.addFlame(x + sway, y - 14, 6, 10, [1.0, 0.74, 0.28], this.phase + 0.7);
+      return;
+    }
     assets.draw(ctx, 'props', 'candelabra', x, y);
     drawFlameGlow(ctx, x, y - 54, time + this.phase, 26, 0.7);
-    const fx = getFxLayers();
     if (fx) { fx.addFlame(x - 7, y - 50, 5, 12, [1.0, 0.6, 0.2], this.phase); fx.addFlame(x, y - 55, 5, 13, [1.0, 0.62, 0.22], this.phase + 1.1); fx.addFlame(x + 7, y - 50, 5, 12, [1.0, 0.6, 0.2], this.phase + 2.3); }
   }
 }
@@ -43,7 +69,9 @@ export class Candle {
 
 export const ITEM_FRAMES = {
   heart_small: 'heart_small', heart_big: 'heart_big', money: 'money',
-  dagger: 'dagger', axe: 'axe', holy_water: 'holy_water', meat: 'meat', orb: 'orb',
+  dagger: 'dagger', axe: 'axe', holy_water: 'holy_water',
+  cross: 'cross', stopwatch: 'stopwatch',
+  meat: 'meat', orb: 'orb',
 };
 
 export class Item extends Entity {
@@ -120,6 +148,13 @@ export class Item extends Entity {
         ctx.restore();
       }
     }
+    if (this.type === 'cross' || this.type === 'stopwatch') {
+      const ef = assets && assets.frame('exploration_props', this.type);
+      if (ef && assets.img('exploration_props')) {
+        assets.draw(ctx, 'exploration_props', this.type, this.x - camX, this.y - camY + bob);
+        return;
+      }
+    }
     assets.draw(ctx, 'items', ITEM_FRAMES[this.type], this.x - camX, this.y - camY + bob);
   }
 }
@@ -138,6 +173,13 @@ export class Projectile {
       case 'dagger': this.vx = dir * 430; this.vy = 0; this.damage = 1; this.life = 1.4; this.w = 18; this.h = 6; break;
       case 'axe': this.vx = dir * 185; this.vy = -440; this.gravity = 1; this.damage = 3; this.pierce = 4; this.w = 16; this.h = 18; break;
       case 'holy_water': this.vx = dir * 150; this.vy = -240; this.gravity = 1; this.damage = 1; this.w = 10; this.h = 14; break;
+      case 'cross':
+        this.vx = dir * 310; this.vy = 0; this.damage = 2.6; this.life = 2.8;
+        this.w = 24; this.h = 24; this.pierce = 99;
+        this.isBoomerang = true; this.returning = false;
+        this.x0 = x; this.y0 = y; this.maxDist = 205; this.returnSpeed = 345;
+        this.weaponMeta = { physical: 'cut', element: 'holy', armorPiercing: true, deficit: false };
+        break;
       case 'bone': this.vx = dir * 228; this.vy = -375; this.gravity = 0.9; this.damage = 3; this.w = 12; this.h = 12; break;
       case 'sickle': this.vx = dir * 335; this.vy = 0; this.ax = -dir * 355; this.damage = 4; this.life = 2.6; this.w = 22; this.h = 22; this.pierce = 99; break;
       case 'skull': this.vx = dir * 132; this.vy = -30; this.damage = 3; this.life = 2.8; this.w = 14; this.h = 14; this.pierce = 99; this.homing = true; break;
@@ -188,12 +230,43 @@ export class Projectile {
         this.vx = dir * 235; this.vy = 0; this.damage = 2.4; this.life = 1.65;
         this.w = 18; this.h = 18; this.pierce = 2; this.voidSeek = true;
         break;
+      case 'prism_orb':
+        this.vx = dir * 315; this.vy = -165; this.damage = 2.2; this.life = 2.6;
+        this.w = 16; this.h = 16; this.pierce = 99; this.wallRicochet = 5;
+        break;
+      case 'helios_beam':
+        this.vx = dir * 640; this.vy = 0; this.damage = 2.8; this.life = 0.28;
+        this.w = 72; this.h = 16; this.pierce = 99;
+        break;
+      case 'nova_beam':
+        this.vx = dir * 560; this.vy = 0; this.damage = owner === 'enemy' ? 5 : 4.2;
+        this.life = 0.42; this.w = 68; this.h = 14; this.pierce = 99;
+        break;
+      case 'dullahan_helm':
+        this.vx = dir * 290; this.vy = -24; this.damage = owner === 'enemy' ? 4 : 3.8;
+        this.life = 2.4; this.w = 20; this.h = 20; this.pierce = 99;
+        this.isBoomerang = true; this.returning = false;
+        this.x0 = x; this.y0 = y; this.maxDist = 148; this.returnSpeed = 310;
+        break;
+      case 'mini_sickle':
+        this.vx = dir * 180; this.vy = -85; this.damage = 1.9; this.life = 2.2;
+        this.w = 16; this.h = 16; this.pierce = 2; this.voidSeek = true;
+        break;
+      case 'abyss_sphere':
+        this.vx = dir * 155; this.vy = -90; this.gravity = 0.85; this.damage = owner === 'enemy' ? 4 : 3.6;
+        this.life = 3.2; this.w = 20; this.h = 20; this.bounces = 6; this.pierce = owner === 'player' ? 4 : 0;
+        break;
+      case 'seal_pillar':
+        this.vx = 0; this.vy = 0; this.damage = owner === 'enemy' ? 4 : 4.4;
+        this.life = 0.52; this.w = 24; this.h = 96; this.pierce = 99;
+        break;
       default: this.vx = dir * 200; this.vy = 0;
     }
   }
   get box() { return { x: this.x - this.w / 2, y: this.y - this.h / 2, w: this.w, h: this.h }; }
 
   update(dt, level, world) {
+    if (this.owner === 'enemy' && world && world.chronoFreezeT > 0) return;
     // CHRONO PENDULUM relic & Easy-mode pace soften enemy projectile speed along the same arc
     const relicSlow = (this.owner === 'enemy' && world && world.hasRelic && world.hasRelic('clocktower')) ? 0.8 : 1;
     const diffSlow = (this.owner === 'enemy' && world && world.difficulty && world.difficulty.projTimeScale) ? world.difficulty.projTimeScale : 1;
@@ -339,17 +412,45 @@ export class Projectile {
       } else if (this.type === 'shard') {
         world.particles.shards(this.x, this.y, 5, '#9a9aa8', this.y + 10);
         world.particles.dust(this.x, this.y, 3, '#b8b8c4');
-      } else if (this.type === 'cog') {
-        world.particles.sparks(this.x, this.y, 6, '#ffd27a');
+      } else if (this.type === 'cog' || this.type === 'abyss_sphere') {
+        world.particles.sparks(this.x, this.y, 5, this.type === 'abyss_sphere' ? '#c88cff' : '#ffd27a');
         if (this.bounces > 0 && this.vy > 0) {
-          this.bounces--; this.y = ty * TILE - this.h / 2 - 1; this.vy = -260; this.vx *= 0.85;
-          world.sfx('block');
+          this.bounces--;
+          this.y = ty * TILE - this.h / 2 - 1;
+          this.vy = this.type === 'abyss_sphere' ? -155 : -260;
+          this.vx *= this.type === 'abyss_sphere' ? 0.96 : 0.85;
+          if (this.type === 'cog') world.sfx('block');
           return;
         }
+      } else if (this.type === 'prism_orb' && this.wallRicochet > 0) {
+        // High-velocity 2D ricochet off solid walls, floors & ceilings!
+        this.wallRicochet--;
+        const prevTx = Math.floor((this.x - this.vx * dt) / TILE);
+        const prevTy = Math.floor((this.y - this.vy * dt) / TILE);
+        let flipped = false;
+        if (prevTx !== tx && level.isSolid(tx, prevTy)) {
+          this.vx = -this.vx;
+          this.dir = this.vx >= 0 ? 1 : -1;
+          this.x += this.vx * dt * 1.4;
+          flipped = true;
+        }
+        if (prevTy !== ty && level.isSolid(prevTx, ty)) {
+          this.vy = -this.vy;
+          this.y += this.vy * dt * 1.4;
+          flipped = true;
+        }
+        if (!flipped) {
+          this.vy = -this.vy;
+          this.vx = -this.vx;
+        }
+        this.hitSet.clear();
+        world.particles.sparks(this.x, this.y, 5, '#ff7ae2');
+        return;
       }
       if (![
-        'sickle', 'skull', 'hellfire', 'gaze', 'gas', 'crimson_wave',
+        'sickle', 'skull', 'hellfire', 'gaze', 'gas', 'crimson_wave', 'cross',
         'weapon_boomerang', 'silver_beam', 'holy_wave', 'volt_lance', 'catalyst_void',
+        'helios_beam', 'nova_beam', 'dullahan_helm', 'mini_sickle', 'seal_pillar',
       ].includes(this.type)) this.dead = true;
     }
     if (!this.isBoomerang && (this.y > level.height + 60 || this.x < -40 || this.x > level.width + 40)) this.dead = true;
@@ -361,6 +462,7 @@ export class Projectile {
     const fx = getFxLayers();
     const useFx = !!(fx && fx.enabled);
     const pImg = assets ? assets.img('projectiles') : null;
+    const extraImg = assets ? assets.img('extra_projectiles') : null;
     const drawProjSprite = (name, rot = 0, flipX = false, scale = 1) => {
       const f = assets && assets.frame('projectiles', name);
       if (!f || !pImg) return false;
@@ -368,6 +470,16 @@ export class Projectile {
       if (rot) ctx.rotate(rot);
       if (flipX || scale !== 1) ctx.scale(flipX ? -scale : scale, scale);
       ctx.drawImage(pImg, f.x, f.y, f.w, f.h, -f.w / 2, -f.h / 2, f.w, f.h);
+      ctx.restore();
+      return true;
+    };
+    const drawExtraSprite = (name, rot = 0, flipX = false, scale = 1) => {
+      const f = assets && assets.frame('extra_projectiles', name);
+      if (!f || !extraImg) return false;
+      ctx.save();
+      if (rot) ctx.rotate(rot);
+      if (flipX || scale !== 1) ctx.scale(flipX ? -scale : scale, scale);
+      ctx.drawImage(extraImg, f.x, f.y, f.w, f.h, -f.w / 2, -f.h / 2, f.w, f.h);
       ctx.restore();
       return true;
     };
@@ -392,6 +504,25 @@ export class Projectile {
         const f = assets.frame('items', 'holy_water');
         ctx.rotate(this.spin * 0.5);
         ctx.drawImage(assets.img('items'), f.x, f.y, f.w, f.h, -f.w / 2, -f.h / 2, f.w, f.h);
+        break;
+      }
+      case 'cross': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 18, ry: 18, dirX: Math.cos(this.spin * 1.4), dirY: Math.sin(this.spin * 1.4),
+            mode: 3, seed, core: [1.0, 0.99, 0.90], rim: [0.46, 0.84, 1.0], alpha: 0.86,
+          });
+        }
+        const cf = assets && assets.frame('exploration_props', 'cross');
+        const cImg = assets && assets.img('exploration_props');
+        ctx.rotate(this.spin * 1.35);
+        if (cf && cImg) {
+          ctx.drawImage(cImg, cf.x, cf.y, cf.w, cf.h, -cf.w / 2, -cf.h / 2, cf.w, cf.h);
+        } else {
+          ctx.fillStyle = '#eaf6ff';
+          ctx.fillRect(-10, -2, 20, 4);
+          ctx.fillRect(-2, -10, 4, 20);
+        }
         break;
       }
       case 'bone': {
@@ -545,10 +676,12 @@ export class Projectile {
         break;
       }
       case 'snowball': {
-        ctx.fillStyle = '#eef6ff';
-        ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#b9d4f2';
-        ctx.fillRect(-2, 1, 3, 2); ctx.fillRect(1, -3, 2, 2);
+        if (!drawExtraSprite('snowball', this.spin * 0.4, false, 0.9)) {
+          ctx.fillStyle = '#eef6ff';
+          ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#b9d4f2';
+          ctx.fillRect(-2, 1, 3, 2); ctx.fillRect(1, -3, 2, 2);
+        }
         break;
       }
       case 'present': {
@@ -580,18 +713,22 @@ export class Projectile {
             ctx.globalCompositeOperation = 'source-over';
           }
         }
-        ctx.fillStyle = '#52e8b8';
-        ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#d8fff0';
-        ctx.fillRect(-2, -2, 3, 3);
+        if (!drawExtraSprite('spore', Math.sin(this.time * 6) * 0.2, false, 0.85)) {
+          ctx.fillStyle = '#52e8b8';
+          ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#d8fff0';
+          ctx.fillRect(-2, -2, 3, 3);
+        }
         break;
       }
       case 'shard': {
-        ctx.rotate(this.spin * 0.4);
-        ctx.fillStyle = '#7e8292';
-        ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, -2); ctx.lineTo(4, 7); ctx.lineTo(-5, 5); ctx.lineTo(-6, -3); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#b8bccb';
-        ctx.fillRect(-2, -5, 3, 4);
+        if (!drawExtraSprite('shard', this.spin * 0.4, false, 0.9)) {
+          ctx.rotate(this.spin * 0.4);
+          ctx.fillStyle = '#7e8292';
+          ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, -2); ctx.lineTo(4, 7); ctx.lineTo(-5, 5); ctx.lineTo(-6, -3); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#b8bccb';
+          ctx.fillRect(-2, -5, 3, 4);
+        }
         break;
       }
       case 'page': {
@@ -633,11 +770,13 @@ export class Projectile {
             mode: 0, seed, core: [0.78, 1.0, 0.88], rim: [0.20, 0.78, 0.56], alpha: 0.55,
           });
         }
-        ctx.rotate(ang);
-        ctx.fillStyle = '#4a352c';
-        ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-7, -4); ctx.lineTo(-4, 0); ctx.lineTo(-7, 4); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#62f2c2';
-        ctx.fillRect(-3, -1, 9, 2);
+        if (!drawExtraSprite('thorn', ang, false, 0.9)) {
+          ctx.rotate(ang);
+          ctx.fillStyle = '#4a352c';
+          ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-7, -4); ctx.lineTo(-4, 0); ctx.lineTo(-7, 4); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#62f2c2';
+          ctx.fillRect(-3, -1, 9, 2);
+        }
         break;
       }
       case 'magmaball': {
@@ -791,13 +930,15 @@ export class Projectile {
             mode: 0, seed, core: [0.76, 1.0, 0.94], rim: [1.0, 0.62, 0.14], alpha: 0.92,
           });
         }
-        ctx.rotate(this.spin * 0.75);
-        ctx.fillStyle = '#2ad8c8';
-        ctx.beginPath(); ctx.arc(0, 1, 5.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#d89b3c';
-        ctx.fillRect(-2, -6, 4, 4);
-        ctx.fillStyle = '#e8fffb';
-        ctx.fillRect(-2, -1, 2, 2);
+        if (!drawExtraSprite('alchflask', this.spin * 0.75, false, 0.92)) {
+          ctx.rotate(this.spin * 0.75);
+          ctx.fillStyle = '#2ad8c8';
+          ctx.beginPath(); ctx.arc(0, 1, 5.5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#d89b3c';
+          ctx.fillRect(-2, -6, 4, 4);
+          ctx.fillStyle = '#e8fffb';
+          ctx.fillRect(-2, -1, 2, 2);
+        }
         break;
       }
       case 'waterbolt': {
@@ -828,6 +969,107 @@ export class Projectile {
         ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-10, -4); ctx.lineTo(-6, 0); ctx.lineTo(-10, 4); ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(-6, -1, 14, 2);
+        break;
+      }
+      case 'prism_orb': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 14, ry: 14, dirX: this.vx || this.dir, dirY: this.vy,
+            mode: 0, seed, core: [1.0, 0.88, 0.98], rim: [0.92, 0.22, 0.78], alpha: 0.95,
+          });
+        }
+        if (!drawExtraSprite('prism_orb', this.spin * 0.6, false, 0.92)) {
+          ctx.fillStyle = '#ff6ad5';
+          ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath(); ctx.arc(-1, -1, 3.5, 0, Math.PI * 2); ctx.fill();
+        }
+        break;
+      }
+      case 'helios_beam':
+      case 'nova_beam': {
+        const isNova = this.type === 'nova_beam';
+        const rimCol = isNova ? '#28e8f8' : '#ff8a24';
+        const midCol = isNova ? '#9efcff' : '#ffe878';
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 38, ry: 10, dirX: this.dir, dirY: 0,
+            mode: 1, seed,
+            core: isNova ? [0.92, 1.0, 1.0] : [1.0, 0.99, 0.88],
+            rim: isNova ? [0.14, 0.88, 0.98] : [1.0, 0.48, 0.12],
+            alpha: 0.96,
+          });
+        }
+        ctx.fillStyle = rimCol;
+        ctx.fillRect(-34, -6, 68, 12);
+        ctx.fillStyle = midCol;
+        ctx.fillRect(-34, -4, 68, 8);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-34, -2, 68, 4);
+        break;
+      }
+      case 'dullahan_helm': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 16, ry: 16, dirX: this.vx || this.dir, dirY: this.vy,
+            mode: 0, seed, core: [0.85, 0.98, 1.0], rim: [0.58, 0.22, 0.96], alpha: 0.88,
+          });
+        }
+        if (!drawExtraSprite('dullahan_helm', Math.sin(this.time * 12) * 0.15, (this.vx || this.dir) < 0, 0.92)) {
+          ctx.rotate(this.spin * 0.45);
+          ctx.fillStyle = '#3b2858';
+          ctx.fillRect(-7, -7, 14, 13);
+          ctx.fillStyle = '#b85cff';
+          ctx.fillRect(-9, -11, 8, 5);
+          ctx.fillStyle = '#52f8e8';
+          ctx.fillRect(0, -3, 6, 3);
+        }
+        break;
+      }
+      case 'mini_sickle': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 12, ry: 12, dirX: Math.cos(this.spin), dirY: Math.sin(this.spin),
+            mode: 3, seed, core: [0.94, 0.90, 1.0], rim: [0.62, 0.28, 0.98], alpha: 0.82,
+          });
+        }
+        if (!drawProjSprite('sickle', this.spin * 1.4, false, 0.68)) {
+          ctx.rotate(this.spin * 1.4);
+          ctx.strokeStyle = '#e8dcff'; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.arc(0, 0, 7, 0.2, Math.PI * 1.35); ctx.stroke();
+        }
+        break;
+      }
+      case 'abyss_sphere': {
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: 15, ry: 15, dirX: this.dir, dirY: 0,
+            mode: 0, seed, core: [0.92, 0.78, 1.0], rim: [0.46, 0.14, 0.82], alpha: 0.92,
+          });
+        }
+        if (!drawExtraSprite('abyss_sphere', this.spin * 0.5, false, 0.94)) {
+          ctx.fillStyle = '#2a0e46';
+          ctx.beginPath(); ctx.arc(0, 0, 8.5, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = '#d47aff'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(0, 0, 8.5, 0, Math.PI * 2); ctx.stroke();
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(-2, -3, 3, 3);
+        }
+        break;
+      }
+      case 'seal_pillar': {
+        const k = Math.sin(Math.min(1, this.time / 0.52) * Math.PI);
+        const w0 = Math.max(4, Math.round(20 * k));
+        if (useFx) {
+          fx.addAttack({
+            x, y, rx: w0 * 0.9, ry: 48, dirX: 0, dirY: -1,
+            mode: 1, seed, core: [1.0, 0.98, 0.82], rim: [0.98, 0.68, 0.16], alpha: 0.94 * k,
+          });
+        }
+        ctx.fillStyle = '#ffb838';
+        ctx.fillRect(-w0 >> 1, -48, w0, 96);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-Math.max(2, w0 >> 2), -48, Math.max(2, w0 >> 1), 96);
         break;
       }
       default: break;

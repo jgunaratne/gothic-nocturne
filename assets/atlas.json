@@ -1317,6 +1317,46 @@
   "type": "sheet",
   "w": 425
  },
+ "astromancer": {
+  "file": "astromancer.png",
+  "frames": {
+   "cape": {
+    "ax": 67.0,
+    "ay": 115,
+    "h": 115,
+    "w": 134,
+    "x": 84,
+    "y": 1
+   },
+   "cast": {
+    "ax": 34.0,
+    "ay": 108,
+    "h": 108,
+    "w": 68,
+    "x": 219,
+    "y": 1
+   },
+   "idle": {
+    "ax": 41.0,
+    "ay": 114,
+    "h": 114,
+    "w": 82,
+    "x": 1,
+    "y": 1
+   },
+   "lunge": {
+    "ax": 71.0,
+    "ay": 93,
+    "h": 93,
+    "w": 142,
+    "x": 288,
+    "y": 1
+   }
+  },
+  "h": 117,
+  "type": "sheet",
+  "w": 431
+ },
  "automaton": {
   "file": "automaton.png",
   "frames": {
@@ -2216,6 +2256,143 @@
   "loop": true,
   "type": "sheet",
   "w": 681
+ },
+ "bonepillar": {
+  "file": "bonepillar.png",
+  "frames": {
+   "attack": {
+    "ax": 44.0,
+    "ay": 82,
+    "h": 82,
+    "w": 88,
+    "x": 172,
+    "y": 1
+   },
+   "idle0": {
+    "ax": 26.5,
+    "ay": 84,
+    "h": 84,
+    "w": 53,
+    "x": 1,
+    "y": 1
+   },
+   "idle1": {
+    "ax": 26.5,
+    "ay": 84,
+    "h": 84,
+    "w": 53,
+    "x": 55,
+    "y": 1
+   },
+   "windup": {
+    "ax": 31.0,
+    "ay": 82,
+    "h": 82,
+    "w": 62,
+    "x": 109,
+    "y": 1
+   }
+  },
+  "h": 86,
+  "type": "sheet",
+  "w": 261
+ },
+ "bonepillar_attack": {
+  "file": "bonepillar_attack.png",
+  "frames": {
+   "attack0": {
+    "ax": 40.5,
+    "ay": 85.0,
+    "h": 85,
+    "w": 73,
+    "x": 1,
+    "y": 1
+   },
+   "attack1": {
+    "ax": 85.0,
+    "ay": 87.0,
+    "h": 87,
+    "w": 151,
+    "x": 75,
+    "y": 1
+   },
+   "attack2": {
+    "ax": 84.0,
+    "ay": 86.0,
+    "h": 86,
+    "w": 152,
+    "x": 227,
+    "y": 1
+   },
+   "attack3": {
+    "ax": 29.5,
+    "ay": 82.0,
+    "h": 82,
+    "w": 57,
+    "x": 380,
+    "y": 1
+   }
+  },
+  "h": 89,
+  "type": "sheet",
+  "w": 438
+ },
+ "bonepillar_idle": {
+  "file": "bonepillar_idle.png",
+  "frames": {
+   "idle0": {
+    "ax": 29.4,
+    "ay": 84.0,
+    "h": 84,
+    "w": 56,
+    "x": 1,
+    "y": 1
+   },
+   "idle1": {
+    "ax": 30.1,
+    "ay": 84.0,
+    "h": 84,
+    "w": 57,
+    "x": 58,
+    "y": 1
+   },
+   "idle2": {
+    "ax": 29.7,
+    "ay": 83.0,
+    "h": 83,
+    "w": 57,
+    "x": 116,
+    "y": 1
+   },
+   "idle3": {
+    "ax": 26.4,
+    "ay": 84.0,
+    "h": 84,
+    "w": 53,
+    "x": 174,
+    "y": 1
+   },
+   "idle4": {
+    "ax": 26.0,
+    "ay": 84.0,
+    "h": 84,
+    "w": 52,
+    "x": 228,
+    "y": 1
+   },
+   "idle5": {
+    "ax": 26.0,
+    "ay": 84.0,
+    "h": 84,
+    "w": 52,
+    "x": 281,
+    "y": 1
+   }
+  },
+  "h": 86,
+  "loop": true,
+  "type": "sheet",
+  "w": 334
  },
  "boss": {
   "file": "boss.png",
@@ -3958,6 +4135,68 @@
   "type": "texture",
   "w": 768
  },
+ "conservatory_props": {
+  "file": "conservatory_props.png",
+  "frames": {
+   "carnivorous_bloom": {
+    "ax": 22.0,
+    "ay": 77,
+    "h": 77,
+    "w": 44,
+    "x": 1,
+    "y": 1
+   },
+   "glass_terrarium": {
+    "ax": 15.0,
+    "ay": 69,
+    "h": 69,
+    "w": 30,
+    "x": 91,
+    "y": 1
+   },
+   "iron_trellis": {
+    "ax": 22.0,
+    "ay": 86,
+    "h": 86,
+    "w": 44,
+    "x": 46,
+    "y": 1
+   },
+   "marble_urn": {
+    "ax": 23.5,
+    "ay": 64,
+    "h": 64,
+    "w": 47,
+    "x": 122,
+    "y": 1
+   }
+  },
+  "h": 88,
+  "type": "sheet",
+  "w": 170
+ },
+ "conservatoryfloor": {
+  "file": "conservatoryfloor.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "conservatoryfloor_b": {
+  "file": "conservatoryfloor_b.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "conservatorywall": {
+  "file": "conservatorywall.png",
+  "h": 384,
+  "type": "texture",
+  "w": 768
+ },
  "crypt_stone": {
   "file": "crypt_stone.png",
   "h": 256,
@@ -4506,6 +4745,221 @@
   "type": "sheet",
   "w": 431
  },
+ "dullahan": {
+  "file": "dullahan.png",
+  "frames": {
+   "attack": {
+    "ax": 50.0,
+    "ay": 72,
+    "h": 72,
+    "w": 169,
+    "x": 358,
+    "y": 1
+   },
+   "walk0": {
+    "ax": 50.0,
+    "ay": 80,
+    "h": 80,
+    "w": 100,
+    "x": 1,
+    "y": 1
+   },
+   "walk1": {
+    "ax": 70.0,
+    "ay": 80,
+    "h": 80,
+    "w": 140,
+    "x": 102,
+    "y": 1
+   },
+   "windup": {
+    "ax": 57.0,
+    "ay": 99,
+    "h": 99,
+    "w": 114,
+    "x": 243,
+    "y": 1
+   }
+  },
+  "h": 101,
+  "type": "sheet",
+  "w": 528
+ },
+ "dullahan_attack": {
+  "file": "dullahan_attack.png",
+  "frames": {
+   "attack0": {
+    "ax": 32.5,
+    "ay": 80.0,
+    "h": 80,
+    "w": 82,
+    "x": 1,
+    "y": 1
+   },
+   "attack1": {
+    "ax": 47.5,
+    "ay": 112.0,
+    "h": 112,
+    "w": 106,
+    "x": 84,
+    "y": 1
+   },
+   "attack2": {
+    "ax": 71.5,
+    "ay": 85.0,
+    "h": 89,
+    "w": 137,
+    "x": 191,
+    "y": 1
+   },
+   "attack3": {
+    "ax": 36.5,
+    "ay": 80.0,
+    "h": 80,
+    "w": 91,
+    "x": 329,
+    "y": 1
+   }
+  },
+  "h": 114,
+  "type": "sheet",
+  "w": 421
+ },
+ "dullahan_walk": {
+  "file": "dullahan_walk.png",
+  "frames": {
+   "walk0": {
+    "ax": 52.5,
+    "ay": 82.0,
+    "h": 82,
+    "w": 104,
+    "x": 1,
+    "y": 1
+   },
+   "walk1": {
+    "ax": 51.8,
+    "ay": 80.0,
+    "h": 80,
+    "w": 107,
+    "x": 106,
+    "y": 1
+   },
+   "walk2": {
+    "ax": 50.7,
+    "ay": 80.0,
+    "h": 80,
+    "w": 106,
+    "x": 214,
+    "y": 1
+   },
+   "walk3": {
+    "ax": 51.8,
+    "ay": 81.0,
+    "h": 81,
+    "w": 101,
+    "x": 321,
+    "y": 1
+   },
+   "walk4": {
+    "ax": 50.0,
+    "ay": 79.0,
+    "h": 79,
+    "w": 94,
+    "x": 423,
+    "y": 1
+   },
+   "walk5": {
+    "ax": 46.4,
+    "ay": 80.0,
+    "h": 80,
+    "w": 91,
+    "x": 518,
+    "y": 1
+   },
+   "walk6": {
+    "ax": 50.7,
+    "ay": 82.0,
+    "h": 82,
+    "w": 98,
+    "x": 610,
+    "y": 1
+   },
+   "walk7": {
+    "ax": 52.1,
+    "ay": 79.0,
+    "h": 80,
+    "w": 102,
+    "x": 709,
+    "y": 1
+   }
+  },
+  "h": 84,
+  "loop": true,
+  "type": "sheet",
+  "w": 812
+ },
+ "dungeon_props": {
+  "file": "dungeon_props.png",
+  "frames": {
+   "chain_pillar": {
+    "ax": 18.5,
+    "ay": 87,
+    "h": 87,
+    "w": 37,
+    "x": 166,
+    "y": 1
+   },
+   "coal_brazier": {
+    "ax": 25.5,
+    "ay": 52,
+    "h": 52,
+    "w": 51,
+    "x": 114,
+    "y": 1
+   },
+   "iron_maiden": {
+    "ax": 24.0,
+    "ay": 88,
+    "h": 88,
+    "w": 48,
+    "x": 1,
+    "y": 1
+   },
+   "pillory_rack": {
+    "ax": 31.5,
+    "ay": 73,
+    "h": 73,
+    "w": 63,
+    "x": 50,
+    "y": 1
+   }
+  },
+  "h": 90,
+  "type": "sheet",
+  "w": 204
+ },
+ "dungeonfloor": {
+  "file": "dungeonfloor.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "dungeonfloor_b": {
+  "file": "dungeonfloor_b.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "dungeonwall": {
+  "file": "dungeonwall.png",
+  "h": 384,
+  "type": "texture",
+  "w": 768
+ },
  "ending_1": {
   "file": "ending_1.png",
   "h": 720,
@@ -4795,6 +5249,238 @@
   "type": "sheet",
   "w": 675
  },
+ "exploration_props": {
+  "file": "exploration_props.png",
+  "frames": {
+   "chest_emerald_closed": {
+    "ax": 18.0,
+    "ay": 26.0,
+    "h": 26,
+    "w": 36,
+    "x": 42,
+    "y": 2
+   },
+   "chest_emerald_open": {
+    "ax": 15.0,
+    "ay": 30.0,
+    "h": 30,
+    "w": 30,
+    "x": 150,
+    "y": 2
+   },
+   "chest_gold_closed": {
+    "ax": 17.5,
+    "ay": 26.0,
+    "h": 26,
+    "w": 35,
+    "x": 80,
+    "y": 2
+   },
+   "chest_gold_open": {
+    "ax": 15.0,
+    "ay": 30.0,
+    "h": 30,
+    "w": 30,
+    "x": 182,
+    "y": 2
+   },
+   "chest_wood_closed": {
+    "ax": 19.0,
+    "ay": 26.0,
+    "h": 26,
+    "w": 38,
+    "x": 2,
+    "y": 2
+   },
+   "chest_wood_open": {
+    "ax": 15.5,
+    "ay": 30.0,
+    "h": 30,
+    "w": 31,
+    "x": 117,
+    "y": 2
+   },
+   "cross": {
+    "ax": 14.5,
+    "ay": 22.0,
+    "h": 22,
+    "w": 29,
+    "x": 472,
+    "y": 2
+   },
+   "glyph_pedestal": {
+    "ax": 7.5,
+    "ay": 23.0,
+    "h": 23,
+    "w": 15,
+    "x": 338,
+    "y": 2
+   },
+   "glyph_tablet": {
+    "ax": 11.5,
+    "ay": 14.0,
+    "h": 28,
+    "w": 23,
+    "x": 355,
+    "y": 2
+   },
+   "hanging_lantern": {
+    "ax": 7.0,
+    "ay": 38.0,
+    "h": 38,
+    "w": 14,
+    "x": 456,
+    "y": 2
+   },
+   "lever_locked": {
+    "ax": 12.5,
+    "ay": 32.0,
+    "h": 32,
+    "w": 25,
+    "x": 380,
+    "y": 2
+   },
+   "lever_open": {
+    "ax": 13.5,
+    "ay": 32.0,
+    "h": 32,
+    "w": 27,
+    "x": 407,
+    "y": 2
+   },
+   "lodestone_active": {
+    "ax": 12.0,
+    "ay": 15.5,
+    "h": 31,
+    "w": 24,
+    "x": 249,
+    "y": 2
+   },
+   "lodestone_idle": {
+    "ax": 9.5,
+    "ay": 14.0,
+    "h": 28,
+    "w": 19,
+    "x": 228,
+    "y": 2
+   },
+   "lodestone_mount": {
+    "ax": 6.0,
+    "ay": 20.0,
+    "h": 20,
+    "w": 12,
+    "x": 214,
+    "y": 2
+   },
+   "soul_orb": {
+    "ax": 13.0,
+    "ay": 11.0,
+    "h": 22,
+    "w": 26,
+    "x": 529,
+    "y": 2
+   },
+   "stopwatch": {
+    "ax": 12.0,
+    "ay": 22.0,
+    "h": 22,
+    "w": 24,
+    "x": 503,
+    "y": 2
+   },
+   "wall_sconce": {
+    "ax": 9.0,
+    "ay": 34.0,
+    "h": 34,
+    "w": 18,
+    "x": 436,
+    "y": 2
+   },
+   "warp_mirror_arch": {
+    "ax": 30.5,
+    "ay": 92.0,
+    "h": 92,
+    "w": 61,
+    "x": 275,
+    "y": 2
+   }
+  },
+  "h": 96,
+  "type": "sheet",
+  "w": 557
+ },
+ "extra_projectiles": {
+  "file": "extra_projectiles.png",
+  "frames": {
+   "abyss_sphere": {
+    "ax": 11.0,
+    "ay": 11.0,
+    "h": 22,
+    "w": 22,
+    "x": 123,
+    "y": 2
+   },
+   "alchflask": {
+    "ax": 6.5,
+    "ay": 10.0,
+    "h": 20,
+    "w": 13,
+    "x": 2,
+    "y": 2
+   },
+   "dullahan_helm": {
+    "ax": 9.0,
+    "ay": 12.0,
+    "h": 24,
+    "w": 18,
+    "x": 17,
+    "y": 2
+   },
+   "prism_orb": {
+    "ax": 5.5,
+    "ay": 9.0,
+    "h": 18,
+    "w": 11,
+    "x": 110,
+    "y": 2
+   },
+   "shard": {
+    "ax": 3.0,
+    "ay": 8.5,
+    "h": 17,
+    "w": 6,
+    "x": 147,
+    "y": 2
+   },
+   "snowball": {
+    "ax": 8.0,
+    "ay": 8.0,
+    "h": 16,
+    "w": 16,
+    "x": 57,
+    "y": 2
+   },
+   "spore": {
+    "ax": 9.0,
+    "ay": 9.0,
+    "h": 18,
+    "w": 18,
+    "x": 37,
+    "y": 2
+   },
+   "thorn": {
+    "ax": 16.5,
+    "ay": 6.0,
+    "h": 12,
+    "w": 33,
+    "x": 75,
+    "y": 2
+   }
+  },
+  "h": 28,
+  "type": "sheet",
+  "w": 155
+ },
  "falling_tiles": {
   "file": "falling_tiles.png",
   "frames": {
@@ -4840,6 +5526,143 @@
   "h": 360,
   "type": "texture",
   "w": 1280
+ },
+ "fleaman": {
+  "file": "fleaman.png",
+  "frames": {
+   "attack": {
+    "ax": 21.0,
+    "ay": 40,
+    "h": 40,
+    "w": 55,
+    "x": 126,
+    "y": 1
+   },
+   "crouch0": {
+    "ax": 21.0,
+    "ay": 36,
+    "h": 36,
+    "w": 42,
+    "x": 1,
+    "y": 1
+   },
+   "hop0": {
+    "ax": 20.0,
+    "ay": 41,
+    "h": 41,
+    "w": 40,
+    "x": 44,
+    "y": 1
+   },
+   "windup": {
+    "ax": 20.0,
+    "ay": 53,
+    "h": 53,
+    "w": 40,
+    "x": 85,
+    "y": 1
+   }
+  },
+  "h": 55,
+  "type": "sheet",
+  "w": 182
+ },
+ "fleaman_attack": {
+  "file": "fleaman_attack.png",
+  "frames": {
+   "attack0": {
+    "ax": 23.5,
+    "ay": 34.0,
+    "h": 34,
+    "w": 41,
+    "x": 1,
+    "y": 1
+   },
+   "attack1": {
+    "ax": 33.5,
+    "ay": 36.0,
+    "h": 36,
+    "w": 49,
+    "x": 43,
+    "y": 1
+   },
+   "attack2": {
+    "ax": 37.0,
+    "ay": 32.0,
+    "h": 32,
+    "w": 60,
+    "x": 93,
+    "y": 1
+   },
+   "attack3": {
+    "ax": 22.5,
+    "ay": 35.0,
+    "h": 35,
+    "w": 43,
+    "x": 154,
+    "y": 1
+   }
+  },
+  "h": 38,
+  "type": "sheet",
+  "w": 198
+ },
+ "fleaman_crouch": {
+  "file": "fleaman_crouch.png",
+  "frames": {
+   "crouch0": {
+    "ax": 21.7,
+    "ay": 40.0,
+    "h": 40,
+    "w": 38,
+    "x": 1,
+    "y": 1
+   },
+   "crouch1": {
+    "ax": 21.7,
+    "ay": 40.0,
+    "h": 40,
+    "w": 37,
+    "x": 40,
+    "y": 1
+   },
+   "crouch2": {
+    "ax": 21.7,
+    "ay": 40.0,
+    "h": 40,
+    "w": 38,
+    "x": 78,
+    "y": 1
+   },
+   "crouch3": {
+    "ax": 21.7,
+    "ay": 37.0,
+    "h": 37,
+    "w": 40,
+    "x": 117,
+    "y": 1
+   },
+   "crouch4": {
+    "ax": 21.7,
+    "ay": 35.0,
+    "h": 35,
+    "w": 42,
+    "x": 158,
+    "y": 1
+   },
+   "crouch5": {
+    "ax": 21.7,
+    "ay": 35.0,
+    "h": 35,
+    "w": 42,
+    "x": 201,
+    "y": 1
+   }
+  },
+  "h": 42,
+  "loop": true,
+  "type": "sheet",
+  "w": 244
  },
  "floor": {
   "file": "floor.png",
@@ -7112,6 +7935,46 @@
   "type": "sheet",
   "w": 608
  },
+ "inquisitor": {
+  "file": "inquisitor.png",
+  "frames": {
+   "throw0": {
+    "ax": 36.0,
+    "ay": 130,
+    "h": 130,
+    "w": 72,
+    "x": 161,
+    "y": 1
+   },
+   "throw1": {
+    "ax": 44.5,
+    "ay": 118,
+    "h": 118,
+    "w": 89,
+    "x": 234,
+    "y": 1
+   },
+   "walk0": {
+    "ax": 39.5,
+    "ay": 110,
+    "h": 110,
+    "w": 79,
+    "x": 1,
+    "y": 1
+   },
+   "walk1": {
+    "ax": 39.5,
+    "ay": 110,
+    "h": 110,
+    "w": 79,
+    "x": 81,
+    "y": 1
+   }
+  },
+  "h": 132,
+  "type": "sheet",
+  "w": 324
+ },
  "items": {
   "file": "items.png",
   "frames": {
@@ -7183,6 +8046,86 @@
   "h": 32,
   "type": "sheet",
   "w": 185
+ },
+ "jiangshi": {
+  "file": "jiangshi.png",
+  "frames": {
+   "attack": {
+    "ax": 20.0,
+    "ay": 57,
+    "h": 57,
+    "w": 63,
+    "x": 126,
+    "y": 1
+   },
+   "hop0": {
+    "ax": 20.0,
+    "ay": 66,
+    "h": 66,
+    "w": 40,
+    "x": 1,
+    "y": 1
+   },
+   "hop1": {
+    "ax": 24.0,
+    "ay": 56,
+    "h": 56,
+    "w": 48,
+    "x": 42,
+    "y": 1
+   },
+   "windup": {
+    "ax": 17.0,
+    "ay": 66,
+    "h": 66,
+    "w": 34,
+    "x": 91,
+    "y": 1
+   }
+  },
+  "h": 68,
+  "type": "sheet",
+  "w": 190
+ },
+ "jiangshi_attack": {
+  "file": "jiangshi_attack.png",
+  "frames": {
+   "attack0": {
+    "ax": 12.5,
+    "ay": 62.0,
+    "h": 62,
+    "w": 29,
+    "x": 1,
+    "y": 1
+   },
+   "attack1": {
+    "ax": 35.0,
+    "ay": 59.0,
+    "h": 59,
+    "w": 65,
+    "x": 31,
+    "y": 1
+   },
+   "attack2": {
+    "ax": 33.5,
+    "ay": 60.0,
+    "h": 60,
+    "w": 79,
+    "x": 97,
+    "y": 1
+   },
+   "attack3": {
+    "ax": 16.0,
+    "ay": 63.0,
+    "h": 63,
+    "w": 36,
+    "x": 177,
+    "y": 1
+   }
+  },
+  "h": 65,
+  "type": "sheet",
+  "w": 214
  },
  "lavagolem": {
   "file": "lavagolem.png",
@@ -7487,6 +8430,46 @@
   "loop": true,
   "type": "sheet",
   "w": 388
+ },
+ "mandragora": {
+  "file": "mandragora.png",
+  "frames": {
+   "cast": {
+    "ax": 59.0,
+    "ay": 114,
+    "h": 114,
+    "w": 118,
+    "x": 92,
+    "y": 1
+   },
+   "idle": {
+    "ax": 45.0,
+    "ay": 118,
+    "h": 118,
+    "w": 90,
+    "x": 1,
+    "y": 1
+   },
+   "shield": {
+    "ax": 47.0,
+    "ay": 118,
+    "h": 118,
+    "w": 94,
+    "x": 314,
+    "y": 1
+   },
+   "summon": {
+    "ax": 51.0,
+    "ay": 124,
+    "h": 124,
+    "w": 102,
+    "x": 211,
+    "y": 1
+   }
+  },
+  "h": 126,
+  "type": "sheet",
+  "w": 409
  },
  "map_icons": {
   "file": "map_icons.png",
@@ -8381,6 +9364,24 @@
   "type": "texture",
   "w": 512
  },
+ "mural_conservatory": {
+  "file": "mural_conservatory.png",
+  "h": 288,
+  "type": "texture",
+  "w": 512
+ },
+ "mural_dungeon": {
+  "file": "mural_dungeon.png",
+  "h": 288,
+  "type": "texture",
+  "w": 512
+ },
+ "mural_observatory": {
+  "file": "mural_observatory.png",
+  "h": 288,
+  "type": "texture",
+  "w": 512
+ },
  "mural_throne": {
   "file": "mural_throne.png",
   "h": 288,
@@ -8523,6 +9524,221 @@
   "loop": true,
   "type": "sheet",
   "w": 252
+ },
+ "novaskeleton": {
+  "file": "novaskeleton.png",
+  "frames": {
+   "attack": {
+    "ax": 25.5,
+    "ay": 61,
+    "h": 61,
+    "w": 88,
+    "x": 161,
+    "y": 1
+   },
+   "walk0": {
+    "ax": 25.5,
+    "ay": 64,
+    "h": 64,
+    "w": 51,
+    "x": 1,
+    "y": 1
+   },
+   "walk1": {
+    "ax": 27.0,
+    "ay": 64,
+    "h": 64,
+    "w": 54,
+    "x": 53,
+    "y": 1
+   },
+   "windup": {
+    "ax": 26.0,
+    "ay": 58,
+    "h": 58,
+    "w": 52,
+    "x": 108,
+    "y": 1
+   }
+  },
+  "h": 66,
+  "type": "sheet",
+  "w": 250
+ },
+ "novaskeleton_attack": {
+  "file": "novaskeleton_attack.png",
+  "frames": {
+   "attack0": {
+    "ax": 24.5,
+    "ay": 67.0,
+    "h": 67,
+    "w": 46,
+    "x": 1,
+    "y": 1
+   },
+   "attack1": {
+    "ax": 59.5,
+    "ay": 70.0,
+    "h": 70,
+    "w": 117,
+    "x": 48,
+    "y": 1
+   },
+   "attack2": {
+    "ax": 65.0,
+    "ay": 69.0,
+    "h": 69,
+    "w": 114,
+    "x": 166,
+    "y": 1
+   },
+   "attack3": {
+    "ax": 31.0,
+    "ay": 60.0,
+    "h": 60,
+    "w": 65,
+    "x": 281,
+    "y": 1
+   }
+  },
+  "h": 72,
+  "type": "sheet",
+  "w": 347
+ },
+ "novaskeleton_walk": {
+  "file": "novaskeleton_walk.png",
+  "frames": {
+   "walk0": {
+    "ax": 13.3,
+    "ay": 65.0,
+    "h": 66,
+    "w": 28,
+    "x": 1,
+    "y": 1
+   },
+   "walk1": {
+    "ax": 16.4,
+    "ay": 65.0,
+    "h": 65,
+    "w": 39,
+    "x": 30,
+    "y": 1
+   },
+   "walk2": {
+    "ax": 23.6,
+    "ay": 64.0,
+    "h": 64,
+    "w": 50,
+    "x": 70,
+    "y": 1
+   },
+   "walk3": {
+    "ax": 18.7,
+    "ay": 64.0,
+    "h": 65,
+    "w": 42,
+    "x": 121,
+    "y": 1
+   },
+   "walk4": {
+    "ax": 14.7,
+    "ay": 65.0,
+    "h": 66,
+    "w": 32,
+    "x": 164,
+    "y": 1
+   },
+   "walk5": {
+    "ax": 16.4,
+    "ay": 65.0,
+    "h": 66,
+    "w": 30,
+    "x": 197,
+    "y": 1
+   },
+   "walk6": {
+    "ax": 24.7,
+    "ay": 64.0,
+    "h": 64,
+    "w": 47,
+    "x": 228,
+    "y": 1
+   },
+   "walk7": {
+    "ax": 22.7,
+    "ay": 64.0,
+    "h": 64,
+    "w": 39,
+    "x": 276,
+    "y": 1
+   }
+  },
+  "h": 68,
+  "loop": true,
+  "type": "sheet",
+  "w": 316
+ },
+ "observatory_props": {
+  "file": "observatory_props.png",
+  "frames": {
+   "brass_telescope": {
+    "ax": 30.0,
+    "ay": 88,
+    "h": 88,
+    "w": 60,
+    "x": 1,
+    "y": 1
+   },
+   "celestial_globe": {
+    "ax": 21.5,
+    "ay": 79,
+    "h": 79,
+    "w": 43,
+    "x": 62,
+    "y": 1
+   },
+   "star_orrery": {
+    "ax": 23.5,
+    "ay": 83,
+    "h": 83,
+    "w": 47,
+    "x": 106,
+    "y": 1
+   },
+   "zodiac_stele": {
+    "ax": 18.0,
+    "ay": 91,
+    "h": 91,
+    "w": 36,
+    "x": 154,
+    "y": 1
+   }
+  },
+  "h": 93,
+  "type": "sheet",
+  "w": 191
+ },
+ "observatoryfloor": {
+  "file": "observatoryfloor.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "observatoryfloor_b": {
+  "file": "observatoryfloor_b.png",
+  "h": 133,
+  "overhang": 5,
+  "tile": 32,
+  "type": "strip",
+  "w": 512
+ },
+ "observatorywall": {
+  "file": "observatorywall.png",
+  "h": 384,
+  "type": "texture",
+  "w": 768
  },
  "oracle": {
   "file": "oracle.png",
@@ -9217,6 +10433,143 @@
   "loop": true,
   "type": "sheet",
   "w": 329
+ },
+ "rulersword": {
+  "file": "rulersword.png",
+  "frames": {
+   "attack": {
+    "ax": 46.0,
+    "ay": 26,
+    "h": 26,
+    "w": 92,
+    "x": 131,
+    "y": 1
+   },
+   "float0": {
+    "ax": 14.0,
+    "ay": 66,
+    "h": 66,
+    "w": 28,
+    "x": 1,
+    "y": 1
+   },
+   "float1": {
+    "ax": 18.5,
+    "ay": 69,
+    "h": 69,
+    "w": 37,
+    "x": 30,
+    "y": 1
+   },
+   "windup": {
+    "ax": 31.0,
+    "ay": 57,
+    "h": 57,
+    "w": 62,
+    "x": 68,
+    "y": 1
+   }
+  },
+  "h": 71,
+  "type": "sheet",
+  "w": 224
+ },
+ "rulersword_attack": {
+  "file": "rulersword_attack.png",
+  "frames": {
+   "attack0": {
+    "ax": 14.5,
+    "ay": 66.0,
+    "h": 64,
+    "w": 33,
+    "x": 1,
+    "y": 1
+   },
+   "attack1": {
+    "ax": 25.0,
+    "ay": 52.0,
+    "h": 29,
+    "w": 80,
+    "x": 35,
+    "y": 1
+   },
+   "attack2": {
+    "ax": 24.0,
+    "ay": 57.0,
+    "h": 37,
+    "w": 81,
+    "x": 116,
+    "y": 1
+   },
+   "attack3": {
+    "ax": 13.0,
+    "ay": 65.0,
+    "h": 65,
+    "w": 30,
+    "x": 198,
+    "y": 1
+   }
+  },
+  "h": 67,
+  "type": "sheet",
+  "w": 229
+ },
+ "rulersword_float": {
+  "file": "rulersword_float.png",
+  "frames": {
+   "float0": {
+    "ax": 11.0,
+    "ay": 70.0,
+    "h": 66,
+    "w": 28,
+    "x": 1,
+    "y": 1
+   },
+   "float1": {
+    "ax": 11.0,
+    "ay": 70.0,
+    "h": 66,
+    "w": 28,
+    "x": 30,
+    "y": 1
+   },
+   "float2": {
+    "ax": 11.0,
+    "ay": 70.0,
+    "h": 66,
+    "w": 28,
+    "x": 59,
+    "y": 1
+   },
+   "float3": {
+    "ax": 11.0,
+    "ay": 69.0,
+    "h": 66,
+    "w": 28,
+    "x": 88,
+    "y": 1
+   },
+   "float4": {
+    "ax": 11.0,
+    "ay": 69.0,
+    "h": 66,
+    "w": 28,
+    "x": 117,
+    "y": 1
+   },
+   "float5": {
+    "ax": 11.0,
+    "ay": 69.0,
+    "h": 66,
+    "w": 28,
+    "x": 146,
+    "y": 1
+   }
+  },
+  "h": 68,
+  "loop": true,
+  "type": "sheet",
+  "w": 175
  },
  "santa": {
   "file": "santa.png",
@@ -11636,6 +12989,14 @@
  "weapons": {
   "file": "weapons.png",
   "frames": {
+   "astral_rune_sword": {
+    "ax": 16.0,
+    "ay": 16.0,
+    "h": 32,
+    "w": 32,
+    "x": 109,
+    "y": 234
+   },
    "astral_scythe": {
     "ax": 16.0,
     "ay": 16.0,
@@ -11643,6 +13004,14 @@
     "w": 32,
     "x": 217,
     "y": 126
+   },
+   "blade_astral_rune_sword": {
+    "ax": 12.0,
+    "ay": 9.0,
+    "h": 18,
+    "w": 58,
+    "x": 167,
+    "y": 234
    },
    "blade_astral_scythe": {
     "ax": 10.0,
@@ -11659,6 +13028,14 @@
     "w": 46,
     "x": 245,
     "y": 70
+   },
+   "blade_crimson_bloodblade": {
+    "ax": 11.0,
+    "ay": 6.0,
+    "h": 10,
+    "w": 56,
+    "x": 113,
+    "y": 269
    },
    "blade_crypt_falchion": {
     "ax": 11.0,
@@ -11684,6 +13061,22 @@
     "x": 56,
     "y": 70
    },
+   "blade_helios_rod": {
+    "ax": 9.0,
+    "ay": 9.0,
+    "h": 18,
+    "w": 46,
+    "x": 60,
+    "y": 234
+   },
+   "blade_herald_shield_rod": {
+    "ax": 9.0,
+    "ay": 8.0,
+    "h": 16,
+    "w": 50,
+    "x": 2,
+    "y": 269
+   },
    "blade_iron_mace": {
     "ax": 9.0,
     "ay": 10.0,
@@ -11708,6 +13101,22 @@
     "x": 169,
     "y": 2
    },
+   "blade_solais_greatsword": {
+    "ax": 14.0,
+    "ay": 12.0,
+    "h": 23,
+    "w": 69,
+    "x": 160,
+    "y": 199
+   },
+   "blade_thanatos_scythe": {
+    "ax": 9.0,
+    "ay": 12.0,
+    "h": 34,
+    "w": 50,
+    "x": 60,
+    "y": 304
+   },
    "blade_volt_katana": {
     "ax": 12.0,
     "ay": 4.0,
@@ -11716,6 +13125,14 @@
     "x": 258,
     "y": 104
    },
+   "blade_zephyr_galeblade": {
+    "ax": 8.0,
+    "ay": 8.0,
+    "h": 15,
+    "w": 39,
+    "x": 60,
+    "y": 199
+   },
    "cinder_scimitar": {
     "ax": 14.0,
     "ay": 15.5,
@@ -11723,6 +13140,14 @@
     "w": 28,
     "x": 196,
     "y": 70
+   },
+   "crimson_bloodblade": {
+    "ax": 16.0,
+    "ay": 16.0,
+    "h": 32,
+    "w": 32,
+    "x": 55,
+    "y": 269
    },
    "crypt_falchion": {
     "ax": 16.0,
@@ -11772,6 +13197,22 @@
     "x": 179,
     "y": 36
    },
+   "helios_rod": {
+    "ax": 16.0,
+    "ay": 16.0,
+    "h": 32,
+    "w": 32,
+    "x": 2,
+    "y": 234
+   },
+   "herald_shield_rod": {
+    "ax": 16.0,
+    "ay": 16.0,
+    "h": 32,
+    "w": 32,
+    "x": 228,
+    "y": 234
+   },
    "heraldic_buckler": {
     "ax": 16.0,
     "ay": 15.5,
@@ -11779,6 +13220,14 @@
     "w": 32,
     "x": 57,
     "y": 2
+   },
+   "hud_astral_rune_sword": {
+    "ax": 10.0,
+    "ay": 10.0,
+    "h": 20,
+    "w": 20,
+    "x": 144,
+    "y": 234
    },
    "hud_astral_scythe": {
     "ax": 10.0,
@@ -11795,6 +13244,14 @@
     "w": 17,
     "x": 226,
     "y": 70
+   },
+   "hud_crimson_bloodblade": {
+    "ax": 10.0,
+    "ay": 10.0,
+    "h": 20,
+    "w": 20,
+    "x": 90,
+    "y": 269
    },
    "hud_crypt_falchion": {
     "ax": 10.0,
@@ -11844,6 +13301,22 @@
     "x": 213,
     "y": 36
    },
+   "hud_helios_rod": {
+    "ax": 10.0,
+    "ay": 10.0,
+    "h": 20,
+    "w": 20,
+    "x": 37,
+    "y": 234
+   },
+   "hud_herald_shield_rod": {
+    "ax": 10.0,
+    "ay": 10.0,
+    "h": 20,
+    "w": 20,
+    "x": 263,
+    "y": 234
+   },
    "hud_heraldic_buckler": {
     "ax": 10.0,
     "ay": 10.0,
@@ -11876,6 +13349,22 @@
     "x": 109,
     "y": 36
    },
+   "hud_meteor_gauntlets": {
+    "ax": 10.0,
+    "ay": 10.0,
+    "h": 20,
+    "w": 20,
+    "x": 265,
+    "y": 269
+   },
+   "hud_nebula_whipsword": {
+    "ax": 10.0,
+    "ay": 10.0,
+    "h": 20,
+    "w": 20,
+    "x": 267,
+    "y": 199
+   },
    "hud_obsidian_warhammer": {
     "ax": 9.0,
     "ay": 9.0,
@@ -11883,6 +13372,14 @@
     "w": 18,
     "x": 138,
     "y": 126
+   },
+   "hud_prism_codex": {
+    "ax": 10.0,
+    "ay": 10.0,
+    "h": 20,
+    "w": 20,
+    "x": 207,
+    "y": 269
    },
    "hud_pyre_shield": {
     "ax": 8.0,
@@ -11916,6 +13413,22 @@
     "x": 147,
     "y": 2
    },
+   "hud_solais_greatsword": {
+    "ax": 10.0,
+    "ay": 10.0,
+    "h": 20,
+    "w": 20,
+    "x": 137,
+    "y": 199
+   },
+   "hud_thanatos_scythe": {
+    "ax": 10.0,
+    "ay": 10.0,
+    "h": 20,
+    "w": 20,
+    "x": 37,
+    "y": 304
+   },
    "hud_thunder_knuckles": {
     "ax": 9.5,
     "ay": 4.5,
@@ -11939,6 +13452,14 @@
     "w": 20,
     "x": 236,
     "y": 104
+   },
+   "hud_zephyr_galeblade": {
+    "ax": 10.0,
+    "ay": 10.0,
+    "h": 20,
+    "w": 20,
+    "x": 37,
+    "y": 199
    },
    "hunters_lash": {
     "ax": 15.5,
@@ -11964,6 +13485,22 @@
     "x": 76,
     "y": 36
    },
+   "meteor_gauntlets": {
+    "ax": 16.0,
+    "ay": 16.0,
+    "h": 32,
+    "w": 32,
+    "x": 230,
+    "y": 269
+   },
+   "nebula_whipsword": {
+    "ax": 16.0,
+    "ay": 16.0,
+    "h": 32,
+    "w": 32,
+    "x": 232,
+    "y": 199
+   },
    "obsidian_warhammer": {
     "ax": 15.0,
     "ay": 15.0,
@@ -11971,6 +13508,14 @@
     "w": 30,
     "x": 106,
     "y": 126
+   },
+   "prism_codex": {
+    "ax": 16.0,
+    "ay": 16.0,
+    "h": 32,
+    "w": 32,
+    "x": 172,
+    "y": 269
    },
    "pyre_shield": {
     "ax": 12.5,
@@ -12004,6 +13549,22 @@
     "x": 113,
     "y": 2
    },
+   "solais_greatsword": {
+    "ax": 16.0,
+    "ay": 16.0,
+    "h": 32,
+    "w": 32,
+    "x": 102,
+    "y": 199
+   },
+   "thanatos_scythe": {
+    "ax": 16.0,
+    "ay": 16.0,
+    "h": 32,
+    "w": 32,
+    "x": 2,
+    "y": 304
+   },
    "thunder_knuckles": {
     "ax": 15.5,
     "ay": 6.5,
@@ -12027,11 +13588,19 @@
     "w": 32,
     "x": 202,
     "y": 104
+   },
+   "zephyr_galeblade": {
+    "ax": 16.0,
+    "ay": 16.0,
+    "h": 32,
+    "w": 32,
+    "x": 2,
+    "y": 199
    }
   },
-  "h": 197,
+  "h": 342,
   "type": "sheet",
-  "w": 317
+  "w": 320
  },
  "wendigo": {
   "file": "wendigo.png",
@@ -12386,6 +13955,38 @@
   "h": 28,
   "type": "sheet",
   "w": 141
+ },
+ "wing_icons_extra": {
+  "file": "wing_icons_extra.png",
+  "frames": {
+   "conservatory": {
+    "ax": 11.0,
+    "ay": 26,
+    "h": 26,
+    "w": 22,
+    "x": 1,
+    "y": 1
+   },
+   "dungeon": {
+    "ax": 14.0,
+    "ay": 25,
+    "h": 25,
+    "w": 28,
+    "x": 24,
+    "y": 1
+   },
+   "observatory": {
+    "ax": 12.5,
+    "ay": 25,
+    "h": 25,
+    "w": 25,
+    "x": 53,
+    "y": 1
+   }
+  },
+  "h": 28,
+  "type": "sheet",
+  "w": 79
  },
  "winter": {
   "file": "winter.png",

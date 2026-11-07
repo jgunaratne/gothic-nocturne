@@ -3295,6 +3295,414 @@
    "type": "clip",
    "src": "clips/marblecolossus_attack_sheet.png",
    "frames": "clips/marblecolossus_attack_frames.json"
+  },
+  "dullahan": {
+   "type": "sheet",
+   "src": "dullahan_sheet.png",
+   "height": 80,
+   "ref": "walk0",
+   "colors": 32,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "dullahan_walk": {
+   "type": "clip",
+   "src": "clips/dullahan_walk_sheet.png",
+   "frames": "clips/dullahan_walk_frames.json"
+  },
+  "dullahan_attack": {
+   "type": "clip",
+   "src": "clips/dullahan_attack_sheet.png",
+   "frames": "clips/dullahan_attack_frames.json"
+  },
+  "rulersword": {
+   "type": "sheet",
+   "src": "rulersword_sheet.png",
+   "height": 66,
+   "ref": "float0",
+   "colors": 32,
+   "rows": [
+    [
+     "float0",
+     "float1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ]
+  },
+  "rulersword_float": {
+   "type": "clip",
+   "src": "clips/rulersword_float_sheet.png",
+   "frames": "clips/rulersword_float_frames.json"
+  },
+  "rulersword_attack": {
+   "type": "clip",
+   "src": "clips/rulersword_attack_sheet.png",
+   "frames": "clips/rulersword_attack_frames.json"
+  },
+  "novaskeleton": {
+   "type": "sheet",
+   "src": "novaskeleton_sheet.png",
+   "height": 64,
+   "ref": "walk0",
+   "colors": 28,
+   "rows": [
+    [
+     "walk0",
+     "walk1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "novaskeleton_walk": {
+   "type": "clip",
+   "src": "clips/novaskeleton_walk_sheet.png",
+   "frames": "clips/novaskeleton_walk_frames.json"
+  },
+  "novaskeleton_attack": {
+   "type": "clip",
+   "src": "clips/novaskeleton_attack_sheet.png",
+   "frames": "clips/novaskeleton_attack_frames.json"
+  },
+  "fleaman": {
+   "type": "sheet",
+   "src": "fleaman_sheet.png",
+   "height": 36,
+   "ref": "crouch0",
+   "colors": 24,
+   "rows": [
+    [
+     "crouch0",
+     "hop0"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "fleaman_crouch": {
+   "type": "clip",
+   "src": "clips/fleaman_crouch_sheet.png",
+   "frames": "clips/fleaman_crouch_frames.json"
+  },
+  "fleaman_attack": {
+   "type": "clip",
+   "src": "clips/fleaman_attack_sheet.png",
+   "frames": "clips/fleaman_attack_frames.json"
+  },
+  "bonepillar": {
+   "type": "sheet",
+   "src": "bonepillar_sheet.png",
+   "height": 84,
+   "ref": "idle0",
+   "colors": 28,
+   "rows": [
+    [
+     "idle0",
+     "idle1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ]
+  },
+  "bonepillar_idle": {
+   "type": "clip",
+   "src": "clips/bonepillar_idle_sheet.png",
+   "frames": "clips/bonepillar_idle_frames.json"
+  },
+  "bonepillar_attack": {
+   "type": "clip",
+   "src": "clips/bonepillar_attack_sheet.png",
+   "frames": "clips/bonepillar_attack_frames.json"
+  },
+  "jiangshi": {
+   "type": "sheet",
+   "src": "jiangshi_sheet.png",
+   "height": 66,
+   "ref": "hop0",
+   "colors": 32,
+   "rows": [
+    [
+     "hop0",
+     "hop1"
+    ],
+    [
+     "windup",
+     "attack"
+    ]
+   ],
+   "anchors": {
+    "attack": "left"
+   }
+  },
+  "jiangshi_attack": {
+   "type": "clip",
+   "src": "clips/jiangshi_attack_sheet.png",
+   "frames": "clips/jiangshi_attack_frames.json"
+  },
+  "conservatoryfloor": {
+   "type": "strip",
+   "src": "tex_conservatory_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "conservatoryfloor_b": {
+   "type": "strip",
+   "src": "tex_conservatory_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "dungeonfloor": {
+   "type": "strip",
+   "src": "tex_dungeon_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "dungeonfloor_b": {
+   "type": "strip",
+   "src": "tex_dungeon_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "observatoryfloor": {
+   "type": "strip",
+   "src": "tex_observatory_floor_strip.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "observatoryfloor_b": {
+   "type": "strip",
+   "src": "tex_observatory_floor_strip_b.png",
+   "size": [
+    512,
+    null
+   ],
+   "overhang": 5,
+   "depth_tiles": 4,
+   "colors": 36
+  },
+  "conservatorywall": {
+   "type": "texture",
+   "src": "tex_conservatory_wall.png",
+   "size": [
+    768,
+    384
+   ],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "dungeonwall": {
+   "type": "texture",
+   "src": "tex_dungeon_wall.png",
+   "size": [
+    768,
+    384
+   ],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "observatorywall": {
+   "type": "texture",
+   "src": "tex_observatory_wall.png",
+   "size": [
+    768,
+    384
+   ],
+   "colors": 48,
+   "seamless": "blend"
+  },
+  "mural_conservatory": {
+   "type": "texture",
+   "src": "mural_conservatory.png",
+   "size": [
+    512,
+    288
+   ],
+   "colors": 48
+  },
+  "mural_dungeon": {
+   "type": "texture",
+   "src": "mural_dungeon.png",
+   "size": [
+    512,
+    288
+   ],
+   "colors": 48
+  },
+  "mural_observatory": {
+   "type": "texture",
+   "src": "mural_observatory.png",
+   "size": [
+    512,
+    288
+   ],
+   "colors": 48
+  },
+  "conservatory_props": {
+   "type": "sheet",
+   "src": "conservatory_props_sheet.png",
+   "height": 86,
+   "ref": "iron_trellis",
+   "colors": 40,
+   "rows": [
+    [
+     "carnivorous_bloom",
+     "iron_trellis",
+     "glass_terrarium",
+     "marble_urn"
+    ]
+   ]
+  },
+  "dungeon_props": {
+   "type": "sheet",
+   "src": "dungeon_props_sheet.png",
+   "height": 88,
+   "ref": "iron_maiden",
+   "colors": 36,
+   "rows": [
+    [
+     "iron_maiden",
+     "pillory_rack",
+     "coal_brazier",
+     "chain_pillar"
+    ]
+   ]
+  },
+  "observatory_props": {
+   "type": "sheet",
+   "src": "observatory_props_sheet.png",
+   "height": 88,
+   "ref": "brass_telescope",
+   "colors": 40,
+   "rows": [
+    [
+     "brass_telescope",
+     "celestial_globe",
+     "star_orrery",
+     "zodiac_stele"
+    ]
+   ]
+  },
+  "wing_icons_extra": {
+   "type": "sheet",
+   "src": "wing_icons_extra_sheet.png",
+   "height": 26,
+   "ref": "conservatory",
+   "colors": 32,
+   "rows": [
+    [
+     "conservatory",
+     "dungeon",
+     "observatory"
+    ]
+   ]
+  },
+  "mandragora": {
+   "type": "sheet",
+   "src": "mandragora_sheet.png",
+   "height": 118,
+   "ref": "idle",
+   "colors": 36,
+   "rows": [
+    [
+     "idle",
+     "cast",
+     "summon",
+     "shield"
+    ]
+   ]
+  },
+  "inquisitor": {
+   "type": "sheet",
+   "src": "inquisitor_sheet.png",
+   "height": 110,
+   "ref": "walk0",
+   "colors": 36,
+   "rows": [
+    [
+     "walk0",
+     "walk1",
+     "throw0",
+     "throw1"
+    ]
+   ]
+  },
+  "astromancer": {
+   "type": "sheet",
+   "src": "astromancer_sheet.png",
+   "height": 114,
+   "ref": "idle",
+   "colors": 36,
+   "rows": [
+    [
+     "idle",
+     "cape",
+     "cast",
+     "lunge"
+    ]
+   ]
+  },
+  "exploration_props": {
+   "type": "clip",
+   "src": "exploration_props_packed.png",
+   "frames": "exploration_props_frames.json",
+   "out": "exploration_props.png"
+  },
+  "extra_projectiles": {
+   "type": "clip",
+   "src": "extra_projectiles_packed.png",
+   "frames": "extra_projectiles_frames.json",
+   "out": "extra_projectiles.png"
   }
  }
 }

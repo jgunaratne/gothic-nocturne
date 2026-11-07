@@ -12,8 +12,9 @@ import {
 } from './hero_anim.js';
 import {
   WEAPONS, ELEMENT_META, SET_RESONANCES, InputBuffer,
-  computeStrengthBreakdown, computeWeaponHit, drawWeaponAction,
+  computeStrengthBreakdown, computeWeaponHit, drawWeaponAction, resolvePairResonance,
 } from './weapons.js';
+import { computeEnchantBonuses } from './souls.js';
 
 export class Player extends Entity {
   constructor(x, y) {
@@ -63,6 +64,22 @@ export class Player extends Entity {
     this.runDir = 0;               // sprint direction (+1 / -1)
     this.runDist = 0;              // distance covered this sprint (drives the run-cycle frame)
     this.runFrame = 0;
+
+    // Classic Castle-Explorer Movement Suite: Backdash, Low Slide, Aerial Divekick, Super Jump & Magnes
+    this.backdashT = 0;            // remaining backdash time (cancellable after 0.085s)
+    this.backdashCd = 0;
+    this.grazeT = 0;               // brief projectile graze evasion on backdash startup
+    this.slideT = 0;               // remaining crouch-slide kick duration
+    this.slideCd = 0;
+    this.slideHits = new Set();    // enemies already struck by current slide kick
+    this.divekickT = 0;            // active aerial diagonal comet-kick timer
+    this.divekickHits = new Set(); // enemies struck during current divekick
+    this.superJumpT = 0;           // rising super-jump phantom wake timer
+    this.tetherNode = null;        // active Lodestone Magnet Anchor (`MagnetNode`)
+    this.afterimages = [];         // [{ x, y, facing, sheet, name, alpha, color, t, dur }]
+    this.whipAimDy = 0;            // vertical target-tracking curve for Nebula Chain-Lash
+    this.whipColor = '#6b4a2b';
+    this.whipTipColor = '#e8e2c8';
 
     // Ambidextrous Dual-Hand Equipment Matrix (`slots[0]` = Hand_L, `slots[1]` = Hand_R)
     this.inputBuffer = new InputBuffer(30);
@@ -158,8 +175,16 @@ export class Player extends Entity {
       let box = null;
       switch (w.category) {
         case 'whip': {
-          const yTop = this.y - (crouch ? 34 : 52);
-          box = { x: f > 0 ? this.x + 6 : this.x - 6 - reach, y: yTop, w: reach, h: lowAim ? (this.y + 14 - yTop) : 18 };
+          const aimDy = w.trackingWhip ? (this.whipAimDy || 0) : 0;
+          const baseTop = this.y - (crouch ? 34 : 52);
+          const yTop = Math.min(baseTop, baseTop + aimDy);
+          const extraH = Math.abs(aimDy);
+          box = {
+            x: f > 0 ? this.x + 6 : this.x - 6 - reach,
+            y: yTop,
+            w: reach,
+            h: (lowAim ? (this.y + 14 - baseTop) : 20) + extraH,
+          };
           break;
         }
         case 'light_blade': {
@@ -229,7 +254,58 @@ export class Player extends Entity {
         out.push({ slotState: s, weapon: w, box, blockBox });
       }
     }
+
+    // Low Slide Kick & Aerial Diagonal Divekick boot hitboxes
+    if (this.slideT > 0) {
+      const f = this.facing;
+      const box = { x: f > 0 ? this.x - 4 : this.x - 28, y: this.y - 24, w: 32, h: 24 };
+      out.push({
+        slotState: { timer: 0.1, win0: 0, win1: 1, isSkill: false, hitEnemies: this._slideHitMap || (this._slideHitMap = new Map()), isSlide: true },
+        weapon: { id: '_slide_kick', name: 'SLIDE KICK', category: 'brawler', physical: 'blunt', element: null, baseDamage: 1.15, scaling: 0.15, reqStr: 0, knockback: 135 },
+        box,
+        blockBox: { x: box.x - 4, y: box.y - 4, w: box.w + 8, h: box.h + 12 },
+      });
+    } else if (this.divekickT > 0) {
+      const f = this.facing;
+      const box = { x: f > 0 ? this.x - 4 : this.x - 24, y: this.y - 22, w: 28, h: 28 };
+      out.push({
+        slotState: { timer: 0.1, win0: 0, win1: 1, isSkill: false, hitEnemies: this._diveHitMap || (this._diveHitMap = new Map()), isDivekick: true },
+        weapon: { id: '_dive_kick', name: 'COMET DIVEKICK', category: 'brawler', physical: 'blunt', element: null, baseDamage: 1.55, scaling: 0.18, reqStr: 0, knockback: 145 },
+        box,
+        blockBox: { x: box.x - 4, y: box.y - 4, w: box.w + 8, h: box.h + 14 },
+      });
+    }
     return out;
+  }
+
+  onDivekickBounce(world) {
+    const ench = computeEnchantBonuses(world && world.game);
+    this.divekickT = 0;
+    if (this._diveHitMap) this._diveHitMap.clear();
+    this.vy = -430 * (1 + (ench.speedPct || 0) * 0.55);
+    this.vx = this.facing * 135;
+    this.launchT = LAUNCH_TIME;
+    if (world) {
+      world.sfx('jump');
+      world.particles.sparks(this.x + this.facing * 10, this.y - 6, 8, '#9ef5ff');
+    }
+  }
+
+  pushAfterimage(color = 'rgba(92, 212, 255, 0.52)', dur = 0.22) {
+    if (this.afterimages.length >= 10) this.afterimages.shift();
+    this.afterimages.push({
+      x: this.x,
+      y: this.y,
+      facing: this.facing,
+      state: this.state,
+      vy: this.vy,
+      walkFrame: this.walkFrame,
+      runFrame: this.runFrame,
+      backdashT: this.backdashT,
+      color,
+      t: 0,
+      dur,
+    });
   }
 
   update(dt, input, level, world) {
@@ -268,9 +344,17 @@ export class Player extends Entity {
     this.wantStairCatch = !!(ctl && input.down.up && !input.down.down);
     this.invuln = Math.max(0, this.invuln - dt);
     this.hurtT = Math.max(0, this.hurtT - dt);
+    this.grazeT = Math.max(0, this.grazeT - dt);
+    this.backdashCd = Math.max(0, this.backdashCd - dt);
+    this.slideCd = Math.max(0, this.slideCd - dt);
+    this.superJumpT = Math.max(0, this.superJumpT - dt);
     this.saluteT = Math.max(0, (this.saluteT || 0) - dt);
     this.resonanceCd = Math.max(0, this.resonanceCd - dt);
     this.resonanceWardT = Math.max(0, this.resonanceWardT - dt);
+    for (const gh of this.afterimages) gh.t += dt;
+    if (this.afterimages.length) {
+      this.afterimages = this.afterimages.filter((gh) => gh.t < gh.dur);
+    }
     if (this.skillBanner) {
       this.skillBanner.t -= dt;
       if (this.skillBanner.t <= 0) this.skillBanner = null;
@@ -280,6 +364,11 @@ export class Player extends Entity {
     this.coyote = this.onGround ? PLAYER.coyote : Math.max(0, this.coyote - dt);
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     if (ctl && input.pressed.jump) this.jumpBuffer = PLAYER.buffer;
+
+    // Instant Dual-Loadout A/B Hot-Swap (`R` / Gamepad `LT`)
+    if (ctl && input.pressed.swap && world && world.game && world.game.swapLoadout) {
+      world.game.swapLoadout(world);
+    }
 
     // -----------------------------------------------------------------------
     // Double-tap forward RUN: two taps of the same direction within RUN_TAP_WINDOW
@@ -331,18 +420,138 @@ export class Player extends Entity {
     // - Light Blade, Boomerang, Catalyst allow 100% full movement
     // - Standard Blade allows free jump & forward combat step
     // - Shield slows walk slightly while held in active guard
-    const isRootingSlot = (s) => s.active && s.weapon && (s.weapon.category === 'heavy_blade' || s.weapon.category === 'whip');
+    const isRootingSlot = (s) => s.active && s.weapon && (
+      s.weapon.category === 'heavy_blade'
+      || (s.weapon.category === 'whip' && !s.weapon.freeMoveWhip)
+    );
     const anyBlockingCrouch = (this.attacking && !this.attackCrouch)
       || this.slots.some((s) => s.active && !s.guarding && !s.crouch && s.weapon && s.weapon.category === 'heavy_blade');
     const guardSlot = this.activeShieldSlot();
     const speedScale = guardSlot ? 0.72 : 1.0;
+    const ench = computeEnchantBonuses(world && world.game);
     const relicSpeedMul = Math.min(
-      1.16,
-      (hasRelic('ramparts') ? 1.08 : 1) * (1 + (world && world.relicBonus ? world.relicBonus('speed') : 0)),
+      1.26,
+      (hasRelic('ramparts') ? 1.08 : 1) * (1 + (world && world.relicBonus ? world.relicBonus('speed') : 0) + (ench.speedPct || 0)),
     );
     const moveSpeed = PLAYER.speed * speedScale * relicSpeedMul;
     const stepSpeed = running ? Math.max(moveSpeed, Math.abs(this.vx), PLAYER.runSpeed * relicSpeedMul) : moveSpeed;
-    const rooted = !running && this.onGround && (this.throwing || isRootingSlot(this.slots[0]) || isRootingSlot(this.slots[1]));
+    const rooted = !running && this.backdashT <= 0 && this.slideT <= 0 && this.onGround && (this.throwing || isRootingSlot(this.slots[0]) || isRootingSlot(this.slots[1]));
+
+    // -----------------------------------------------------------------------
+    // Lodestone Magnet Tether (`Magnes`): Hold `Q` / `LB` (or `Up` in mid-air)
+    // near a ceiling Lodestone Orb to latch & slingshot across chasms/shafts!
+    // -----------------------------------------------------------------------
+    let wantTether = false;
+    if (ctl && world && world.magnetNodes && world.magnetNodes.length) {
+      const holdMag = !!input.down.dash || (!this.onGround && !!input.down.up && !input.down.attack && !input.down.offhand);
+      if (holdMag) {
+        let best = this.tetherNode;
+        if (best && Math.hypot(best.x - this.x, best.y - (this.y - 28)) > 298) best = null;
+        if (!best) {
+          let bestD = 248;
+          for (const mn of world.magnetNodes) {
+            const d = Math.hypot(mn.x - this.x, mn.y - (this.y - 28));
+            if (d < bestD) { bestD = d; best = mn; }
+          }
+          if (best && world) {
+            world.sfx('pickup');
+            world.particles.sparks(best.x, best.y, 7, '#58dcff');
+          }
+        }
+        if (best) {
+          this.tetherNode = best;
+          wantTether = true;
+          this.onGround = false;
+          this.onStair = null;
+          this.riding = null;
+          this.divekickT = 0;
+          this.slideT = 0;
+          const dx = best.x - this.x;
+          const dy = best.y - (this.y - 28);
+          this.vx += (dx * 11.4 + axis * 205 - this.vx * 1.45) * dt;
+          this.vy += (dy * 11.6 - 1560 - this.vy * 1.35) * dt;
+          if (Math.random() < 0.55) this.pushAfterimage('rgba(88, 220, 255, 0.45)', 0.16);
+        }
+      }
+    }
+    if (!wantTether && this.tetherNode) {
+      // Slingshot release boost!
+      this.vx = Math.max(-440, Math.min(440, this.vx * 1.12));
+      this.vy = Math.max(-560, Math.min(420, this.vy * 1.06 - 45));
+      this.tetherNode = null;
+      if (world) world.sfx('dash');
+    }
+
+    // -----------------------------------------------------------------------
+    // Backdash (`Q` / `LB`) & Emergent Backdash-Cancel (after 0.085s)
+    // -----------------------------------------------------------------------
+    if (this.backdashT > 0) {
+      this.backdashT = Math.max(0, this.backdashT - dt);
+      const elapsed = PLAYER.backdashTime - this.backdashT;
+      if (Math.floor(elapsed * 45) !== Math.floor((elapsed - dt) * 45)) {
+        this.pushAfterimage('rgba(110, 210, 255, 0.54)', 0.22);
+      }
+      // Classic Backdash-Cancel: Crouch, Jump, or Attack after 0.085s cancels recovery!
+      if (ctl && elapsed >= 0.085 && (input.down.down || input.pressed.jump || input.pressed.attack || input.pressed.offhand)) {
+        this.backdashT = 0;
+      }
+    } else if (
+      ctl && !wantTether && input.pressed.dash && !input.down.down
+      && this.onGround && this.backdashCd <= 0
+    ) {
+      this._clearSlots();
+      this.runT = 0;
+      this.crouching = false;
+      this.h = PLAYER.height;
+      this.backdashT = PLAYER.backdashTime;
+      this.backdashCd = 0.26;
+      this.grazeT = 0.11;
+      this.vx = -this.facing * PLAYER.backdashSpeed * relicSpeedMul;
+      this.pushAfterimage('rgba(140, 180, 255, 0.62)', 0.24);
+      if (world) {
+        world.sfx('dash');
+        world.particles.dust(this.x + this.facing * 8, this.y, 5);
+        if (world.onMovementWake) world.onMovementWake(this, 'backdash');
+      }
+    }
+
+    // Advance Low Crouch-Slide Kick (`slideT`) & Aerial Diagonal Divekick (`divekickT`)
+    if (this.slideT > 0) {
+      this.slideT = Math.max(0, this.slideT - dt);
+      if (Math.random() < 0.6) this.pushAfterimage('rgba(120, 225, 255, 0.48)', 0.18);
+      if (world && Math.random() < 0.5) world.particles.dust(this.x - this.facing * 8, this.y, 1);
+      if (this.slideT <= 0) {
+        // Keep low slide going if still inside a 1-tile crawl tunnel!
+        this.h = PLAYER.crouchHeight;
+        if (level && this.headBlocked(level)) {
+          this.h = PLAYER.slideHeight;
+          this.slideT = 0.06;
+          this.vx = this.facing * PLAYER.slideSpeed * 0.72;
+        } else {
+          this.crouching = true;
+        }
+      }
+    } else if (
+      ctl && !wantTether && input.down.down && input.pressed.dash
+      && this.onGround && this.slideCd <= 0 && !this.onStair
+    ) {
+      this._startSlide(relicSpeedMul, world);
+    }
+
+    if (this.divekickT > 0) {
+      this.divekickT = Math.max(0, this.divekickT - dt);
+      if (this.onGround) {
+        this.divekickT = 0;
+        if (world) world.particles.dust(this.x, this.y, 6);
+      } else {
+        this.vx = this.facing * PLAYER.divekickVx * relicSpeedMul;
+        this.vy = Math.max(this.vy, PLAYER.divekickVy);
+        if (Math.random() < 0.7) this.pushAfterimage('rgba(255, 118, 168, 0.52)', 0.18);
+      }
+    }
+    if (this.superJumpT > 0 && Math.random() < 0.7) {
+      this.pushAfterimage('rgba(198, 148, 255, 0.56)', 0.22);
+    }
 
     // -----------------------------------------------------------------------
     // Walkable Staircase Engagement (Bottom `Up` / sprint climb & Top `Down` / open-balcony descent)
@@ -390,12 +599,17 @@ export class Player extends Entity {
     }
 
     // Crouch (ground only, suppressed on stairs), with head-room check when standing up.
-    const wantCrouch = ctl && input.down.down && this.onGround && !this.onStair && !suppressCrouchForStair && !anyBlockingCrouch;
-    if (wantCrouch && !this.crouching) { this.crouching = true; this.h = PLAYER.crouchHeight; this.crouchBlendT = CROUCH_BLEND; }
+    const wantCrouch = ctl && input.down.down && this.onGround && !this.onStair && !suppressCrouchForStair && !anyBlockingCrouch && this.backdashT <= 0;
+    if (this.slideT > 0) {
+      this.crouching = true;
+      this.h = PLAYER.slideHeight;
+    } else if (wantCrouch && !this.crouching) { this.crouching = true; this.h = PLAYER.crouchHeight; this.crouchBlendT = CROUCH_BLEND; }
     else if (!wantCrouch && this.crouching) {
       this.h = PLAYER.height;
-      if (this.headBlocked(level)) this.h = PLAYER.crouchHeight;
-      else { this.crouching = false; this.crouchBlendT = CROUCH_BLEND; }
+      if (this.headBlocked(level)) {
+        this.h = PLAYER.crouchHeight;
+        if (this.headBlocked(level)) this.h = PLAYER.slideHeight;
+      } else { this.crouching = false; this.crouchBlendT = CROUCH_BLEND; }
     }
     this.crouchBlendT = Math.max(0, this.crouchBlendT - dt);
     this.turnT = Math.max(0, this.turnT - dt);
@@ -419,10 +633,18 @@ export class Player extends Entity {
     if (this.hurtT > 0) {
       // Knockback: keep the launch velocity, only friction on the ground.
       if (this.onGround) this.vx *= 0.9;
+    } else if (wantTether || this.divekickT > 0) {
+      // Velocity driven directly by magnetic spring or diagonal divekick vector
+    } else if (this.backdashT > 0) {
+      const bk = this.backdashT / PLAYER.backdashTime;
+      this.vx = -this.facing * PLAYER.backdashSpeed * relicSpeedMul * (0.35 + 0.65 * bk);
+    } else if (this.slideT > 0) {
+      const sk = Math.min(1, this.slideT / (PLAYER.slideTime * 0.45));
+      this.vx = this.facing * PLAYER.slideSpeed * relicSpeedMul * (0.45 + 0.55 * sk);
     } else if (this.vx < target) this.vx = Math.min(target, this.vx + accel * dt);
     else if (this.vx > target) this.vx = Math.max(target, this.vx - accel * dt);
 
-    const lockFacing = running || this.attacking || this.slots.some((s) => s.active && !s.guarding && s.weapon && s.weapon.category !== 'light_blade' && s.weapon.category !== 'boomerang' && s.weapon.category !== 'catalyst');
+    const lockFacing = running || this.backdashT > 0 || this.slideT > 0 || this.divekickT > 0 || this.attacking || this.slots.some((s) => s.active && !s.guarding && s.weapon && s.weapon.category !== 'light_blade' && s.weapon.category !== 'boomerang' && s.weapon.category !== 'catalyst');
     if (driveAxis !== 0 && !rooted && !lockFacing) {
       // Direction change at speed on the ground: a few ticks of skid frame.
       if (driveAxis !== this.facing && this.onGround && Math.abs(this.vx) > 32) this.turnT = TURN_TIME;
@@ -451,42 +673,62 @@ export class Player extends Entity {
       if (this.onStair && Math.abs(this.x - this.onStair.topX) < this.w * 0.5 + 2 && this.y > this.onStair.topY) {
         this.y = this.onStair.topY;
       }
-      this.vy = -PLAYER.jump; this.coyote = 0; this.jumpBuffer = 0;
+      // Gravity-Boots Super High-Jump (`[Down, Up] + Jump` once Night Wings are unlocked!)
+      const isSuperJump = hasRelic('graveyard') && input.down.up && this.inputBuffer.matchSuperJump();
+      if (isSuperJump) {
+        this.inputBuffer.consumeMotion();
+        this.vy = -PLAYER.superJump;
+        this.superJumpT = 0.42;
+        this.skillBanner = { text: '✦ GRAVITY LEAP ✦', color: '#d2a8ff', t: 0.95 };
+        this.pushAfterimage('rgba(198, 148, 255, 0.65)', 0.25);
+        world.sfx('dash');
+        world.particles.sparks(this.x, this.y - 12, 12, '#d8b4ff');
+        if (world.onMovementWake) world.onMovementWake(this, 'superjump');
+      } else {
+        this.vy = -PLAYER.jump * (1 + (ench.speedPct || 0) * 0.35);
+      }
+      this.coyote = 0; this.jumpBuffer = 0;
       this.onGround = false; this.riding = null; this.onStair = null;
       this.airJumpsLeft = hasRelic('graveyard') ? 1 : 0;
       this.launchT = LAUNCH_TIME; this.landT = 0;
       world.sfx('jump');
       world.particles.dust(this.x, this.y, 4);
+    } else if (ctl && input.pressed.jump && !this.onGround && this.coyote <= 0 && input.down.down && this.divekickT <= 0 && !wantTether) {
+      // Aerial Diagonal Comet Divekick (`↓ + Jump` while airborne -> bounces off enemies!)
+      this._clearSlots();
+      this.divekickT = 0.46;
+      if (this._diveHitMap) this._diveHitMap.clear();
+      if (axis !== 0) this.facing = axis;
+      this.vx = this.facing * PLAYER.divekickVx * relicSpeedMul;
+      this.vy = PLAYER.divekickVy;
+      this.jumpBuffer = 0;
+      this.dropThrough = false;
+      this.pushAfterimage('rgba(255, 118, 168, 0.60)', 0.22);
+      world.sfx('sword_thrust');
+      if (world.onMovementWake) world.onMovementWake(this, 'divekick');
     } else if (ctl && input.pressed.jump && !this.onGround && this.coyote <= 0 && this.airJumpsLeft > 0) {
       // NIGHT WINGS relic (Graveyard): mid-air double jump on shadowy bat wings!
       this.airJumpsLeft--;
-      this.vy = -PLAYER.jump * 0.94;
+      this.divekickT = 0;
+      this.vy = -PLAYER.jump * 0.94 * (1 + (ench.speedPct || 0) * 0.35);
       this.jumpBuffer = 0;
       this.dropThrough = false;
       this.launchT = LAUNCH_TIME;
       world.sfx('jump');
       world.particles.sparks(this.x, this.y - 14, 9, '#b48cff');
       world.particles.smoke(this.x, this.y - 10, 3, 'rgba(130, 80, 220, 0.45)');
+      if (world.onMovementWake) world.onMovementWake(this, 'doublejump');
     }
-    if (ctl && this.crouching && input.pressed.jump) {
+    if (ctl && this.crouching && input.pressed.jump && this.slideT <= 0) {
       if (this.canDropThrough(level)) {
         // Drop through a one-way ledge (or safe mover with a floor below).
         this.dropThrough = true; this.dropFromY = this.y;
         this.y += 1; this.onGround = false; this.riding = null;
         this.jumpBuffer = 0; this.coyote = 0;
-      } else {
-        // Over a chasm/spikes or on solid stone: uncrouch (if clear) and jump instead of falling!
-        this.h = PLAYER.height;
-        if (this.headBlocked(level)) {
-          this.h = PLAYER.crouchHeight;
-        } else {
-          this.crouching = false;
-          this.vy = -PLAYER.jump; this.coyote = 0; this.jumpBuffer = 0;
-          this.onGround = false; this.riding = null;
-          this.launchT = LAUNCH_TIME; this.landT = 0;
-          world.sfx('jump');
-          world.particles.dust(this.x, this.y, 4);
-        }
+      } else if (this.slideCd <= 0) {
+        // On solid stone (`↓ + Jump`): execute the classic Low Crouch-Slide Kick!
+        this.jumpBuffer = 0;
+        this._startSlide(relicSpeedMul, world);
       }
     }
     if (this.dropThrough && ((this.dropFromY != null && this.y > this.dropFromY + 14) || this.vy > 90 || this.onGround)) {
@@ -507,35 +749,54 @@ export class Player extends Entity {
     if (ctl) {
       const pressL = !!input.pressed.attack;
       const pressR = !!input.pressed.offhand;
+      if (pressL) this.inputBuffer.noteHandPress(0);
+      if (pressR) this.inputBuffer.noteHandPress(1);
 
-      // Sub-weapon priority (`↑ + Attack`)
-      if (pressL && input.down.up && this.subWeapon && world && world.hearts > 0 && !this.attacking && this.throwT <= 0) {
+      // 1. Glyph Union (`↑ + Hand_L + Hand_R` simultaneously, costs 5 Hearts!)
+      if (
+        (pressL || pressR)
+        && input.down.up
+        && this.inputBuffer.isCrossHandSimultaneous()
+        && world && world.hearts >= 5
+        && world.triggerGlyphUnion
+        && this.resonanceCd <= 0
+      ) {
+        this.resonanceCd = 2.4;
+        this._clearSlots();
+        world.triggerGlyphUnion(this, wL, wR);
+      } else if (
+        // 2. Crimson Bullet Soul Glyph (`↑ + R-Hand`, costs 2 Hearts when equipped!)
+        pressR && input.down.up
+        && world && world.canCastBulletSoul && world.canCastBulletSoul()
+        && this.throwT <= 0
+      ) {
+        world.castBulletSoul(this);
+        this.throwT = 0.34;
+        this.attackT = 0; this.attackCrouch = false; this.attackHit = false;
+        this.throwing = true;
+      } else if (pressL && input.down.up && this.subWeapon && world && (world.canThrowSubWeapon ? world.canThrowSubWeapon(this) : world.hearts > 0) && !this.attacking && this.throwT <= 0) {
+        // 3. Classic Sub-Weapon (`↑ + L-Hand`, costs 1 Heart)
         world.throwSubWeapon(this);
         this.throwT = 0.35;
         this.attackT = 0; this.attackCrouch = false; this.attackHit = false;
         this.throwing = true;
       } else {
-        if (pressL) this.inputBuffer.noteHandPress(0);
-        if (pressR && wR) this.inputBuffer.noteHandPress(1);
-
-        // Cross-Hand Combo Resonance (`Hand_L + Hand_R` within 2 frames & matching `setTag`)
+        // 4. Cross-Hand Combo Resonance & Shield-Rod Sacred Call (`Hand_L + Hand_R`)
         let firedResonance = false;
+        const pairRes = (wL && wR && !wL.isTwoHanded) ? resolvePairResonance(wL, wR) : null;
         if (
           (pressL || pressR)
-          && wL && wR && !wL.isTwoHanded
-          && wL.setTag && wL.setTag === wR.setTag
+          && pairRes
           && this.resonanceCd <= 0
           && this.inputBuffer.isCrossHandSimultaneous()
         ) {
-          const res = SET_RESONANCES[wL.setTag];
-          if (res && world && world.triggerComboResonance) {
+          if (world && world.triggerComboResonance) {
             this.resonanceCd = 3.2;
-            this.resonanceWardT = res.wardDur || 2.0;
-            this.resonanceWardColor = res.hex || '#ffd27a';
-            this.skillBanner = { text: `✦ ${res.name}! ✦`, color: res.hex || '#ffd27a', t: 1.4 };
-            // Cancel shield guard so the resonance detonation takes center stage
+            this.resonanceWardT = pairRes.wardDur || 2.0;
+            this.resonanceWardColor = pairRes.hex || '#ffd27a';
+            this.skillBanner = { text: `✦ ${pairRes.name}! ✦`, color: pairRes.hex || '#ffd27a', t: 1.4 };
             for (const s of this.slots) s.guarding = false;
-            world.triggerComboResonance(this, res, wL, wR);
+            world.triggerComboResonance(this, pairRes, wL, wR);
             firedResonance = true;
           }
         }
@@ -629,6 +890,9 @@ export class Player extends Entity {
     // Animation state
     if (this.hurtT > 0) this.state = 'hurt';
     else if (this.attacking) this.state = 'attack';
+    else if (this.divekickT > 0 && !this.onGround) this.state = 'divekick';
+    else if (this.backdashT > 0) this.state = 'backdash';
+    else if (this.slideT > 0) this.state = 'slide';
     else if (!this.onGround) this.state = 'jump';
     else if (this.runT > 0 && Math.abs(this.vx) > 10) this.state = 'run';
     else if (this.crouching) this.state = 'crouch';
@@ -745,9 +1009,31 @@ export class Player extends Entity {
 
     // Whip category also drives the hunter's Omni whip clip + procedural lash
     if (weapon.category === 'whip') {
-      this.whipReach = Math.round(PLAYER.whipReach * (hasRelic('library') ? 1.28 : 1) * (isSkill ? 1.28 : 1));
-      this.whipTime = PLAYER.whipTime * whipScale;
-      this.whipActive = [PLAYER.whipActive[0] * whipScale, PLAYER.whipActive[1] * whipScale];
+      const baseReach = weapon.reach || PLAYER.whipReach;
+      this.whipReach = Math.round(baseReach * (hasRelic('library') ? 1.28 : 1) * (isSkill ? 1.28 : 1));
+      this.whipTime = (weapon.duration || PLAYER.whipTime) * whipScale;
+      const wa0 = weapon.active ? weapon.active[0] : PLAYER.whipActive[0];
+      const wa1 = weapon.active ? weapon.active[1] : PLAYER.whipActive[1];
+      this.whipActive = [wa0 * whipScale, wa1 * whipScale];
+      this.whipColor = weapon.bladeColor || '#6b4a2b';
+      this.whipTipColor = weapon.trimColor || '#e8e2c8';
+      this.whipAimDy = 0;
+      if (weapon.trackingWhip && world && world.enemies) {
+        let bestD = 148;
+        const handY = this.y - (this.crouching ? 28 : 44);
+        for (const e of world.enemies) {
+          if (!e.alive) continue;
+          const dx = (e.x - this.x) * this.facing;
+          if (dx < 8 || dx > this.whipReach + 28) continue;
+          const dy = (e.y - e.h * 0.5) - handY;
+          if (Math.abs(dy) > 48) continue;
+          const d = Math.hypot(dx, dy);
+          if (d < bestD) {
+            bestD = d;
+            this.whipAimDy = Math.max(-36, Math.min(36, dy));
+          }
+        }
+      }
       s.duration = this.whipTime;
       s.win0 = this.whipActive[0];
       s.win1 = this.whipActive[1];
@@ -813,31 +1099,55 @@ export class Player extends Entity {
     };
 
     if (w.category === 'boomerang') {
-      const pr = attachMeta(new Projectile('weapon_boomerang', spawnX, spawnY, this.facing, 'player'), sk && sk.mult ? sk.mult : 1);
-      pr.weaponId = w.id;
-      pr.weaponElement = w.element;
-      pr.handSlot = s.slot;
-      pr.maxDist = Math.round((w.reach || 155) * (sk && sk.fastLoop ? 1.32 : 1.0));
-      if (sk && sk.fastLoop) {
-        pr.vx = this.facing * 410;
-        pr.returnSpeed = 430;
+      const fanCount = (sk && sk.swordFan) ? 3 : 1;
+      for (let fi = 0; fi < fanCount; fi++) {
+        const pr = attachMeta(new Projectile('weapon_boomerang', spawnX, spawnY, this.facing, 'player'), sk && sk.mult ? (fanCount > 1 ? 0.92 : sk.mult) : 1);
+        pr.weaponId = w.id;
+        pr.weaponElement = w.element;
+        pr.handSlot = s.slot;
+        pr.maxDist = Math.round((w.reach || 155) * (sk && sk.fastLoop ? 1.32 : 1.0));
+        if (sk && sk.fastLoop) {
+          pr.vx = this.facing * 410;
+          pr.returnSpeed = 430;
+        }
+        if (fanCount > 1) {
+          pr.vy = (fi - 1) * 72;
+        }
+        world.spawnProjectile(pr);
       }
-      world.spawnProjectile(pr);
       return;
     }
 
     if (w.category === 'catalyst') {
       const boltType = w.boltType || 'catalyst_fire';
-      const count = (sk && sk.spread) ? sk.spread : 1;
+      const defaultCount = w.globusBounce ? 2 : 1;
+      const count = (sk && sk.spread) ? sk.spread : defaultCount;
       for (let i = 0; i < count; i++) {
         const pr = attachMeta(new Projectile(boltType, spawnX, spawnY, this.facing, 'player'), count > 1 ? 0.85 : 1.0);
-        if (count > 1) {
+        if (w.globusBounce) {
+          const dirSign = i % 2 === 0 ? -1 : 1;
+          pr.vy = dirSign * (135 + Math.floor(i / 2) * 55);
+        } else if (count > 1) {
           const offset = i - (count - 1) * 0.5;
           pr.vy = offset * 68;
+        }
+        if (sk && sk.overbeam) {
+          pr.h = 26;
+          pr.damage = Math.round(pr.damage * 1.45 * 10) / 10;
         }
         world.spawnProjectile(pr);
       }
       return;
+    }
+
+    // Thanatos Soul Scythe passive: spawns a seeking spectral mini-sickle on every cleave!
+    if (w.spawnMiniScythe) {
+      const nSickles = (sk && sk.sickleBurst) ? sk.sickleBurst : 1;
+      for (let si = 0; si < nSickles; si++) {
+        const pr = attachMeta(new Projectile('mini_sickle', spawnX + this.facing * 12, spawnY - 8, this.facing, 'player'), 0.55);
+        pr.vy = -70 + (si - (nSickles - 1) * 0.5) * 65;
+        world.spawnProjectile(pr);
+      }
     }
 
     // Command Skill extra effects on melee / whip weapons
@@ -860,6 +1170,24 @@ export class Player extends Entity {
       }
     }
   }
+  _startSlide(relicSpeedMul, world) {
+    this._clearSlots();
+    this.runT = 0;
+    this.slideT = PLAYER.slideTime;
+    this.slideCd = 0.24;
+    if (this._slideHitMap) this._slideHitMap.clear();
+    this.crouching = true;
+    this.h = PLAYER.slideHeight;
+    this.vx = this.facing * PLAYER.slideSpeed * relicSpeedMul;
+    this.pushAfterimage('rgba(120, 225, 255, 0.56)', 0.22);
+    if (world) {
+      world.sfx('dash');
+      world.particles.dust(this.x - this.facing * 10, this.y, 6);
+      world.particles.sparks(this.x + this.facing * 10, this.y - 4, 4, '#ffe89e');
+      if (world.onMovementWake) world.onMovementWake(this, 'slide');
+    }
+  }
+
     // Re-add headBlocked immediately before canDropThrough
   headBlocked(level) {
     const ty = Math.floor(this.top / TILE);
@@ -958,6 +1286,39 @@ export class Player extends Entity {
     const fr = heroFrame(assets, this);
     const flip = this.facing < 0;
     const x = this.x - camX, y = this.y - camY;
+
+    // Translucent cyan/violet phantom afterimages (Backdash, Slide, Divekick, Super-Jump, Magnes)
+    if (this.afterimages && this.afterimages.length) {
+      for (const gh of this.afterimages) {
+        const ga = Math.max(0, 1 - gh.t / gh.dur) * 0.52;
+        if (ga <= 0.02) continue;
+        const gfr = heroFrame(assets, gh);
+        assets.draw(ctx, gfr.sheet, gfr.name, gh.x - camX, gh.y - camY, gh.facing < 0, ga, 1, gh.color);
+      }
+    }
+
+    // Active Lodestone Magnet Tether (`Magnes`) electric cobalt beam
+    if (this.tetherNode) {
+      const mx = Math.round(this.tetherNode.x - camX);
+      const my = Math.round(this.tetherNode.y - camY);
+      const hx = Math.round(x);
+      const hy = Math.round(y - 34);
+      ctx.save();
+      ctx.strokeStyle = '#38d8ff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      const midX = (hx + mx) * 0.5 + Math.sin(this.idleT * 42 + this.x * 0.1) * 5;
+      const midY = (hy + my) * 0.5 + Math.cos(this.idleT * 37) * 5;
+      ctx.lineTo(midX, midY);
+      ctx.lineTo(mx, my);
+      ctx.stroke();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+
     let alpha = this.state === 'dead' ? Math.max(0, 1 - Math.max(0, this.deadT - 1.2) / 0.6) : 1;
     if (blink) alpha *= 0.3;
     if (this.state === 'dead' && fr.sheet === 'hero' && this.deadT > 0.4) {
@@ -979,10 +1340,26 @@ export class Player extends Entity {
       return;
     }
     if (fr.lash) {
-      // Whip body frame + the procedural lash flying out / cracking / dropping.
-      drawWhipFrame(ctx, assets, fr.sheet, fr.name, x, y, flip, alpha, this.whipReach, fr.lash);
+      // Whip body frame + the procedural lash flying out / cracking / dropping (curves toward foes for Nebula!).
+      const lashWithAim = Object.assign({}, fr.lash, { aimDy: this.whipAimDy || 0 });
+      drawWhipFrame(ctx, assets, fr.sheet, fr.name, x, y, flip, alpha, this.whipReach, lashWithAim,
+        null, null, null, this.whipColor || '#6b4a2b', this.whipTipColor || '#e8e2c8');
     } else {
       assets.draw(ctx, fr.sheet, fr.name, x, y, flip, alpha, 1, null, this.spriteXf());
+    }
+
+    // Aerial Diagonal Divekick glowing comet boot spear
+    if (this.divekickT > 0 && !this.onGround) {
+      ctx.save();
+      ctx.translate(Math.round(x + this.facing * 10), Math.round(y - 8));
+      if (flip) ctx.scale(-1, 1);
+      ctx.fillStyle = '#ff6a9e';
+      ctx.beginPath();
+      ctx.moveTo(12, 8); ctx.lineTo(-8, -10); ctx.lineTo(-2, -12); ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(4, 2, 6, 4);
+      ctx.restore();
     }
 
     // Resonance Ward shimmering protective ring

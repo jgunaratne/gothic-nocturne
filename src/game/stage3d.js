@@ -86,6 +86,18 @@ const THEME_PALETTES = {
     fog: [12, 18, 36], stone: [148, 166, 198], trim: [216, 232, 252],
     carpet: false, glass: [180, 238, 255], arch: true,
   },
+  conservatory: {
+    fog: [7, 16, 18], stone: [54, 92, 86], trim: [148, 212, 182],
+    carpet: true, glass: [110, 255, 196], arch: true,
+  },
+  dungeon: {
+    fog: [12, 7, 12], stone: [78, 62, 68], trim: [158, 118, 108],
+    carpet: false, glass: [255, 96, 72], arch: true, crypt: true,
+  },
+  observatory: {
+    fog: [8, 12, 28], stone: [98, 114, 162], trim: [224, 192, 118],
+    carpet: true, glass: [124, 232, 255], arch: true,
+  },
 };
 
 /**
@@ -104,9 +116,12 @@ export function project3D(wx, wy, z, camX, camY) {
 }
 
 // Halls whose far-wall lancets may open onto the night sky (the crypts stay buried).
-const SKY_THEMES = new Set(['graveyard', 'ramparts', 'throne', 'arcade', 'library', 'cathedral', 'alchemy', 'ballroom', 'coliseum', 'skykeep']);
+const SKY_THEMES = new Set([
+  'graveyard', 'ramparts', 'throne', 'arcade', 'library', 'cathedral',
+  'alchemy', 'ballroom', 'coliseum', 'skykeep', 'conservatory', 'observatory',
+]);
 // Halls that get a slowly turning brass orrery landmark.
-const ORRERY_THEMES = new Set(['library', 'arcade', 'alchemy']);
+const ORRERY_THEMES = new Set(['library', 'arcade', 'alchemy', 'observatory']);
 const MOON_RGB = [186, 204, 255];
 const BAY_W = 8 * TILE;
 const MURAL_BY_THEME = {
@@ -114,6 +129,9 @@ const MURAL_BY_THEME = {
   ballroom: 'mural_ballroom',
   coliseum: 'mural_coliseum',
   aqueduct: 'mural_aqueduct',
+  conservatory: 'mural_conservatory',
+  dungeon: 'mural_dungeon',
+  observatory: 'mural_observatory',
   catacombs: 'mural_catacombs',
   ossuary: 'mural_catacombs',
   graveyard: 'mural_throne',
@@ -139,6 +157,9 @@ const MID_PROPS = {
   coliseum: [['coliseum_props', 'weapon_rack'], ['coliseum_props', 'trophy_pillar'], ['coliseum_props', 'iron_brazier'], ['coliseum_props', 'war_standard']],
   aqueduct: [['aqueduct_props', 'water_spout'], ['aqueduct_props', 'sluice_wheel'], ['aqueduct_props', 'moss_amphora'], ['aqueduct_props', 'canal_lantern']],
   skykeep: [['skykeep_props', 'moon_astrolabe'], ['skykeep_props', 'ivy_column'], ['skykeep_props', 'fountain_basin'], ['skykeep_props', 'star_lantern']],
+  conservatory: [['conservatory_props', 'carnivorous_bloom'], ['conservatory_props', 'iron_trellis'], ['conservatory_props', 'glass_terrarium'], ['conservatory_props', 'marble_urn']],
+  dungeon: [['dungeon_props', 'iron_maiden'], ['dungeon_props', 'pillory_rack'], ['dungeon_props', 'coal_brazier'], ['dungeon_props', 'chain_pillar']],
+  observatory: [['observatory_props', 'brass_telescope'], ['observatory_props', 'celestial_globe'], ['observatory_props', 'star_orrery'], ['observatory_props', 'zodiac_stele']],
   catacombs: 'sarcophagus',
   ossuary: 'sarcophagus',
   darkcave: [['cavern_props', 'stalagmite'], ['cavern_props', 'obsidian_pillar']],
@@ -175,14 +196,16 @@ export class Stage3D {
   primaryStoneKey() {
     if (this.stageTheme === 'aqueduct') return 'aqueduct_stone';
     if (this.stageTheme === 'coliseum') return 'travertine_stone';
-    if (this.stageTheme === 'ballroom' || this.stageTheme === 'skykeep') return 'marble';
+    if (this.stageTheme === 'ballroom' || this.stageTheme === 'skykeep' || this.stageTheme === 'observatory') return 'marble';
+    if (this.stageTheme === 'dungeon') return 'crypt_stone';
     return this.pal.crypt ? 'crypt_stone' : 'wall';
   }
 
   trimStoneKey() {
     if (this.stageTheme === 'aqueduct') return 'aqueduct_stone';
     if (this.stageTheme === 'coliseum') return 'travertine_stone';
-    if (this.stageTheme === 'ballroom' || this.stageTheme === 'skykeep') return 'marble';
+    if (this.stageTheme === 'ballroom' || this.stageTheme === 'skykeep' || this.stageTheme === 'observatory') return 'marble';
+    if (this.stageTheme === 'dungeon') return 'crypt_stone';
     return this.pal.crypt ? 'crypt_stone' : 'stone_trim';
   }
 
@@ -1252,48 +1275,81 @@ export class Stage3D {
   }
 
   /**
-   * Stage 1 Castle Gatehouse Set-Piece (just before indoor hall `gateCol`):
-   * twin texture-mapped 3D barbican towers with faceted slate spire roofs, stepped
-   * buttresses, machicolations, crenellated parapet & vaulted portal arch.
+   * Stage 1 Monumental Castle Barbican Gatehouse Keep (just before indoor hall `gateCol`):
+   * central sovereign donjon tower, twin towering texture-mapped 3D barbican bastion towers
+   * with faceted slate spire roofs, stepped flying buttresses, machicolated parapet gallery,
+   * vaulted multi-order portal arch, and west bridgehead abutment piers across the moat.
    */
   drawGatehouseSetPiece3D(ctx, camX, camY, time, gateCol) {
     const gx = gateCol * TILE;
-    if (gx - camX > W + 300 || gx - camX < -220) return;
-    const r = this.level.surfaceRow(gateCol - 3);
+    const db = this.level.drawbridge;
+    const westX = db ? db.x0 * TILE : gx - 352;
+    if (westX - camX > W + 260 || gx - camX < -280) return;
+    const r = db ? db.row : this.level.surfaceRow(gateCol - 3);
     const floorY = (r > 0 ? r : 9) * TILE;
+    const moatFloorY = db ? (db.floorRow + 1) * TILE : floorY + 96;
     const roofTex = this.tex('slate_roof');
     const fog = this.pal.fog;
-    // Recessed curtain wall & multi-order vaulted arch drawn first (`z = 48..90`), tucked behind proud flanking towers (`z = 40..94`)
-    this.drawBox3D(ctx, camX, camY, gx - 132, floorY - 212, 48, 70, 54, 42, 'wall_b', { bright: 0.76 });
-    this.drawArchSpan3D(ctx, camX, camY, gx - 132, gx - 62, floorY - 120, floorY - 158, 48, 42, 'stone_trim');
-    this.drawArchSpan3D(ctx, camX, camY, gx - 126, gx - 68, floorY - 126, floorY - 154, 56, 34, 'wall');
-    // Left & right flanking barbican towers + stepped corner buttresses
-    this.drawBox3D(ctx, camX, camY, gx - 178, floorY - 216, 40, 46, 216, 54, 'wall', { bright: 0.78 });
-    this.drawBox3D(ctx, camX, camY, gx - 186, floorY - 128, 36, 12, 128, 22, 'stone_trim', { bright: 0.74 });
-    this.drawBox3D(ctx, camX, camY, gx - 62, floorY - 232, 40, 50, 232, 54, 'wall', { bright: 0.78 });
-    this.drawBox3D(ctx, camX, camY, gx - 18, floorY - 140, 36, 12, 140, 22, 'stone_trim', { bright: 0.74 });
-    // Steep 3D pyramidal slate roofs crowning both barbican towers
+
+    // 0. West Bridgehead 3D Moat Abutment Bastion & Stepped Turret (`westX`)
+    if (db && westX - camX > -220 && westX - camX < W + 220) {
+      this.drawBox3D(ctx, camX, camY, westX - 58, floorY - 4, 26, 62, moatFloorY - floorY + 8, 56, 'wall', { bright: 0.74 });
+      this.drawBox3D(ctx, camX, camY, westX - 52, floorY - 126, 36, 42, 126, 46, 'wall', { bright: 0.78 });
+      this.drawBox3D(ctx, camX, camY, westX - 58, floorY - 138, 34, 54, 14, 50, 'stone_trim', { bright: 0.82 });
+      if (roofTex) {
+        const wCx = westX - 31, wTop = floorY - 138, wW = 54, wH = 44;
+        const apex = project3D(wCx, wTop - wH, 58, camX, camY);
+        const fL = project3D(wCx - wW * 0.5, wTop, 34, camX, camY);
+        const fR = project3D(wCx + wW * 0.5, wTop, 34, camX, camY);
+        const bR = project3D(wCx + wW * 0.5, wTop, 84, camX, camY);
+        if (bR.x > fR.x + 0.3) {
+          texTri(ctx, roofTex, fR, bR, apex, 0, wH, 50, wH, 25, 0, shadeOverlay32([0.8, -0.55, -0.2], fog, 0.14, 0.76), 0.45);
+        }
+        texTri(ctx, roofTex, fL, fR, apex, 0, wH, wW, wH, wW * 0.5, 0, shadeOverlay32([0, -0.55, -0.82], fog, 0.12, 0.80), 0.45);
+      }
+    }
+
+    // 1. Central Towering Sovereign Donjon Keep rising behind the gatehouse (`z = 64..120`)
+    this.drawBox3D(ctx, camX, camY, gx - 168, floorY - 318, 64, 146, 128, 56, 'wall_b', { bright: 0.72 });
+    this.drawBox3D(ctx, camX, camY, gx - 174, floorY - 332, 60, 158, 16, 62, 'stone_trim', { bright: 0.78 });
+
+    // 2. Deep Moat Curtain Foundation & Recessed Multi-Order Vaulted Portal Arch (`z = 46..92`)
+    this.drawBox3D(ctx, camX, camY, gx - 196, floorY - 4, 28, 224, moatFloorY - floorY + 8, 64, 'wall', { bright: 0.72 });
+    this.drawBox3D(ctx, camX, camY, gx - 144, floorY - 248, 48, 86, 96, 44, 'wall_b', { bright: 0.76 });
+    this.drawArchSpan3D(ctx, camX, camY, gx - 144, gx - 58, floorY - 124, floorY - 172, 48, 44, 'stone_trim');
+    this.drawArchSpan3D(ctx, camX, camY, gx - 136, gx - 66, floorY - 130, floorY - 164, 56, 36, 'wall');
+
+    // 3. Monumental Twin Flanking Barbican Bastion Towers + Stepped Buttresses (`z = 36..94`)
+    this.drawBox3D(ctx, camX, camY, gx - 198, floorY - 258, 38, 56, 258, 58, 'wall', { bright: 0.78 });
+    this.drawBox3D(ctx, camX, camY, gx - 210, floorY - 156, 34, 14, 156, 26, 'stone_trim', { bright: 0.75 });
+    this.drawBox3D(ctx, camX, camY, gx - 58, floorY - 274, 38, 60, 274, 58, 'wall', { bright: 0.80 });
+    this.drawBox3D(ctx, camX, camY, gx - 4, floorY - 168, 34, 14, 168, 26, 'stone_trim', { bright: 0.75 });
+
+    // 4. Steep 3D Pyramidal Slate Spires Crowning Both Barbican Towers & Central Keep
     if (roofTex) {
       for (const tw of [
-        { cx: gx - 155, topY: floorY - 248, w: 54, h: 52 },
-        { cx: gx - 37, topY: floorY - 248, w: 58, h: 60 },
+        { cx: gx - 95, topY: floorY - 332, w: 92, h: 64, zF: 58, zB: 122 },
+        { cx: gx - 170, topY: floorY - 282, w: 66, h: 66, zF: 34, zB: 98 },
+        { cx: gx - 28, topY: floorY - 294, w: 70, h: 74, zF: 34, zB: 98 },
       ]) {
-        const apex = project3D(tw.cx, tw.topY - tw.h, 66, camX, camY);
-        const fL = project3D(tw.cx - tw.w * 0.5, tw.topY, 36, camX, camY);
-        const fR = project3D(tw.cx + tw.w * 0.5, tw.topY, 36, camX, camY);
-        const bL = project3D(tw.cx - tw.w * 0.5, tw.topY, 96, camX, camY);
-        const bR = project3D(tw.cx + tw.w * 0.5, tw.topY, 96, camX, camY);
+        const apex = project3D(tw.cx, tw.topY - tw.h, (tw.zF + tw.zB) * 0.5, camX, camY);
+        const fL = project3D(tw.cx - tw.w * 0.5, tw.topY, tw.zF, camX, camY);
+        const fR = project3D(tw.cx + tw.w * 0.5, tw.topY, tw.zF, camX, camY);
+        const bL = project3D(tw.cx - tw.w * 0.5, tw.topY, tw.zB, camX, camY);
+        const bR = project3D(tw.cx + tw.w * 0.5, tw.topY, tw.zB, camX, camY);
         if (fL.x > bL.x + 0.3) {
           texTri(ctx, roofTex, bL, fL, apex, 0, tw.h, 60, tw.h, 30, 0, shadeOverlay32([-0.8, -0.55, -0.2], fog, 0.14, 0.78), 0.45);
         } else if (bR.x > fR.x + 0.3) {
           texTri(ctx, roofTex, fR, bR, apex, 0, tw.h, 60, tw.h, 30, 0, shadeOverlay32([0.8, -0.55, -0.2], fog, 0.14, 0.78), 0.45);
         }
-        texTri(ctx, roofTex, fL, fR, apex, 0, tw.h, tw.w, tw.h, tw.w * 0.5, 0, shadeOverlay32([0, -0.55, -0.82], fog, 0.12, 0.80), 0.45);
+        texTri(ctx, roofTex, fL, fR, apex, 0, tw.h, tw.w, tw.h, tw.w * 0.5, 0, shadeOverlay32([0, -0.55, -0.82], fog, 0.12, 0.82), 0.45);
       }
     }
-    for (let i = 0; i < 5; i++) {
-      this.drawBox3D(ctx, camX, camY, gx - 172 + i * 38, floorY - 230, 39, 14, 10, 26, 'stone_trim', { bright: 0.70 });
-      this.drawBox3D(ctx, camX, camY, gx - 176 + i * 38, floorY - 246, 38, 22, 16, 30, 'stone_trim', { bright: 0.80 });
+
+    // 5. Corbeled Machicolation Gallery & Crenellated Stone Merlons
+    for (let i = 0; i < 6; i++) {
+      this.drawBox3D(ctx, camX, camY, gx - 196 + i * 38, floorY - 266, 37, 16, 12, 28, 'stone_trim', { bright: 0.72 });
+      this.drawBox3D(ctx, camX, camY, gx - 200 + i * 38, floorY - 284, 36, 24, 18, 32, 'stone_trim', { bright: 0.82 });
     }
   }
 
@@ -2034,10 +2090,12 @@ export class Stage3D {
     // 3D stone gatehouse physically overlaps the indoor hall entrance cleanly.
     if (r.x0 > 0 && r.edge !== false && portalLeft > -64 && portalLeft < W + 64) {
       const gx = r.x0 * TILE;
-      const gRow = this.level.surfaceRow(Math.max(0, r.x0 - 3));
+      const gRow = this.level.drawbridge
+        ? this.level.drawbridge.row
+        : this.level.surfaceRow(Math.max(0, r.x0 - 3));
       const gFloorY = (gRow > 0 ? gRow : 9) * TILE;
-      this.drawBox3D(ctx, camX, camY, gx - 62, gFloorY - 232, 40, 50, 232, 54, 'wall', { bright: 0.78 });
-      this.drawBox3D(ctx, camX, camY, gx - 24, gFloorY - 246, 38, 22, 16, 30, 'stone_trim', { bright: 0.78 });
+      this.drawBox3D(ctx, camX, camY, gx - 58, gFloorY - 274, 38, 60, 274, 58, 'wall', { bright: 0.80 });
+      this.drawBox3D(ctx, camX, camY, gx - 22, gFloorY - 290, 36, 26, 18, 32, 'stone_trim', { bright: 0.80 });
     }
   }
 
@@ -2327,7 +2385,7 @@ export class Stage3D {
     const depth = zBack - zFront;
     const trimKey = this.trimStoneKey();
     const trimTex = this.tex(trimKey);
-    const corniceKey = (this.stageTheme === 'alchemy' || this.stageTheme === 'ballroom') ? 'brass_rim' : trimKey;
+    const corniceKey = (this.stageTheme === 'alchemy' || this.stageTheme === 'ballroom' || this.stageTheme === 'observatory') ? 'brass_rim' : trimKey;
 
     // 1. Full 512x288 pixel-art mural / fresco / tapestry mapped onto the recessed back wall
     const muralTex = this.tex(muralKey);
@@ -2362,10 +2420,11 @@ export class Stage3D {
     this.drawBox3D(ctx, camX, camY, x0 - 8, yBot, zFront - 8, w + 16, 10, 10, trimKey, { bright: 0.76 });
 
     // 4. Subtle gallery illumination washing across the mural surface
-    const glowKey = this.stageTheme === 'alchemy' ? 'emerald'
-      : this.stageTheme === 'aqueduct' ? 'cyan'
+    const glowKey = (this.stageTheme === 'alchemy' || this.stageTheme === 'conservatory') ? 'emerald'
+      : (this.stageTheme === 'aqueduct' || this.stageTheme === 'observatory') ? 'cyan'
         : this.stageTheme === 'ballroom' ? 'violet'
-          : 'amber';
+          : this.stageTheme === 'dungeon' ? 'crimson'
+            : 'amber';
     const glow = getGlowCanvas(glowKey);
     if (glow) {
       const pulse = 0.78 + 0.22 * Math.sin(time * 1.4 + bayIndex * 0.9);
@@ -2387,7 +2446,10 @@ export class Stage3D {
    */
   drawWingHallStructures3D(ctx, camX, camY, r, roomIndex, floorRow, abyssHall, bStart, bEnd, ceilY, floorY, time) {
     const theme = this.stageTheme;
-    if (theme !== 'alchemy' && theme !== 'ballroom' && theme !== 'coliseum' && theme !== 'aqueduct') return;
+    if (
+      theme !== 'alchemy' && theme !== 'ballroom' && theme !== 'coliseum' && theme !== 'aqueduct'
+      && theme !== 'conservatory' && theme !== 'dungeon' && theme !== 'observatory'
+    ) return;
     const minX = r.x0 * TILE + 32;
     const maxX = (r.x1 + 1) * TILE - 32;
     const hallH = floorY - ceilY;
@@ -2440,6 +2502,56 @@ export class Stage3D {
         // Subterranean 3D Roman sluice-arch & water-gate spanning mid-depth
         const archTop = Math.max(ceilY + 36, floorY - 190);
         this.drawArchSpan3D(ctx, camX, camY, midX - 88, midX + 88, archTop + 58, archTop, 132, 38, 'aqueduct_stone');
+      } else if (theme === 'conservatory' && (bi & 1) === 0) {
+        // Victorian 3D wrought-iron glasshouse conservatory arch rib + suspended glowing nightshade terrarium
+        const archTop = Math.max(ceilY + 34, floorY - 210);
+        this.drawArchSpan3D(ctx, camX, camY, midX - 92, midX + 92, archTop + 62, archTop, 134, 28, 'iron_truss');
+        const podY = ceilY + 74;
+        this.drawBox3D(ctx, camX, camY, midX - 2, ceilY + 24, 126, 4, 50, 4, 'iron_rivet', { bright: 0.76 });
+        this.drawBox3D(ctx, camX, camY, midX - 18, podY, 120, 36, 14, 26, 'brass_rim', { bright: 0.82 });
+        const glow = getGlowCanvas('emerald');
+        if (glow) {
+          const gp = project3D(midX, podY + 8, 126, camX, camY);
+          const rad = (38 + 6 * Math.sin(time * 3.8 + bi)) * gp.s;
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.28;
+          ctx.drawImage(glow, gp.x - rad, gp.y - rad, rad * 2, rad * 2);
+          ctx.restore();
+        }
+      } else if (theme === 'dungeon' && (bi & 1) === 1) {
+        // Subterranean 3D iron portcullis gaol arch & suspended red-hot coal brazier
+        const archTop = Math.max(ceilY + 42, floorY - 188);
+        this.drawArchSpan3D(ctx, camX, camY, midX - 80, midX + 80, archTop + 52, archTop, 138, 42, 'crypt_stone');
+        for (let bx = -54; bx <= 54; bx += 27) {
+          this.drawBox3D(ctx, camX, camY, midX + bx - 2, archTop + 26, 148, 4, floorY - (archTop + 26), 4, 'iron_rivet', { bright: 0.72 });
+        }
+        const glow = getGlowCanvas('crimson');
+        if (glow) {
+          const gp = project3D(midX, floorY - 68, 142, camX, camY);
+          const rad = (36 + 5 * Math.sin(time * 4.6 + bi)) * gp.s;
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.24;
+          ctx.drawImage(glow, gp.x - rad, gp.y - rad, rad * 2, rad * 2);
+          ctx.restore();
+        }
+      } else if (theme === 'observatory' && (bi & 1) === 0) {
+        // Celestial 3D gilded-brass meridian arch + counter-rotating astrolabe gear rings
+        const archTop = Math.max(ceilY + 32, floorY - 216);
+        this.drawArchSpan3D(ctx, camX, camY, midX - 90, midX + 90, archTop + 64, archTop, 136, 30, 'brass_rim');
+        const dir = (bi & 2) ? 1 : -1;
+        this.drawGear3D(ctx, camX, camY, midX, ceilY + 86, 152, { r: 34, speed: 0.42 * dir, teeth: 12, phase: bi * 0.5, bright: 0.84 }, time);
+        const glow = getGlowCanvas('cyan');
+        if (glow) {
+          const gp = project3D(midX, ceilY + 86, 150, camX, camY);
+          const rad = (42 + 6 * Math.sin(time * 3.2 + bi)) * gp.s;
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.25;
+          ctx.drawImage(glow, gp.x - rad, gp.y - rad, rad * 2, rad * 2);
+          ctx.restore();
+        }
       }
     }
   }
@@ -2461,7 +2573,10 @@ export class Stage3D {
       : this.stageTheme === 'ballroom' ? 'ballroom_hall_floor'
         : this.stageTheme === 'coliseum' ? 'coliseum_hall_floor'
           : this.stageTheme === 'aqueduct' ? 'aqueduct_hall_floor'
-            : null;
+            : this.stageTheme === 'conservatory' ? 'conservatory_hall_floor'
+              : this.stageTheme === 'dungeon' ? 'dungeon_hall_floor'
+                : this.stageTheme === 'observatory' ? 'observatory_hall_floor'
+                  : null;
     const floorTex = this.tex(wingFloorKey || (pal.crypt ? 'crypt_floor' : 'hall_floor'));
     const zSteps = [zFar, 152, 108, 70, zNear];
     for (let zi = 0; zi < zSteps.length - 1; zi++) {
@@ -2471,9 +2586,13 @@ export class Stage3D {
       texStripZ(ctx, floorTex, camX, camY, x0, x1, floorY, zA, zB, zA, zB, shade, 1, FOCAL, EYE_X, EYE_Y);
     }
 
-    // Texture-mapped Runner Carpet (royal crimson or gilded ballroom velvet)
+    // Texture-mapped Runner Carpet (royal crimson, gilded ballroom, mossy conservatory, or celestial observatory)
     if (pal.carpet || this.stageTheme === 'ballroom') {
-      const carpetTex = this.tex(this.stageTheme === 'ballroom' ? 'ballroom_carpet' : 'carpet');
+      const carpetKey = this.stageTheme === 'ballroom' ? 'ballroom_carpet'
+        : this.stageTheme === 'conservatory' ? 'conservatory_carpet'
+          : this.stageTheme === 'observatory' ? 'observatory_carpet'
+            : 'carpet';
+      const carpetTex = this.tex(carpetKey);
       const cShade = shadeOverlay32([0, -0.85, -0.5], pal.fog, 0.38, 0.78);
       texStripZ(ctx, carpetTex, camX, camY, x0, x1, floorY, 148, 76, 0, 32, cShade, 2, FOCAL, EYE_X, EYE_Y);
     }

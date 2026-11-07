@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 32.5,
+   "ay": 80.0,
+   "clipFrame": 26,
+   "h": 80,
+   "w": 82,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 47.5,
+   "ay": 112.0,
+   "clipFrame": 52,
+   "h": 112,
+   "w": 106,
+   "x": 84,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 71.5,
+   "ay": 85.0,
+   "clipFrame": 75,
+   "h": 89,
+   "w": 137,
+   "x": 191,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 36.5,
+   "ay": 80.0,
+   "clipFrame": 123,
+   "h": 80,
+   "w": 91,
+   "x": 329,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "dullahan_attack_sheet.png",
+ "source": {
+  "action": "slash",
+  "anchor": "hips",
+  "clip": "dullahan_attack.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   26,
+   52,
+   75,
+   123
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The headless dark-violet plate knight carrying its glowing plumed helmet in one hand and a broadsword in the other performs ONE sword slash facing right: it raises its weapon high in a wind-up, slashes it down and across in a wide arc with a lunging step, then recovers to its guard stance. raises the broadsword high and cleaves forward in a heavy horizontal arc; no detached projectiles.",
+  "scale": 0.1802,
+  "select": "motion",
+  "sheet": "dullahan",
+  "window": [
+   26,
+   123
+  ]
+ }
+}

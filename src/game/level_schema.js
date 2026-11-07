@@ -1,5 +1,5 @@
-// Metroidvania Level Design Schema, Physics Rulers & Exact 2D Screen-to-Map Bijection
-// Implements Sections 1–6 of the Metroidvania Level Design & Generation Guidelines:
+// Interconnected Castle Level Design Schema, Physics Rulers & Exact 2D Screen-to-Map Bijection
+// Implements Sections 1–6 of the Castle Exploration Level Design & Generation Guidelines:
 // - Grid-unit physics rulers & 75% critical-path traversal budgets
 // - Exact `20 x 5` tile (`640 x 160 px`) per-cell 2D coordinate bijection (`GRID_CELL_W`, `GRID_CELL_H`)
 // - Explicit RoomArchetype & Kishōtenketsu pacing zone tags
@@ -132,6 +132,12 @@ export const ENEMY_ROLES = Object.freeze({
   necromancer: 'AERIAL_WEAVER',
   waltzdancer: 'AERIAL_WEAVER',
   siren: 'AERIAL_WEAVER',
+  dullahan: 'SHIELD_GUARD',
+  rulersword: 'AERIAL_WEAVER',
+  novaskeleton: 'TURRET_SNIPER',
+  fleaman: 'GROUND_RUSHER',
+  bonepillar: 'TURRET_SNIPER',
+  jiangshi: 'GROUND_RUSHER',
 });
 
 /**
@@ -350,10 +356,13 @@ export function revealStageCells(stage, mapRoom, normX = 0, normY = 0.5, {
     if (sanctuary) out.push(mapRoom.sanctuaryKey);
     if (inSecret || vesselFound) out.push(mapRoom.secretKey);
     if (cleared) {
+      if (mapRoom.warpKey) out.push(mapRoom.warpKey);
       for (const [bc, br] of mapRoom.boss) out.push(`${bc},${br}`);
       for (const [sc, sr] of mapRoom.spine) out.push(`${sc},${sr}`);
       for (const [ec, er] of mapRoom.extra) {
-        if (`${ec},${er}` !== mapRoom.secretKey || vesselFound) out.push(`${ec},${er}`);
+        const ek = `${ec},${er}`;
+        if (ek === mapRoom.bonusSecretKey) continue;
+        if (ek !== mapRoom.secretKey || vesselFound) out.push(ek);
       }
     }
     return out;
@@ -394,10 +403,13 @@ export function revealStageCells(stage, mapRoom, normX = 0, normY = 0.5, {
   if (sanctuary) out.push(mapRoom.sanctuaryKey);
   if (inSecret || vesselFound) out.push(mapRoom.secretKey);
   if (cleared) {
+    if (mapRoom.warpKey) out.push(mapRoom.warpKey);
     for (const [bc, br] of mapRoom.boss) out.push(`${bc},${br}`);
     for (const [sc, sr] of mapRoom.spine) out.push(`${sc},${sr}`);
     for (const [ec, er] of mapRoom.extra) {
-      if (`${ec},${er}` !== mapRoom.secretKey || vesselFound) out.push(`${ec},${er}`);
+      const ek = `${ec},${er}`;
+      if (ek === mapRoom.bonusSecretKey) continue;
+      if (ek !== mapRoom.secretKey || vesselFound) out.push(ek);
     }
   }
   return out;

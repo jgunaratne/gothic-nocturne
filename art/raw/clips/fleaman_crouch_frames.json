@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "crouch0": {
+   "ax": 21.7,
+   "ay": 40.0,
+   "clipFrame": 30,
+   "h": 40,
+   "w": 38,
+   "x": 1,
+   "y": 1
+  },
+  "crouch1": {
+   "ax": 21.7,
+   "ay": 40.0,
+   "clipFrame": 36,
+   "h": 40,
+   "w": 37,
+   "x": 40,
+   "y": 1
+  },
+  "crouch2": {
+   "ax": 21.7,
+   "ay": 40.0,
+   "clipFrame": 43,
+   "h": 40,
+   "w": 38,
+   "x": 78,
+   "y": 1
+  },
+  "crouch3": {
+   "ax": 21.7,
+   "ay": 37.0,
+   "clipFrame": 50,
+   "h": 37,
+   "w": 40,
+   "x": 117,
+   "y": 1
+  },
+  "crouch4": {
+   "ax": 21.7,
+   "ay": 35.0,
+   "clipFrame": 56,
+   "h": 35,
+   "w": 42,
+   "x": 158,
+   "y": 1
+  },
+  "crouch5": {
+   "ax": 21.7,
+   "ay": 35.0,
+   "clipFrame": 62,
+   "h": 35,
+   "w": 42,
+   "x": 201,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "fleaman_crouch_sheet.png",
+ "source": {
+  "action": "idle_creature",
+  "anchor": "mean",
+  "clip": "fleaman_crouch.mp4",
+  "corr": 0.5773117542266846,
+  "frame": "crouch0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 39,
+  "picks": [
+   30,
+   36,
+   43,
+   50,
+   56,
+   62
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The crouched feral hunched goblin-imp wearing a spiked iron helmet stays in place facing right in its ready stance with a slow looping idle motion: breathing, a slight sway, small shifts of its limbs and weapon. It never steps away, turns or attacks. staying crouched low on knuckles and toes, breathing and twitching.",
+  "scale": 0.0811,
+  "select": "period",
+  "sheet": "fleaman"
+ }
+}

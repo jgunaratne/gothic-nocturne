@@ -16,7 +16,7 @@ export const STAGE1 = composeGridStage({
   seed: 1,
   outdoorUntilCol: 8, // Cols 1..8 outdoor Cemetery, Moor, Viaduct & Stairway; Cols 9..27 indoor Castle Hall
   roster: {
-    ground: [['gravekeeper', 'normal'], ['zombie', 'normal'], ['skeleton', 'normal'], ['zombie', 'ghoul']],
+    ground: [['gravekeeper', 'normal'], ['zombie', 'normal'], ['fleaman', 'normal'], ['skeleton', 'normal']],
     heavy: [['armor', 'normal'], ['gravekeeper', 'normal']],
     sniper: [['skeleton', 'normal'], ['skeleton', 'axe'], ['gravekeeper', 'normal']],
     aerial: [['bat', 'normal'], ['ghost', 'normal']],

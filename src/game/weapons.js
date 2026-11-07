@@ -767,7 +767,375 @@ export const WEAPONS = {
       projectile: 'catalyst_void',
     },
   },
+
+  // -------------------------------------------------------------------------
+  // 10 Legendary Gothic Relics & Arcane Arms
+  // -------------------------------------------------------------------------
+
+  nebula_whipsword: {
+    id: 'nebula_whipsword',
+    name: 'NEBULA CHAIN-LASH',
+    short: 'NEBULA',
+    category: 'whip',
+    isTwoHanded: false,
+    reqStr: 9,
+    baseDamage: 1.55,
+    scaling: 0.21,
+    physical: 'cut',
+    element: 'void',
+    setTag: 'abyssal',
+    duration: 0.34,
+    active: [0.09, 0.27],
+    reach: 108,
+    knockback: 105,
+    multiHit: 2,
+    trackingWhip: true,
+    freeMoveWhip: true,
+    shape: 'whip',
+    bladeColor: '#b87cff',
+    trimColor: '#8ef5ff',
+    desc: 'ARTICULATED VOID CHAIN-SWORD · BENDS TOWARD NEARBY FOES',
+    skill: {
+      name: 'ASTRAL SNARE LASH',
+      desc: 'TWIN TRACKING VOID WHIPS + SEEKING DARK ORB',
+      mult: 1.65,
+      multiHit: 3,
+      projectile: 'catalyst_void',
+    },
+  },
+
+  herald_shield_rod: {
+    id: 'herald_shield_rod',
+    name: 'HERALDIC SHIELD ROD',
+    short: 'SHIELD ROD',
+    category: 'standard_blade',
+    isTwoHanded: false,
+    reqStr: 8,
+    baseDamage: 1.85,
+    scaling: 0.19,
+    physical: 'blunt',
+    element: 'holy',
+    setTag: 'knightly',
+    shieldRod: true,
+    duration: 0.29,
+    active: [0.07, 0.22],
+    reach: 56,
+    knockback: 135,
+    stepVx: 48,
+    shape: 'mace',
+    bladeColor: '#dce6f7',
+    trimColor: '#ffd27a',
+    desc: 'ROYAL SCEPTER · L+R + SHIELD CALLS SACRED SPELL',
+    skill: {
+      name: 'SOVEREIGN DECREE',
+      desc: 'CONSECRATED SCEPTER STRIKE + RADIANT HOLY WAVE',
+      mult: 1.7,
+      projectile: 'holy_wave',
+    },
+  },
+
+  meteor_gauntlets: {
+    id: 'meteor_gauntlets',
+    name: 'SOLAR METEOR CESTUS',
+    short: 'METEOR FIST',
+    category: 'brawler',
+    isTwoHanded: false,
+    reqStr: 10,
+    baseDamage: 1.05,
+    scaling: 0.14,
+    physical: 'blunt',
+    element: 'fire',
+    setTag: 'infernal',
+    duration: 0.26,
+    active: [0.03, 0.23],
+    reach: 48,
+    knockback: 125,
+    multiHit: 4,
+    armorPiercing: true,
+    lungeVx: 155,
+    shape: 'fist',
+    bladeColor: '#e0a25c',
+    trimColor: '#ff5268',
+    desc: 'BLINDING 4-HIT PHANTOM FIST BARRAGE · CRUSHES GUARD',
+    skill: {
+      name: 'HUNDRED FIST NOVA',
+      desc: '5-HIT METEOR PUNCH RUSH + BLAZING SHOCKWAVE',
+      mult: 1.55,
+      multiHit: 5,
+      dashVx: 215,
+      dropFlame: true,
+    },
+  },
+
+  prism_codex: {
+    id: 'prism_codex',
+    name: 'PRISM ORB GRIMOIRE',
+    short: 'PRISM ORB',
+    category: 'catalyst',
+    isTwoHanded: false,
+    reqStr: 10,
+    baseDamage: 1.95,
+    scaling: 0.18,
+    physical: 'blunt',
+    element: 'void',
+    setTag: 'abyssal',
+    duration: 0.30,
+    active: [0.05, 0.17],
+    reach: 210,
+    knockback: 90,
+    boltType: 'prism_orb',
+    globusBounce: true,
+    shape: 'tome',
+    bladeColor: '#9e3678',
+    trimColor: '#ff8ae2',
+    desc: 'CONJURES TWIN KINETIC SPHERES THAT RICOCHET OFF WALLS 5X',
+    skill: {
+      name: 'PRISM RICOCHET STORM',
+      desc: 'UNLEASHES 4 HIGH-VELOCITY WALL-BOUNCING PRISM SPHERES',
+      mult: 1.45,
+      spread: 4,
+    },
+  },
+
+  astral_rune_sword: {
+    id: 'astral_rune_sword',
+    name: 'HEAVEN RUNE BLADE',
+    short: 'RUNESWORD',
+    category: 'boomerang',
+    isTwoHanded: false,
+    reqStr: 12,
+    baseDamage: 2.35,
+    scaling: 0.20,
+    physical: 'cut',
+    element: 'holy',
+    setTag: 'consecrated',
+    duration: 0.26,
+    active: [0.05, 0.16],
+    reach: 196,
+    knockback: 110,
+    shape: 'sword',
+    bladeColor: '#58c8ff',
+    trimColor: '#ffd27a',
+    desc: 'HURLS A SPINNING OVERSIZED RUNE GREATSWORD THAT RETURNS',
+    skill: {
+      name: 'CELESTIAL SWORD FAN',
+      desc: 'CASTS A 3-BLADE ASTRAL SWORD FORMATION ACROSS THE HALL',
+      mult: 1.6,
+      fastLoop: true,
+      swordFan: true,
+    },
+  },
+
+  crimson_bloodblade: {
+    id: 'crimson_bloodblade',
+    name: 'CRIMSON BLOOD-KATANA',
+    short: 'BLOODBLADE',
+    category: 'standard_blade',
+    isTwoHanded: false,
+    reqStr: 13,
+    baseDamage: 1.95,
+    scaling: 0.20,
+    physical: 'cut',
+    element: 'void',
+    setTag: 'duelist',
+    bloodScaling: true,
+    duration: 0.25,
+    active: [0.05, 0.19],
+    reach: 66,
+    knockback: 95,
+    stepVx: 76,
+    shape: 'katana',
+    bladeColor: '#3a2234',
+    trimColor: '#ff3858',
+    desc: 'CURSED IAIDO BLADE · ABSORBS SLAIN BLOOD TO GROW STRONGER!',
+    skill: {
+      name: 'CRIMSON MOON DRAW',
+      desc: 'EVASIVE FLASH-STEP SLASH + PIERCING CRIMSON WAVE',
+      mult: 1.8,
+      dashVx: 220,
+      siphonHp: 1,
+      projectile: 'crimson_wave',
+    },
+  },
+
+  helios_rod: {
+    id: 'helios_rod',
+    name: 'HELIOS SOLAR ROD',
+    short: 'HELIOS RAY',
+    category: 'catalyst',
+    isTwoHanded: false,
+    reqStr: 14,
+    baseDamage: 2.30,
+    scaling: 0.21,
+    physical: 'blunt',
+    element: 'fire',
+    setTag: 'consecrated',
+    laserBeam: true,
+    boltType: 'helios_beam',
+    duration: 0.30,
+    active: [0.04, 0.22],
+    reach: 230,
+    knockback: 80,
+    shape: 'mace',
+    bladeColor: '#ffb838',
+    trimColor: '#fff6c2',
+    desc: 'FIRES AN INSTANT PIERCING HORIZONTAL BEAM OF SOLAR LIGHT',
+    skill: {
+      name: 'SOLAR CORONA BEAM',
+      desc: 'OVERCHARGED TWIN-ELEMENT HOLY + FIRE ANNIHILATION RAY',
+      mult: 1.75,
+      overbeam: true,
+    },
+  },
+
+  zephyr_galeblade: {
+    id: 'zephyr_galeblade',
+    name: 'ZEPHYR WIND-BLADE',
+    short: 'GALEBLADE',
+    category: 'light_blade',
+    isTwoHanded: false,
+    reqStr: 15,
+    baseDamage: 0.92,
+    scaling: 0.11,
+    physical: 'cut',
+    element: 'volt',
+    setTag: 'tempest',
+    windFlurry: true,
+    multiHit: 4,
+    duration: 0.21,
+    active: [0.02, 0.19],
+    reach: 74,
+    knockback: 35,
+    shape: 'katana',
+    bladeColor: '#98f5ff',
+    trimColor: '#ffd27a',
+    desc: '4X MOVING WIND-SLASH BUZZSAW · ZERO MOVEMENT PENALTY!',
+    skill: {
+      name: 'THOUSAND GALE VORTEX',
+      desc: '6-HIT CYCLONE SLASH WALL WHILE MOVING AT FULL SPRINT',
+      mult: 1.45,
+      multiHit: 6,
+      projectile: 'silver_beam',
+    },
+  },
+
+  solais_greatsword: {
+    id: 'solais_greatsword',
+    name: 'SOLAIS SWORD OF LIGHT',
+    short: 'SOLAIS',
+    category: 'heavy_blade',
+    isTwoHanded: true,
+    reqStr: 17,
+    baseDamage: 2.35,
+    scaling: 0.40,
+    physical: 'cut',
+    element: 'holy',
+    setTag: 'consecrated',
+    duration: 0.50,
+    active: [0.14, 0.38],
+    reach: 106,
+    knockback: 245,
+    shape: 'greatsword',
+    bladeColor: '#fff8d6',
+    trimColor: '#ffd25a',
+    desc: 'LEGENDARY 2H RADIANT CLAYMORE · MASSIVE HOLY ARC CLEAVE',
+    skill: {
+      name: 'DAWN JUDGEMENT',
+      desc: 'COLOSSAL LIGHT CLEAVE + RADIANT HOLY WAVE & SHOCKWAVE',
+      mult: 1.8,
+      shockwave: true,
+      projectile: 'holy_wave',
+    },
+  },
+
+  thanatos_scythe: {
+    id: 'thanatos_scythe',
+    name: 'THANATOS SOUL SCYTHE',
+    short: 'SOULSCYTHE',
+    category: 'heavy_blade',
+    isTwoHanded: true,
+    reqStr: 19,
+    baseDamage: 2.15,
+    scaling: 0.40,
+    physical: 'cut',
+    element: 'void',
+    setTag: 'abyssal',
+    spawnMiniScythe: true,
+    duration: 0.50,
+    active: [0.15, 0.38],
+    reach: 110,
+    knockback: 230,
+    shape: 'scythe',
+    bladeColor: '#d8dcff',
+    trimColor: '#a86cff',
+    desc: '2H DEATH SCYTHE · EVERY SWING SPAWNS A HOMING MINI-SICKLE!',
+    skill: {
+      name: 'REAPER SICKLE RING',
+      desc: 'SUMMONS 3 SEEKING DEATH SICKLES + +1 HP SOUL MEND',
+      mult: 1.7,
+      siphonHp: 1,
+      shockwave: true,
+      sickleBurst: 3,
+    },
+  },
 };
+
+/** Special Shield-Rod Sacred Call resonances (`herald_shield_rod` + ANY Shield in opposite hand). */
+export const SHIELD_ROD_SPELLS = {
+  heraldic_buckler: {
+    tag: 'shield_rod_iron',
+    name: 'IRON LION AEGIS',
+    element: 'holy',
+    physical: 'blunt',
+    baseDamage: 6.5,
+    radius: 124,
+    color: [1.0, 0.88, 0.46],
+    hex: '#ffe28a',
+    wardDur: 4.0,
+    healHp: 2,
+    desc: 'SHIELD ROD CALL: +2 HP MEND + 4S GOLDEN LION INVULNERABILITY WARD',
+  },
+  pyre_shield: {
+    tag: 'shield_rod_pyre',
+    name: 'SALAMANDER CONFLAGRATION',
+    element: 'fire',
+    physical: 'blunt',
+    baseDamage: 8.0,
+    radius: 146,
+    color: [1.0, 0.38, 0.12],
+    hex: '#ff6e2f',
+    wardDur: 3.2,
+    spawnFlames: true,
+    desc: 'SHIELD ROD CALL: GREAT FIREWYRM NOVA + SCORCHED EARTH RING',
+  },
+  rime_aegis: {
+    tag: 'shield_rod_rime',
+    name: 'COCYTUS BLIZZARD',
+    element: 'frost',
+    physical: 'blunt',
+    baseDamage: 7.5,
+    radius: 142,
+    color: [0.42, 0.88, 1.0],
+    hex: '#7ae8ff',
+    wardDur: 3.4,
+    iceFan: true,
+    desc: 'SHIELD ROD CALL: ABSOLUTE-ZERO NOVA + 5-SPEAR RIME VOLLEY',
+  },
+};
+
+export function resolvePairResonance(wL, wR) {
+  if (!wL || !wR || wL.isTwoHanded) return null;
+  if (wL.shieldRod && wR.category === 'shield') {
+    return SHIELD_ROD_SPELLS[wR.id] || SHIELD_ROD_SPELLS.heraldic_buckler;
+  }
+  if (wR.shieldRod && wL.category === 'shield') {
+    return SHIELD_ROD_SPELLS[wL.id] || SHIELD_ROD_SPELLS.heraldic_buckler;
+  }
+  if (wL.setTag && wL.setTag === wR.setTag && SET_RESONANCES[wL.setTag]) {
+    return SET_RESONANCES[wL.setTag];
+  }
+  return null;
+}
 
 export const WEAPON_ORDER = Object.keys(WEAPONS);
 
@@ -791,6 +1159,9 @@ export const STAGE_PEDESTAL_WEAPONS = {
   coliseum: 'iron_caestus',
   aqueduct: 'rime_aegis',
   skykeep: 'shadow_glaive',
+  conservatory: 'nebula_whipsword',
+  dungeon: 'crimson_bloodblade',
+  observatory: 'astral_rune_sword',
 };
 
 /** Enemy sheet/class -> rare weapon drop table (`[weaponId, chanceUnowned, chanceOwned]`). */
@@ -837,8 +1208,16 @@ export const ENEMY_WEAPON_DROPS = {
   minotaur: [['executioner_zweihander', 0.16, 0.03], ['iron_caestus', 0.14, 0.025]],
   siren: [['frost_phylactery', 0.12, 0.02], ['rime_aegis', 0.10, 0.02]],
   cisterncrab: [['rime_aegis', 0.16, 0.03], ['obsidian_warhammer', 0.13, 0.02]],
-  astralarcher: [['shadow_glaive', 0.13, 0.02], ['halcyon_chakram', 0.11, 0.02]],
-  marblecolossus: [['shadow_glaive', 0.17, 0.03], ['astral_scythe', 0.14, 0.025]],
+  astralarcher: [['shadow_glaive', 0.13, 0.02], ['astral_rune_sword', 0.12, 0.02]],
+  marblecolossus: [['solais_greatsword', 0.18, 0.03], ['astral_scythe', 0.14, 0.025]],
+
+  // 6 New Gothic Species Drop Tables
+  dullahan:     [['solais_greatsword', 0.18, 0.03], ['herald_shield_rod', 0.16, 0.025]],
+  rulersword:   [['zephyr_galeblade', 0.20, 0.035], ['astral_rune_sword', 0.18, 0.03]],
+  novaskeleton: [['helios_rod', 0.20, 0.03], ['nebula_whipsword', 0.14, 0.025]],
+  fleaman:      [['meteor_gauntlets', 0.16, 0.025], ['iron_caestus', 0.11, 0.02]],
+  bonepillar:   [['prism_codex', 0.18, 0.03], ['herald_shield_rod', 0.12, 0.02]],
+  jiangshi:     [['crimson_bloodblade', 0.19, 0.03], ['thanatos_scythe', 0.14, 0.025]],
 };
 
 export function resolveEnemySpeciesKey(enemy) {
@@ -960,6 +1339,14 @@ export const ENEMY_RESISTANCES = {
   cisterncrab:    { cut: 0.42, blunt: 1.90, volt: 2.00, fire: 0.70, frost: 0.55 },
   astralarcher:   { cut: 0.75, blunt: 1.45, void: 1.90, volt: 1.40, holy: 0.40 },
   marblecolossus: { cut: 0.45, blunt: 1.85, void: 1.95, volt: 1.45, holy: 0.35 },
+
+  // 6 New Gothic Species Resistances
+  dullahan:       { cut: 0.45, blunt: 1.80, holy: 1.90, volt: 1.55, void: 0.40 },
+  rulersword:     { cut: 0.55, blunt: 1.65, volt: 1.95, void: 1.50, holy: 0.65 },
+  novaskeleton:   { cut: 0.38, blunt: 2.00, holy: 1.85, fire: 1.30, volt: 0.35, void: 0.55 },
+  fleaman:        { cut: 1.55, blunt: 1.15, fire: 1.80, frost: 1.45 },
+  bonepillar:     { cut: 0.40, blunt: 2.00, frost: 1.85, holy: 1.65, fire: 0.30 },
+  jiangshi:       { cut: 1.25, blunt: 0.90, fire: 1.90, holy: 1.95, volt: 0.45, void: 0.45 },
 };
 
 export function getEnemyMultipliers(enemy) {
@@ -1016,7 +1403,8 @@ export function computeStrengthBreakdown(gameOrWorld) {
   const relicStr = martialRelics + Math.floor(otherRelics / 4);
   const vessels = game && game.getVesselCount ? game.getVesselCount() : 0;
   const vesselStr = Math.floor(vessels / 3);
-  let total = BASE_STRENGTH + levelBonus + relicStr + vesselStr;
+  const enchantStr = game && game.getEnchantStrBonus ? game.getEnchantStrBonus() : 0;
+  let total = BASE_STRENGTH + levelBonus + relicStr + vesselStr + enchantStr;
 
   const params = game && game.params;
   if (params && typeof params.get === 'function' && params.has('str')) {
@@ -1030,6 +1418,7 @@ export function computeStrengthBreakdown(gameOrWorld) {
     levelBonus,
     relicStr,
     vesselStr,
+    enchantStr,
     total,
   };
 }
@@ -1141,6 +1530,25 @@ export class InputBuffer {
       if (buf[i] === 'D' && (sawDF || (fIdx - i) <= 16)) {
         return true;
       }
+    }
+    return false;
+  }
+
+  /**
+   * Matches classic Gravity-Boots Super Jump `[Down, Up]` within 22 frames when
+   * `Jump` is pressed while `Up` is held!
+   */
+  matchSuperJump() {
+    const buf = this.frames;
+    const n = buf.length;
+    if (n < 3) return false;
+    let sawUp = false;
+    for (let i = n - 1; i >= Math.max(0, n - 5); i--) {
+      if (buf[i] === 'U' || buf[i] === 'UF') { sawUp = true; break; }
+    }
+    if (!sawUp) return false;
+    for (let i = n - 2; i >= Math.max(0, n - 24); i--) {
+      if (buf[i] === 'D' || buf[i] === 'DF' || buf[i] === 'DB') return true;
     }
     return false;
   }
@@ -1749,8 +2157,32 @@ export function drawWeaponAction(ctx, slotExec, sx, sy, facing, crouch, fxLayers
         });
       }
 
-      // Crisp horizontal fencing speed-streaks & needle piercing wake
-      if (k >= 0.18 && k <= 0.80) {
+      // Crisp horizontal fencing speed-streaks & needle piercing wake (or Zephyr Wind-Blade multi-crescent storm!)
+      if (w.windFlurry && k >= 0.08 && k <= 0.94) {
+        ctx.save();
+        ctx.translate(Math.round(sx + facing * 12), Math.round(gy));
+        if (facing < 0) ctx.scale(-1, 1);
+        for (let wi = 0; wi < 4; wi++) {
+          const ph = ((k * 3.4 + wi * 0.25) % 1);
+          const rOut = 26 + wi * 12 + ph * 8;
+          const a0 = -0.95 + wi * 0.16 - ph * 0.22;
+          const a1 = a0 + 1.35;
+          drawCrescentRibbon(
+            ctx,
+            Math.round(wi * 4),
+            Math.round((wi - 1.5) * 3),
+            rOut,
+            rOut * 0.66,
+            a0,
+            a1,
+            '#38d8ff',
+            '#aefbff',
+            '#ffffff',
+            0.78 * (1 - Math.abs(ph - 0.5) * 1.1),
+          );
+        }
+        ctx.restore();
+      } else if (k >= 0.18 && k <= 0.80) {
         const streakA = Math.min(1, ext * 1.15);
         ctx.save();
         ctx.globalAlpha = 0.75 * streakA;
@@ -1953,16 +2385,41 @@ export function drawWeaponAction(ctx, slotExec, sx, sy, facing, crouch, fxLayers
     }
 
     case 'catalyst': {
-      // Raised glowing tome / focus orb at extended cast hand
+      // Raised glowing tome / focus orb / Helios Solar Beam rod at extended cast hand
       const gx = Math.round(handX + facing * 5);
       const gy = Math.round(handY - Math.sin(k * Math.PI) * 4);
-      if (fxLayers && fxLayers.enabled) {
+      if (w.laserBeam && k >= 0.10 && k <= 0.88) {
+        const beamLen = slotExec.reach || w.reach || 225;
+        const beamA = k < 0.22 ? (k - 0.10) / 0.12 : Math.max(0, 1 - (k - 0.58) / 0.30);
+        const beamH = (slotExec.isSkill ? 14 : 9) * Math.max(0.35, beamA);
+        const bx0 = facing > 0 ? gx + 8 : gx - 8 - beamLen;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, beamA * 0.92);
+        ctx.fillStyle = '#ff7a1f';
+        ctx.fillRect(bx0, Math.round(gy - beamH), beamLen, Math.round(beamH * 2));
+        ctx.fillStyle = '#ffe878';
+        ctx.fillRect(bx0, Math.round(gy - beamH * 0.58), beamLen, Math.max(2, Math.round(beamH * 1.16)));
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(bx0, Math.round(gy - Math.max(1, beamH * 0.25)), beamLen, Math.max(2, Math.round(beamH * 0.5)));
+        ctx.restore();
+        if (fxLayers && fxLayers.enabled) {
+          fxLayers.addAttack({
+            x: gx + facing * (beamLen * 0.5), y: gy, rx: beamLen * 0.52, ry: beamH * 1.35,
+            dirX: facing, dirY: 0, mode: 1, seed: time * 3.1,
+            core: [1.0, 0.99, 0.88], rim: [1.0, 0.48, 0.12], alpha: 0.88 * Math.min(1, beamA),
+          });
+        }
+      } else if (fxLayers && fxLayers.enabled) {
         fxLayers.addAttack({
           x: gx + facing * 4, y: gy, rx: 13, ry: 13, dirX: facing, dirY: 0,
           mode: 0, seed: time, core: coreRgb, rim: rimRgb, alpha: 0.85 * (1 - k * 0.5),
         });
       }
-      if (icon) {
+      if (blade && w.laserBeam) {
+        ctx.translate(gx, gy);
+        if (facing < 0) ctx.scale(-1, 1);
+        ctx.drawImage(blade.canvas, -blade.gx, -blade.gy);
+      } else if (icon) {
         ctx.translate(gx, gy);
         if (facing < 0) ctx.scale(-1, 1);
         ctx.drawImage(icon, -12, -12, 24, 24);

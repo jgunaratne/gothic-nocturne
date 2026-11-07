@@ -1,5 +1,13 @@
 {
   "frames": {
+    "astral_rune_sword": {
+      "ax": 16.0,
+      "ay": 16.0,
+      "h": 32,
+      "w": 32,
+      "x": 109,
+      "y": 234
+    },
     "astral_scythe": {
       "ax": 16.0,
       "ay": 16.0,
@@ -7,6 +15,14 @@
       "w": 32,
       "x": 217,
       "y": 126
+    },
+    "blade_astral_rune_sword": {
+      "ax": 12.0,
+      "ay": 9.0,
+      "h": 18,
+      "w": 58,
+      "x": 167,
+      "y": 234
     },
     "blade_astral_scythe": {
       "ax": 10.0,
@@ -23,6 +39,14 @@
       "w": 46,
       "x": 245,
       "y": 70
+    },
+    "blade_crimson_bloodblade": {
+      "ax": 11.0,
+      "ay": 6.0,
+      "h": 10,
+      "w": 56,
+      "x": 113,
+      "y": 269
     },
     "blade_crypt_falchion": {
       "ax": 11.0,
@@ -48,6 +72,22 @@
       "x": 56,
       "y": 70
     },
+    "blade_helios_rod": {
+      "ax": 9.0,
+      "ay": 9.0,
+      "h": 18,
+      "w": 46,
+      "x": 60,
+      "y": 234
+    },
+    "blade_herald_shield_rod": {
+      "ax": 9.0,
+      "ay": 8.0,
+      "h": 16,
+      "w": 50,
+      "x": 2,
+      "y": 269
+    },
     "blade_iron_mace": {
       "ax": 9.0,
       "ay": 10.0,
@@ -72,6 +112,22 @@
       "x": 169,
       "y": 2
     },
+    "blade_solais_greatsword": {
+      "ax": 14.0,
+      "ay": 12.0,
+      "h": 23,
+      "w": 69,
+      "x": 160,
+      "y": 199
+    },
+    "blade_thanatos_scythe": {
+      "ax": 9.0,
+      "ay": 12.0,
+      "h": 34,
+      "w": 50,
+      "x": 60,
+      "y": 304
+    },
     "blade_volt_katana": {
       "ax": 12.0,
       "ay": 4.0,
@@ -80,6 +136,14 @@
       "x": 258,
       "y": 104
     },
+    "blade_zephyr_galeblade": {
+      "ax": 8.0,
+      "ay": 8.0,
+      "h": 15,
+      "w": 39,
+      "x": 60,
+      "y": 199
+    },
     "cinder_scimitar": {
       "ax": 14.0,
       "ay": 15.5,
@@ -87,6 +151,14 @@
       "w": 28,
       "x": 196,
       "y": 70
+    },
+    "crimson_bloodblade": {
+      "ax": 16.0,
+      "ay": 16.0,
+      "h": 32,
+      "w": 32,
+      "x": 55,
+      "y": 269
     },
     "crypt_falchion": {
       "ax": 16.0,
@@ -128,6 +200,14 @@
       "x": 2,
       "y": 70
     },
+    "prism_codex": {
+      "ax": 16.0,
+      "ay": 16.0,
+      "h": 32,
+      "w": 32,
+      "x": 172,
+      "y": 269
+    },
     "halcyon_chakram": {
       "ax": 16.0,
       "ay": 16.0,
@@ -136,6 +216,22 @@
       "x": 179,
       "y": 36
     },
+    "helios_rod": {
+      "ax": 16.0,
+      "ay": 16.0,
+      "h": 32,
+      "w": 32,
+      "x": 2,
+      "y": 234
+    },
+    "herald_shield_rod": {
+      "ax": 16.0,
+      "ay": 16.0,
+      "h": 32,
+      "w": 32,
+      "x": 228,
+      "y": 234
+    },
     "heraldic_buckler": {
       "ax": 16.0,
       "ay": 15.5,
@@ -143,6 +239,14 @@
       "w": 32,
       "x": 57,
       "y": 2
+    },
+    "hud_astral_rune_sword": {
+      "ax": 10.0,
+      "ay": 10.0,
+      "h": 20,
+      "w": 20,
+      "x": 144,
+      "y": 234
     },
     "hud_astral_scythe": {
       "ax": 10.0,
@@ -159,6 +263,14 @@
       "w": 17,
       "x": 226,
       "y": 70
+    },
+    "hud_crimson_bloodblade": {
+      "ax": 10.0,
+      "ay": 10.0,
+      "h": 20,
+      "w": 20,
+      "x": 90,
+      "y": 269
     },
     "hud_crypt_falchion": {
       "ax": 10.0,
@@ -200,6 +312,14 @@
       "x": 35,
       "y": 70
     },
+    "hud_prism_codex": {
+      "ax": 10.0,
+      "ay": 10.0,
+      "h": 20,
+      "w": 20,
+      "x": 207,
+      "y": 269
+    },
     "hud_halcyon_chakram": {
       "ax": 10.0,
       "ay": 9.0,
@@ -207,6 +327,22 @@
       "w": 20,
       "x": 213,
       "y": 36
+    },
+    "hud_helios_rod": {
+      "ax": 10.0,
+      "ay": 10.0,
+      "h": 20,
+      "w": 20,
+      "x": 37,
+      "y": 234
+    },
+    "hud_herald_shield_rod": {
+      "ax": 10.0,
+      "ay": 10.0,
+      "h": 20,
+      "w": 20,
+      "x": 263,
+      "y": 234
     },
     "hud_heraldic_buckler": {
       "ax": 10.0,
@@ -239,6 +375,14 @@
       "w": 20,
       "x": 109,
       "y": 36
+    },
+    "hud_nebula_whipsword": {
+      "ax": 10.0,
+      "ay": 10.0,
+      "h": 20,
+      "w": 20,
+      "x": 267,
+      "y": 199
     },
     "hud_obsidian_warhammer": {
       "ax": 9.0,
@@ -280,6 +424,22 @@
       "x": 147,
       "y": 2
     },
+    "hud_solais_greatsword": {
+      "ax": 10.0,
+      "ay": 10.0,
+      "h": 20,
+      "w": 20,
+      "x": 137,
+      "y": 199
+    },
+    "hud_thanatos_scythe": {
+      "ax": 10.0,
+      "ay": 10.0,
+      "h": 20,
+      "w": 20,
+      "x": 37,
+      "y": 304
+    },
     "hud_thunder_knuckles": {
       "ax": 9.5,
       "ay": 4.5,
@@ -287,6 +447,14 @@
       "w": 19,
       "x": 181,
       "y": 104
+    },
+    "hud_meteor_gauntlets": {
+      "ax": 10.0,
+      "ay": 10.0,
+      "h": 20,
+      "w": 20,
+      "x": 265,
+      "y": 269
     },
     "hud_void_grimoire": {
       "ax": 8.5,
@@ -303,6 +471,14 @@
       "w": 20,
       "x": 236,
       "y": 104
+    },
+    "hud_zephyr_galeblade": {
+      "ax": 10.0,
+      "ay": 10.0,
+      "h": 20,
+      "w": 20,
+      "x": 37,
+      "y": 199
     },
     "hunters_lash": {
       "ax": 15.5,
@@ -327,6 +503,14 @@
       "w": 31,
       "x": 76,
       "y": 36
+    },
+    "nebula_whipsword": {
+      "ax": 16.0,
+      "ay": 16.0,
+      "h": 32,
+      "w": 32,
+      "x": 232,
+      "y": 199
     },
     "obsidian_warhammer": {
       "ax": 15.0,
@@ -368,6 +552,22 @@
       "x": 113,
       "y": 2
     },
+    "solais_greatsword": {
+      "ax": 16.0,
+      "ay": 16.0,
+      "h": 32,
+      "w": 32,
+      "x": 102,
+      "y": 199
+    },
+    "thanatos_scythe": {
+      "ax": 16.0,
+      "ay": 16.0,
+      "h": 32,
+      "w": 32,
+      "x": 2,
+      "y": 304
+    },
     "thunder_knuckles": {
       "ax": 15.5,
       "ay": 6.5,
@@ -375,6 +575,14 @@
       "w": 31,
       "x": 148,
       "y": 104
+    },
+    "meteor_gauntlets": {
+      "ax": 16.0,
+      "ay": 16.0,
+      "h": 32,
+      "w": 32,
+      "x": 230,
+      "y": 269
     },
     "void_grimoire": {
       "ax": 13.5,
@@ -391,10 +599,14 @@
       "w": 32,
       "x": 202,
       "y": 104
+    },
+    "zephyr_galeblade": {
+      "ax": 16.0,
+      "ay": 16.0,
+      "h": 32,
+      "w": 32,
+      "x": 2,
+      "y": 199
     }
-  },
-  "source": {
-    "clip": "generated_weapons_2x2",
-    "model": "gempix-2-flash-lite-png"
   }
 }

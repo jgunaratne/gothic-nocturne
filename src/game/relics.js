@@ -152,6 +152,33 @@ export const BOSS_RELICS = {
     color: '#c8f0ff',
     bonuses: { speed: 0.06, hearts: 3 },
   },
+  conservatory: {
+    key: 'conservatory',
+    boss: 'THE NIGHTSHADE QUEEN',
+    name: 'NIGHTSHADE BLOOM',
+    short: 'THORN VIGOR',
+    desc: '+1 WEAPON DAMAGE & +2 MAX HP ACROSS THE KEEP',
+    color: '#ff5ca8',
+    bonuses: { whip: 1, maxHp: 2 },
+  },
+  dungeon: {
+    key: 'dungeon',
+    boss: 'THE GRAND INQUISITOR',
+    name: 'INQUISITOR SEAL',
+    short: 'IRON JUDGEMENT',
+    desc: '+1 SUB-WEAPON DAMAGE & +30% MERCY INVULNERABILITY',
+    color: '#ff5242',
+    bonuses: { subDmg: 1, invuln: 0.30 },
+  },
+  observatory: {
+    key: 'observatory',
+    boss: 'THE ECLIPSE ASTROMANCER',
+    name: 'ECLIPSE ASTROLABE',
+    short: 'STARLIGHT GRACE',
+    desc: '+3 STARTING HEARTS, +2 MAX HP & +5% STRIDE SPEED',
+    color: '#7ce8ff',
+    bonuses: { hearts: 3, maxHp: 2, speed: 0.05 },
+  },
 };
 
 export const RELIC_ORDER = Object.keys(BOSS_RELICS);

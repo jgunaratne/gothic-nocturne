@@ -26,9 +26,10 @@ function makeRoom(def) {
     const k = `${c},${r}`;
     if (!spineSeen.has(k)) { spineSeen.add(k); spine.push([c, r]); }
   }
+  const extraRaw = def.bonusSecret ? [...def.extra, def.bonusSecret] : def.extra;
   const extra = [];
   const extraSeen = new Set(spineSeen);
-  for (const [c, r] of def.extra) {
+  for (const [c, r] of extraRaw) {
     const k = `${c},${r}`;
     if (!extraSeen.has(k)) { extraSeen.add(k); extra.push([c, r]); }
   }
@@ -61,7 +62,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[26, 12], [27, 12], [26, 11], [27, 11]],
     sanctuary: [12, 12],
+    warp: [19, 12],
     secret: [14, 13],
+    bonusSecret: [15, 13],
+    bonusSecretFrom: [16, 13],
     labelPos: [16.5, 12.0],
   }),
 
@@ -83,7 +87,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[23, 18], [24, 18], [23, 17], [24, 17]],
     sanctuary: [10, 17],
+    warp: [18, 18],
     secret: [9, 18],
+    bonusSecret: [12, 16],
+    bonusSecretFrom: [11, 16],
     labelPos: [13.0, 17.5],
   }),
 
@@ -105,7 +112,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[18, 9], [19, 9], [18, 8], [19, 8]],
     sanctuary: [8, 10],
+    warp: [14, 9],
     secret: [10, 11],
+    bonusSecret: [11, 8],
+    bonusSecretFrom: [12, 8],
     labelPos: [10.0, 10.0],
   }),
 
@@ -127,7 +137,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[18, 5], [19, 5], [18, 4], [19, 4]],
     sanctuary: [7, 7],
+    warp: [14, 5],
     secret: [10, 8],
+    bonusSecret: [9, 5],
+    bonusSecretFrom: [8, 5],
     labelPos: [10.0, 6.4],
   }),
 
@@ -148,7 +161,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[24, 1], [25, 1], [24, 0], [25, 0]],
     sanctuary: [12, 2],
+    warp: [20, 1],
     secret: [14, 3],
+    bonusSecret: [16, 3],
+    bonusSecretFrom: [17, 3],
     labelPos: [15.0, 2.0],
   }),
 
@@ -170,7 +186,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[33, 4], [34, 4], [33, 3], [34, 3]],
     sanctuary: [22, 5],
+    warp: [29, 4],
     secret: [26, 3],
+    bonusSecret: [25, 4],
+    bonusSecretFrom: [26, 4],
     labelPos: [26.0, 4.4],
   }),
 
@@ -191,7 +210,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[38, 7], [39, 7], [38, 6], [39, 6]],
     sanctuary: [27, 7],
+    warp: [34, 7],
     secret: [32, 8],
+    bonusSecret: [34, 6],
+    bonusSecretFrom: [33, 6],
     labelPos: [31.5, 7.0],
   }),
 
@@ -210,7 +232,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[38, 10], [39, 10], [38, 9], [39, 9]],
     sanctuary: [28, 10],
+    warp: [34, 10],
     secret: [23, 9],
+    bonusSecret: [33, 9],
+    bonusSecretFrom: [32, 9],
     labelPos: [30.0, 9.8],
   }),
 
@@ -233,7 +258,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[33, 16], [34, 16], [33, 15], [34, 15]],
     sanctuary: [23, 15],
+    warp: [29, 16],
     secret: [26, 14],
+    bonusSecret: [24, 16],
+    bonusSecretFrom: [25, 16],
     labelPos: [26.0, 15.3],
   }),
 
@@ -255,7 +283,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[33, 21], [34, 21], [33, 20], [34, 20]],
     sanctuary: [22, 20],
+    warp: [29, 21],
     secret: [19, 20],
+    bonusSecret: [25, 21],
+    bonusSecretFrom: [26, 21],
     labelPos: [24.5, 20.2],
   }),
 
@@ -279,7 +310,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[50, 12], [51, 12], [50, 11], [51, 11]],
     sanctuary: [34, 12],
+    warp: [42, 11],
     secret: [38, 12],
+    bonusSecret: [29, 11],
+    bonusSecretFrom: [30, 11],
     labelPos: [38.5, 11.8],
   }),
 
@@ -304,7 +338,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[53, 6], [54, 6], [53, 5], [54, 5]],
     sanctuary: [43, 8],
+    warp: [50, 6],
     secret: [47, 5],
+    bonusSecret: [43, 6],
+    bonusSecretFrom: [44, 6],
     labelPos: [46.5, 7.2],
   }),
 
@@ -326,7 +363,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[66, 1], [67, 1], [66, 0], [67, 0]],
     sanctuary: [52, 3],
+    warp: [59, 2],
     secret: [53, 2],
+    bonusSecret: [56, 4],
+    bonusSecretFrom: [57, 4],
     labelPos: [56.0, 2.2],
   }),
 
@@ -347,7 +387,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[62, 7], [63, 7], [62, 6], [63, 6]],
     sanctuary: [51, 9],
+    warp: [59, 7],
     secret: [55, 6],
+    bonusSecret: [52, 8],
+    bonusSecretFrom: [53, 8],
     labelPos: [54.5, 8.0],
   }),
 
@@ -371,7 +414,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[69, 2], [70, 2], [69, 1], [70, 1]],
     sanctuary: [58, 11],
+    warp: [60, 11],
     secret: [62, 2],
+    bonusSecret: [54, 11],
+    bonusSecretFrom: [55, 11],
     labelPos: [60.5, 11.0],
   }),
 
@@ -395,7 +441,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[49, 19], [50, 19], [49, 18], [50, 18]],
     sanctuary: [38, 16],
+    warp: [46, 19],
     secret: [43, 17],
+    bonusSecret: [38, 18],
+    bonusSecretFrom: [39, 18],
     labelPos: [42.5, 18.2],
   }),
 
@@ -415,7 +464,10 @@ export const MAP_ROOMS = {
     ],
     boss: [[66, 21], [67, 21], [66, 20], [67, 20]],
     sanctuary: [52, 20],
+    warp: [58, 21],
     secret: [60, 22],
+    bonusSecret: [54, 18],
+    bonusSecretFrom: [55, 18],
     labelPos: [58.0, 20.6],
   }),
 
@@ -437,8 +489,87 @@ export const MAP_ROOMS = {
     ],
     boss: [[62, 25], [63, 25], [62, 24], [63, 24]],
     sanctuary: [37, 24],
+    warp: [52, 25],
     secret: [48, 26],
+    bonusSecret: [37, 23],
+    bonusSecretFrom: [36, 23],
     labelPos: [47.0, 24.8],
+  }),
+
+  // 19. THE BLIGHTED CONSERVATORY (`conservatory`: cols 5..24, w=20 -> 400 tiles; rows 18..22)
+  conservatory: makeRoom({
+    where: 'SUNKEN GLASSHOUSE',
+    icon: { sheet: 'wing_icons_extra', frame: 'conservatory' },
+    spine: [
+      ...hRun(5, 11, 20),
+      ...hRun(11, 17, 21),
+      ...hRun(17, 24, 22),
+    ],
+    extra: [
+      [7, 19], [7, 18],         // Glasshouse Root Stair rising to Darkwood [7,17]
+      ...hRun(12, 15, 20),      // Walkable Upper Greenhouse Mezzanine
+      [14, 22],                 // Isolated Sunken Orchid Vault Secret (below [14,21])
+      [17, 20],                 // Hydroponic Lock up to Aqueduct [17,19]
+      [23, 21], [24, 21],       // 2x2 Boss Sanctum upper dome
+    ],
+    boss: [[23, 22], [24, 22], [23, 21], [24, 21]],
+    sanctuary: [10, 20],
+    warp: [19, 22],
+    secret: [14, 22],
+    bonusSecret: [16, 20],
+    bonusSecretFrom: [17, 20],
+    labelPos: [14.5, 21.2],
+  }),
+
+  // 20. THE IRON INQUISITION (`dungeon`: cols 36..54, w=19 -> 380 tiles; rows 12..16)
+  dungeon: makeRoom({
+    where: 'TORTURE GAOL',
+    icon: { sheet: 'wing_icons_extra', frame: 'dungeon' },
+    spine: [
+      ...hRun(36, 42, 14),
+      ...hRun(42, 48, 15),
+      ...hRun(48, 54, 16),
+    ],
+    extra: [
+      [40, 13], [40, 12],       // Iron Gaol Stair up to Arcade [40,11]
+      [37, 15],                 // Charnel Grate down to Catacombs [37,16]
+      ...hRun(43, 46, 14),      // Walkable Warden Catwalk
+      [45, 16],                 // Isolated Sunken Oubliette Secret (below [45,15])
+      [50, 15], [50, 14],       // Watch-Chain Shaft up to Clock Tower [50,13]
+      [53, 15], [54, 15],       // 2x2 Boss Sanctum upper cellblock
+    ],
+    boss: [[53, 16], [54, 16], [53, 15], [54, 15]],
+    sanctuary: [42, 15],
+    warp: [49, 16],
+    secret: [45, 16],
+    bonusSecret: [47, 14],
+    bonusSecretFrom: [46, 14],
+    labelPos: [45.0, 15.0],
+  }),
+
+  // 21. THE ASTRAL OBSERVATORY (`observatory`: cols 27..47, w=21 -> 420 tiles; rows 0..4)
+  observatory: makeRoom({
+    where: 'ASTRAL DOME',
+    icon: { sheet: 'wing_icons_extra', frame: 'observatory' },
+    spine: [
+      ...hRun(27, 33, 2),
+      ...hRun(33, 47, 1),
+    ],
+    extra: [
+      [30, 3],                  // Star-Bridge down to Ramparts [30,4]
+      ...hRun(35, 38, 0),       // Walkable Upper Celestial Dome
+      [37, 2], [37, 3], [37, 4], // Grand Orrery Lift down to Cathedral [37,5]
+      [40, 2],                  // Isolated Sunken Lens Vault Secret (below [40,1])
+      [45, 2], [45, 3],         // Eclipse Skyway to Throne [45,4]
+      [46, 0], [47, 0],         // 2x2 Boss Sanctum upper dome
+    ],
+    boss: [[46, 1], [47, 1], [46, 0], [47, 0]],
+    sanctuary: [34, 1],
+    warp: [42, 1],
+    secret: [40, 2],
+    bonusSecret: [34, 0],
+    bonusSecretFrom: [35, 0],
+    labelPos: [37.5, 1.4],
   }),
 };
 
@@ -491,6 +622,16 @@ export const MAP_DOORS = [
   { id: 'dc_oss',   a: 'darkcave',   cellA: [57, 23], b: 'ossuary',    cellB: [57, 22], gateRelic: 'darkcave', goldenLoop: 'darkcave' },
   { id: 'oss_clk1', a: 'ossuary',    cellA: [55, 16], b: 'clocktower', cellB: [55, 15], gateRelic: null },
   { id: 'oss_clk2', a: 'ossuary',    cellA: [61, 16], b: 'clocktower', cellB: [61, 15], gateRelic: 'ossuary', goldenLoop: 'ossuary' },
+
+  // Expanded Castle Wings: Blighted Conservatory, Iron Inquisition & Astral Observatory:
+  { id: 'dw_con',   a: 'darkwood',     cellA: [7, 17],  b: 'conservatory', cellB: [7, 18],  gateRelic: null },
+  { id: 'con_aqu',  a: 'conservatory', cellA: [17, 20], b: 'aqueduct',     cellB: [17, 19], gateRelic: 'conservatory', goldenLoop: 'conservatory' },
+  { id: 'arc_dun',  a: 'arcade',       cellA: [40, 11], b: 'dungeon',      cellB: [40, 12], gateRelic: null },
+  { id: 'dun_cat',  a: 'dungeon',      cellA: [37, 15], b: 'catacombs',    cellB: [37, 16], gateRelic: 'dungeon', goldenLoop: 'dungeon' },
+  { id: 'dun_clk',  a: 'dungeon',      cellA: [50, 14], b: 'clocktower',   cellB: [50, 13], gateRelic: 'dungeon' },
+  { id: 'ram_obs',  a: 'ramparts',     cellA: [30, 4],  b: 'observatory',  cellB: [30, 3],  gateRelic: null },
+  { id: 'obs_cath', a: 'observatory',  cellA: [37, 4],  b: 'cathedral',    cellB: [37, 5],  gateRelic: 'observatory', goldenLoop: 'observatory' },
+  { id: 'obs_thr',  a: 'observatory',  cellA: [45, 3],  b: 'throne',       cellB: [45, 4],  gateRelic: 'observatory' },
 ];
 
 export const MAP_LINKS = MAP_DOORS;
@@ -528,6 +669,17 @@ export function rebuildMapIndex() {
     r.bossSet = new Set(r.boss.map(([c, rw]) => `${c},${rw}`));
     r.sanctuaryKey = `${r.sanctuary[0]},${r.sanctuary[1]}`;
     r.secretKey = `${r.secret[0]},${r.secret[1]}`;
+    if (!r.warp) {
+      const fallbackWarp = r.spine.find(([c, rw]) => {
+        const ck = `${c},${rw}`;
+        return ck !== r.sanctuaryKey && ck !== r.secretKey && !r.bossSet.has(ck)
+          && !(c === r.spine[0][0] && rw === r.spine[0][1]);
+      }) || r.sanctuary;
+      r.warp = fallbackWarp;
+    }
+    r.warpKey = `${r.warp[0]},${r.warp[1]}`;
+    r.bonusSecretKey = r.bonusSecret ? `${r.bonusSecret[0]},${r.bonusSecret[1]}` : null;
+    r.bonusSecretFromKey = r.bonusSecretFrom ? `${r.bonusSecretFrom[0]},${r.bonusSecretFrom[1]}` : null;
     let minC = 999, maxC = -1, minR = 999, maxR = -1;
     for (const [c, rw] of r.allCells) {
       CELL_OWNER.set(`${c},${rw}`, key);
@@ -691,11 +843,13 @@ export function placeForgedRoom(key, { preferred = [], seed = 1, spineLen = 9, e
     fracA = cellSpanFrac(anchor, best.anchorCell);
   }
   const b = best.bounds;
+  const warpIdx = Math.min(best.spine.length - 2, Math.max(2, Math.floor(best.spine.length * 0.6)));
   const room = {
     spine: best.spine,
     extra: best.extra,
     boss: best.boss,
     sanctuary: best.spine[1],
+    warp: best.spine[warpIdx] || best.spine[1],
     secret: best.extra[0],
     labelPos: [(b.minC + b.maxC + 1) * 0.5, (b.minR + b.maxR + 1) * 0.5 - 0.1],
     forged: true,

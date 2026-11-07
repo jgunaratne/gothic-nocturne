@@ -7,6 +7,7 @@ import {
   START_LEVEL, LEVEL_CAP, expRequiredForNextLevel, formatCompactExp, levelBonuses, stageRankFor,
 } from './progression.js';
 import { WEAPONS, ELEMENT_META, computeStrengthBreakdown, getWeaponIconCanvas } from './weapons.js';
+import { SOUL_GLYPHS, SOUL_TYPES } from './souls.js';
 
 export function drawHud(ctx, font, assets, world) {
   const p = world.player;
@@ -55,10 +56,13 @@ export function drawHud(ctx, font, assets, world) {
   ctx.fillStyle = '#8a9ab5';
   ctx.fillRect(bx + 1, by + 1, 26, 1);
   if (p.subWeapon) {
-    const sf = assets.frame('items', p.subWeapon);
-    const ssc = sf ? Math.min(1, 21 / Math.max(sf.w, sf.h)) : 1;
-    const syBot = Math.round(by + 13 + (sf ? sf.h * ssc * 0.5 : 9));
-    assets.draw(ctx, 'items', p.subWeapon, bx + 14, syBot, false, 1, ssc);
+    const subSheet = assets.frame('items', p.subWeapon) ? 'items' : 'exploration_props';
+    const sf = assets.frame(subSheet, p.subWeapon);
+    if (sf) {
+      const ssc = Math.min(1, 21 / Math.max(sf.w, sf.h));
+      const syBot = Math.round(by + 13 + sf.h * ssc * 0.5);
+      assets.draw(ctx, subSheet, p.subWeapon, bx + 14, syBot, false, 1, ssc);
+    }
   }
 
   // Ambidextrous Dual-Hand Equipment Matrix Sockets (`L` = 284..308, `R` = 311..335)
@@ -71,6 +75,26 @@ export function drawHud(ctx, font, assets, world) {
 
   drawHandSocket(ctx, font, 284, 18, 'L', wL, false, strTotal, !!(p.slots && p.slots[0] && p.slots[0].active));
   drawHandSocket(ctx, font, 311, 18, 'R', wR, twoHandLocked, strTotal, !!(p.slots && p.slots[1] && p.slots[1].active));
+
+  // Dual-Loadout A/B badge + Equipped Soul Glyph diamond pips beneath Hand Sockets
+  const setIdx = game && game.activeLoadout ? 1 : 0;
+  font.draw(ctx, setIdx === 0 ? 'SET A' : 'SET B', 284, 45, {
+    color: setIdx === 0 ? '#ffd27a' : '#62f2c2',
+    shadow,
+    gothic: false,
+  });
+  if (game && game.equippedSouls) {
+    let gx = 319;
+    for (const st of ['bullet', 'guardian', 'enchant']) {
+      const sid = game.equippedSouls[st];
+      const sm = SOUL_TYPES[st];
+      ctx.fillStyle = '#120e1e';
+      ctx.fillRect(gx - 1, 46, 5, 5);
+      ctx.fillStyle = sid && SOUL_GLYPHS[sid] ? sm.color : '#2e2a42';
+      ctx.fillRect(gx, 47, 3, 3);
+      gx += 6;
+    }
+  }
 
   if (twoHandLocked) {
     ctx.fillStyle = '#d9a84e';
@@ -257,10 +281,74 @@ export function drawHud(ctx, font, assets, world) {
         ctx.fillRect(px + 10 + i * 4, py + 19 - (bh >> 1), 2, bh);
       }
       font.draw(ctx, cue.speaker, px + 32, py + 6, { color: '#ffd27a', shadow });
+      if (cue.boss) {
+        const isTouch = !!(world.game && world.game.touch && world.game.touch.active);
+        const skipTxt = isTouch ? 'TAP ATK / PAUSE TO SKIP >>' : '[SPACE / ENTER] SKIP >>';
+        const sPulse = 0.65 + 0.35 * Math.sin((world.time || 0) * 6.5);
+        ctx.save();
+        ctx.globalAlpha = k * sPulse;
+        font.draw(ctx, skipTxt, px + pw - 10, py + 6, { align: 'right', color: '#9ef5dc', shadow, gothic: false });
+        ctx.restore();
+      }
       const lines = font.wrap(cue.text, pw - 44, 1, 1, false);
       lines.slice(0, 2).forEach((ln, i) => font.draw(ctx, ln, px + 32, py + 18 + i * 11, { color: ivory, shadow }));
       ctx.restore();
     }
+  } else if (world.inBossIntro && world.inBossIntro()) {
+    const isTouch = !!(world.game && world.game.touch && world.game.touch.active);
+    const skipTxt = isTouch ? 'TAP TO SKIP INTRO >>' : '[SPACE / ENTER] SKIP INTRO >>';
+    const tw = font.width(skipTxt, 1, 1, false) + 14;
+    const bx0 = Math.round((W - tw) * 0.5), by0 = H - 24;
+    ctx.save();
+    ctx.globalAlpha = 0.88;
+    ctx.fillStyle = 'rgba(6, 4, 14, 0.86)';
+    ctx.fillRect(bx0, by0, tw, 13);
+    ctx.strokeStyle = '#9ef5dc';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx0 + 0.5, by0 + 0.5, tw - 1, 12);
+    font.draw(ctx, skipTxt, Math.round(W * 0.5), by0 + 3, { align: 'center', color: '#9ef5dc', shadow, gothic: false });
+    ctx.restore();
+  } else if (world.targetEnemy && world.targetEnemy.t > 0) {
+    // Gothic Bestiary Target Plate (bottom-right corner on hit, classic handheld RPG telemetry!)
+    const te = world.targetEnemy;
+    const alpha = Math.min(1, te.t / 0.35);
+    const info = te.info;
+    const killedOnce = !!(game && game.bestiaryKills && game.bestiaryKills[info.key] > 0);
+    const pw = 176, ph = killedOnce && info.weakList.length ? 36 : 26;
+    const px = W - pw - 10, py = H - ph - 8;
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.94;
+    ctx.fillStyle = 'rgba(8, 6, 18, 0.90)';
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeStyle = '#6a568e';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+    ctx.fillStyle = '#ffd27a';
+    ctx.fillRect(px + 2, py + 2, 2, 2);
+    ctx.fillRect(px + pw - 4, py + 2, 2, 2);
+
+    font.draw(ctx, info.name.slice(0, 21), px + 6, py + 4, { color: '#f6f0de', shadow, gothic: false });
+    const hpTxt = `${te.hp}/${te.maxHp}`;
+    font.draw(ctx, hpTxt, px + pw - 6, py + 4, { align: 'right', color: '#ff8a9e', shadow, gothic: false });
+
+    // Smooth target HP bar
+    const bx0 = px + 6, by0 = py + 14, bw0 = pw - 12, bh0 = 5;
+    ctx.fillStyle = '#181228';
+    ctx.fillRect(bx0, by0, bw0, bh0);
+    const frac = Math.max(0, Math.min(1, te.hp / Math.max(1, te.maxHp)));
+    const fw = Math.round((bw0 - 2) * frac);
+    if (fw > 0) {
+      ctx.fillStyle = '#e03e58';
+      ctx.fillRect(bx0 + 1, by0 + 1, fw, bh0 - 2);
+      ctx.fillStyle = '#ff9cb0';
+      ctx.fillRect(bx0 + 1, by0 + 1, fw, 1);
+    }
+
+    if (killedOnce && info.weakList.length) {
+      const wTags = info.weakList.slice(0, 3).map((w) => w.label).join(' · ');
+      font.draw(ctx, `WEAK: ${wTags}`, px + 6, py + 23, { color: '#7ef7d4', shadow, gothic: false });
+    }
+    ctx.restore();
   }
   ctx.restore();
 }

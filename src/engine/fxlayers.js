@@ -720,6 +720,116 @@ void main() {
 }
 `;
 
+// Perspective-foreshortened Gothic stained-glass window pools projected onto indoor castle floors
+const STAINED_FLOOR_FRAG = `
+${SHADER_PREC}
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uScroll;
+uniform float uFloorY;
+uniform vec3 uColA;
+uniform vec3 uColB;
+uniform vec3 uColC;
+uniform float uLean;
+uniform float uAlpha;
+${NOISE}
+void main() {
+  vec2 px = floor(vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y)) + 0.5;
+  float dy = px.y - (uFloorY - 8.0);
+  if (dy < 0.0 || dy > 36.0) discard;
+  float v = dy / 36.0;
+  // World-space floor projection matching the diagonal lancet god-rays above
+  float wx = px.x + uScroll - (uFloorY / uRes.y) * uLean - dy * 0.85;
+  float bayW = 192.0;
+  float bid = floor(wx / bayW);
+  float u = fract(wx / bayW);
+  float center = 0.48 + (hash(vec2(bid, 13.7)) - 0.5) * 0.14;
+  float relX = (u - center) / 0.24;
+  if (abs(relX) > 1.08) discard;
+
+  // Pointed Gothic lancet arch silhouette + internal leaded-glass tracery mullions
+  float archCap = sqrt(max(0.0, 1.0 - relX * relX * 0.72));
+  float inPane = 1.0 - smoothstep(archCap * 0.82, archCap + 0.08, abs(v - 0.45) * 1.45);
+  if (inPane <= 0.02) discard;
+
+  // Dark leaded-glass mullions: central vertical bar, twin side bars & rose medallion ring
+  float leadV = smoothstep(0.035, 0.075, abs(relX)) * smoothstep(0.028, 0.062, abs(abs(relX) - 0.48));
+  float leadH = smoothstep(0.04, 0.085, abs(v - 0.36)) * smoothstep(0.04, 0.085, abs(v - 0.68));
+  vec2 roseQ = vec2(relX * 1.25, (v - 0.28) * 2.6);
+  float roseR = length(roseQ);
+  float roseLead = smoothstep(0.05, 0.11, abs(roseR - 0.52));
+  float mullion = leadV * leadH * roseLead;
+
+  // Tri-pane stained glass colour assignment per mullion compartment
+  float paneIdx = mod(abs(bid * 3.0 + floor((relX + 1.0) * 1.5)), 3.0);
+  vec3 paneCol = paneIdx < 0.9 ? uColA : (paneIdx < 1.9 ? uColB : uColC);
+  if (roseR < 0.50) paneCol = mix(uColB, vec3(1.0, 0.94, 0.76), 0.35);
+
+  float shimmer = 0.82 + 0.18 * vnoise(vec2(wx * 0.08 + uTime * 0.25, dy * 0.16));
+  float edgeFade = smoothstep(0.0, 0.18, v) * (1.0 - smoothstep(0.68, 1.0, v));
+  float a = inPane * mullion * shimmer * edgeFade * 0.36 * uAlpha;
+  a = floor(a * 8.0) / 8.0;
+  if (a <= 0.015) discard;
+  gl_FragColor = vec4(paneCol * a, a);
+}
+`;
+
+// Celestial Eclipse Corona + Engraved Astrolabe Zodiac Ring + Nebula Veil shader
+const CELESTIAL_FRAG = `
+${SHADER_PREC}
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uScroll;
+uniform vec2 uCenter;    // screen px center of eclipse orb
+uniform float uRadius;   // orb radius in px
+uniform vec3 uCoronaCol;
+uniform vec3 uRingCol;
+uniform float uAlpha;
+${NOISE}
+void main() {
+  vec2 px = floor(vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y)) + 0.5;
+  if (px.y > 224.0) discard;
+  vec2 rel = (px - uCenter) / max(8.0, uRadius);
+  float r = length(rel);
+  float ang = atan(rel.y, rel.x);
+
+  // Deep cosmic nebula veil drifting gently across the upper dome
+  vec2 nebP = vec2((px.x + uScroll * 0.04) / 145.0 + uTime * 0.015, px.y / 88.0);
+  float neb = fbm(nebP) * 0.65 + fbm(nebP * 2.1 - vec2(uTime * 0.02, 0.0)) * 0.35;
+  float nebMask = smoothstep(0.46, 0.84, neb) * (1.0 - smoothstep(90.0, 215.0, px.y)) * 0.26;
+
+  // Solar-lunar eclipse diamond-ring corona & animated plasma prominences
+  float prom = fbm(vec2(ang * 2.8 + uTime * 0.35, r * 2.4 - uTime * 0.48));
+  float corona = exp(-max(0.0, r - 0.96) * (2.3 - prom * 0.75)) * smoothstep(0.86, 1.02, r);
+  float photonRim = exp(-abs(r - 1.0) * 18.0) * (0.85 + 0.35 * cos(ang - 0.65));
+
+  // Concentric engraved brass/starlight astrolabe rings & zodiac degree ticks
+  float ring1 = exp(-abs(r - 1.52) * 20.0) * (0.55 + 0.45 * step(0.2, fract((ang + uTime * 0.08) * 5.7295)));
+  float ring2 = exp(-abs(r - 2.08) * 22.0) * (0.45 + 0.55 * step(0.35, fract((ang - uTime * 0.05) * 3.8197)));
+  // Foreshortened tilted ecliptic meridian ellipse
+  vec2 eq = vec2(rel.x * 0.52 + rel.y * 0.18, rel.y * 1.42 - rel.x * 0.24);
+  float ecliptic = exp(-abs(length(eq) - 1.25) * 22.0) * 0.55;
+  float astro = (ring1 * 0.65 + ring2 * 0.48 + ecliptic) * smoothstep(0.95, 1.18, r);
+
+  // Dark umbral lunar disc occluding the interior of the eclipse
+  float umbra = 1.0 - smoothstep(0.93, 1.01, r);
+  float glowE = (corona * 0.78 + photonRim * 1.15) * (1.0 - umbra * 0.88) + astro + nebMask;
+  if (glowE <= 0.02 && umbra <= 0.02) discard;
+
+  vec3 col = mix(uCoronaCol * 0.75, uCoronaCol * 1.35 + vec3(0.24), clamp(photonRim + corona * 0.4, 0.0, 1.0));
+  col = mix(col, uRingCol, clamp(astro * 1.25, 0.0, 0.85));
+  col = mix(col, vec3(0.03, 0.03, 0.08), umbra * 0.92);
+
+  float outA = clamp(max(glowE, umbra * 0.82) * uAlpha, 0.0, 0.95);
+  outA = floor(outA * 8.0) / 8.0;
+  col = floor(col * 16.0) / 16.0;
+  if (outA <= 0.015) discard;
+  gl_FragColor = vec4(col * outA, outA);
+}
+`;
+
 // Scissored enemy & boss attack shader:
 //   uMode 0 = swirling plasma orb + directional comet wake
 //   uMode 1 = serpentine petrifying gaze beam
@@ -1173,6 +1283,9 @@ const GODRAY_THEMES = {
   coliseum:  { a: [1.00, 0.64, 0.42], b: [0.96, 0.44, 0.34], c: [1.00, 0.80, 0.52], multi: 0, lean: 94, alpha: 0.72 },
   aqueduct:  { a: [0.38, 0.88, 0.98], b: [0.28, 0.74, 0.88], c: [0.64, 0.96, 1.00], multi: 0, lean: 72, alpha: 0.78 },
   skykeep:   { a: [0.80, 0.90, 1.00], b: [1.00, 0.90, 0.68], c: [0.68, 0.84, 1.00], multi: 0, lean: 98, alpha: 0.82 },
+  conservatory: { a: [0.32, 0.98, 0.68], b: [0.98, 0.38, 0.76], c: [0.68, 1.00, 0.56], multi: 1, lean: 78, alpha: 0.90 },
+  dungeon:      { a: [1.00, 0.46, 0.24], b: [0.76, 0.32, 0.28], c: [1.00, 0.68, 0.36], multi: 0, lean: 62, alpha: 0.68 },
+  observatory:  { a: [0.44, 0.88, 1.00], b: [1.00, 0.84, 0.42], c: [0.68, 0.52, 1.00], multi: 1, lean: 88, alpha: 0.96 },
 };
 
 const CLOUD_THEMES = {
@@ -1183,6 +1296,9 @@ const CLOUD_THEMES = {
   yule: { color: [0.72, 0.80, 0.95], shade: [0.14, 0.18, 0.34], density: 0.7, top: 0, bottom: 150 },
   coliseum: { color: [0.74, 0.46, 0.44], shade: [0.20, 0.10, 0.14], density: 0.58, top: 0, bottom: 145 },
   skykeep: { color: [0.78, 0.86, 0.98], shade: [0.20, 0.26, 0.44], density: 0.65, top: 0, bottom: 165 },
+  conservatory: { color: [0.38, 0.74, 0.62], shade: [0.08, 0.18, 0.16], density: 0.52, top: 0, bottom: 140 },
+  dungeon: { color: [0.62, 0.34, 0.32], shade: [0.18, 0.08, 0.10], density: 0.55, top: 0, bottom: 135 },
+  observatory: { color: [0.52, 0.74, 0.98], shade: [0.12, 0.18, 0.38], density: 0.50, top: 0, bottom: 160 },
 };
 
 export class FxLayers {
@@ -1224,6 +1340,8 @@ export class FxLayers {
     this.pMagmafall = this.program(VERT, MAGMAFALL_FRAG);
     this.pAurora = this.program(VERT, AURORA_FRAG);
     this.pGodRays = this.program(VERT, GODRAYS_FRAG);
+    this.pStainedFloor = this.program(VERT, STAINED_FLOOR_FRAG);
+    this.pCelestial = this.program(VERT, CELESTIAL_FRAG);
     this.pAttack = this.program(VERT, ATTACK_FRAG);
     this.pShockRing = this.program(VERT, SHOCKRING_FRAG);
     this.pVortex = this.program(VERT, VORTEX_FRAG);
@@ -1556,6 +1674,44 @@ export class FxLayers {
       gl.uniform1f(u.uLean, T.lean);
       gl.uniform1f(u.uAlpha, T.alpha * alpha);
     }, 'lighter');
+  }
+
+  /** Projects perspective-foreshortened Gothic stained-glass colour pools & leaded mullions onto indoor stone floors. */
+  stainedFloor(ctx, camX, floorY, theme, alpha = 1) {
+    const T = GODRAY_THEMES[theme];
+    if (!this.enabled || !T || alpha <= 0.01) return;
+    const y0 = Math.max(0, Math.floor(floorY - 8));
+    const h = Math.min(H - y0, 38);
+    if (h <= 2 || y0 >= H) return;
+    this.run(ctx, this.pStainedFloor, { x: 0, y: y0, w: W, h }, (gl, u) => {
+      gl.uniform1f(u.uScroll, camX);
+      gl.uniform1f(u.uFloorY, floorY);
+      gl.uniform3f(u.uColA, T.a[0], T.a[1], T.a[2]);
+      gl.uniform3f(u.uColB, T.b[0], T.b[1], T.b[2]);
+      gl.uniform3f(u.uColC, T.c[0], T.c[1], T.c[2]);
+      gl.uniform1f(u.uLean, T.lean);
+      gl.uniform1f(u.uAlpha, alpha);
+    }, 'lighter');
+  }
+
+  /** Renders an eclipsed celestial solar-lunar corona with plasma prominences & rotating astrolabe rings. */
+  celestialEclipse(ctx, camX, theme = 'observatory', alpha = 0.9) {
+    if (!this.enabled || alpha <= 0.01) return;
+    const isObs = theme === 'observatory';
+    const isSky = theme === 'skykeep';
+    const cx = isObs ? 452 - ((camX * 0.025) % 120) : (isSky ? 470 : 488);
+    const cy = isObs ? 74 : (isSky ? 68 : 62);
+    const rad = isObs ? 36 : (isSky ? 32 : 26);
+    const corona = isObs ? [0.46, 0.88, 1.00] : (isSky ? [0.84, 0.92, 1.00] : [0.76, 0.68, 0.98]);
+    const ring = isObs ? [1.00, 0.84, 0.44] : (isSky ? [1.00, 0.90, 0.62] : [0.68, 0.76, 1.00]);
+    this.run(ctx, this.pCelestial, { x: 0, y: 0, w: W, h: 224 }, (gl, u) => {
+      gl.uniform1f(u.uScroll, camX);
+      gl.uniform2f(u.uCenter, cx, cy);
+      gl.uniform1f(u.uRadius, rad);
+      gl.uniform3f(u.uCoronaCol, corona[0], corona[1], corona[2]);
+      gl.uniform3f(u.uRingCol, ring[0], ring[1], ring[2]);
+      gl.uniform1f(u.uAlpha, alpha);
+    }, 'source-over');
   }
 
   /** Queue an enemy/boss/relic shader attack effect in scene px. */

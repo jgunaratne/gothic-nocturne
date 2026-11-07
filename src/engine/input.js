@@ -9,6 +9,9 @@ const KEYMAP = {
   Space: 'jump', KeyZ: 'jump', KeyJ: 'jump',
   KeyX: 'attack', KeyK: 'attack',
   KeyV: 'offhand', KeyL: 'offhand', ShiftLeft: 'offhand', ShiftRight: 'offhand',
+  KeyQ: 'dash', Backspace: 'dash',
+  KeyR: 'swap',
+  KeyB: 'bestiary',
   KeyE: 'armory', KeyI: 'armory',
   Enter: 'start', Escape: 'start',
   KeyM: 'map', Tab: 'map',
@@ -20,7 +23,7 @@ const KEYMAP = {
 };
 
 const ACTIONS = [
-  'left', 'right', 'up', 'down', 'jump', 'attack', 'offhand', 'armory',
+  'left', 'right', 'up', 'down', 'jump', 'attack', 'offhand', 'dash', 'swap', 'bestiary', 'armory',
   'start', 'map', 'mute', 'fx', 'forge', 'salute', 'callsign',
 ];
 
@@ -105,7 +108,9 @@ export class Input {
       s.down = ay > 0.5 || b(13);
       s.jump = b(0) || b(1);
       s.attack = b(2) || b(5);                   // X / RB -> Hand_L (Slot 0)
-      s.offhand = b(3) || b(4) || b(6) || b(7);  // Y / LB / LT / RT -> Hand_R (Slot 1)
+      s.offhand = b(3) || b(7);                  // Y / RT -> Hand_R (Slot 1)
+      s.dash = b(4);                             // LB -> Backdash / Slide / Magnes Tether
+      s.swap = b(6);                             // LT -> Dual Loadout A/B Instant Swap
       s.start = b(9);
       s.map = b(8);           // Back / View / Select toggles Castle Map
       s.fx = b(10);           // left-stick click toggles shaders

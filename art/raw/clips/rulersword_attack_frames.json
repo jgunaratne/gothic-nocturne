@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 14.5,
+   "ay": 66.0,
+   "clipFrame": 23,
+   "h": 64,
+   "w": 33,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 25.0,
+   "ay": 52.0,
+   "clipFrame": 54,
+   "h": 29,
+   "w": 80,
+   "x": 35,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 24.0,
+   "ay": 57.0,
+   "clipFrame": 77,
+   "h": 37,
+   "w": 81,
+   "x": 116,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 13.0,
+   "ay": 65.0,
+   "clipFrame": 107,
+   "h": 65,
+   "w": 30,
+   "x": 198,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "rulersword_attack_sheet.png",
+ "source": {
+  "action": "lunge",
+  "anchor": "hips",
+  "clip": "rulersword_attack.mp4",
+  "frame": "float0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   23,
+   54,
+   77,
+   107
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The sentient floating ornate silver-and-gold royal rune greatsword performs ONE lunge attack facing right: it coils back in anticipation, springs forward with its limbs and claws extended, then recovers to the starting pose. tilts horizontally pointing right and lunges forward slightly in place then recovers; no hands, no detached projectiles.",
+  "scale": 0.1473,
+  "select": "motion",
+  "sheet": "rulersword",
+  "window": [
+   23,
+   107
+  ]
+ }
+}

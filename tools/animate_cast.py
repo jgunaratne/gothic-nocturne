@@ -35,7 +35,7 @@ LOOP, SHOT = "period", "motion"
 # Hovering sprites keep the first frame's ground line as their anchor (a flap or
 # bob must not move the body); walkers are anchored at the feet.
 FLYERS = {"bat", "medusa", "pumpkin", "dragon", "wisp", "owl", "ghost", "tome", "gargoyle", "cinderimp",
-          "wraith", "valkyrie", "necromancer", "gearharpy", "waltzdancer", "siren",
+          "wraith", "valkyrie", "necromancer", "gearharpy", "waltzdancer", "siren", "rulersword",
           "boss", "giantbat", "gorgon", "archivist", "greatjack", "archon"}
 
 # (sheet, subject, [(family, action, select, count, ref_frame, extra), ...])
@@ -296,6 +296,29 @@ CAST = [
         ("cast", "cast", SHOT, 4, "cast", "she raises her flame-topped scepter high and thrusts it forward to command a spell; no projectiles, no energy beams, no detached fireballs"),
         ("surge", "surge", SHOT, 4, "surge", "leaning low in place in a lunging dash, cape billowing behind her; no detached fire trails"),
         ("erupt", "erupt", SHOT, 4, "erupt", "holding her scepter horizontally with both hands, she braces low and heaves the scepter high overhead; no screen-filling explosions"),
+    ]),
+    ("dullahan", "headless dark-violet plate knight carrying its glowing plumed helmet in one hand and a broadsword in the other", [
+        ("walk", "walk", LOOP, 8, "walk0", "heavy armoured knight stride, cape swaying, carrying the glowing helmet at its hip"),
+        ("attack", "slash", SHOT, 4, "walk0", "raises the broadsword high and cleaves forward in a heavy horizontal arc; no detached projectiles"),
+    ]),
+    ("rulersword", "sentient floating ornate silver-and-gold royal rune greatsword", [
+        ("float", "float", LOOP, 6, "float0", "hovering upright in mid-air with gentle bob and faint rune shimmer; no hands or person"),
+        ("attack", "lunge", SHOT, 4, "float0", "tilts horizontally pointing right and lunges forward slightly in place then recovers; no hands, no detached projectiles"),
+    ]),
+    ("novaskeleton", "glowing cyan-ribbed cosmic skeleton warrior in dark obsidian shoulder armor", [
+        ("walk", "walk", LOOP, 8, "walk0", "menacing skeletal stride in place"),
+        ("attack", "cast", SHOT, 4, "walk0", "braces low and thrusts both open skeletal palms forward; no projectiles, no energy beams, no laser rays"),
+    ]),
+    ("fleaman", "crouched feral hunched goblin-imp wearing a spiked iron helmet", [
+        ("crouch", "idle_creature", LOOP, 6, "crouch0", "staying crouched low on knuckles and toes, breathing and twitching"),
+        ("attack", "lunge", SHOT, 4, "crouch0", "springs forward in place with claws slashing low; no projectiles"),
+    ]),
+    ("bonepillar", "stationary tower of three stacked dragon skulls bound in wrought-iron chains", [
+        ("idle", "idle_creature", LOOP, 6, "idle0", "the stacked dragon skulls shift slightly and their crimson eyes pulse in place"),
+        ("attack", "breath", SHOT, 4, "idle0", "the stacked dragon skulls hinge their jaws wide open in a fierce roar; no projectiles, no detached fireballs, no smoke clouds"),
+    ]),
+    ("jiangshi", "undead nobleman in midnight-indigo robes and mandarin hat with a paper talisman on its forehead", [
+        ("attack", "lunge", SHOT, 4, "hop0", "thrusts both long-clawed hands forward in a fierce double-claw strike; no projectiles, no energy beams"),
     ]),
 ]
 

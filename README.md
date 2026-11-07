@@ -1,8 +1,9 @@
 # Gothic Nocturne
 
-A 32-bit era, whip-cracking 2.5D side-scrolling action platformer across eighteen
-interconnected stages: a moonlit graveyard road rising up the Great Stairway into
-a multi-story entrance hall and sunken undercroft, an ancient bioluminescent darkwood alongside a
+A 32-bit era, whip-cracking 2.5D side-scrolling action platformer across twenty-one
+interconnected stages: a moonlit graveyard road crossing a grand 480px closing
+castle-moat drawbridge and slamming barbican portcullis into a multi-story entrance
+hall and sunken undercroft, an ancient bioluminescent darkwood alongside a
 guardian turtle companion, a pumpkin-lit haunted forest, a snowbound
 village under northern lights, the castle ramparts, catacombs, a molten subterranean
 dark cave of magma rivers and obsidian pillars, an
@@ -10,20 +11,23 @@ ossuary abyss, an arcade gallery of ancient brass automata, a haunted library of
 biting grimoires, a soaring cathedral of stained glass and waking gargoyles, a
 cylindrical clock tower of grinding 3D gears, an emerald-lit alchemy laboratory,
 a phantom masquerade ballroom, a torchlit blood coliseum, a sunken subterranean
-aqueduct, a moonlit floating garden high in the clouds, and the vaulted
+aqueduct, a moonlit floating garden high in the clouds, a bioluminescent blighted
+conservatory glasshouse, an iron inquisition dungeon, a brass-domed astral
+observatory, and the vaulted
 throne hall of the Count. Combines crisp nearest-neighbour 2D sprite combat
 with perspective-projected 3D architecture, scanline-projected vista planes,
 deep one-point-perspective passages and moonlit lancets cut through the halls'
 far walls, grand 3D staircases, mid-depth furnishings,
 extruded viaduct bridges, orbiting gear gondolas, chain-drawn ferries,
-crumbling masonry, candelabra to whip for hearts and sub-weapons,
-skeletons (and red reviving / axe-throwing variants), rising zombies and
+crumbling masonry, candelabra, elevated wall sconces and hanging lanterns to whip for hearts and sub-weapons,
+skeletons (and red reviving / axe-throwing / beam-firing variants), rising zombies and
 ghouls, swooping and fire bats, medusa heads, briar wolves, sporecap myconids,
 swooping night-owls, hopping and flaming jack-o'-lanterns, fire-breathing
 dragons, the petrifying catoblepas, ice golems, killer snowmen, frost wisps,
 magma slimes, boulder-hurling lava golems, swooping cinder imps, shielded plate
-knights, teleporting shadow wraiths, bespoke boss relic power-ups, and a 3D boss
-arena with spoken Daikon boss voice lines at the end of every stage.
+knights, teleporting shadow wraiths, headless dullahan knights, acrobatic hunchbacks,
+animated ruler swords, talisman undead, bone pillar turrets, bespoke boss relic power-ups, and a 3D boss
+arena with spoken (and skippable) Daikon boss voice lines at the end of every stage.
 
 - **Art**: tiles, sprites and backdrops generated with Gemini's image
   model and normalized into crisp pixel art, paired with procedural 32-bit
@@ -32,14 +36,14 @@ arena with spoken Daikon boss voice lines at the end of every stage.
   squash, flinch and death) and the walk / flight / idle cycles, wind-ups and
   attacks of every enemy and boss are cut from **Gemini Omni** video of the
   sprites themselves (`tools/animate_sprites.py`, `tools/animate_cast.py`).
-- **Music**: twenty-three full-length tracks (2–3 minutes each) generated with
-  **Lyria 3**: a distinct theme for every one of the 18 stages plus title, symphonic orchestral
+- **Music**: twenty-six full-length tracks (2–3 minutes each) generated with
+  **Lyria 3**: a distinct theme for every one of the 21 stages plus title, symphonic orchestral
   boss battle, stage-clear, game-over and ending (plus dedicated tracks for forged wings), streamed on demand and looped
   with crossfades.
-- **Voice**: eighteen bespoke male/female villain voice performances (with sinister laughs,
+- **Voice**: twenty-one bespoke male/female villain voice performances (with sinister laughs,
   whispers, coughs, and shouts — one for every stage's guardian boss, plus forged bosses) and a narrated epilogue generated with the
   **Daikon** TTS model (`assets/voice/*.mp3`), triggered as the orchestral boss
-  music rises underneath with ducking and a subtitle plate as the hunter enters each boss arena. Sound effects are
+  music rises underneath with ducking and a subtitle plate as the hunter enters each boss arena (press `Space`, `Enter`, or `Esc` anytime to skip directly into combat). Sound effects are
   synthesized in-browser with Web Audio (including multi-layered outdoor thunder), or replaced by sampled effects in
   `assets/sfx/` when generated with `tools/generate_sfx.sh` (ElevenLabs Sound
   Effects API, needs `ELEVENLABS_API_KEY`).
@@ -48,13 +52,17 @@ arena with spoken Daikon boss voice lines at the end of every stage.
   multiples when close and using band-limited sharp sub-pixel anti-aliased
   texel sampling at fractional/HiDPI scales to prevent shimmer), composited
   through a WebGL post-process (`src/engine/postfx.js`: half-res 320×180 bloom,
-  per-stage colour grading across all 18 realms, phosphor scanlines, film grain,
+  screen-space Sobel normal-mapped dynamic point-light rim & specular illumination
+  on pixel-art stonework and armor, Chrono Pocketwatch temporal stasis wave,
+  per-stage colour grading across all 21 realms, phosphor scanlines, film grain,
   convective lower-screen lava heat haze, radial shockwave refraction +
   chromatic dispersion, directional storm-lightning exposure, and damage pulse;
   press F to toggle, `?nofx` to disable) plus native-res 640×360 procedural
   shader layers (`src/engine/fxlayers.js`: storm-lit cloud banks, Arctic aurora
-  borealis curtains, moonlit and stained-glass volumetric god-rays with drifting
-  dust motes, forked sky lightning bolts, flowing / frozen water and churning
+  borealis curtains, celestial solar-lunar eclipse corona with rotating astrolabe
+  rings, moonlit and stained-glass volumetric god-rays with drifting dust motes,
+  perspective-foreshortened stained-glass colour pools & leaded mullions projected
+  onto indoor castle floors, forked sky lightning bolts, flowing / frozen water and churning
   molten lava pools, living flames on torches, braziers, candelabra, chandeliers
   and fire pools, batched combat comet-sparks, whip-slash star bursts, embers,
   faceted shards and wispy vapour puffs, enemy & boss plasma/beam/miasma/crescent
@@ -80,24 +88,28 @@ Opening the URL in multiple browsers or across machines on the network automatic
 | Action | Keyboard | Gamepad | Mobile / Touch |
 | --- | --- | --- | --- |
 | Move / crouch | ← → / ↓ (WASD) | Left stick / D-pad | Virtual 8-way D-pad |
-| Jump (hold for height; ↓+jump drops through ledges) | Z, J or Space | A / B | **JUMP** button (hold for height) |
+| Jump (hold for height; `↓ ↑ + Jump` High Jump with Night Wings) | Z, J or Space | A / B | **JUMP** button (hold for height) |
+| Backdash & Backdash-Cancel / Lodestone Grapple | Q or Backspace | LB | Air `▲` near Lodestone Ring |
+| Low Crouch-Slide Kick / Aerial Diagonal Pogo Divekick | `↓` + Jump (ground / air) or `↓` + Q | `↓` + A/B | D-pad **▼** + **JUMP** |
 | Left Hand (`Hand_L` / Slot 0 — defaults to Whip) | X or K | X / RB | **L-HAND** button |
-| Right Hand (`Hand_R` / Slot 1 — blade, shield, catalyst, ring) | C, V, L or Shift | Y / LB / LT / RT | **R-HAND** button (shown when armed) |
+| Right Hand (`Hand_R` / Slot 1 — blade, shield, catalyst, ring) | C, V, L or Shift | Y / RT | **R-HAND** button (shown when armed) |
+| Dual Loadout Hot-Swap (`SET A` ↔ `SET B`) | R | LT | Grimoire `SET A` / `SET B` toggle |
+| Cast Crimson Bullet Soul (`2♥`) / Arcane Glyph Union (`5♥`) | `↑` + Right Hand / `↑` + `L` + `R` | `↑` + Y / `↑` + X + Y | `▲` + **R-HAND** / **L+R** |
 | Hidden Weapon Command Skill (30-frame motion) | `↓ ↘ →` + Hand button | `↓ ↘ →` + Hand button | `↓ ↘ →` + **L-HAND** / **R-HAND** |
-| Cross-Hand Combo Resonance (matching Set Tags) | `Hand_L` + `Hand_R` together | `X` + `Y` / `RB` + `LB` | **L-HAND** + **R-HAND** together |
-| Dual-Hand Equipment Matrix (`Armory`) | E or I | — | **GEAR** pill or tap HUD `L` / `R` sockets |
-| Enter passageways / doorways | ↑ (at arched portal) | ↑ (at arched portal) | D-pad **▲**, portal prompt pill, or tap portal |
+| Cross-Hand Combo Resonance & Shield-Rod Sacred Call | `Hand_L` + `Hand_R` together | `X` + `Y` / `RB` + `RT` | **L-HAND** + **R-HAND** together |
+| Hunter's Grimoire (`Armory` · `Souls` · `Bestiary`) | E / I (or `B` for Bestiary) | — | **GEAR** pill or tap HUD `L` / `R` sockets |
+| Enter passageways / Warp Portals / Chests / Glyph Sigils | ↑ (at portal, chest, or sigil) | ↑ | D-pad **▲**, portal prompt pill, or tap portal |
 | Throw sub-weapon (costs 1 heart) | ↑ + Left Hand | ↑ + Left Hand | **SUB** button (or tap HUD sub-weapon box) |
 | Castle Exploration Map (live location & fast travel) | M or Tab | Back / Select / View | **MAP** pill or tap HUD Mini-Map (tap rooms to inspect / warp) |
 | Expand the Castle (propose a new wing) | P, or the title menu | title menu | **FORGE** pill or tap **EXPAND THE CASTLE** (opens OS keyboard) |
 | Salute / greet nearby hunters | G | — | **SALUTE** pill |
 | Edit Hunter Callsign (on Title / Map / Pause) | C | — | **NAME** pill or tap online status line |
-| Pause / start | Enter or Esc | Start | **PAUSE** / **START** pill (auto-pauses on background) |
+| Pause / start (or skip boss voice intro) | Enter, Space or Esc | Start | **PAUSE** / **START** pill (auto-pauses on background) |
 | Mute | N or U | Right stick click (R3) | **SOUND** pill |
 | Toggle shaders (bloom, grading, scanlines) | F | Left stick click (L3) | **FX ON** pill (**FULL** toggles fullscreen) |
 
-Whip candelabra for hearts, money, and sub-weapons (dagger, axe, holy water).
-Breakable blocks hide meat and gold. Spike pits hurt; bottomless pits kill.
+Whip candelabra, elevated wall sconces, and hanging lanterns for hearts, money, and sub-weapons (dagger, axe, holy water, holy cross boomerang, chrono pocketwatch).
+Breakable stone buttresses and wall blocks hide roast meat and gold. Spike pits hurt; bottomless pits kill.
 Defeat each stage's boss and claim the orb to march into the next stage.
 
 ### Boss Doors & Castle Progression
@@ -110,7 +122,7 @@ shockwave when the guardian falls and steps straight into the next adjacent
 castle level (`src/game/exploration.js`). Progression spreads outward from the
 Graveyard Road across the Castle Map (`src/game/gates.js`):
 
-- **The Graveyard Road's gate is always open**: it is where the hunt begins.
+- **The Graveyard Road's gate is always open**: it is where the hunt begins, and crossing the grand moat drawbridge into the Entrance Foyer permanently raises the drawbridge and slams the Barbican portcullis shut behind you.
 - **A region's Boss Gate Door only rises once a *neighbouring* region's guardian
   has been felled** (its prompt names the neighbours still standing), so each
   victory unseals the sanctums next door and the castle must be explored
@@ -119,8 +131,8 @@ Graveyard Road across the Castle Map (`src/game/gates.js`):
   region you may not enter yet.
 - **The Count waits behind every other guardian**: the Throne Hall's passage
   gateways, map fast travel, stage select and the Count's own Boss Gate Door all
-  stay sealed until all 17 other built-in guardians lie defeated
-  (`GUARDIANS FELLED 17/17` on the title, Settings and Castle Map screens).
+  stay sealed until all 20 other built-in guardians lie defeated
+  (`GUARDIANS FELLED 20/20` on the title, Settings and Castle Map screens).
   Forged wings' bosses are optional and do not count toward the Count.
 - Castle Map boss emblems carry a padlock while their gate is sealed, and the
   inspector plate shows `GATE SEALED / GATE OPEN` plus the reason.
@@ -145,10 +157,19 @@ overrides them for one session.
 
 All eighteen stages fit together as an interlocking **72×27 architectural cell grid** (`672` cells across multi-story galleries, vertical tower shafts, diagonal grand stairways, sunken undercrofts, cobalt halls, crimson boss chambers, emerald-cyan Sanctuaries, and amber-gold secret vaults, joined by `36` doorways including `18` Boss-Relic Golden Loop shortcuts):
 
-- **Press `M` (or `Tab` / Gamepad Select) Anytime**: Opens the full-screen **Castle Exploration Map** during gameplay, highlighting explored cells (`MAP XX% · RELICS XX/18 · VESSELS XX/18`) alongside a pulsing **`YOU` location beacon** projected 1:1 (`20×5` tiles = `640×160 px` per map cell via `src/game/grid_composer.js` & `src/game/level_schema.js`) so moving 1 screen left/right or 1 story up/down on screen always moves 1 cell on both the Castle Map and **9×5 HUD Mini-Map radar**.
-- **Physical Passage Gateways (`↑`)**: Carved Gothic portals inside every stage (framed by safe 9-tile flat buffers) connect directly into neighbouring regions on the map — carrying health, hearts, sub-weapon, lives, and score seamlessly across doorways. Shortcut doorways are sealed by **ability-gated runic barriers** that open once their corresponding Boss Relic is claimed (*Night Wings*, *Briar Bark*, *Lantern Flame*, *Frost Aegis*, *Iron Greaves*, *Soul Harvest*, *Clockwork Heart*, and each guardian's relic).
-- **Sanctuary Waystones & Fast Travel**: Walking past a region's carved **Sanctuary Waystone** mends `+4 HP` and attunes that Sanctuary so the hunter can warp between discovered Sanctuaries from the `M` map.
-- **18 Hidden Ancient Life Vessels**: Each region hides one golden **Ancient Vessel** inside a sunken crypt vault or atop a high stone balcony reachable only with *Night Wings* Double Jump, permanently granting **`+1 Max HP`** and **`+2 Starting Hearts`**.
+- **Press `M` (or `Tab` / Gamepad Select) Anytime**: Opens the full-screen **Castle Exploration Map** during gameplay, highlighting explored cells with internal doorway thresholds (`MAP XX% · RELICS XX/18 · VESSELS XX/18`), **Crimson Save Sanctums**, **Golden Warp Chambers**, **Royal Boss Halls**, and **Hidden Breakable-Wall Secret Chambers** alongside a pulsing **`YOU` location beacon** projected 1:1 (`20×5` tiles = `640×160 px` per map cell via `src/game/grid_composer.js` & `src/game/level_schema.js`).
+- **Physical Passage Gateways (`↑`) & One-Way Shortcut Gates**: Carved Gothic portals inside every stage connect directly into neighbouring regions, while multi-story gallery detours lead behind vertical iron **Shortcut Switch Gates** whose brass gear levers permanently unseal ground-floor routes.
+- **Decoupled Crimson Save Sanctums & Golden Warp Portals**: Stepping into a **Crimson Save Sanctum** fully mends vitality and records progress, while each region's **Golden Astral Warp Portal** (`↑`) attunes fast travel across the `M` map.
+- **Low Crawl Slide Vaults, Lodestone Rings & Breakable Secret Walls**: Low `1-tile` (`32 px`) masonry lintels guard **Emerald Reliquary Chests** reachable via the **Low Crouch-Slide Kick**, suspended **Lodestone Rings** (`Q` / `↑` in mid-air) slingshot the hunter across wide chasms and vertical tower shafts, and fissured perimeter walls shatter open to reveal hidden `1×1` secret chambers with **Gold Reliquary Chests** alongside the **18 Ancient Life Vessels**.
+
+## Tactical Soul Glyphs & Hunter's Bestiary (`src/game/souls.js`)
+
+Slain castle fiends and floating **Arcane Glyph Sigils** release luminous **Soul Orbs** that rank up from **Lv 1 to Lv 9** across three concurrent sockets in the **Hunter's Grimoire (`E` / `B`)**:
+
+- **Crimson Bullet Glyph (`↑` + Right Hand, `2♥`)**: Active monster spells including *Nova Ossuary Ray*, *Dullahan Spirit Helm*, *Reliquary Dragon Pyre*, *Ancestral Seal Pillar*, *Vanguard Twin Axes*, *Boreal Trident Fan*, *Nocturne Hellfire*, and *Gorgon Astral Beam*.
+- **Cobalt Guardian Glyph (Autonomous)**: Orbiting *Sovereign Dagger Wheel*, projectile-blocking *Aegis Familiar*, sonic *Nocturne Bat Echo*, and phase-step *Wraith Mist*.
+- **Amber Enchant Glyph (Passive)** & **Arcane Glyph Union (`↑ + L + R`, `5♥`)**: Passive strength, critical-rate, luck, and vitality blessings, plus a screen-spanning elemental judgement nova.
+- **Live Target Plate & 73-Entry Bestiary (`B`)**: Striking any creature displays its gothic target plate, HP bar, and floating critical/weakness damage numbers, while logging encounters, vanquishes, elemental affinities, weapon drops, and soul glyphs across all 73 species (including *Dullahan Knight*, *Spectral Sovereign*, *Nova Ossuary*, *Flea Stalker*, *Bone Reliquary*, and *Talisman Jiangshi*).
 
 ## Character Leveling & Adaptive Curve System
 
@@ -165,15 +186,16 @@ The hunter begins at **Level 1** (`0/100 EXP`, up to **Level 99**) and earns exp
 
 Across all eighteen stages, the hunter can claim signature weapons from carved **Arsenal Pedestals** (`1` per region) and rare drops from themed castle monsters (`src/game/weapons.js`, `src/game/armory_ui.js`), pressing **`E` / `I`** (or tapping **GEAR** / HUD `L` & `R` sockets) to open the **Dual-Hand Equipment Matrix**:
 
-1. **Ambidextrous Dual-Slot Handler (`Hand_L` & `Hand_R`)**: Both hands act as generic weapon sockets bound to independent buttons (`X`/`K` for `Hand_L`, `C`/`V`/`L`/`Shift` for `Hand_R`). Initiating an off-hand strike during the other hand's recovery frames triggers **Parallel Interruption**, and equipping a **Two-Handed (`isTwoHanded`)** weapon in `Hand_L` automatically locks and visually hides `Hand_R`.
-2. **Weapon Classification Matrix (20 Weapons)**:
-   - **Light Blade (1H)**: Linear forward thrust, full movement allowed, instant startup (*Quicksilver Estoc*, *Glacial Stiletto*, *Fulgurite Uchigatana*).
-   - **Standard Blade (1H)**: Forward overhead arc with combat step & free jump (*Crypt Falchion*, *Sanctified Mace*, *Cinder Shamshir*).
-   - **Heavy Blade (2H)**: Massive `180°` overhead-to-floor sweep, rooted to ground, heavy knockback (*Executioner Greatsword*, *Magma Maul*, *Voidreaver Scythe*).
-   - **Brawler / Fist (1H)**: Short horizontal multi-hit blitz with forward lunge; ignores frontal shield guards (*Spiked Caestus*, *Galvanic Talons*).
-   - **Boomerang / Projectile (1H)**: Outward loop & homing return with full movement and outbound + inbound double-hit potential (*Halcyon Chakram*, *Umbral Glaive-Ring*).
-   - **Shield & Catalyst (1H)**: Hold-to-guard heater/tower shields (*Heraldic Buckler*, *Salamander Shield*, *Glacial Aegis*) that block frontal shots & halve contact hits, paired with arcane spell foci (*Pyre Tome*, *Boreal Phylactery*, *Abyssal Grimoire*) and starter *Hunter's Lash*.
-3. **30-Frame Input Buffer & Cross-Hand Combo Resonance**: Inputting `[Down, Down-Forward, Forward]` (`↓ ↘ →`) + Hand button within a 30-frame buffer fires that weapon's unique **Command Skill** (*Fleche Lunge*, *Guillotine Arc*, *Lightning Blitz*, *Soul Harvest Arc*, …). Pressing `Hand_L + Hand_R` simultaneously while both hands share a **Set Tag** (*Infernal*, *Glacial*, *Consecrated*, *Knightly*, *Duelist*, *Tempest*, *Abyssal*) unleashes a **Cross-Hand Combo Resonance** detonation and protective ward.
+1. **Ambidextrous Dual-Slot Handler (`Hand_L` & `Hand_R`) & Dual Loadouts (`SET A` / `SET B`)**: Both hands act as generic weapon sockets bound to independent buttons (`X`/`K` for `Hand_L`, `C`/`V`/`L`/`Shift` for `Hand_R`), with instant mid-combat loadout hot-swapping (`R` / `LT`). Initiating an off-hand strike during the other hand's recovery frames triggers **Parallel Interruption**, and equipping a **Two-Handed (`isTwoHanded`)** weapon in `Hand_L` automatically locks and visually hides `Hand_R`.
+2. **Weapon Classification Matrix (30 Weapons)**:
+   - **Whip (1H)**: Extended lash with high-tension tip and target-tracking articulated chain-whip (*Hunter's Lash*, *Nebula Chain-Lash*).
+   - **Light Blade (1H)**: Linear forward thrust or moving multi-slash wind flurry with zero movement penalty (*Quicksilver Estoc*, *Glacial Stiletto*, *Stormfang Blade*, *Zephyr Wind-Blade*).
+   - **Standard Blade & Royal Scepter (1H)**: Forward overhead arc, kill-scaling cursed iaido blade, and *Heraldic Shield Rod* Sacred Calls (*Crypt Falchion*, *Sanctified Mace*, *Cinder Shamshir*, *Heraldic Shield Rod*, *Crimson Blood-Katana*).
+   - **Heavy Blade (2H)**: Massive `180°` overhead-to-floor sweep, radiant holy claymore, and homing-sickle reaper scythe (*Executioner Greatsword*, *Obsidian Maul*, *Voidreaver Scythe*, *Solais Sword of Light*, *Thanatos Soul Scythe*).
+   - **Brawler / Fist (1H)**: Rapid multi-hit phantom punch barrages with forward lunge; ignores frontal shield guards (*Spiked Caestus*, *Galvanic Talons*, *Solar Meteor Cestus*).
+   - **Boomerang / Projectile (1H)**: Outward loop & homing return with outbound + inbound double-hit potential (*Halcyon Chakram*, *Nightwing Glaive*, *Heaven Rune Blade*).
+   - **Shield & Catalyst (1H)**: Hold-to-guard shields (*Heraldic Buckler*, *Salamander Shield*, *Glacial Aegis*) paired with arcane spell foci, `5×` wall-bouncing kinetic spheres, and instant solar beams (*Pyre Tome*, *Boreal Phylactery*, *Nocturne Catalyst*, *Prism Orb Grimoire*, *Helios Solar Rod*).
+3. **30-Frame Input Buffer, Cross-Hand Resonance & Shield-Rod Sacred Call**: Inputting `[Down, Down-Forward, Forward]` (`↓ ↘ →`) + Hand button within a 30-frame buffer fires that weapon's unique **Command Skill**. Pressing `Hand_L + Hand_R` simultaneously unleashes a **Cross-Hand Combo Resonance** when both hands share a **Set Tag** (*Infernal*, *Glacial*, *Consecrated*, *Knightly*, *Duelist*, *Tempest*, *Abyssal*) — or invokes a bespoke **Shield-Rod Sacred Call** (*Iron Lion Aegis*, *Salamander Conflagration*, *Cocytus Blizzard*) when pairing the *Heraldic Shield Rod* with any Shield!
 4. **Stat Deficit Gate & Physical / Elemental Resistance Matrix**:
    - **Stat Deficit Gate**: `Final_Damage = Base_Damage + (Player_Strength * Scaling * (Player_Strength < Req_Strength ? 0.5 : 1.0))` — under-statted endgame weapons remain usable at a `0.5x` scaling penalty until the hunter's `STR` (from Character Levels, Boss Relics, and Ancient Vessels) meets `Req_Strength`.
    - **Damage Types & Resistances**: Every weapon pairs a Physical type (**Cut** or **Blunt**) with an optional Elemental type (**Fire**, **Frost**, **Volt**, **Holy**, **Void**) evaluated against per-species multipliers (e.g., armored skeletons resist `Cut` `0.35×` while shattering to `Blunt` `2.0×` and `Holy` `1.75×`; magma brutes resist `Fire` `0.25×` and crack to `Frost` `2.0×`).

@@ -339,10 +339,10 @@ export class Level {
   isLava(tx, ty) { return this.tile(tx, ty) === T_LAVA; }
   isWater(tx, ty) { return this.tile(tx, ty) === T_WATER; }
   isStandable(tx, ty) { const t = this.tile(tx, ty); return isSolidTile(t) || t === T_PLATFORM || t === T_CRUMBLE; }
-  /** True for the plank deck of the castle-moat drawbridge (walkable, never drop-through). */
+  /** True for the plank deck of the castle-moat drawbridge while lowered (walkable, never drop-through). */
   isDrawbridgeTile(tx, ty) {
     const d = this.drawbridge;
-    return !!d && ty === d.row && tx >= d.x0 && tx <= d.x1;
+    return !!d && (!d.state || d.state === 'open') && ty === d.row && tx >= d.x0 && tx <= d.x1;
   }
   /** True when platform run `r` is the drawbridge deck (rendered by `drawDrawbridge`). */
   isDrawbridgeRun(r) {
@@ -499,55 +499,115 @@ export class Level {
     }
 
     // 2. Crumbling stone slabs
-    if (!this.crumbles.length) return;
-    const pStand = player && player.alive && player.onGround && !player.dropThrough;
-    const ptx0 = pStand ? Math.floor(player.left / TILE) : -99;
-    const ptx1 = pStand ? Math.floor((player.right - 0.01) / TILE) : -99;
-    const pty = pStand ? Math.floor((player.bottom + 1) / TILE) : -99;
+    if (this.crumbles.length) {
+      const pStand = player && player.alive && player.onGround && !player.dropThrough;
+      const ptx0 = pStand ? Math.floor(player.left / TILE) : -99;
+      const ptx1 = pStand ? Math.floor((player.right - 0.01) / TILE) : -99;
+      const pty = pStand ? Math.floor((player.bottom + 1) / TILE) : -99;
 
-    for (const c of this.crumbles) {
-      if (c.state === 'idle') {
-        if (pStand && c.ty === pty && c.tx >= ptx0 && c.tx <= ptx1) {
-          c.state = 'shake';
-          c.timer = 0.52;
-          if (world) world.particles.dust(c.tx * TILE + 16, c.ty * TILE + 6, 4, '#b8b0a0');
+      for (const c of this.crumbles) {
+        if (c.state === 'idle') {
+          if (pStand && c.ty === pty && c.tx >= ptx0 && c.tx <= ptx1) {
+            c.state = 'shake';
+            c.timer = 0.52;
+            if (world) world.particles.dust(c.tx * TILE + 16, c.ty * TILE + 6, 4, '#b8b0a0');
+          }
+        } else if (c.state === 'shake') {
+          c.timer -= dt;
+          if (world && Math.random() < 0.35) {
+            world.particles.dust(c.tx * TILE + 8 + Math.random() * 16, c.ty * TILE + 14, 1, '#9c9488');
+          }
+          if (c.timer <= 0) {
+            c.state = 'gone';
+            c.timer = 2.8;
+            c.chunks = [
+              { frame: 'breaking', dx: 0, dy: 2, vx: ((c.tx % 2) ? 1 : -1) * 14, vy: 28, rot: 0, vrot: ((c.tx % 2) ? 1 : -1) * 1.5, scale: 0.94 },
+              { frame: 'chunk', dx: -8, dy: 10, vx: -36, vy: 48, rot: -0.2, vrot: -3.2, scale: 0.72 },
+              { frame: 'chunk', dx: 9, dy: 12, vx: 38, vy: 60, rot: 0.25, vrot: 3.5, scale: 0.66 },
+            ];
+            this.set(c.tx, c.ty, T_EMPTY);
+            if (world) {
+              world.sfx('block');
+              world.particles.shards(c.tx * TILE + 16, c.ty * TILE + 12, 8, '#8a92a8', c.ty * TILE + 56);
+            }
+          }
+        } else if (c.state === 'gone') {
+          c.timer -= dt;
+          if (c.chunks) {
+            for (const ch of c.chunks) {
+              ch.vy = Math.min(480, ch.vy + 740 * dt);
+              ch.dx += ch.vx * dt;
+              ch.dy += ch.vy * dt;
+              ch.rot += ch.vrot * dt;
+            }
+            if (c.timer < 1.2) c.chunks = null;
+          }
+          if (c.timer <= 0) {
+            c.state = 'idle';
+            c.timer = 0;
+            c.chunks = null;
+            this.set(c.tx, c.ty, T_CRUMBLE);
+            if (world) world.particles.dust(c.tx * TILE + 16, c.ty * TILE + 8, 3, '#c8d0e0');
+          }
         }
-      } else if (c.state === 'shake') {
-        c.timer -= dt;
-        if (world && Math.random() < 0.35) {
-          world.particles.dust(c.tx * TILE + 8 + Math.random() * 16, c.ty * TILE + 14, 1, '#9c9488');
+      }
+    }
+
+    // 3. Stage 1 Grand Castle-Moat Drawbridge & Portcullis Seal
+    if (this.drawbridge && dt > 0) {
+      const d = this.drawbridge;
+      if (!d.state) d.state = 'open';
+      if (d.raise == null) d.raise = 0;
+      if (d.portcullis == null) d.portcullis = 0;
+      if (d.wheelAngle == null) d.wheelAngle = 0;
+
+      if (d.state === 'open' && player && player.alive && d.triggerX != null && player.x >= d.triggerX) {
+        d.state = 'closing';
+        d._portcullisSlammed = false;
+        const gateCol = d.gateCol != null ? d.gateCol : d.x1 + 1;
+        for (let r = 0; r < d.row; r++) {
+          if (this.tile(gateCol, r) === T_EMPTY) this.set(gateCol, r, T_GATE);
         }
-        if (c.timer <= 0) {
-          c.state = 'gone';
-          c.timer = 2.8;
-          c.chunks = [
-            { frame: 'breaking', dx: 0, dy: 2, vx: ((c.tx % 2) ? 1 : -1) * 14, vy: 28, rot: 0, vrot: ((c.tx % 2) ? 1 : -1) * 1.5, scale: 0.94 },
-            { frame: 'chunk', dx: -8, dy: 10, vx: -36, vy: 48, rot: -0.2, vrot: -3.2, scale: 0.72 },
-            { frame: 'chunk', dx: 9, dy: 12, vx: 38, vy: 60, rot: 0.25, vrot: 3.5, scale: 0.66 },
-          ];
-          this.set(c.tx, c.ty, T_EMPTY);
+        for (let tx = d.x0; tx <= d.x1; tx++) {
+          if (this.tile(tx, d.row) === T_PLATFORM) this.set(tx, d.row, T_EMPTY);
+        }
+        this.recompute();
+        if (world) {
+          world.sfx('gate');
+          world.camera.shake(3.6, 0.42);
+          world.emitShockwave(gateCol * TILE + 16, d.row * TILE - 48, {
+            maxR: 132,
+            dur: 0.48,
+            strength: 0.65,
+            color: [1.0, 0.72, 0.34],
+          });
+          world.showMessage('THE CASTLE SEALS', 'THE DRAWBRIDGE RISES BEHIND YOU', 2.3);
+        }
+      } else if (d.state === 'closing') {
+        d.portcullis = Math.min(1, d.portcullis + dt * 2.8);
+        if (d.portcullis >= 1 && !d._portcullisSlammed) {
+          d._portcullisSlammed = true;
+          if (world) {
+            const gx = (d.gateCol != null ? d.gateCol : d.x1 + 1) * TILE + 16;
+            const gy = d.row * TILE;
+            world.sfx('block');
+            world.camera.shake(2.8, 0.22);
+            world.particles.dust(gx, gy - 4, 10, '#c8d0e0');
+            world.particles.sparks(gx, gy - 6, 8, '#ffd27a');
+          }
+        }
+        d.raise = Math.min(1, d.raise + dt / 2.15);
+        d.wheelAngle -= dt * 3.8;
+        if (world && d.raise < 0.75 && d.waterRow != null && Math.random() < 0.28) {
+          const dripX = (d.x0 + 1 + Math.random() * Math.max(1, d.x1 - d.x0 - 1)) * TILE;
+          world.addWaterRipple(dripX, d.waterRow * TILE + 6, 0.62, false);
+        }
+        if (d.raise >= 1 && d.portcullis >= 1) {
+          d.state = 'closed';
           if (world) {
             world.sfx('block');
-            world.particles.shards(c.tx * TILE + 16, c.ty * TILE + 12, 8, '#8a92a8', c.ty * TILE + 56);
+            world.camera.shake(2.6, 0.22);
           }
-        }
-      } else if (c.state === 'gone') {
-        c.timer -= dt;
-        if (c.chunks) {
-          for (const ch of c.chunks) {
-            ch.vy = Math.min(480, ch.vy + 740 * dt);
-            ch.dx += ch.vx * dt;
-            ch.dy += ch.vy * dt;
-            ch.rot += ch.vrot * dt;
-          }
-          if (c.timer < 1.2) c.chunks = null;
-        }
-        if (c.timer <= 0) {
-          c.state = 'idle';
-          c.timer = 0;
-          c.chunks = null;
-          this.set(c.tx, c.ty, T_CRUMBLE);
-          if (world) world.particles.dust(c.tx * TILE + 16, c.ty * TILE + 8, 3, '#c8d0e0');
         }
       }
     }
@@ -653,6 +713,9 @@ export class Level {
       else if (d.frame === 'glow_shrooms') drawFlameGlow(ctx, x, y - 12, time + d.x, 22, 0.44, 'emerald');
       else if (d.frame === 'ancient_totem') drawFlameGlow(ctx, x, y - 44, time + d.x, 20, 0.40, 'emerald');
       else if (d.frame === 'brazier') { drawFlameGlow(ctx, x, y - 82 * sc, time + d.x, 30 * sc, 0.56); const fx = getFxLayers(); if (fx) fx.addFlame(x, y - 78 * sc, 16 * sc, 20 * sc, [1.0, 0.55, 0.16], d.x * 0.011); }
+      else if (d.frame === 'coal_brazier') { drawFlameGlow(ctx, x, y - 34 * sc, time + d.x, 28 * sc, 0.56, 'crimson'); const fx = getFxLayers(); if (fx) fx.addFlame(x, y - 30 * sc, 12 * sc, 16 * sc, [1.0, 0.42, 0.16], d.x * 0.013); }
+      else if (d.frame === 'glass_terrarium' || d.frame === 'carnivorous_bloom') drawFlameGlow(ctx, x, y - 32 * sc, time + d.x, 24 * sc, 0.42, 'emerald');
+      else if (d.frame === 'star_orrery' || d.frame === 'celestial_globe') drawFlameGlow(ctx, x, y - 36 * sc, time + d.x, 26 * sc, 0.44, 'cyan');
       else if (d.frame === 'magma_vent') drawFlameGlow(ctx, x, y - 56 * sc, time + d.x, 32 * sc, 0.54);
       else if (d.frame === 'canal_lantern') drawFlameGlow(ctx, x, y - 44 * sc, time + d.x, 26 * sc, 0.52, 'cyan');
       else if (d.frame === 'water_spout') {
@@ -1094,7 +1157,7 @@ export class Level {
     }
     for (const r of this.platformRuns) {
       if (r.x1 < tx0 || r.x0 > tx1 || r.y < ty0 - 1 || r.y > ty1) continue;
-      if (this.isDrawbridgeRun(r)) { this.drawDrawbridge(ctx, camX, camY, bank, assets, time); continue; }
+      if (this.isDrawbridgeRun(r)) continue;
       const wy = r.y * TILE, y = wy - camY - 2;
       const spanW = (r.x1 - r.x0 + 1) * TILE;
       if (wy > camY + EYE_Y + 4) {
@@ -1114,6 +1177,9 @@ export class Level {
         ctx.drawImage(pImg, sx, 0, TILE, plat.h, x, y, TILE, plat.h);
       }
     }
+    if (this.drawbridge) {
+      this.drawDrawbridge(ctx, camX, camY, bank, assets, time);
+    }
 
     // 4b. Walkable 2.5D/3D Gothic staircases (solid stone/earth flights & mezzanine stringer stairs).
     if (this.stairs.length) {
@@ -1123,15 +1189,11 @@ export class Level {
 
   /**
    * Stage 1 Grand Castle-Moat DRAWBRIDGE & Barbican Gatehouse:
-   * Every architectural & mechanical element renders from dedicated 32-bit pixel-art
-   * graphic asset sheets (`drawbridge_deck`, `drawbridge_support`, `drawbridge_gatehouse`):
-   * - Twin cut-stone moat piers (`pier_shaft` + `pier_cap`) with diagonal oak `knee_brace` struts
-   * - Outer barbican bridgehead `watch_pier` with live brazier flame
-   * - Heavy iron-shod oak truss deck tiles (`deck_tile_a`, `deck_tile_b`), geared `hinge_drum`s,
-   *   wrought-iron Gothic lancet balustrade (`rail_tile`), and gilded fleur-de-lis `newel_post`s
-   * - Towering Barbican `gatehouse_bastion` with raised `portcullis_grille`, crimson-and-gold
-   *   `royal_banner`s, spoked iron `windlass_wheel`s, forged `chain_shackle`s, and interlocking
-   *   pixel-art `chain_link` hoist chains.
+   * Spans a 480px (15-tile) flooded moat with 3 cut-stone piers, a twin-turreted
+   * West Bridgehead Bastion, a multi-tier East Barbican Gatehouse Keep with 3
+   * spinning forged-iron windlass wheels, and a rigid-body oak-and-iron drawbridge
+   * leaf that rotates upward (`0 -> 81 deg`) and seals behind the hunter once they
+   * step inside the Castle Foyer.
    */
   drawDrawbridge(ctx, camX, camY, bank, assets, time = 0) {
     const d = this.drawbridge;
@@ -1140,7 +1202,7 @@ export class Level {
     const wy = d.row * TILE;
     const sx0 = Math.round(wx0 - camX), sx1 = Math.round(wx1 - camX);
     const sy = Math.round(wy - camY);
-    if (sx1 < -160 || sx0 > W + 160) return;
+    if (sx1 < -220 || sx0 > W + 220) return;
 
     const woodTex = bank ? bank.get('plat_wood') : null;
     const plankTex = bank ? bank.get('wood_plank') : null;
@@ -1148,6 +1210,7 @@ export class Level {
     const deckImg = assets && assets.img ? assets.img('drawbridge_deck') : null;
     const supImg = assets && assets.img ? assets.img('drawbridge_support') : null;
     const gateImg = assets && assets.img ? assets.img('drawbridge_gatehouse') : null;
+    const doorPropsImg = assets && assets.img ? assets.img('boss_door_props') : null;
 
     const deckA = assets && assets.frame ? assets.frame('drawbridge_deck', 'deck_tile_a') : null;
     const deckB = assets && assets.frame ? assets.frame('drawbridge_deck', 'deck_tile_b') : null;
@@ -1166,19 +1229,26 @@ export class Level {
     const bastionFr = assets && assets.frame ? assets.frame('drawbridge_gatehouse', 'gatehouse_bastion') : null;
     const portcullisFr = assets && assets.frame ? assets.frame('drawbridge_gatehouse', 'portcullis_grille') : null;
     const bannerFr = assets && assets.frame ? assets.frame('drawbridge_gatehouse', 'royal_banner') : null;
+    const guardFr = assets && assets.frame ? assets.frame('boss_door_props', 'entry_guardian') : null;
 
     const deckH = deckA ? deckA.h - 2 : 26;
     const spanW = sx1 - sx0;
     const fx = getFxLayers();
+    const raiseRaw = Math.max(0, Math.min(1, d.raise || 0));
+    const ease = raiseRaw * raiseRaw * (3 - 2 * raiseRaw);
+    const theta = ease * 1.42; // 0 rad (lowered flat) -> +81.4 deg (raised tight against the East Keep)
 
-    // 1. Twin cut-stone Gothic moat piers (`pier_shaft` + `pier_cap`) & diagonal oak `knee_brace` sprites
+    // 1. Three cut-stone Gothic moat piers (`pier_shaft` + `pier_cap`) & diagonal oak `knee_brace` struts
     const floorWy = d.floorRow * TILE;
     const floorSy = Math.round(floorWy - camY);
-    const pierPositions = [wx0 + (wx1 - wx0) * 0.34, wx0 + (wx1 - wx0) * 0.68];
+    const pierPositions = [
+      wx0 + (wx1 - wx0) * 0.26,
+      wx0 + (wx1 - wx0) * 0.52,
+      wx0 + (wx1 - wx0) * 0.78,
+    ];
     const pw = pierShaftFr ? pierShaftFr.w - 4 : 26;
     for (const pierCx of pierPositions) {
       if (stoneTex) {
-        // Subtle 3D side-depth return behind the graphic stone pier when viewed off-axis
         const fTL = project3D(pierCx - pw / 2, wy + deckH, 8, camX, camY);
         const fTR = project3D(pierCx + pw / 2, wy + deckH, 8, camX, camY);
         const fBL = project3D(pierCx - pw / 2 - 4, floorWy + 6, 8, camX, camY);
@@ -1215,15 +1285,13 @@ export class Level {
         );
         ctx.restore();
       }
-      if (supImg && braceFr) {
+      if (supImg && braceFr && theta < 0.14) {
         const braceY = sy + deckH - 3;
-        // Right diagonal oak knee-brace (`/`, socketed firmly into the stone pier shaft)
         ctx.drawImage(
           supImg,
           braceFr.x, braceFr.y, braceFr.w, braceFr.h,
           psx + 5, braceY, braceFr.w, braceFr.h,
         );
-        // Left diagonal oak knee-brace (`\`, mirrored horizontally into the stone pier shaft)
         ctx.save();
         ctx.translate(psx - 5, braceY);
         ctx.scale(-1, 1);
@@ -1236,8 +1304,102 @@ export class Level {
       }
     }
 
-    // 2. Receding plank top deck (behind the play plane) + 3D timber soffit under the span
-    if (woodTex) {
+    // 2. Twin-Turreted West Bridgehead Bastion, Sentinel Gargoyle & Blazing Braziers
+    if (gateImg && watchFr) {
+      for (let wIdx = 0; wIdx < 2; wIdx++) {
+        const watchCx = sx0 - 13 - wIdx * 34;
+        const watchBottom = sy + deckH - 2 + wIdx * 6;
+        const watchTop = watchBottom - watchFr.h;
+        ctx.drawImage(
+          gateImg,
+          watchFr.x, watchFr.y, watchFr.w, watchFr.h,
+          Math.round(watchCx - watchFr.w * 0.5), watchTop, watchFr.w, watchFr.h,
+        );
+        drawFlameGlow(ctx, watchCx, watchTop + 3, time + 0.4 + wIdx * 1.1, 30, 0.55);
+        if (fx) fx.addFlame(watchCx, watchTop + 6, 10, 16, [1.0, 0.58, 0.18], 0.37 + wIdx * 0.73);
+      }
+      if (bannerFr) {
+        const swayW = Math.round(Math.sin(time * 2.0 + 0.7) * 0.8);
+        ctx.drawImage(
+          gateImg,
+          bannerFr.x, bannerFr.y, bannerFr.w, bannerFr.h,
+          Math.round(sx0 - 30 - bannerFr.w * 0.5) + swayW, sy - 64, bannerFr.w, bannerFr.h,
+        );
+      }
+    }
+    if (doorPropsImg && guardFr) {
+      ctx.drawImage(
+        doorPropsImg,
+        guardFr.x, guardFr.y, guardFr.w, guardFr.h,
+        Math.round(sx0 - 66 - guardFr.w * 0.5), sy - guardFr.h + 2, guardFr.w, guardFr.h,
+      );
+    }
+
+    // 3. Colossal Multi-Tier East Barbican Gatehouse Keep, Banners & Turret Braziers
+    const gateCx = sx1 + 26;
+    if (gateImg && bastionFr) {
+      const bastionBottom = sy + 6;
+      const bastionTop = bastionBottom - bastionFr.h;
+      // Upper 2nd-story crenelated Barbican crown rising above the main gatehouse bastion
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(Math.round(gateCx - bastionFr.w * 0.44), bastionTop - 68, Math.round(bastionFr.w * 0.88), 74);
+      ctx.clip();
+      ctx.drawImage(
+        gateImg,
+        bastionFr.x, bastionFr.y, bastionFr.w, Math.min(82, bastionFr.h),
+        Math.round(gateCx - bastionFr.w * 0.44), bastionTop - 68,
+        Math.round(bastionFr.w * 0.88), Math.min(82, bastionFr.h),
+      );
+      ctx.fillStyle = 'rgba(8, 7, 18, 0.24)';
+      ctx.fillRect(Math.round(gateCx - bastionFr.w * 0.44), bastionTop - 68, Math.round(bastionFr.w * 0.88), 74);
+      ctx.restore();
+
+      // Main monumental Barbican gatehouse bastion
+      ctx.drawImage(
+        gateImg,
+        bastionFr.x, bastionFr.y, bastionFr.w, bastionFr.h,
+        Math.round(gateCx - bastionFr.w * 0.5), bastionTop, bastionFr.w, bastionFr.h,
+      );
+      // Raised portcullis teeth gleaming inside the pointed gateway arch when still open
+      if (portcullisFr && (d.portcullis || 0) < 0.2) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(Math.round(gateCx - portcullisFr.w * 0.5), sy - 54, portcullisFr.w, 48);
+        ctx.clip();
+        ctx.drawImage(
+          gateImg,
+          portcullisFr.x, portcullisFr.y, portcullisFr.w, portcullisFr.h,
+          Math.round(gateCx - portcullisFr.w * 0.5), sy - 58, portcullisFr.w, portcullisFr.h,
+        );
+        ctx.restore();
+      }
+      // Four royal crimson-and-gold heraldic banners across lower & upper gatehouse turrets
+      if (bannerFr) {
+        for (const [turretOff, banY] of [[-36, sy - 118], [36, sy - 118], [-26, bastionTop - 44], [26, bastionTop - 44]]) {
+          const swayX = Math.round(Math.sin(time * 2.1 + turretOff * 0.1 + banY * 0.02) * 0.8);
+          ctx.drawImage(
+            gateImg,
+            bannerFr.x, bannerFr.y, bannerFr.w, bannerFr.h,
+            Math.round(gateCx + turretOff - bannerFr.w * 0.5) + swayX, banY, bannerFr.w, bannerFr.h,
+          );
+        }
+      }
+      // Blazing lower & upper gatehouse turret braziers
+      drawFlameGlow(ctx, gateCx - 36, sy - 42, time + 1.1, 28, 0.54);
+      drawFlameGlow(ctx, gateCx + 36, sy - 42, time + 2.3, 28, 0.54);
+      drawFlameGlow(ctx, gateCx - 28, bastionTop - 52, time + 0.6, 24, 0.48);
+      drawFlameGlow(ctx, gateCx + 28, bastionTop - 52, time + 1.9, 24, 0.48);
+      if (fx) {
+        fx.addFlame(gateCx - 36, sy - 38, 8, 14, [1.0, 0.58, 0.18], 1.13);
+        fx.addFlame(gateCx + 36, sy - 38, 8, 14, [1.0, 0.58, 0.18], 2.41);
+        fx.addFlame(gateCx - 28, bastionTop - 48, 7, 12, [1.0, 0.58, 0.18], 0.63);
+        fx.addFlame(gateCx + 28, bastionTop - 48, 7, 12, [1.0, 0.58, 0.18], 1.91);
+      }
+    }
+
+    // 4. Receding plank top deck + 3D timber soffit when lowered flat (`theta < 0.05`)
+    if (woodTex && theta < 0.05) {
       if (wy > camY + EYE_Y + 4) this.drawTopDeck3D(ctx, camX, camY, wx0, wy, wx1 - wx0, 30, woodTex, 0.68);
       const fL = project3D(wx0, wy + deckH, 2, camX, camY);
       const fR = project3D(wx1, wy + deckH, 2, camX, camY);
@@ -1246,102 +1408,47 @@ export class Level {
       texQuad(ctx, plankTex || woodTex, fL, fR, bR, bL, wx0, 0, wx1, 0, wx1, 24, wx0, 24, shadeOverlay32([0, 0.8, -0.5], DECK_FOG, 0.34, 0.80));
     }
 
-    // 3. Wrought-Iron Gothic Lancet Balustrade (`rail_tile`) & Gilded Finial `newel_post` Sprites
+    // 5. Rigid-Body Rotating Drawbridge Leaf (hinged at `(sx1, sy)`: balustrade + newel finials + oak deck + hinge drums)
+    ctx.save();
+    ctx.translate(sx1, sy);
+    if (theta > 0.0005) ctx.rotate(theta);
+
     if (deckImg && railFr) {
       ctx.save();
       ctx.beginPath();
-      ctx.rect(sx0 + 6, sy - railFr.h - 4, Math.max(0, spanW - 12), railFr.h + 6);
+      ctx.rect(-spanW + 6, -railFr.h - 4, Math.max(0, spanW - 12), railFr.h + 6);
       ctx.clip();
-      for (let rx = sx0 + 6; rx < sx1 - 6; rx += railFr.w) {
+      for (let rx = -spanW + 6; rx < -6; rx += railFr.w) {
         ctx.drawImage(
           deckImg,
           railFr.x, railFr.y, railFr.w, railFr.h,
-          rx, sy - railFr.h + 1, railFr.w, railFr.h,
+          rx, -railFr.h + 1, railFr.w, railFr.h,
         );
       }
       ctx.restore();
     }
     if (deckImg && newelFr) {
-      for (let nx = sx0 + 8; nx <= sx1 - 8; nx += 64) {
+      for (let nx = -spanW + 8; nx <= -8; nx += 64) {
         ctx.drawImage(
           deckImg,
           newelFr.x, newelFr.y, newelFr.w, newelFr.h,
-          Math.round(nx - newelFr.w * 0.5), sy - newelFr.h + 3, newelFr.w, newelFr.h,
+          Math.round(nx - newelFr.w * 0.5), -newelFr.h + 3, newelFr.w, newelFr.h,
         );
       }
     }
-
-    // 4. Outer Barbican Bridgehead Watch-Pier & Blazing Brazier (`watch_pier` sprite)
-    const watchCx = sx0 - 11;
-    if (gateImg && watchFr) {
-      const watchBottom = sy + deckH - 2;
-      const watchTop = watchBottom - watchFr.h;
-      ctx.drawImage(
-        gateImg,
-        watchFr.x, watchFr.y, watchFr.w, watchFr.h,
-        Math.round(watchCx - watchFr.w * 0.5), watchTop, watchFr.w, watchFr.h,
-      );
-      drawFlameGlow(ctx, watchCx, watchTop + 3, time + 0.4, 30, 0.55);
-      if (fx) fx.addFlame(watchCx, watchTop + 6, 10, 16, [1.0, 0.58, 0.18], 0.37);
-    }
-
-    // 5. Monumental Barbican Gatehouse Bastion, Raised Portcullis Grille & Royal Banners
-    const gateCx = sx1 + 24;
-    if (gateImg && bastionFr) {
-      const bastionBottom = sy + 6;
-      const bastionTop = bastionBottom - bastionFr.h;
-      ctx.drawImage(
-        gateImg,
-        bastionFr.x, bastionFr.y, bastionFr.w, bastionFr.h,
-        Math.round(gateCx - bastionFr.w * 0.5), bastionTop, bastionFr.w, bastionFr.h,
-      );
-      // Raised spiked wrought-iron portcullis grille gleaming inside the pointed gateway arch
-      if (portcullisFr) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(Math.round(gateCx - portcullisFr.w * 0.5), sy - 50, portcullisFr.w, 50);
-        ctx.clip();
-        ctx.drawImage(
-          gateImg,
-          portcullisFr.x, portcullisFr.y, portcullisFr.w, portcullisFr.h,
-          Math.round(gateCx - portcullisFr.w * 0.5), sy - 54, portcullisFr.w, portcullisFr.h,
-        );
-        ctx.restore();
-      }
-      // Twin royal crimson-and-gold heraldic banners flanking the gatehouse portal turrets
-      if (bannerFr) {
-        for (const turretOff of [-35, 35]) {
-          const swayX = Math.round(Math.sin(time * 2.1 + turretOff * 0.1) * 0.8);
-          ctx.drawImage(
-            gateImg,
-            bannerFr.x, bannerFr.y, bannerFr.w, bannerFr.h,
-            Math.round(gateCx + turretOff - bannerFr.w * 0.5) + swayX, sy - 118, bannerFr.w, bannerFr.h,
-          );
-        }
-      }
-      // Blazing gatehouse turret wall-sconce braziers
-      drawFlameGlow(ctx, gateCx - 35, sy - 42, time + 1.1, 28, 0.54);
-      drawFlameGlow(ctx, gateCx + 35, sy - 42, time + 2.3, 28, 0.54);
-      if (fx) {
-        fx.addFlame(gateCx - 35, sy - 38, 8, 14, [1.0, 0.58, 0.18], 1.13);
-        fx.addFlame(gateCx + 35, sy - 38, 8, 14, [1.0, 0.58, 0.18], 2.41);
-      }
-    }
-
-    // 6. Heavy Oak-and-Iron Drawbridge Deck Graphic Tiles (`deck_tile_a`, `deck_tile_b`) & `hinge_drum`s
     if (deckImg && deckA && deckB) {
       ctx.save();
       ctx.beginPath();
-      ctx.rect(sx0, sy - 3, spanW, deckA.h + 4);
+      ctx.rect(-spanW, -3, spanW, deckA.h + 4);
       ctx.clip();
-      let dx = sx0;
+      let dx = -spanW;
       let idx = 0;
-      while (dx < sx1) {
+      while (dx < 0) {
         const tileFr = (idx & 1) === 0 ? deckA : deckB;
         ctx.drawImage(
           deckImg,
           tileFr.x, tileFr.y, tileFr.w, tileFr.h,
-          dx, sy - 2, tileFr.w, tileFr.h,
+          dx, -2, tileFr.w, tileFr.h,
         );
         dx += tileFr.w;
         idx++;
@@ -1349,27 +1456,31 @@ export class Level {
       ctx.restore();
     } else {
       ctx.fillStyle = '#5e3d20';
-      ctx.fillRect(sx0, sy - 2, spanW, 20);
+      ctx.fillRect(-spanW, -2, spanW, 20);
     }
     if (deckImg && drumFr) {
-      for (const drumCx of [sx0 + 2, sx1 - 2]) {
+      for (const drumOff of [-spanW + 2, -2]) {
         ctx.drawImage(
           deckImg,
           drumFr.x, drumFr.y, drumFr.w, drumFr.h,
-          Math.round(drumCx - drumFr.w * 0.5), sy - 3, drumFr.w, drumFr.h,
+          Math.round(drumOff - drumFr.w * 0.5), -3, drumFr.w, drumFr.h,
         );
       }
     }
+    ctx.restore();
 
-    // 7. Dual Heavy Hoist Chain Assemblies (`windlass_wheel`, `chain_shackle`, & `chain_link` sprites)
+    // 6. Three Taut Hoist Chain Assemblies + Rotating Forged-Iron Windlass Wheels
     const gx = this.rooms.length ? this.rooms[0].x0 * TILE : wx1;
-    const showChains = camX < gx + 140;
+    const showChains = camX < gx + 220;
     if (showChains && supImg && wheelFr && linkFr && shackleFr) {
       const hoistAssemblies = [
-        { deckOff: 18, anchorWx: wx1 - 6, anchorWy: wy - 150 },
-        { deckOff: 92, anchorWx: wx1 + 22, anchorWy: wy - 104 },
+        { distFromHinge: spanW - 22, anchorWx: wx1 - 4, anchorWy: wy - 208 },
+        { distFromHinge: Math.round(spanW * 0.60), anchorWx: wx1 + 14, anchorWy: wy - 156 },
+        { distFromHinge: Math.round(spanW * 0.25), anchorWx: wx1 + 30, anchorWy: wy - 106 },
       ];
-      const sway = Math.sin(time * 1.6) * 0.6;
+      const cosT = Math.cos(theta), sinT = Math.sin(theta);
+      const wheelRot = d.wheelAngle || 0;
+      const sway = Math.sin(time * 1.6) * 0.5 * (1 - ease);
       ctx.save();
       for (let hIdx = 0; hIdx < hoistAssemblies.length; hIdx++) {
         const ha = hoistAssemblies[hIdx];
@@ -1377,25 +1488,29 @@ export class Level {
         const wxScreen = Math.round(anchor.x);
         const wyScreen = Math.round(anchor.y);
 
-        // Spoked forged-iron windlass hoist wheel mounted on the gatehouse bastion
+        // Rotating spoked forged-iron windlass hoist wheel on the Barbican Keep
+        ctx.save();
+        ctx.translate(wxScreen, wyScreen);
+        ctx.rotate(wheelRot * (1 + hIdx * 0.18));
         ctx.drawImage(
           supImg,
           wheelFr.x, wheelFr.y, wheelFr.w, wheelFr.h,
-          Math.round(wxScreen - wheelFr.w * 0.5), Math.round(wyScreen - wheelFr.h * 0.56), wheelFr.w, wheelFr.h,
+          -Math.round(wheelFr.w * 0.5), -Math.round(wheelFr.h * 0.5), wheelFr.w, wheelFr.h,
         );
+        ctx.restore();
 
-        // Rear (`c = 1`) and foreground (`c = 0`) taut hoist chains made of graphic `chain_link` tiles
         for (let c = 1; c >= 0; c--) {
-          const ax = sx0 + ha.deckOff + c * 6;
-          const ay = sy - 3 + c;
+          const dH = Math.max(12, ha.distFromHinge - c * 6);
+          const ax = sx1 - dH * cosT + 3 * sinT;
+          const ay = sy - dH * sinT - 3 * cosT + c;
           const bx = anchor.x + c * 4 + sway;
-          const by = anchor.y + 4 + c * 2;
+          const by = anchor.y + 3 + c * 2;
           const len = Math.hypot(bx - ax, by - ay);
           if (len < 10) continue;
           const ang = Math.atan2(by - ay, bx - ax);
           const ux = (bx - ax) / len;
           const uy = (by - ay) / len;
-          const step = 15; // two-link sprite (22x7) interlocks seamlessly every 15px
+          const step = 15;
           ctx.globalAlpha = c === 0 ? 1.0 : 0.72;
           for (let dist = 4; dist < len - 6; dist += step) {
             ctx.save();
@@ -1409,14 +1524,96 @@ export class Level {
             ctx.restore();
           }
           ctx.globalAlpha = 1.0;
-          // Forged-iron deck shackle bracket anchoring the chain into the drawbridge beam
+          ctx.save();
+          ctx.translate(ax, ay);
+          ctx.rotate(theta);
           ctx.drawImage(
             supImg,
             shackleFr.x, shackleFr.y, shackleFr.w, shackleFr.h,
-            Math.round(ax - shackleFr.w * 0.5), Math.round(ay - shackleFr.h * 0.55), shackleFr.w, shackleFr.h,
+            -Math.round(shackleFr.w * 0.5), -Math.round(shackleFr.h * 0.55), shackleFr.w, shackleFr.h,
           );
+          ctx.restore();
         }
       }
+      ctx.restore();
+    }
+  }
+
+  /**
+   * Foreground Barbican Gateway Threshold & Slamming Spiked Portcullis:
+   * Drawn AFTER the hunter (`World.draw`) so the hunter strides beneath the stone
+   * gateway arch into the Castle Foyer and the spiked iron portcullis slams shut
+   * in the foreground channel at `d.gateCol` right behind them!
+   */
+  drawDrawbridgeForeground(ctx, cam, assets, time = 0) {
+    const d = this.drawbridge;
+    if (!d) return;
+    const gateCol = d.gateCol != null ? d.gateCol : d.x1 + 1;
+    const wx = gateCol * TILE + 16;
+    const wy = d.row * TILE;
+    const sx = Math.round(wx - cam.rx);
+    const sy = Math.round(wy - cam.ry);
+    if (sx < -120 || sx > W + 120) return;
+
+    const gateImg = assets && assets.img ? assets.img('drawbridge_gatehouse') : null;
+    const portFr = assets && assets.frame ? assets.frame('drawbridge_gatehouse', 'portcullis_grille') : null;
+    const bgImg = assets && assets.img ? assets.img('boss_gates') : null;
+    const shaftFr = assets && assets.frame ? assets.frame('boss_gates', 'jamb_shaft') : null;
+    const baseFr = assets && assets.frame ? assets.frame('boss_gates', 'jamb_base') : null;
+    const capFr = assets && assets.frame ? assets.frame('boss_gates', 'jamb_cap') : null;
+    const botFr = assets && assets.frame ? assets.frame('boss_gates', 'entry_bottom') : null;
+
+    const gateH = 148;
+    const topY = sy - gateH;
+    const dropFrac = Math.max(0, Math.min(1, d.portcullis || 0));
+    const visibleH = Math.round(22 + dropFrac * (gateH - 22));
+
+    // 1. Slamming spiked wrought-iron portcullis grille inside the gateway channel
+    if (gateImg && portFr) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(sx - 26, topY, 52, visibleH + 4);
+      ctx.clip();
+      const grilleBottom = topY + visibleH;
+      for (let py = grilleBottom - portFr.h; py + portFr.h > topY - 8; py -= Math.max(24, portFr.h - 10)) {
+        ctx.drawImage(
+          gateImg,
+          portFr.x, portFr.y, portFr.w, portFr.h,
+          Math.round(sx - portFr.w * 0.5), Math.round(py), portFr.w, portFr.h,
+        );
+      }
+      if (bgImg && botFr) {
+        ctx.drawImage(
+          bgImg,
+          botFr.x, botFr.y, botFr.w, botFr.h,
+          Math.round(sx - botFr.w * 0.5), Math.round(grilleBottom - botFr.h), botFr.w, botFr.h,
+        );
+      }
+      ctx.restore();
+    }
+
+    // 2. Foreground cut-stone portcullis jamb pier + gargoyle finial cap framing the threshold
+    if (bgImg && shaftFr && baseFr && capFr) {
+      const jambX = sx + 14;
+      ctx.save();
+      ctx.globalAlpha = 0.94;
+      for (let py = sy - baseFr.h - shaftFr.h + 6; py > topY - 6; py -= Math.max(16, shaftFr.h - 4)) {
+        ctx.drawImage(
+          bgImg,
+          shaftFr.x, shaftFr.y, shaftFr.w, shaftFr.h,
+          Math.round(jambX - shaftFr.w * 0.5), Math.round(py), shaftFr.w, shaftFr.h,
+        );
+      }
+      ctx.drawImage(
+        bgImg,
+        baseFr.x, baseFr.y, baseFr.w, baseFr.h,
+        Math.round(jambX - baseFr.w * 0.5), sy - baseFr.h + 2, baseFr.w, baseFr.h,
+      );
+      ctx.drawImage(
+        bgImg,
+        capFr.x, capFr.y, capFr.w, capFr.h,
+        Math.round(jambX - capFr.w * 0.5), topY - capFr.h + 8, capFr.w, capFr.h,
+      );
       ctx.restore();
     }
   }

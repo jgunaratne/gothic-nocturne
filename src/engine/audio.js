@@ -29,6 +29,9 @@ const TRACKS = {
   coliseum: 'assets/music/coliseum.mp3',
   aqueduct: 'assets/music/aqueduct.mp3',
   skykeep: 'assets/music/skykeep.mp3',
+  conservatory: 'assets/music/conservatory.mp3',
+  dungeon: 'assets/music/dungeon.mp3',
+  observatory: 'assets/music/observatory.mp3',
   boss: 'assets/music/boss.mp3',
   clear: 'assets/music/clear.mp3',
   gameover: 'assets/music/gameover.mp3',
@@ -54,6 +57,9 @@ export const VOICES = {
   wing_coliseum_voice: 'assets/voice/wing_coliseum_voice.mp3',
   wing_aqueduct_voice: 'assets/voice/wing_aqueduct_voice.mp3',
   wing_skykeep_voice: 'assets/voice/wing_skykeep_voice.mp3',
+  wing_conservatory_voice: 'assets/voice/wing_conservatory_voice.mp3',
+  wing_dungeon_voice: 'assets/voice/wing_dungeon_voice.mp3',
+  wing_observatory_voice: 'assets/voice/wing_observatory_voice.mp3',
   narrator_ending: 'assets/voice/narrator_ending.mp3',
 };
 const FALLBACK_TRACK = 'graveyard';
@@ -554,6 +560,9 @@ export class AudioSys {
     this.activeVoiceStartCtxTime = null;
     this.activeVoiceDuration = null;
     this.activeVoiceEnded = false;
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+    }
     if (this.activeVoice) {
       const prev = this.activeVoice;
       this.activeVoice = null;
@@ -986,7 +995,7 @@ export class AudioSys {
       case 'select': this._osc('square', 660, 990, 0.08, 0.12); break;
       case 'pause': this._osc('square', 440, 440, 0.06, 0.12); this._osc('square', 660, 660, 0.08, 0.12, 0.07); break;
       case 'game_pause':
-        // Crisp Castlevania-inspired 3-note Gothic harpsichord/bell pause chime (E5 -> B4 -> E6)
+        // Crisp 3-note Gothic harpsichord/bell pause chime (E5 -> B4 -> E6)
         if (this.sfxBuffers && this.sfxBuffers.has('pause')) {
           this.playSample(this.sfxBuffers.get('pause'), 0.85, 1.0);
         }

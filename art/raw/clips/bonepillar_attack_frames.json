@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 40.5,
+   "ay": 85.0,
+   "clipFrame": 51,
+   "h": 85,
+   "w": 73,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 85.0,
+   "ay": 87.0,
+   "clipFrame": 73,
+   "h": 87,
+   "w": 151,
+   "x": 75,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 84.0,
+   "ay": 86.0,
+   "clipFrame": 97,
+   "h": 86,
+   "w": 152,
+   "x": 227,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 29.5,
+   "ay": 82.0,
+   "clipFrame": 122,
+   "h": 82,
+   "w": 57,
+   "x": 380,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "bonepillar_attack_sheet.png",
+ "source": {
+  "action": "breath",
+  "anchor": "hips",
+  "clip": "bonepillar_attack.mp4",
+  "frame": "idle0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   51,
+   73,
+   97,
+   122
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The stationary tower of three stacked dragon skulls bound in wrought-iron chains performs ONE breath attack facing right: it rears its head back, opens its jaws wide and exhales a short burst toward the right, then closes its jaws and returns to the starting pose. the stacked dragon skulls hinge their jaws wide open in a fierce roar; no projectiles, no detached fireballs, no smoke clouds.",
+  "scale": 0.1875,
+  "select": "motion",
+  "sheet": "bonepillar",
+  "window": [
+   51,
+   122
+  ]
+ }
+}

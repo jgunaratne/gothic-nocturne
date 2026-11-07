@@ -1,0 +1,83 @@
+{
+ "fps": null,
+ "frames": {
+  "float0": {
+   "ax": 11.0,
+   "ay": 70.0,
+   "clipFrame": 30,
+   "h": 66,
+   "w": 28,
+   "x": 1,
+   "y": 1
+  },
+  "float1": {
+   "ax": 11.0,
+   "ay": 70.0,
+   "clipFrame": 31,
+   "h": 66,
+   "w": 28,
+   "x": 30,
+   "y": 1
+  },
+  "float2": {
+   "ax": 11.0,
+   "ay": 70.0,
+   "clipFrame": 33,
+   "h": 66,
+   "w": 28,
+   "x": 59,
+   "y": 1
+  },
+  "float3": {
+   "ax": 11.0,
+   "ay": 69.0,
+   "clipFrame": 34,
+   "h": 66,
+   "w": 28,
+   "x": 88,
+   "y": 1
+  },
+  "float4": {
+   "ax": 11.0,
+   "ay": 69.0,
+   "clipFrame": 35,
+   "h": 66,
+   "w": 28,
+   "x": 117,
+   "y": 1
+  },
+  "float5": {
+   "ax": 11.0,
+   "ay": 69.0,
+   "clipFrame": 37,
+   "h": 66,
+   "w": 28,
+   "x": 146,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "rulersword_float_sheet.png",
+ "source": {
+  "action": "float",
+  "anchor": "mean",
+  "clip": "rulersword_float.mp4",
+  "corr": 0.4416598677635193,
+  "frame": "float0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 8,
+  "picks": [
+   30,
+   31,
+   33,
+   34,
+   35,
+   37
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The sentient floating ornate silver-and-gold royal rune greatsword hovers in place facing right with a slow looping drifting motion: it bobs gently up and down, its trailing wisps, robes or tail swaying. No flapping. It stays centred and does not travel across the screen. hovering upright in mid-air with gentle bob and faint rune shimmer; no hands or person.",
+  "scale": 0.1473,
+  "select": "period",
+  "sheet": "rulersword"
+ }
+}

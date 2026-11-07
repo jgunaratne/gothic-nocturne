@@ -28,7 +28,11 @@ import {
 import { Forge } from './game/forge.js';
 import { ForgeScreens } from './game/forge_ui.js';
 import { ArmoryScreen } from './game/armory_ui.js';
-import { WEAPONS, WEAPON_ORDER, SET_RESONANCES } from './game/weapons.js';
+import { WEAPONS, WEAPON_ORDER, SET_RESONANCES, resolvePairResonance } from './game/weapons.js';
+import {
+  SOUL_GLYPHS, SOUL_ORDER, SOUL_MAX_RANK, BESTIARY_ORDER, computeEnchantBonuses,
+} from './game/souls.js';
+import { resolveEnemySpeciesKey } from './game/weapons.js';
 import { TouchControls } from './engine/touch.js';
 
 class Game {
@@ -81,7 +85,18 @@ class Game {
     this.ownedWeapons = armory.owned;
     this.handL = armory.handL;
     this.handR = armory.handR;
+    this.activeLoadout = armory.activeLoadout || 0;
+    this.loadouts = armory.loadouts || [[this.handL, this.handR], ['hunters_lash', null]];
     this._urlArmoryOverride = armory.urlOverride;
+    const grimoire = loadGrimoireState('gothic.souls.v1', this.params);
+    this.soulRanks = grimoire.soulRanks;
+    this.equippedSouls = grimoire.equippedSouls;
+    this.bestiarySeen = grimoire.bestiarySeen;
+    this.bestiaryKills = grimoire.bestiaryKills;
+    this.bloodBladeStacks = grimoire.bloodBladeStacks;
+    this.openedChests = grimoire.openedChests;
+    this.openedSwitches = grimoire.openedSwitches;
+    this._urlSoulOverride = grimoire.urlOverride;
     this.armoryUI = new ArmoryScreen(this);
     const urlStage = parseInt(this.params.get('stage') || '0', 10);
     this.stageIndex = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1 : 0;
@@ -189,9 +204,10 @@ class Game {
     } else if (screen === 'map') {
       this.startGame();
       this.openMap();
-    } else if (screen === 'armory') {
+    } else if (screen === 'armory' || screen === 'souls' || screen === 'bestiary') {
       this.startGame();
-      this.openArmory('play');
+      const tab = this.params.get('tab') || (screen === 'souls' || screen === 'bestiary' ? screen : 'armory');
+      this.openArmory('play', tab);
     } else if (screen === 'clear') {
       this.startGame();
       this.world.timeBonus = 1234;
@@ -352,7 +368,7 @@ class Game {
   resetProgress() {
     for (const k of [
       'gothic.cleared.v3', 'gothic.discovered.v1', 'gothic.vessels.v1', 'gothic.explored.v2',
-      'gothic.progression.v1', 'gothic.armory.v1', 'gothic.stage', 'gothic.difficulty', 'gothic.debug.v1',
+      'gothic.progression.v1', 'gothic.armory.v1', 'gothic.souls.v1', 'gothic.stage', 'gothic.difficulty', 'gothic.debug.v1',
     ]) safeStorageRemove(k);
     this.cleared = 0;
     this.discovered = 1;
@@ -364,7 +380,17 @@ class Game {
     this.ownedWeapons = new Set(['hunters_lash']);
     this.handL = 'hunters_lash';
     this.handR = null;
+    this.activeLoadout = 0;
+    this.loadouts = [['hunters_lash', null], ['hunters_lash', null]];
     this._urlArmoryOverride = false;
+    this.soulRanks = {};
+    this.equippedSouls = { bullet: null, guardian: null, enchant: null };
+    this.bestiarySeen = new Set();
+    this.bestiaryKills = {};
+    this.bloodBladeStacks = 0;
+    this.openedChests = new Set();
+    this.openedSwitches = new Set();
+    this._urlSoulOverride = false;
     this.debug = Object.assign({}, DEFAULT_DEBUG_FLAGS);
     this.difficultyKey = DEFAULT_DIFFICULTY;
     this.difficulty = DIFFICULTIES[this.difficultyKey];
@@ -489,7 +515,32 @@ class Game {
         }
       }
     }
+    if (this.loadouts && this.loadouts[this.activeLoadout || 0]) {
+      this.loadouts[this.activeLoadout || 0] = [this.handL, this.handR];
+    }
     this.saveArmory();
+    if (this.touch && this.touch.active) this.touch.syncUI(true);
+  }
+
+  /** Instantly toggles between Loadout Set A (0) and Loadout Set B (1) mid-combat! */
+  swapLoadout(world = this.world) {
+    if (!this.loadouts) this.loadouts = [[this.handL, this.handR], ['hunters_lash', null]];
+    this.loadouts[this.activeLoadout || 0] = [this.handL, this.handR];
+    this.activeLoadout = this.activeLoadout === 0 ? 1 : 0;
+    const [nextL, nextR] = this.loadouts[this.activeLoadout] || ['hunters_lash', null];
+    this.handL = nextL && this.ownedWeapons.has(nextL) && WEAPONS[nextL] ? nextL : 'hunters_lash';
+    this.handR = !WEAPONS[this.handL].isTwoHanded && nextR && this.ownedWeapons.has(nextR) && WEAPONS[nextR] ? nextR : null;
+    this.loadouts[this.activeLoadout] = [this.handL, this.handR];
+    this.saveArmory();
+    this.audio.sfx('select');
+    if (world && world.player) {
+      const p = world.player;
+      const w0 = this.getHandWeapon(0);
+      p.noWhip = !!(w0 && w0.category !== 'whip');
+      const setName = this.activeLoadout === 0 ? 'SET A' : 'SET B';
+      p.skillBanner = { text: `⇄ ${setName} · ${w0.short}`, color: this.activeLoadout === 0 ? '#ffd27a' : '#62f2c2', t: 0.9 };
+      world.particles.sparks(p.x, p.y - 34, 8, this.activeLoadout === 0 ? '#ffd27a' : '#62f2c2');
+    }
     if (this.touch && this.touch.active) this.touch.syncUI(true);
   }
 
@@ -503,11 +554,97 @@ class Game {
   getActiveResonance() {
     const wL = this.getHandWeapon(0);
     const wR = this.getHandWeapon(1);
-    if (!wL || !wR || wL.isTwoHanded) return null;
-    if (wL.setTag && wL.setTag === wR.setTag && SET_RESONANCES[wL.setTag]) {
-      return SET_RESONANCES[wL.setTag];
+    return resolvePairResonance(wL, wR);
+  }
+
+  getEnchantStrBonus() {
+    return computeEnchantBonuses(this).strBonus || 0;
+  }
+
+  absorbSoul(soulId) {
+    const g = SOUL_GLYPHS[soulId];
+    if (!g) return { rank: 1, wasNew: false };
+    const prev = this.soulRanks[soulId] || 0;
+    const rank = Math.min(SOUL_MAX_RANK, prev + 1);
+    this.soulRanks[soulId] = rank;
+    let wasNew = prev === 0;
+    if (!this.equippedSouls[g.type]) {
+      this.equippedSouls[g.type] = soulId;
+      wasNew = true;
     }
-    return null;
+    this.saveGrimoire();
+    return { rank, wasNew };
+  }
+
+  equipSoul(soulId) {
+    const g = SOUL_GLYPHS[soulId];
+    if (!g || !(this.soulRanks[soulId] > 0)) return;
+    if (this.equippedSouls[g.type] === soulId) {
+      this.equippedSouls[g.type] = null;
+    } else {
+      this.equippedSouls[g.type] = soulId;
+    }
+    if (this.world && this.world.player) {
+      this.world.player.maxHp = this.world.computeMaxHp();
+      this.world.player.hp = Math.min(this.world.player.maxHp, this.world.player.hp);
+    }
+    this.saveGrimoire();
+  }
+
+  noteBestiarySeen(enemy) {
+    const key = resolveEnemySpeciesKey(enemy);
+    if (!key) return;
+    if (!this.bestiarySeen.has(key)) {
+      this.bestiarySeen.add(key);
+      this.saveGrimoire();
+    }
+  }
+
+  noteBestiaryKill(enemy) {
+    const key = resolveEnemySpeciesKey(enemy);
+    if (!key) return;
+    this.bestiarySeen.add(key);
+    this.bestiaryKills[key] = (this.bestiaryKills[key] || 0) + 1;
+    this.saveGrimoire();
+  }
+
+  addBloodStack() {
+    this.bloodBladeStacks = Math.min(24, (this.bloodBladeStacks || 0) + 1);
+    this.saveGrimoire();
+    return this.bloodBladeStacks;
+  }
+
+  markChestOpened(chestId) {
+    if (!chestId) return;
+    this.openedChests.add(chestId);
+    this.saveGrimoire();
+  }
+
+  isChestOpened(chestId) {
+    return !!(chestId && this.openedChests && this.openedChests.has(chestId));
+  }
+
+  markSwitchOpened(switchId) {
+    if (!switchId) return;
+    this.openedSwitches.add(switchId);
+    this.saveGrimoire();
+  }
+
+  isSwitchOpened(switchId) {
+    return !!(switchId && this.openedSwitches && this.openedSwitches.has(switchId));
+  }
+
+  saveGrimoire() {
+    if (this._urlSoulOverride) return;
+    safeStorageSet('gothic.souls.v1', JSON.stringify({
+      soulRanks: this.soulRanks,
+      equippedSouls: this.equippedSouls,
+      bestiarySeen: [...this.bestiarySeen],
+      bestiaryKills: this.bestiaryKills,
+      bloodBladeStacks: this.bloodBladeStacks || 0,
+      openedChests: [...this.openedChests],
+      openedSwitches: [...this.openedSwitches],
+    }));
   }
 
   saveArmory() {
@@ -516,11 +653,13 @@ class Game {
       owned: [...this.ownedWeapons],
       handL: this.handL,
       handR: this.handR,
+      activeLoadout: this.activeLoadout || 0,
+      loadouts: this.loadouts,
     }));
   }
 
-  openArmory(returnState = 'play') {
-    this.armoryUI.open(returnState);
+  openArmory(returnState = 'play', initialTab = 'armory') {
+    this.armoryUI.open(returnState, initialTab);
     this.setState('armory');
     this.audio.sfx('select');
   }
@@ -717,8 +856,9 @@ class Game {
     if (this.world.bossActive || (this.params.has('boss') && stage.boss && !carry)) {
       this.world.recordExploration();
     }
-    // Testing teleports may land inside the Boss Sanctum: never wall the hunter in behind the Boss Gate Door.
+    // Testing teleports may land inside the Boss Sanctum or Castle Foyer: sync gates & drawbridge.
     this.world.syncBossGateToPlayer();
+    if (this.world.syncDrawbridgeToPlayer) this.world.syncDrawbridgeToPlayer();
     this.setState('play');
     this.audio.playMusic(this.world.theme.music);
     this.audio.playAmbient(this.world.theme.ambient || null);
@@ -832,8 +972,15 @@ class Game {
         this.postfx.shockwave(sh.x, sh.y, sh.strength);
         fxWorld.fxShock = null;
       }
-    } else if ((this.state === 'title' || this.state === 'controls' || this.state === 'settings' || this.state === 'difficulty' || this.state === 'stageselect') && this.titleWorld && this.titleWorld.flash > 0.02) {
-      this.postfx.strike(this.titleWorld.flash);
+      if (this.postfx.setDynamicLights) {
+        const chronoAmt = fxWorld.chronoFreezeT > 0 ? Math.min(1, fxWorld.chronoFreezeT / 0.45) : 0;
+        this.postfx.setDynamicLights(fxWorld.gatherDynamicLights ? fxWorld.gatherDynamicLights() : null, chronoAmt);
+      }
+    } else {
+      if (this.postfx.setDynamicLights) this.postfx.setDynamicLights(null, 0);
+      if ((this.state === 'title' || this.state === 'controls' || this.state === 'settings' || this.state === 'difficulty' || this.state === 'stageselect') && this.titleWorld && this.titleWorld.flash > 0.02) {
+        this.postfx.strike(this.titleWorld.flash);
+      }
     }
     this.postfx.draw(dt, fxWorld ? (fxWorld.fxTheme || fxWorld.data.theme) : 'menu');
     requestAnimationFrame((t) => this.frame(t));
@@ -915,8 +1062,16 @@ class Game {
         break;
       }
       case 'play':
-        if (inp.pressed.armory) { this.openArmory('play'); break; }
+        if (inp.pressed.armory) { this.openArmory('play', 'armory'); break; }
+        if (inp.pressed.bestiary) { this.openArmory('play', 'bestiary'); break; }
         if (inp.pressed.map) { this.openMap(); break; }
+        if (this.world.canSkipBossIntro && this.world.canSkipBossIntro()) {
+          const introReady = !this.world.bossIntro || this.world.bossIntro.t >= 0.22 || this.world.voiceSpeaking();
+          if (inp.pressed.start || inp.pressed.escape || (introReady && (inp.pressed.jump || inp.pressed.attack || inp.pressed.offhand))) {
+            this.world.skipBossIntro();
+            break;
+          }
+        }
         if (inp.pressed.start && this.world.phase === 'play') { this.setState('pause'); break; }
         this.world.update(dt, inp);
         break;
@@ -924,7 +1079,8 @@ class Game {
         this.armoryUI.update(dt, inp);
         break;
       case 'map': {
-        if (inp.pressed.armory) { this.openArmory('map'); break; }
+        if (inp.pressed.armory) { this.openArmory('map', 'armory'); break; }
+        if (inp.pressed.bestiary) { this.openArmory('map', 'bestiary'); break; }
         let c = this.mapCursor;
         if (inp.pressed.left) c = moveCursor(c, -1, 0);
         else if (inp.pressed.right) c = moveCursor(c, 1, 0);
@@ -953,7 +1109,8 @@ class Game {
         break;
       }
       case 'pause':
-        if (inp.pressed.armory) { this.openArmory('pause'); break; }
+        if (inp.pressed.armory) { this.openArmory('pause', 'armory'); break; }
+        if (inp.pressed.bestiary) { this.openArmory('pause', 'bestiary'); break; }
         if (inp.pressed.map) { this.openMap(); break; }
         if (inp.pressed.start || inp.pressed.escape) { this.setState('play'); }
         break;
@@ -1262,7 +1419,7 @@ class Game {
     ctx.fillStyle = '#5b6b86';
     ctx.fillRect(W / 2 - 260, 82, 520, 1);
 
-    const px = 48, py = 90, pw = W - 96, ph = 206;
+    const px = 20, py = 90, pw = W - 40, ph = 206;
     ctx.fillStyle = 'rgba(7, 5, 16, 0.90)';
     ctx.fillRect(px, py, pw, ph);
     ctx.strokeStyle = '#8a6a3a';
@@ -1272,8 +1429,8 @@ class Game {
     ctx.strokeRect(px + 2.5, py + 2.5, pw - 5, ph - 5);
 
     // Column headers: Movement vs Combat
-    const leftX = px + 14;
-    const rightX = W / 2 + 12;
+    const leftX = px + 12;
+    const rightX = W / 2 + 10;
     f.draw(ctx, 'MOVEMENT & PLATFORMING', leftX, py + 10, { color: '#ffd27a', shadow: '#05040a', gothic: false });
     f.draw(ctx, 'COMBAT & DUAL-HAND ARSENAL', rightX, py + 10, { color: '#ffd27a', shadow: '#05040a', gothic: false });
     ctx.fillStyle = '#3a2e4c';
@@ -1281,38 +1438,38 @@ class Game {
     ctx.fillRect(W / 2, py + 8, 1, 108);
 
     const moveRows = [
-      ['← / →  OR  A / D', 'WALK  (TAP TWICE TO RUN)'],
-      ['↑ / ↓  OR  W / S', 'STAIRS  ·  CROUCH'],
-      ['Z / J / SPACE', 'JUMP  (2X WITH NIGHT-WINGS)'],
-      ['↓ + JUMP', 'DROP THROUGH LEDGE'],
+      ['←/→ OR A/D', 'WALK · Q / LB BACKDASH'],
+      ['Z / SPACE', 'JUMP · ↓↑+JUMP HIGH JUMP'],
+      ['↓+JUMP GND', 'SLIDE KICK · DROP LEDGE'],
+      ['↓+JUMP AIR', 'DIAGONAL POGO DIVEKICK'],
     ];
     moveRows.forEach(([k, desc], i) => {
       const ry = py + 30 + i * 21;
       f.draw(ctx, k, leftX, ry, { color: '#62f2c2', shadow: '#05040a', gothic: false });
-      f.draw(ctx, desc, leftX + 102, ry, { color: '#e8e2c8', shadow: '#05040a', gothic: false });
+      f.draw(ctx, desc, leftX + 74, ry, { color: '#e8e2c8', shadow: '#05040a', gothic: false });
     });
 
     const combatRows = [
-      ['X / K', 'LEFT-HAND WEAPON (MAIN)'],
-      ['C / V / L', 'RIGHT-HAND OFF-HAND'],
-      ['↑ + ATTACK', 'THROW SUB-WEAPON (♥)'],
-      ['↓ ↘ → + ATTACK', 'WEAPON SIGNATURE SKILL'],
+      ['X/K · C/V', 'L/R HAND · R SWAP SET A/B'],
+      ['↑ + L / R', 'SUB-WEAPON · BULLET SOUL'],
+      ['↓↘→ + ATK', 'WEAPON SKILL · L+R CALL'],
+      ['↑ + L + R', 'ARCANE GLYPH UNION (5♥)'],
     ];
     combatRows.forEach(([k, desc], i) => {
       const ry = py + 30 + i * 21;
       f.draw(ctx, k, rightX, ry, { color: '#ffb0a0', shadow: '#05040a', gothic: false });
-      f.draw(ctx, desc, rightX + 98, ry, { color: '#e8e2c8', shadow: '#05040a', gothic: false });
+      f.draw(ctx, desc, rightX + 68, ry, { color: '#e8e2c8', shadow: '#05040a', gothic: false });
     });
 
     // Exploration, shortcuts & touch section
     ctx.fillStyle = '#3a2e4c';
     ctx.fillRect(px + 10, py + 120, pw - 20, 1);
-    f.draw(ctx, 'EXPLORATION, CASTLE FORGE & TOUCH', W / 2, py + 128, { align: 'center', color: '#ffd27a', shadow: '#05040a', gothic: false });
+    f.draw(ctx, 'EXPLORATION, GRIMOIRE & CASTLE FORGE', W / 2, py + 128, { align: 'center', color: '#ffd27a', shadow: '#05040a', gothic: false });
 
     const expLines = [
-      ['↑ AT DOORWAY / VORTEX', 'ENTER PASSAGE, BOSS EXIT VORTEX, OR SANCTUARY FAST TRAVEL'],
-      ['E  ARMORY     M  CASTLE MAP     P  CASTLE FORGE     G  SALUTE     C  CALLSIGN', ''],
-      ['N  MUTE AUDIO     F  TOGGLE CRT / POST-FX SHADERS     ENTER / ESC  PAUSE', ''],
+      ['↑ AT PORTAL / SIGIL', 'ENTER DOORWAY, WARP MIRROR, CHEST, OR ABSORB SOUL GLYPH'],
+      ['E  GRIMOIRE / SOULS     B  BESTIARY     M  CASTLE MAP     Q  LODESTONE GRAPPLE', ''],
+      ['P  CASTLE FORGE     G  SALUTE     C  CALLSIGN     N  MUTE     F  POST-FX', ''],
       ['TOUCH & GAMEPAD', '8-WAY D-PAD + ACTION CLUSTER · TAP MINI-MAP, ARMORY SOCKETS OR DOORS'],
     ];
     expLines.forEach(([a, b], i) => {
@@ -2084,11 +2241,13 @@ function loadArmoryState(key, params) {
   const owned = new Set(['hunters_lash']);
   let handL = 'hunters_lash';
   let handR = null;
+  let activeLoadout = 0;
+  let loadouts = [['hunters_lash', null], ['hunters_lash', null]];
   let urlOverride = false;
 
   if (params && params.get('resetarmory') === '1') {
-    safeStorageSet(key, JSON.stringify({ owned: ['hunters_lash'], handL: 'hunters_lash', handR: null }));
-    return { owned, handL, handR, urlOverride: false };
+    safeStorageSet(key, JSON.stringify({ owned: ['hunters_lash'], handL: 'hunters_lash', handR: null, activeLoadout: 0, loadouts }));
+    return { owned, handL, handR, activeLoadout, loadouts, urlOverride: false };
   }
 
   const raw = safeStorageGet(key);
@@ -2103,6 +2262,15 @@ function loadArmoryState(key, params) {
         if (obj.handR && WEAPONS[obj.handR] && !WEAPONS[obj.handR].isTwoHanded) {
           handR = obj.handR;
           owned.add(handR);
+        }
+        if (obj.activeLoadout === 1) activeLoadout = 1;
+        if (Array.isArray(obj.loadouts) && obj.loadouts.length === 2) {
+          loadouts = obj.loadouts.map((pair) => [
+            Array.isArray(pair) && pair[0] && WEAPONS[pair[0]] ? pair[0] : 'hunters_lash',
+            Array.isArray(pair) && pair[1] && WEAPONS[pair[1]] && !WEAPONS[pair[1]].isTwoHanded ? pair[1] : null,
+          ]);
+        } else {
+          loadouts[0] = [handL, handR];
         }
       }
     } catch (e) { /* ignore malformed storage */ }
@@ -2140,8 +2308,70 @@ function loadArmoryState(key, params) {
   if (WEAPONS[handL] && WEAPONS[handL].isTwoHanded) {
     handR = null;
   }
+  loadouts[activeLoadout] = [handL, handR];
 
-  return { owned, handL, handR, urlOverride };
+  return { owned, handL, handR, activeLoadout, loadouts, urlOverride };
+}
+
+function loadGrimoireState(key, params) {
+  const soulRanks = {};
+  const equippedSouls = { bullet: null, guardian: null, enchant: null };
+  const bestiarySeen = new Set();
+  const bestiaryKills = {};
+  let bloodBladeStacks = 0;
+  const openedChests = new Set();
+  const openedSwitches = new Set();
+  let urlOverride = false;
+
+  const raw = safeStorageGet(key);
+  if (raw) {
+    try {
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj === 'object') {
+        if (obj.soulRanks && typeof obj.soulRanks === 'object') {
+          for (const [sid, rk] of Object.entries(obj.soulRanks)) {
+            if (SOUL_GLYPHS[sid] && rk > 0) soulRanks[sid] = Math.min(SOUL_MAX_RANK, rk | 0);
+          }
+        }
+        if (obj.equippedSouls && typeof obj.equippedSouls === 'object') {
+          for (const t of ['bullet', 'guardian', 'enchant']) {
+            const sid = obj.equippedSouls[t];
+            if (sid && SOUL_GLYPHS[sid] && soulRanks[sid] > 0) equippedSouls[t] = sid;
+          }
+        }
+        if (Array.isArray(obj.bestiarySeen)) {
+          for (const sp of obj.bestiarySeen) if (typeof sp === 'string') bestiarySeen.add(sp);
+        }
+        if (obj.bestiaryKills && typeof obj.bestiaryKills === 'object') {
+          for (const [sp, cnt] of Object.entries(obj.bestiaryKills)) {
+            if ((cnt | 0) > 0) { bestiaryKills[sp] = cnt | 0; bestiarySeen.add(sp); }
+          }
+        }
+        if ((obj.bloodBladeStacks | 0) > 0) bloodBladeStacks = Math.min(24, obj.bloodBladeStacks | 0);
+        if (Array.isArray(obj.openedChests)) for (const cid of obj.openedChests) openedChests.add(String(cid));
+        if (Array.isArray(obj.openedSwitches)) for (const sid of obj.openedSwitches) openedSwitches.add(String(sid));
+      }
+    } catch (e) { /* ignore malformed storage */ }
+  }
+
+  if (params) {
+    if (params.get('souls') === 'all') {
+      for (const sid of SOUL_ORDER) soulRanks[sid] = 3;
+      equippedSouls.bullet = equippedSouls.bullet || 'nova_ray';
+      equippedSouls.guardian = equippedSouls.guardian || 'sovereign_ring';
+      equippedSouls.enchant = equippedSouls.enchant || 'scholar_fortune';
+      urlOverride = true;
+    }
+    if (params.get('bestiary') === 'all') {
+      for (const sp of BESTIARY_ORDER) {
+        bestiarySeen.add(sp);
+        bestiaryKills[sp] = Math.max(1, bestiaryKills[sp] || 3);
+      }
+      urlOverride = true;
+    }
+  }
+
+  return { soulRanks, equippedSouls, bestiarySeen, bestiaryKills, bloodBladeStacks, openedChests, openedSwitches, urlOverride };
 }
 
 function loadDebugFlags(key, params) {

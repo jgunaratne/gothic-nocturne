@@ -9,7 +9,7 @@ export const DT = 1 / 60;        // fixed simulation step
 
 // Tile ids
 /** Bumped whenever assets/ change so browsers never pair a stale atlas with new code. */
-export const ASSET_VERSION = '20261103t';
+export const ASSET_VERSION = '20261107c';
 
 export const T_EMPTY = 0;
 export const T_GROUND = 1;       // graveyard earth (strip "ground")
@@ -33,6 +33,9 @@ export const T_COLISEUM = 18;    // blood-sand & iron-bound arena stone (strip "
 export const T_AQUEDUCT = 19;    // mossy flooded viaduct masonry (strip "aqueductfloor")
 export const T_SKYKEEP = 20;     // moonlit celestial garden marble (strip "skykeepfloor")
 export const T_WATER = 21;       // translucent water channel / cistern pool (non-solid, non-lethal)
+export const T_CONSERVATORY = 22;// overgrown wrought-iron & orchid conservatory floor ("conservatoryfloor")
+export const T_DUNGEON = 23;     // rusted iron prison grates & blood-slate dungeon floor ("dungeonfloor")
+export const T_OBSERVATORY = 24; // lapis-and-brass zodiac observatory marble ("observatoryfloor")
 
 /** Terrain material tile id -> strip asset name. */
 export const MATERIAL_STRIP = {
@@ -49,6 +52,9 @@ export const MATERIAL_STRIP = {
   [T_COLISEUM]: 'coliseumfloor',
   [T_AQUEDUCT]: 'aqueductfloor',
   [T_SKYKEEP]: 'skykeepfloor',
+  [T_CONSERVATORY]: 'conservatoryfloor',
+  [T_DUNGEON]: 'dungeonfloor',
+  [T_OBSERVATORY]: 'observatoryfloor',
 };
 export const isMaterialTile = (t) => t in MATERIAL_STRIP;
 
@@ -93,6 +99,14 @@ export const PLAYER = {
   dashTapWindow: 0.24,     // (legacy) alias of runTapWindow
   runSpeed: 198,           // double-tap sprint speed (px/s), ~1.85x walking
   runTapWindow: 0.24,      // max gap between the two taps that start a sprint (s)
+  backdashSpeed: 272,      // rapid backward evade speed preserving forward facing (px/s)
+  backdashTime: 0.24,      // backdash duration (cancellable after 0.09s)
+  slideSpeed: 288,         // low crouch-slide kick speed (px/s)
+  slideTime: 0.28,         // slide kick duration (s)
+  slideHeight: 28,         // low collision height during slide (clears 1-tile/2-tile crawl tunnels!)
+  divekickVx: 245,         // aerial diagonal comet-kick horizontal speed
+  divekickVy: 455,         // aerial diagonal comet-kick downward speed
+  superJump: 760,          // [Down, Up + Jump] Gravity-Boots vertical launch speed
 };
 
 export const SCORE = {
@@ -104,6 +118,7 @@ export const SCORE = {
   bloodknight: 580, vathulk: 680, waltzdancer: 440, retiarius: 420, minotaur: 740,
   siren: 400, cisterncrab: 680, astralarcher: 460, marblecolossus: 780,
   alchfiend: 380, duelist: 460, executioner: 520, merman: 380, valkyrie: 480, necromancer: 500,
+  dullahan: 620, rulersword: 660, novaskeleton: 540, fleaman: 290, bonepillar: 480, jiangshi: 560,
   skeleton: 300, medusa: 300, boss: 3000,
   money: 500, timeBonus: 10,
 };

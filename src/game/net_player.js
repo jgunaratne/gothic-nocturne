@@ -324,7 +324,7 @@ export function drawRemotePlayerLabels(ctx, font, world, peersInStage) {
     const tw = font.width(label, 1, 1, false);
     const pillW = tw + 12;
     const px = Math.round(sx - pillW * 0.5);
-    const py = Math.round(sy - (p.anim === 'crouch' ? 54 : 70));
+    const py = Math.round(sy - (p.anim === 'crouch' || p.anim === 'slide' ? 54 : 70));
 
     ctx.save();
     ctx.fillStyle = 'rgba(6, 5, 14, 0.84)';

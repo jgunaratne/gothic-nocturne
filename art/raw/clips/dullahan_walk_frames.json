@@ -1,0 +1,103 @@
+{
+ "fps": null,
+ "frames": {
+  "walk0": {
+   "ax": 52.5,
+   "ay": 82.0,
+   "clipFrame": 30,
+   "h": 82,
+   "w": 104,
+   "x": 1,
+   "y": 1
+  },
+  "walk1": {
+   "ax": 51.8,
+   "ay": 80.0,
+   "clipFrame": 34,
+   "h": 80,
+   "w": 107,
+   "x": 106,
+   "y": 1
+  },
+  "walk2": {
+   "ax": 50.7,
+   "ay": 80.0,
+   "clipFrame": 39,
+   "h": 80,
+   "w": 106,
+   "x": 214,
+   "y": 1
+  },
+  "walk3": {
+   "ax": 51.8,
+   "ay": 81.0,
+   "clipFrame": 44,
+   "h": 81,
+   "w": 101,
+   "x": 321,
+   "y": 1
+  },
+  "walk4": {
+   "ax": 50.0,
+   "ay": 79.0,
+   "clipFrame": 48,
+   "h": 79,
+   "w": 94,
+   "x": 423,
+   "y": 1
+  },
+  "walk5": {
+   "ax": 46.4,
+   "ay": 80.0,
+   "clipFrame": 52,
+   "h": 80,
+   "w": 91,
+   "x": 518,
+   "y": 1
+  },
+  "walk6": {
+   "ax": 50.7,
+   "ay": 82.0,
+   "clipFrame": 57,
+   "h": 82,
+   "w": 98,
+   "x": 610,
+   "y": 1
+  },
+  "walk7": {
+   "ax": 52.1,
+   "ay": 79.0,
+   "clipFrame": 62,
+   "h": 80,
+   "w": 102,
+   "x": 709,
+   "y": 1
+  }
+ },
+ "loop": true,
+ "sheet": "dullahan_walk_sheet.png",
+ "source": {
+  "action": "walk",
+  "anchor": "mean",
+  "clip": "dullahan_walk.mp4",
+  "corr": 0.3728819191455841,
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "period": 36,
+  "picks": [
+   30,
+   34,
+   39,
+   44,
+   48,
+   52,
+   57,
+   62
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The headless dark-violet plate knight carrying its glowing plumed helmet in one hand and a broadsword in the other performs a smooth, looping treadmill WALK CYCLE in place facing right: deliberate heavy strides, knees lifting, arms swinging naturally opposite to the legs, hair and loose cloth swaying with each step, slight torso bob. The character stays centred and does not travel across the screen. heavy armoured knight stride, cape swaying, carrying the glowing helmet at its hip.",
+  "scale": 0.1802,
+  "select": "period",
+  "sheet": "dullahan"
+ }
+}

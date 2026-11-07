@@ -29,7 +29,7 @@ function mulberry32(seed) {
 
 const FLYING_ENEMIES = new Set([
   'bat', 'dragon', 'owl', 'ghost', 'tome', 'gargoyle', 'cinderimp', 'wraith', 'medusa', 'lantern', 'wisp',
-  'valkyrie', 'necromancer', 'gearharpy', 'waltzdancer', 'siren',
+  'valkyrie', 'necromancer', 'gearharpy', 'waltzdancer', 'siren', 'rulersword',
 ]);
 
 const OVERSIZED_ENEMIES = new Set([
@@ -48,7 +48,9 @@ function themePropPalette(themeKey, theme) {
       focal: [fp.sheet, f[Math.min(2, f.length - 1)]],
       low: [fp.sheet, f[Math.min(3, f.length - 1)]],
       sconce: theme.outdoor ? null : ['props', 'torch'],
-      hanging: themeKey === 'alchemy' ? 'pendulum' : (themeKey === 'ballroom' ? 'chandelier' : (theme.outdoor ? null : 'cage')),
+      hanging: (themeKey === 'alchemy' || themeKey === 'observatory')
+        ? 'pendulum'
+        : ((themeKey === 'ballroom' || themeKey === 'conservatory') ? 'chandelier' : (theme.outdoor ? null : 'cage')),
     };
   }
   switch (theme.decor) {
@@ -164,7 +166,7 @@ function themePropPalette(themeKey, theme) {
 }
 
 /**
- * Compiles a complete 2D Metroidvania stage from `MAP_ROOMS[spec.key]` and
+ * Compiles a complete 2D interconnected action-exploration stage from `MAP_ROOMS[spec.key]` and
  * `stageDoorsFor(spec.key)` with exact `20 x 5` tile per-cell geometry.
  */
 export function composeGridStage(spec) {
@@ -214,9 +216,13 @@ export function composeGridStage(spec) {
   const isBossCell = (mc, mr) => mapRoom.bossSet.has(`${mc},${mr}`);
   const isBossUpper = (mc, mr) => isBossCell(mc, mr) && mr === bossUpperMr;
   const isSanctuaryCell = (mc, mr) => `${mc},${mr}` === mapRoom.sanctuaryKey;
+  const isWarpCell = (mc, mr) => `${mc},${mr}` === mapRoom.warpKey;
   const isSecretCell = (mc, mr) => `${mc},${mr}` === mapRoom.secretKey;
-  const isSecretVault = (mc, mr) => isSecretCell(mc, mr) && hasCell(mc, mr - 1);
-  const isSecretBalcony = (mc, mr) => isSecretCell(mc, mr) && hasCell(mc, mr + 1) && !hasCell(mc, mr - 1);
+  const isBonusSecretCell = (mc, mr) => !!(mapRoom.bonusSecretKey && `${mc},${mr}` === mapRoom.bonusSecretKey);
+  const isBonusSecretFromCell = (mc, mr) => !!(mapRoom.bonusSecretFromKey && `${mc},${mr}` === mapRoom.bonusSecretFromKey);
+  const hasOpenCell = (mc, mr) => hasCell(mc, mr) && !isBonusSecretCell(mc, mr);
+  const isSecretVault = (mc, mr) => isSecretCell(mc, mr) && hasOpenCell(mc, mr - 1);
+  const isSecretBalcony = (mc, mr) => isSecretCell(mc, mr) && hasOpenCell(mc, mr + 1) && !hasOpenCell(mc, mr - 1);
   const isHighDoorBalcony = (mc, mr) => {
     const ds = doorsByCell.get(`${mc},${mr}`);
     return !!(ds && ds.some((d) => d.highLedge));
@@ -226,19 +232,23 @@ export function composeGridStage(spec) {
   // Detect pure 1-story diagonal Grand Staircase columns (`[mr_top, mr_bot]`)
   const grandStairCols = new Map(); // mc -> { dir: 'asc' | 'desc', topR, botR }
   for (let mc = minC; mc <= maxC - 6; mc++) {
-    const rs = rowsByCol.get(mc);
-    if (rs.length !== 2 || rs[1] !== rs[0] + 1) continue;
-    const [rt, rb] = rs;
-    const hasSpecial = rs.some((r) => (
+    const openRs = rowsByCol.get(mc).filter((r) => !isBonusSecretCell(mc, r));
+    if (openRs.length !== 2 || openRs[1] !== openRs[0] + 1) continue;
+    // Never treat a column containing a hidden breakable-wall room as a pure diagonal staircase
+    if (rowsByCol.get(mc).some((r) => isBonusSecretCell(mc, r))) continue;
+    const [rt, rb] = openRs;
+    const hasSpecial = openRs.some((r) => (
       isSanctuaryCell(mc, r)
+      || isWarpCell(mc, r)
       || isSecretCell(mc, r)
+      || isBonusSecretFromCell(mc, r)
       || isBossCell(mc, r)
       || doorsByCell.has(`${mc},${r}`)
       || (mc === mapRoom.spine[0][0] && r === mapRoom.spine[0][1])
     ));
     if (hasSpecial) continue;
-    const lt = hasCell(mc - 1, rt), rtR = hasCell(mc + 1, rt);
-    const lb = hasCell(mc - 1, rb), rbR = hasCell(mc + 1, rb);
+    const lt = hasOpenCell(mc - 1, rt), rtR = hasOpenCell(mc + 1, rt);
+    const lb = hasOpenCell(mc - 1, rb), rbR = hasOpenCell(mc + 1, rb);
     if (lb && !lt && rtR && !rbR) {
       grandStairCols.set(mc, { dir: 'asc', topR: rt, botR: rb });
     } else if (lt && !lb && rbR && !rtR) {
@@ -247,10 +257,13 @@ export function composeGridStage(spec) {
   }
 
   // Stairwell connection between `[mc, rTop]` and `[mc, rTop + 1]`
+  let switchGateCell = null;
   const hasStairBetween = (mc, rTop) => {
     if (mc >= maxC - 1) return false;
     if (grandStairCols.has(mc)) return false;
     if (!hasCell(mc, rTop) || !hasCell(mc, rTop + 1)) return false;
+    if (switchGateCell && switchGateCell[0] === mc && switchGateCell[1] === rTop + 1) return false;
+    if (isBonusSecretCell(mc, rTop) || isBonusSecretCell(mc, rTop + 1)) return false;
     if (isHighPocket(mc, rTop)) return false;
     if (isSecretVault(mc, rTop + 1)) return false;
     return true;
@@ -258,6 +271,14 @@ export function composeGridStage(spec) {
   const stairSideBetween = (mc, rTop) => (((mc + rTop) & 1) === 0 ? 'west' : 'east');
 
   // Choose 1 clean single-row non-special column for the dedicated Armory Dais (`WeaponPedestal`)
+  const isEligibleLandmarkCell = (mc, mr) => {
+    if (mc === mapRoom.spine[0][0] && mr === mapRoom.spine[0][1]) return false;
+    if (isSanctuaryCell(mc, mr) || isWarpCell(mc, mr) || isSecretCell(mc, mr) || isBonusSecretCell(mc, mr) || isBonusSecretFromCell(mc, mr) || isBossCell(mc, mr)) return false;
+    if (doorsByCell.has(`${mc},${mr}`)) return false;
+    if (isSecretVault(mc, mr + 1) || isHighPocket(mc, mr - 1)) return false;
+    if (hasStairBetween(mc, mr - 1) && hasStairBetween(mc, mr)) return false;
+    return true;
+  };
   const targetArmoryMc = minC + Math.max(1, Math.round((maxC - 6 - minC) * 0.38));
   let armoryCell = null;
   let bestArmoryScore = Infinity;
@@ -265,17 +286,59 @@ export function composeGridStage(spec) {
     if (grandStairCols.has(mc)) continue;
     const rs = rowsByCol.get(mc);
     for (const mr of rs) {
-      if (mc === mapRoom.spine[0][0] && mr === mapRoom.spine[0][1]) continue;
-      if (isSanctuaryCell(mc, mr) || isSecretCell(mc, mr) || isBossCell(mc, mr)) continue;
-      if (doorsByCell.has(`${mc},${mr}`)) continue;
-      if (isSecretVault(mc, mr + 1) || isHighPocket(mc, mr - 1)) continue;
-      if (hasStairBetween(mc, mr - 1) && hasStairBetween(mc, mr)) continue;
+      if (!isEligibleLandmarkCell(mc, mr)) continue;
       const singleBonus = rs.length === 1 ? 0 : 12;
       const dist = Math.abs(mc - targetArmoryMc) + singleBonus;
       if (dist < bestArmoryScore) {
         bestArmoryScore = dist;
         armoryCell = [mc, mr];
       }
+    }
+  }
+
+  // Choose 1 clean cell for the stage's Arcane Glyph Sigil (`glyphCell`), preferring upper galleries
+  const targetGlyphMc = minC + Math.max(2, Math.round((maxC - 6 - minC) * 0.66));
+  let glyphCell = null;
+  let bestGlyphScore = Infinity;
+  for (let mc = minC + 1; mc <= maxC - 6; mc++) {
+    if (grandStairCols.has(mc)) continue;
+    const rs = rowsByCol.get(mc);
+    for (let ri = 0; ri < rs.length; ri++) {
+      const mr = rs[ri];
+      if (!isEligibleLandmarkCell(mc, mr)) continue;
+      if (armoryCell && armoryCell[0] === mc && armoryCell[1] === mr) continue;
+      if (hasStairBetween(mc, mr - 1) || hasStairBetween(mc, mr)) continue;
+      const upperBonus = (ri === 0 && rs.length >= 2) ? -6 : 0;
+      const score = Math.abs(mc - targetGlyphMc) + upperBonus;
+      if (score < bestGlyphScore) {
+        bestGlyphScore = score;
+        glyphCell = [mc, mr];
+      }
+    }
+  }
+
+  // Detect 1 verified parallel 2-story gallery loop cell `[switchMc, switchMr]` for a One-Way Shortcut Portcullis
+  for (let mc = minC + 2; mc <= maxC - 6 && !switchGateCell; mc++) {
+    if (grandStairCols.has(mc)) continue;
+    const openRs = rowsByCol.get(mc).filter((r) => !isBonusSecretCell(mc, r));
+    if (openRs.length !== 2 || openRs[1] !== openRs[0] + 1) continue;
+    const [rTop, rBot] = openRs;
+    if (!isEligibleLandmarkCell(mc, rBot)) continue;
+    if (armoryCell && armoryCell[0] === mc && armoryCell[1] === rBot) continue;
+    if (glyphCell && glyphCell[0] === mc && glyphCell[1] === rBot) continue;
+    // Verify continuous upper+lower gallery to a west stair `cL < mc` and an east stair `cR > mc`
+    let hasWestStair = false;
+    for (let cL = mc - 1; cL >= minC; cL--) {
+      if (!hasOpenCell(cL, rTop) || !hasOpenCell(cL, rBot) || isHighPocket(cL, rTop) || isSecretVault(cL, rBot)) break;
+      if (hasStairBetween(cL, rTop)) { hasWestStair = true; break; }
+    }
+    let hasEastStair = false;
+    for (let cR = mc + 1; cR <= maxC - 3; cR++) {
+      if (!hasOpenCell(cR, rTop) || !hasOpenCell(cR, rBot) || isHighPocket(cR, rTop) || isSecretVault(cR, rBot)) break;
+      if (hasStairBetween(cR, rTop)) { hasEastStair = true; break; }
+    }
+    if (hasWestStair && hasEastStair) {
+      switchGateCell = [mc, rBot];
     }
   }
 
@@ -292,13 +355,20 @@ export function composeGridStage(spec) {
   const secrets = [];
   const roomSchema = [];
   let sanctuaryAnchor = null;
+  let warpAnchor = null;
   let vesselAnchor = null;
   let pedestalAnchor = null;
+  const magnetAnchors = [];
+  const switchGatesData = [];
+  const chestAnchors = [];
+  const glyphAnchors = [];
+  const secretWallAnchors = [];
+  let placedWoodenChest = false;
   let drawbridge = null;
   let gateFoyer = null;
 
   const op = (fn) => ops.push(fn);
-  const addCandle = (tx, row, drop = null) => rawCandles.push([tx, row, drop]);
+  const addCandle = (tx, row, drop = null, kind = 'candelabra') => rawCandles.push([tx, row, drop, kind]);
   const addDeco = (sheet, frame, tx, row, dx = 0, dy = 0) => {
     if (!sheet || !frame) return;
     rawDecor.push({ sheet, frame, x: px(tx) + dx, y: py(row) + dy, _tx: tx, _row: row, _dy: dy });
@@ -465,27 +535,39 @@ export function composeGridStage(spec) {
         addDeco(props.altTall[0], props.altTall[1], x0 + 17, rightLandR);
       }
       if (isGateBridge) {
-        // Stage 1 castle approach, left -> right across the cell:
-        //   `0`      flat outdoor stone bridgehead continuing seamlessly from `mc = 7` (`leftLandR`)
-        //   `1..10`  grand 10-tile (320px) lowered wooden & iron DRAWBRIDGE over the deep castle moat
-        //   `11`     monumental Barbican Gatehouse threshold (`rooms[0]` starts here)
-        //   `12..20` the Great Stairway climbing INSIDE the castle Entrance Foyer up to the hall floor (`rightLandR`)
-        const bx0 = x0 + 1, bx1 = x0 + 10;
-        drawbridge = { x0: bx0, x1: bx1, row: leftLandR, waterRow: leftLandR + 2, floorRow: leftLandR + 4 };
+        // Stage 1 Monumental Castle Approach (`mc = 7..8`), left -> right:
+        //   `x0 - 7 .. x0 - 5` solid stone Outer Barbican Bridgehead abutment (`leftLandR`)
+        //   `x0 - 4 .. x0 + 10` grand 15-tile (480px) lowered oak-and-iron DRAWBRIDGE over the deep moonlit moat
+        //   `x0 + 11`           monumental Barbican Portcullis & Gatehouse Keep threshold (`rooms[0]` starts here)
+        //   `x0 + 13 .. x0 + 20` the Great Stairway climbing INSIDE the Castle Entrance Foyer (`rightLandR`)
+        const bx0 = x0 - 4, bx1 = x0 + 10;
+        const moatWaterR = leftLandR + 1;
+        const moatFloorR = Math.min(rows - 1, leftLandR + 3);
+        drawbridge = {
+          x0: bx0,
+          x1: bx1,
+          row: leftLandR,
+          waterRow: moatWaterR,
+          floorRow: moatFloorR,
+          gateCol: x0 + 11,
+          triggerX: (x0 + 13.2) * TILE,
+          state: 'open',
+          raise: 0,
+          portcullis: 0,
+          wheelAngle: 0,
+        };
         gateFoyer = { x0: x0 + 11, x1: x0 + 19, floorRow: leftLandR, hallRow: rightLandR };
         op((lv) => {
-          lv.clear(x0, x0, 0, leftLandR - 1);
-          lv.ground(x0, x0, leftLandR, mat);
-          lv.clear(bx0, bx1, 0, leftLandR + 3);
-          lv.ground(bx0, bx1, leftLandR + 4, mat);
-          lv.fill(bx0, bx1, leftLandR + 2, leftLandR + 3, T_WATER);
+          lv.clear(bx0 - 3, bx0 - 1, 0, leftLandR - 1);
+          lv.ground(bx0 - 3, bx0 - 1, leftLandR, mat);
+          lv.clear(bx0, bx1, 0, moatFloorR - 1);
+          lv.ground(bx0, bx1, moatFloorR, mat);
+          lv.fill(bx0, bx1, moatWaterR, Math.max(moatWaterR, moatFloorR - 1), T_WATER);
           lv.platform(bx0, bx1, leftLandR);
           lv.clear(x0 + 11, x0 + 19, 0, leftLandR - 1);
           lv.ground(x0 + 11, x0 + 19, leftLandR, mat);
-          lv.stair(x0 + 12, leftLandR, x0 + 20, rightLandR, { passThrough: false, mat, railing: true });
+          lv.stair(x0 + 13, leftLandR, x0 + 20, rightLandR, { passThrough: false, mat, railing: true });
         });
-        // Iconic Barbican Gatehouse archway right at the castle threshold (end of the drawbridge)
-        addDeco('arch', 'gate', x0 + 11, leftLandR, 14, 0);
       }
       if (props.sconce) {
         const sc0 = isGateBridge ? x0 + 14 : x0 + 7, sc1 = isGateBridge ? x0 + 18 : x0 + 13;
@@ -503,8 +585,8 @@ export function composeGridStage(spec) {
         addEnemy({ type: sStair, variant: sStairVar, off: 17, minOff: 15, maxOff: 18, row: rightLandR }, x0, x1, floorBot);
         addEnemy({ type: aType, variant: aVar, off: 10, minOff: 3, maxOff: 16, row: Math.min(leftLandR, rightLandR), h: 3 }, x0, x1, floorBot);
       } else {
-        // Keep the grand drawbridge deck obstacle-free for a dramatic castle entrance!
-        addCandle(x0 + 11, leftLandR, 'heart_big');
+        // Keep the grand drawbridge deck obstacle-free; place foyer candelabra just inside the Barbican threshold!
+        addCandle(x0 + 12, leftLandR, 'heart_big');
       }
 
       roomSchema.push(createRoomSchemaEntry({
@@ -533,14 +615,23 @@ export function composeGridStage(spec) {
       const isTopInCol = ri === 0;
       const isBotInCol = mr === botMr;
       const prevOwnedMr = ri > 0 ? rs[ri - 1] : null;
-      const hasLeft = hasCell(mc - 1, mr);
-      const hasRight = hasCell(mc + 1, mr);
+      const isBonusSec = isBonusSecretCell(mc, mr);
+      const isBonusFrom = isBonusSecretFromCell(mc, mr);
+      const hasLeft = isBonusSec
+        ? !!(mapRoom.bonusSecretFrom && mapRoom.bonusSecretFrom[0] === mc - 1 && mapRoom.bonusSecretFrom[1] === mr)
+        : (hasCell(mc - 1, mr) && (!isBonusSecretCell(mc - 1, mr) || isBonusFrom));
+      const hasRight = isBonusSec
+        ? !!(mapRoom.bonusSecretFrom && mapRoom.bonusSecretFrom[0] === mc + 1 && mapRoom.bonusSecretFrom[1] === mr)
+        : (hasCell(mc + 1, mr) && (!isBonusSecretCell(mc + 1, mr) || isBonusFrom));
       const stairUp = hasStairBetween(mc, mr - 1) ? stairSideBetween(mc, mr - 1) : null;
       const stairDown = hasStairBetween(mc, mr) ? stairSideBetween(mc, mr) : null;
       const cellDoors = doorsByCell.get(`${mc},${mr}`) || [];
       const isStartCell = mc === startMc && mr === startMr;
       const isSanc = isSanctuaryCell(mc, mr);
+      const isWarp = isWarpCell(mc, mr);
       const isArmory = !!(armoryCell && armoryCell[0] === mc && armoryCell[1] === mr);
+      const isGlyph = !!(glyphCell && glyphCell[0] === mc && glyphCell[1] === mr);
+      const isSwitchLoop = !!(switchGateCell && switchGateCell[0] === mc && switchGateCell[1] === mr);
       const hasSecretVaultBelow = isSecretVault(mc, mr + 1);
       const hasHighPocketAbove = isHighPocket(mc, mr - 1);
 
@@ -649,7 +740,46 @@ export function composeGridStage(spec) {
         const wallTop = prevOwnedMr != null ? (gridFloorRow(minR, prevOwnedMr) + 1) : 0;
         if (!hasLeft && mc > minC) lv.fill(x0, x0, wallTop, floorR, mat);
         if (!hasRight && mc < maxC) lv.fill(x1, x1, wallTop, floorR, mat);
+
+        // Breakable 3-tile perimeter masonry wall seam leading into a Hidden Secret Chamber (`isBonusSec`)
+        if (isBonusSec) {
+          const seamCol = hasLeft ? x0 : x1;
+          if (floorR - 4 >= wallTop) lv.fill(seamCol, seamCol, wallTop, floorR - 4, mat);
+          lv.fill(seamCol, seamCol, Math.max(0, floorR - 3), floorR - 1, T_BLOCK);
+        }
       });
+
+      // 2C-0. Hidden Breakable-Wall Secret Reliquary (`isBonusSec`: Ornate Gold Chest + Wall Roast, `0` enemies)
+      if (isBonusSec) {
+        const seamCol = hasLeft ? x0 : x1;
+        secretWallAnchors.push({
+          id: `${key}_bsec`,
+          col: seamCol,
+          topRow: Math.max(0, floorR - 3),
+          botRow: floorR - 1,
+          floorRow: floorR,
+          revealCellKey: mapRoom.bonusSecretKey,
+        });
+        const farCol = hasLeft ? x0 + 16 : x0 + 3;
+        op((lv) => {
+          const daisOpts = { passThrough: false, mat, railing: false, clearAbove: false, fillBottom: isBotInCol ? undefined : floorR };
+          lv.fill(x0 + 8, x0 + 12, floorR - 1, floorR - 1, mat);
+          lv.stair(x0 + 7, floorR, x0 + 8, floorR - 1, daisOpts);
+          lv.stair(x0 + 13, floorR - 1, x0 + 14, floorR, daisOpts);
+          lv.set(farCol, floorR - 1, T_BLOCK);
+        });
+        blockDrops[`${farCol},${floorR - 1}`] = 'meat';
+        chestAnchors.push({ id: `${key}_gold_secret`, col: x0 + 10, row: floorR - 1, tier: 'gold' });
+        addDeco(props.tall[0], props.tall[1], x0 + 4, floorR);
+        addDeco(props.tall[0], props.tall[1], x0 + 15, floorR);
+        if (props.sconce) {
+          addDeco(props.sconce[0], props.sconce[1], x0 + 6, floorR, 0, -44);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 14, floorR, 0, -44);
+        }
+        addCandle(x0 + 5, floorR, 'heart_big');
+        addCandle(x0 + 14, floorR, 'money');
+        continue;
+      }
 
       // 2C. Sunken Secret Vault Interior (`isSecretVault`)
       if (isSecretVault(mc, mr)) {
@@ -750,6 +880,31 @@ export function composeGridStage(spec) {
         continue;
       }
 
+      // 2E-bis. Golden Warp Chamber (`isWarp`: dedicated astral fast-travel portal room, `0` enemies)
+      if (isWarp) {
+        colArchetype = ROOM_ARCHETYPES.BUFFER_TRANSITION;
+        colPacing = PACING_ZONES.INTRO_SAFE;
+        const wOff = safeCenterOffset(mc, mr);
+        const wCol = x0 + wOff;
+        warpAnchor = { col: wCol, row: floorR };
+        checkpoints.push(px(wCol));
+        checkpointRows.push(floorR);
+
+        addDeco(props.altTall[0], props.altTall[1], wCol - 4, floorR);
+        addDeco(props.altTall[0], props.altTall[1], wCol + 4, floorR);
+        if (!outdoor) {
+          addDeco('arch', 'banner', wCol - 3, floorR, 0, -48);
+          addDeco('arch', 'banner', wCol + 3, floorR, 0, -48);
+        }
+        if (props.sconce) {
+          addDeco(props.sconce[0], props.sconce[1], wCol - 2, floorR, 0, -44);
+          addDeco(props.sconce[0], props.sconce[1], wCol + 2, floorR, 0, -44);
+        }
+        addCandle(wCol - 4, floorR, 'heart_big');
+        addCandle(wCol + 4, floorR, 'heart_big');
+        continue;
+      }
+
       // 2F. Portal Vestibule (`cellDoors.length > 0`, non-highLedge doorway)
       if (cellDoors.length > 0) {
         const d = cellDoors[0];
@@ -820,6 +975,60 @@ export function composeGridStage(spec) {
         continue;
       }
 
+      // 2G-bis. Arcane Glyph Sanctum (`isGlyph`: floating Soul Glyph sigil + wooden reliquary chest)
+      if (isGlyph) {
+        colArchetype = ROOM_ARCHETYPES.LANDMARK_GATE;
+        colPacing = PACING_ZONES.MASTERY_REWARD;
+        const gCol = x0 + 10;
+        const gRow = floorR - 1;
+        op((lv) => {
+          const daisOpts = { passThrough: false, mat, railing: false, clearAbove: false, fillBottom: isBotInCol ? undefined : floorR };
+          lv.fill(x0 + 7, x0 + 13, gRow, floorR, mat);
+          lv.stair(x0 + 6, floorR, x0 + 7, gRow, daisOpts);
+          lv.stair(x0 + 14, gRow, x0 + 15, floorR, daisOpts);
+        });
+        glyphAnchors.push({ id: `${key}_glyph`, col: gCol, row: gRow });
+        if (!placedWoodenChest) {
+          placedWoodenChest = true;
+          chestAnchors.push({ id: `${key}_wood`, col: x0 + 17, row: floorR, tier: 'wooden' });
+        }
+        addDeco(props.tall[0], props.tall[1], x0 + 3, floorR);
+        if (props.sconce) {
+          addDeco(props.sconce[0], props.sconce[1], x0 + 8, gRow, 0, -44);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 12, gRow, 0, -44);
+        }
+        addCandle(x0 + 5, floorR, 'heart_big');
+        const [gGuard, gGuardVar] = pickGround(mc + mr);
+        addEnemy({ type: gGuard, variant: gGuardVar, off: 3, minOff: 1, maxOff: 5 }, x0, x1, floorR);
+        continue;
+      }
+
+      // 2G-ter. One-Way Mechanical Switch Shortcut Gate (`isSwitchLoop` under a verified 2-story gallery detour!)
+      if (isSwitchLoop) {
+        colArchetype = ROOM_ARCHETYPES.LANDMARK_GATE;
+        colPacing = PACING_ZONES.TWIST_COMBINATION;
+        const gateCol = x0 + 9;
+        const topRow = prevOwnedMr != null ? (gridFloorRow(minR, prevOwnedMr) + 1) : Math.max(0, floorR - 4);
+        switchGatesData.push({
+          id: `${key}_sw_${mc}`,
+          gateCol,
+          topRow,
+          floorRow: floorR,
+          leverSide: 1, // Lever sits on the EAST (`+1`) side reached via the upper clerestory gallery detour!
+          leverCol: x0 + 12,
+        });
+        chestAnchors.push({ id: `${key}_sw_chest_${mc}`, col: x0 + 15, row: floorR, tier: 'emerald' });
+        addDeco(props.tall[0], props.tall[1], x0 + 4, floorR);
+        if (props.sconce) {
+          addDeco(props.sconce[0], props.sconce[1], x0 + 6, floorR, 0, -44);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 13, floorR, 0, -44);
+        }
+        addCandle(x0 + 6, floorR, 'heart_big');
+        const [hSw, hSwVar] = pickHeavy(mc + mr, true);
+        addEnemy({ type: hSw, variant: hSwVar, off: 4, minOff: 2, maxOff: 7 }, x0, x1, floorR);
+        continue;
+      }
+
       // 2H. Opening Parvis (`isStartCell` without a door: atmospheric stage threshold)
       if (isStartCell) {
         colArchetype = ROOM_ARCHETYPES.BUFFER_TRANSITION;
@@ -843,10 +1052,12 @@ export function composeGridStage(spec) {
       if (hasHighPocketAbove) {
         colArchetype = ROOM_ARCHETYPES.LANDMARK_GATE;
         colPacing = PACING_ZONES.MASTERY_REWARD;
+        // High Lodestone Magnet Ring suspended near the upper skylight vault (`180px` above floor!)
+        magnetAnchors.push({ col: x0 + 10, row: floorR - 5.6 });
 
         // Vertical guide chains descending into the atrium to draw the eye up to the high balcony
-        addDeco('arch', 'chain', x0 + 6, floorR - 3, 0, -36);
-        addDeco('arch', 'chain', x0 + 14, floorR - 3, 0, -36);
+        addDeco('arch', 'chain', x0 + 6, floorR - 4, 0, -36);
+        addDeco('arch', 'chain', x0 + 14, floorR - 4, 0, -36);
         if (!stairUp && !stairDown) {
           addDeco(props.tall[0], props.tall[1], x0 + 3, floorR);
           addDeco(props.tall[0], props.tall[1], x0 + 17, floorR);
@@ -855,8 +1066,9 @@ export function composeGridStage(spec) {
           addDeco(props.sconce[0], props.sconce[1], x0 + 4, floorR, 0, -44);
           addDeco(props.sconce[0], props.sconce[1], x0 + 16, floorR, 0, -44);
         }
-        addCandle(x0 + 8, floorR, 'heart_big');
-        addCandle(x0 + 12, floorR);
+        addCandle(x0 + 5, floorR - 2, 'heart_big', 'sconce');
+        addCandle(x0 + 15, floorR - 2, null, 'sconce');
+        addCandle(x0 + 10, floorR, 'heart_big');
         const [gType, gVar] = pickGround(mc + mr);
         const [aSky, aSkyVar] = pickAerial(mc + mr + 1);
         addEnemy({ type: gType, variant: gVar, off: 10, minOff: 7, maxOff: 12 }, x0, x1, floorR);
@@ -898,7 +1110,13 @@ export function composeGridStage(spec) {
 
       // 2J. Multi-Story Tower Shaft Chamber (`stairUp || stairDown` in a vertical shaft or overlapping gallery)
       if (stairUp || stairDown) {
-        if (rs.length >= 3) colArchetype = ROOM_ARCHETYPES.SHAFT_VERTICAL;
+        if (rs.length >= 3) {
+          colArchetype = ROOM_ARCHETYPES.SHAFT_VERTICAL;
+          if (isTopInCol) {
+            // High ceiling Lodestone Grapple Ring suspended up in the vaulted shaft crown (`188px` above floor!)
+            magnetAnchors.push({ col: x0 + 10, row: floorR - 5.9 });
+          }
+        }
         const centerOff = 9;
         if (key === 'clocktower') {
           addGear(x0 + 10, floorR, (mr & 1) ? 34 : 44, (mr & 1) ? 0.52 : -0.45, -76, 64);
@@ -913,9 +1131,10 @@ export function composeGridStage(spec) {
           addDeco(props.sconce[0], props.sconce[1], x0 + 11, floorR, 0, -42);
         }
         addCandle(x0 + 11, floorR, (mr & 1) === 0 ? 'heart_big' : null);
+        if (!outdoor) addCandle(x0 + 8, floorR - 2, null, 'sconce');
 
         // Disciplined patrol inside solid central deck `[7..12]` + shaft aerial + unblocked wing guard
-        const [gType, gVar] = (mr + mc) % 3 === 0 ? pickHeavy(mc + mr) : pickGround(mc + mr);
+        const [gType, gVar] = (mr + mc) % 3 === 0 ? pickHeavy(mc + mr, !isTopInCol) : pickGround(mc + mr);
         const [aType, aVar] = pickAerial(mc + mr + 1);
         addEnemy({ type: gType, variant: gVar, off: 9, minOff: 7, maxOff: 12 }, x0, x1, floorR);
         addEnemy({ type: aType, variant: aVar, off: 10, minOff: 6, maxOff: 14, h: 3 }, x0, x1, floorR);
@@ -930,20 +1149,19 @@ export function composeGridStage(spec) {
       }
 
       // 2J-bis. Stage 1 Ceremonial Castle Gate Approach (`key === 'graveyard' && mc === 7`):
-      // Flat, obstacle-free stone causeway with 3D viaduct arches underneath and zero pits/spikes/enemies,
-      // building dramatic anticipation right before the hunter steps onto the grand Castle Drawbridge (`mc === 8`).
+      // Stone viaduct causeway (`x0 .. x0 + 12`) + Outer Barbican Bridgehead (`x0 + 13 .. x0 + 15`)
+      // opening onto the west bank of the 15-tile Castle Moat & Grand Drawbridge (`x0 + 16 .. x0 + 30`).
       if (key === 'graveyard' && mc === 7) {
         colArchetype = ROOM_ARCHETYPES.BUFFER_TRANSITION;
         colPacing = PACING_ZONES.INTRO_SAFE;
         addDeco('arch', 'column', x0 + 3, floorR);
         addDeco('arch', 'column', x0 + 9, floorR);
-        addDeco('arch', 'column', x0 + 15, floorR);
-        addDeco('props', 'torch', x0 + 6, floorR, 0, -44);
-        addDeco('props', 'torch', x0 + 12, floorR, 0, -44);
-        addDeco('props', 'torch', x0 + 18, floorR, 0, -44);
-        addCandle(x0 + 6, floorR, 'heart_big');
-        addCandle(x0 + 12, floorR);
-        addCandle(x0 + 18, floorR, 'heart_big');
+        addDeco('arch', 'column', x0 + 14, floorR);
+        addDeco('props', 'torch', x0 + 5, floorR, 0, -44);
+        addDeco('props', 'torch', x0 + 11, floorR, 0, -44);
+        addCandle(x0 + 5, floorR, 'heart_big');
+        addCandle(x0 + 10, floorR, 'cross');
+        addCandle(x0 + 14, floorR, 'heart_big');
         continue;
       }
 
@@ -955,189 +1173,245 @@ export function composeGridStage(spec) {
         colPacing = PACING_ZONES.PRE_BOSS_ACCORDION;
       }
 
-      // Choose 1 of 4 contrasting architectural room templates (never repeating adjacent templates!)
+      // Classic Gothic Castle Room Templates:
+      // Solid dueling galleries, multi-tier chandelier mezzanines, stepped stone buttresses with
+      // breakable Wall-Meat bricks (`T_BLOCK`), high ceiling grapple atriums (`floorR - 6.0`),
+      // crouch-slide reliquaries, and curated dramatic hazard crossings (~1 in 6 rooms).
       let tpl;
-      if (isAccordion1) tpl = 'COLONNADE_NAVE';
+      if (isAccordion1) tpl = 'GRAND_COLONNADE_GALLERY';
       else if (isAccordion2) tpl = 'SUNKEN_HAZARD_COURT';
-      else if (isAccordion3) tpl = 'TWIN_BALCONY_AMPHITHEATER';
-      else if (isOutdoorVista) tpl = 'VIADUCT_PROMENADE';
+      else if (isAccordion3) tpl = 'STEPPED_BUTTRESS_KEEP';
+      else if (isOutdoorVista) tpl = isTopInCol ? 'HIGH_GRAPPLE_ATRIUM' : 'GRAND_COLONNADE_GALLERY';
       else {
-        const order = ['COLONNADE_NAVE', 'TWIN_BALCONY_AMPHITHEATER', 'SUNKEN_HAZARD_COURT', 'VIADUCT_PROMENADE'];
+        const order = [
+          'GRAND_COLONNADE_GALLERY',
+          'STEPPED_BUTTRESS_KEEP',
+          'MEZZANINE_STAIR_HALL',
+          isTopInCol ? 'HIGH_GRAPPLE_ATRIUM' : 'GRAND_COLONNADE_GALLERY',
+          'SLIDE_GALLERY_VAULT',
+          'SUNKEN_HAZARD_COURT',
+        ];
         tpl = order[(combatCounter++) % order.length];
       }
 
-      if (tpl === 'COLONNADE_NAVE') {
+      if (tpl === 'SLIDE_GALLERY_VAULT') {
+        // Upper stone gallery bridge (`floorR - 3`) with step platforms (`floorR - 1`) for open traversal,
+        // PLUS twin 1-tile (`32px`) low-ceiling Crouch-Slide Kick tunnels (`floorR - 1` open under `floorR - 3..floorR - 2`
+        // solid lintels) enclosing a ground-level Emerald Reliquary Vault (`x0 + 8..11`)!
         colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
-        const spikedNave = ((mc + mr) & 1) === 1;
-        if (spikedNave) {
-          // Wide 14-tile Spiked Nave Chasm (`x0 + 3 .. x0 + 16`) with 3 spaced 2-tile floating platforms
-          // separated by 3-tile open air gaps (`96px`) over the spikes so the player must jump platform-to-platform!
-          const openCenterHole = isBotInCol && (mc % 3 === 0);
-          op((lv) => {
-            lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
-            lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
-            lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
-            if (openCenterHole) {
-              lv.clear(x0 + 8, x0 + 11, floorR, rows - 1);
-            }
-            lv.platform(x0 + 4, x0 + 5, floorR - 1);
-            lv.platform(x0 + 9, x0 + 10, floorR - 2);
-            lv.platform(x0 + 14, x0 + 15, floorR - 1);
-          });
-          addDeco(props.tall[0], props.tall[1], x0 + 1, floorR);
-          addDeco(props.tall[0], props.tall[1], x0 + 18, floorR);
-          if (props.sconce) {
-            addDeco(props.sconce[0], props.sconce[1], x0 + 2, floorR, 0, -46);
-            addDeco(props.sconce[0], props.sconce[1], x0 + 17, floorR, 0, -46);
-          }
-          addHanging(props.hanging, x0 + 10, floorR, (mc * 0.9) % 6.28);
-          addCandle(x0 + 5, floorR - 1, 'heart_big');
-          addCandle(x0 + 10, floorR - 2, rng() < 0.35 ? subDrops[(mc + id) % subDrops.length] : 'money');
-          addCandle(x0 + 15, floorR - 1);
-
-          const [gType, gVar] = pickGround(mc);
-          const [sType, sVar] = pickSniper(mc + 1);
-          const [hType, hVar] = colPacing === PACING_ZONES.INTRO_SAFE ? pickGround(mc + 2) : pickHeavy(mc + 2);
-          const [aType, aVar] = pickAerial(mc + 3);
-          addEnemy({ type: gType, variant: gVar, off: 2, minOff: 1, maxOff: 2 }, x0, x1, floorR);
-          addEnemy({ type: sType, variant: sVar, off: 10, minOff: 9, maxOff: 10, row: floorR - 2 }, x0, x1, floorR);
-          addEnemy({ type: hType, variant: hVar, off: 18, minOff: 17, maxOff: 18 }, x0, x1, floorR);
-          addEnemy({ type: aType, variant: aVar, off: 12, minOff: 4, maxOff: 16, row: floorR - 1, h: 3 }, x0, x1, floorR);
-        } else {
-          // Twin 5-tile flanking spike trenches (`x0 + 3..7` and `x0 + 12..16`) around a central island pillar (`x0 + 8..11`),
-          // with spaced 2-tile floating platforms (`x0 + 4..5` and `x0 + 14..15`) required to clear each spike moat!
-          op((lv) => {
-            lv.clear(x0 + 3, x0 + 7, floorR, floorR + 1);
-            lv.ground(x0 + 3, x0 + 7, floorR + 2, mat);
-            lv.fill(x0 + 3, x0 + 7, floorR + 1, floorR + 1, T_SPIKES);
-            lv.clear(x0 + 12, x0 + 16, floorR, floorR + 1);
-            lv.ground(x0 + 12, x0 + 16, floorR + 2, mat);
-            lv.fill(x0 + 12, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
-            lv.platform(x0 + 4, x0 + 5, floorR - 1);
-            lv.platform(x0 + 9, x0 + 10, floorR - 2);
-            lv.platform(x0 + 14, x0 + 15, floorR - 1);
-          });
-          addDeco(props.tall[0], props.tall[1], x0 + 1, floorR);
-          addDeco(props.focal[0], props.focal[1], x0 + 9, floorR);
-          addDeco(props.tall[0], props.tall[1], x0 + 18, floorR);
-          if (props.sconce) {
-            addDeco(props.sconce[0], props.sconce[1], x0 + 2, floorR, 0, -46);
-            addDeco(props.sconce[0], props.sconce[1], x0 + 17, floorR, 0, -46);
-          }
-          addHanging(props.hanging, x0 + 10, floorR, (mc * 0.9) % 6.28);
-          addCandle(x0 + 5, floorR - 1, 'heart_big');
-          addCandle(x0 + 10, floorR - 2, rng() < 0.35 ? subDrops[(mc + id) % subDrops.length] : 'money');
-
-          const [gType, gVar] = pickGround(mc);
-          const [sType, sVar] = pickSniper(mc + 1);
-          const [hType, hVar] = colPacing === PACING_ZONES.INTRO_SAFE ? pickGround(mc + 2) : pickHeavy(mc + 2);
-          const [aType, aVar] = pickAerial(mc + 3);
-          addEnemy({ type: gType, variant: gVar, off: 9, minOff: 8, maxOff: 11 }, x0, x1, floorR);
-          addEnemy({ type: sType, variant: sVar, off: 10, minOff: 9, maxOff: 10, row: floorR - 2 }, x0, x1, floorR);
-          addEnemy({ type: hType, variant: hVar, off: 18, minOff: 17, maxOff: 18 }, x0, x1, floorR);
-          addEnemy({ type: aType, variant: aVar, off: 12, minOff: 4, maxOff: 16, row: floorR - 1, h: 3 }, x0, x1, floorR);
-        }
-        if (roster.spawner && (mc % 2 === 0)) {
-          spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
-        }
-      } else if (tpl === 'TWIN_BALCONY_AMPHITHEATER') {
-        // Set-piece combat hall: wide 14-tile spike & chasm pit (`x0 + 3 .. x0 + 16`) spanned by two spaced
-        // outer floating platforms (`x0 + 4..5`, `x0 + 14..15`) and a central moving platform (`x0 + 7..12`)!
-        colArchetype = ROOM_ARCHETYPES.ARENA_COMBAT;
-        const openPitHole = isBotInCol && ((mc + id) % 2 === 0);
         op((lv) => {
-          lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
-          lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
-          lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
-          if (openPitHole) {
-            lv.clear(x0 + 8, x0 + 11, floorR, rows - 1);
-          }
-          // Spaced entry/exit floating platforms + high side balconies
-          lv.platform(x0 + 4, x0 + 5, floorR - 1);
-          lv.platform(x0 + 14, x0 + 15, floorR - 1);
-          lv.platform(x0 + 1, x0 + 3, floorR - 3);
-          lv.platform(x0 + 16, x0 + 18, floorR - 3);
+          lv.platform(x0 + 3, x0 + 4, floorR - 1);
+          lv.platform(x0 + 15, x0 + 16, floorR - 1);
+          lv.platform(x0 + 6, x0 + 13, floorR - 3);
+          lv.fill(x0 + 6, x0 + 7, floorR - 3, floorR - 2, mat);
+          lv.fill(x0 + 12, x0 + 13, floorR - 3, floorR - 2, mat);
         });
-        movers.push({
-          kind: 'linear',
-          tiles: 2,
-          x0: (x0 + 7) * TILE + 16,
-          y0: py(floorR - 2),
-          x1: (x0 + 12) * TILE + 16,
-          y1: py(floorR - 2),
-          period: 3.8,
-          phase: (mc * 0.29) % 1,
-          dwell: 0.12,
-        });
-        addDeco(props.low[0], props.low[1], x0 + 1, floorR);
-        addDeco(props.low[0], props.low[1], x0 + 18, floorR);
-        if (key === 'cathedral') {
-          addDeco('stained_glass', ['rose', 'hunter', 'moon'][mc % 3], x0 + 10, floorR, 0, -72);
-        }
+        chestAnchors.push({ id: `${key}_slide_${mc}`, col: x0 + 10, row: floorR, tier: 'emerald' });
+        addDeco(props.tall[0], props.tall[1], x0 + 1, floorR);
+        addDeco(props.tall[0], props.tall[1], x0 + 18, floorR);
         if (props.sconce) {
           addDeco(props.sconce[0], props.sconce[1], x0 + 2, floorR, 0, -46);
           addDeco(props.sconce[0], props.sconce[1], x0 + 17, floorR, 0, -46);
         }
-        addHanging(props.hanging, x0 + 10, floorR, 1.4);
-        addCandle(x0 + 5, floorR - 1, 'heart_big');
-        addCandle(x0 + 14, floorR - 1, isAccordion3 ? 'meat' : 'money');
-        addCandle(x0 + 2, floorR - 3);
+        addCandle(x0 + 2, floorR - 2, 'heart_big', outdoor ? 'candelabra' : 'sconce');
+        addCandle(x0 + 10, floorR - 3, subDrops[(mc + id) % subDrops.length]);
+        addCandle(x0 + 17, floorR - 2, 'money', outdoor ? 'candelabra' : 'sconce');
 
-        const [sLeft, sLeftVar] = pickSniper(mc);
-        const [hType, hVar] = pickHeavy(mc + 1, true);
-        const [gRight, gRightVar] = pickGround(mc + 3);
-        addEnemy({ type: sLeft, variant: sLeftVar, off: 5, minOff: 4, maxOff: 5, row: floorR - 1 }, x0, x1, floorR);
-        addEnemy({ type: hType, variant: hVar, off: 2, minOff: 1, maxOff: 2 }, x0, x1, floorR);
-        addEnemy({ type: gRight, variant: gRightVar, off: 18, minOff: 17, maxOff: 18 }, x0, x1, floorR);
-        if (colPacing !== PACING_ZONES.INTRO_SAFE) {
-          const [aAmp, aAmpVar] = pickAerial(mc + 4);
-          addEnemy({ type: aAmp, variant: aAmpVar, off: 10, minOff: 4, maxOff: 16, h: 4 }, x0, x1, floorR);
+        const [gLeft, gLeftVar] = pickGround(mc);
+        const [sTop, sTopVar] = pickSniper(mc + 1);
+        const [aSlide, aSlideVar] = pickAerial(mc + 2);
+        addEnemy({ type: gLeft, variant: gLeftVar, off: 3, minOff: 1, maxOff: 5 }, x0, x1, floorR);
+        addEnemy({ type: sTop, variant: sTopVar, off: 10, minOff: 8, maxOff: 11, row: floorR - 3 }, x0, x1, floorR);
+        addEnemy({ type: aSlide, variant: aSlideVar, off: 14, minOff: 5, maxOff: 17, row: floorR - 2, h: 3 }, x0, x1, floorR);
+      } else if (tpl === 'GRAND_COLONNADE_GALLERY') {
+        // Classic Gothic Nave / Entrance Corridor:
+        // Intact solid flagstone dueling floor for spacing, backdash-cancels & heavy sentinel combat,
+        // crowned by a raised Clerestory Chandelier Walkway (`floorR - 3`), architectural columns/statues,
+        // jump-whip Wall Sconces (`floorR - 2`), and a Hanging Lantern (`floorR - 1`) under the bridge!
+        colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
+        op((lv) => {
+          lv.platform(x0 + 3, x0 + 4, floorR - 1);
+          lv.platform(x0 + 7, x0 + 12, floorR - 3);
+          lv.platform(x0 + 15, x0 + 16, floorR - 1);
+        });
+        addDeco(props.tall[0], props.tall[1], x0 + 2, floorR);
+        addDeco(props.focal[0], props.focal[1], x0 + 6, floorR);
+        addDeco(props.focal[0], props.focal[1], x0 + 13, floorR);
+        addDeco(props.tall[0], props.tall[1], x0 + 17, floorR);
+        if (key === 'cathedral' || key === 'observatory' || key === 'conservatory') {
+          addDeco('stained_glass', ['rose', 'hunter', 'moon'][mc % 3], x0 + 10, floorR, 0, -78);
+        } else if (!outdoor) {
+          addDeco('arch', 'banner', x0 + 6, floorR, 0, -52);
+          addDeco('arch', 'banner', x0 + 13, floorR, 0, -52);
         }
-        if (roster.spawner && (mc % 3 === 1)) {
+        addHanging(props.hanging, x0 + 10, floorR, (mc * 0.9) % 6.28);
+
+        // Elevated jump-slash wall sconces + under-gallery hanging lantern + upper sub-weapon candelabra!
+        addCandle(x0 + 2, floorR - 2, 'heart_big', outdoor ? 'lantern' : 'sconce');
+        addCandle(x0 + 10, floorR - 1, 'money', 'lantern');
+        addCandle(x0 + 10, floorR - 3, rng() < 0.45 ? subDrops[(mc + id) % subDrops.length] : 'heart_big');
+        addCandle(x0 + 17, floorR - 2, null, outdoor ? 'lantern' : 'sconce');
+
+        const [hFloor, hFloorVar] = colPacing === PACING_ZONES.INTRO_SAFE ? pickGround(mc) : pickHeavy(mc, true);
+        const [gFloor, gFloorVar] = pickGround(mc + 1);
+        const [sUpper, sUpperVar] = pickSniper(mc + 2);
+        const [aNave, aNaveVar] = pickAerial(mc + 3);
+        addEnemy({ type: gFloor, variant: gFloorVar, off: 5, minOff: 2, maxOff: 9 }, x0, x1, floorR);
+        addEnemy({ type: hFloor, variant: hFloorVar, off: 14, minOff: 10, maxOff: 18 }, x0, x1, floorR);
+        addEnemy({ type: sUpper, variant: sUpperVar, off: 10, minOff: 8, maxOff: 11, row: floorR - 3 }, x0, x1, floorR);
+        addEnemy({ type: aNave, variant: aNaveVar, off: 12, minOff: 4, maxOff: 17, row: floorR - 2, h: 3 }, x0, x1, floorR);
+        if (roster.spawner && (mc % 3 === 0)) {
           spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
         }
-      } else if (tpl === 'SUNKEN_HAZARD_COURT') {
-        // Wide 14-tile Sunken Hazard Court (`x0 + 3 .. x0 + 16`) with spikes, holes, and spaced floating & moving platforms
+      } else if (tpl === 'STEPPED_BUTTRESS_KEEP') {
+        // Classic Fortified Keep Hall with Breakable Wall-Meat / Treasure Brick:
+        // Solid stone approach rising over a 2-tile-high fortified central stone bastion (`floorR - 2`)
+        // with a breakable `T_BLOCK` masonry stone embedded directly into the stepped buttress face!
+        colArchetype = ROOM_ARCHETYPES.ARENA_COMBAT;
+        const secretOnWest = ((mc + id) & 1) === 0;
+        const meatCol = secretOnWest ? (x0 + 7) : (x0 + 12);
+        op((lv) => {
+          const daisOpts = { passThrough: false, mat, railing: false, clearAbove: false, fillBottom: isBotInCol ? undefined : floorR };
+          lv.fill(x0 + 7, x0 + 12, floorR - 2, floorR - 1, mat);
+          if (secretOnWest) {
+            // Stepped west buttress face exposing breakable Wall-Meat block at `(x0 + 7, floorR - 1)` + east stair!
+            lv.platform(x0 + 4, x0 + 5, floorR - 1);
+            lv.set(meatCol, floorR - 1, T_BLOCK);
+            lv.stair(x0 + 13, floorR - 2, x0 + 15, floorR, daisOpts);
+          } else {
+            // West stair climbing onto bastion + breakable Wall-Meat block exposed on east buttress face `(x0 + 12, floorR - 1)`!
+            lv.stair(x0 + 5, floorR, x0 + 7, floorR - 2, daisOpts);
+            lv.set(meatCol, floorR - 1, T_BLOCK);
+            lv.platform(x0 + 14, x0 + 15, floorR - 1);
+          }
+          // High side archer alcoves
+          lv.platform(x0 + 1, x0 + 3, floorR - 3);
+          lv.platform(x0 + 16, x0 + 18, floorR - 3);
+        });
+        blockDrops[`${meatCol},${floorR - 1}`] = (isAccordion3 || (mc % 2 === 0)) ? 'meat' : 'money';
+
+        addDeco(props.altTall[0], props.altTall[1], x0 + 2, floorR);
+        addDeco(props.focal[0], props.focal[1], x0 + 9, floorR - 2);
+        addDeco(props.altTall[0], props.altTall[1], x0 + 17, floorR);
+        if (props.sconce) {
+          addDeco(props.sconce[0], props.sconce[1], x0 + 8, floorR - 2, 0, -44);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 11, floorR - 2, 0, -44);
+        }
+        addHanging(props.hanging, x0 + 10, floorR - 2, 1.2);
+        addCandle(x0 + 2, floorR - 3, 'heart_big');
+        addCandle(x0 + 10, floorR - 4, subDrops[(mc + 2) % subDrops.length], outdoor ? 'lantern' : 'sconce');
+        addCandle(x0 + 17, floorR - 3, 'money');
+
+        const [hBastion, hBastionVar] = pickHeavy(mc);
+        const [gApproach, gApproachVar] = pickGround(mc + 1);
+        const [sPerch, sPerchVar] = pickSniper(mc + 2);
+        addEnemy({ type: hBastion, variant: hBastionVar, off: 10, minOff: 8, maxOff: 11, row: floorR - 2 }, x0, x1, floorR);
+        addEnemy({ type: gApproach, variant: gApproachVar, off: 3, minOff: 1, maxOff: 4 }, x0, x1, floorR);
+        addEnemy({ type: sPerch, variant: sPerchVar, off: 17, minOff: 16, maxOff: 18, row: floorR - 3 }, x0, x1, floorR);
+        if (colPacing !== PACING_ZONES.INTRO_SAFE) {
+          const [aKeep, aKeepVar] = pickAerial(mc + 3);
+          addEnemy({ type: aKeep, variant: aKeepVar, off: 13, minOff: 4, maxOff: 16, row: floorR - 2, h: 3 }, x0, x1, floorR);
+        }
+      } else if (tpl === 'MEZZANINE_STAIR_HALL') {
+        // Classic Two-Tier Library / Ballroom / Observatory Mezzanine Hall:
+        // Intact lower corridor + walkable interior diagonal staircase (`passThrough: true`) climbing up
+        // to an ornate upper mezzanine gallery (`x0 + 7 .. x0 + 16, floorR - 3`) with props & treasure!
+        colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
+        const westAsc = (mc & 1) === 0;
+        op((lv) => {
+          if (westAsc) {
+            lv.stair(x0 + 3, floorR, x0 + 6, floorR - 3, { passThrough: true, mat, railing: true });
+            lv.platform(x0 + 6, x0 + 16, floorR - 3);
+          } else {
+            lv.platform(x0 + 3, x0 + 13, floorR - 3);
+            lv.stair(x0 + 13, floorR - 3, x0 + 16, floorR, { passThrough: true, mat, railing: true });
+          }
+        });
+        addDeco(props.tall[0], props.tall[1], x0 + 2, floorR);
+        addDeco(props.low[0], props.low[1], x0 + 8, floorR);
+        addDeco(props.low[0], props.low[1], x0 + 12, floorR);
+        addDeco(props.tall[0], props.tall[1], x0 + 17, floorR);
+        if (props.sconce) {
+          addDeco(props.sconce[0], props.sconce[1], x0 + 5, floorR, 0, -44);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 14, floorR, 0, -44);
+        }
+        addCandle(x0 + 9, floorR - 1, 'heart_big', 'lantern');
+        addCandle(x0 + 11, floorR - 3, subDrops[(mc + id + 1) % subDrops.length]);
+        addCandle(westAsc ? (x0 + 15) : (x0 + 4), floorR - 3, 'heart_big');
+        addCandle(x0 + 10, floorR, 'money');
+
+        const [gLow, gLowVar] = pickGround(mc);
+        const [hLow, hLowVar] = pickHeavy(mc + 1, true);
+        const [sMezz, sMezzVar] = pickSniper(mc + 2);
+        addEnemy({ type: gLow, variant: gLowVar, off: 6, minOff: 2, maxOff: 10 }, x0, x1, floorR);
+        addEnemy({ type: hLow, variant: hLowVar, off: 14, minOff: 10, maxOff: 18 }, x0, x1, floorR);
+        addEnemy({ type: sMezz, variant: sMezzVar, off: 10, minOff: 7, maxOff: 13, row: floorR - 3 }, x0, x1, floorR);
+      } else if (tpl === 'HIGH_GRAPPLE_ATRIUM') {
+        // Vaulted High-Ceiling Grapple Atrium (`isTopInCol` guarantees open ceiling above `floorR`!):
+        // Wide 7-tile solid stone combat decks (`0..6` and `13..19`) framing a 6-tile central canal/pit (`7..12`),
+        // high flanking balconies at `floorR - 4` (`1..4` and `15..18`), low stepping corbels (`floorR - 1`),
+        // and a HIGH CEILING LODESTONE GRAPPLE RING (`floorR - 6.0` = 192px above the floor!)
+        colArchetype = ROOM_ARCHETYPES.ARENA_COMBAT;
+        magnetAnchors.push({ col: x0 + 10, row: floorR - 6.0 });
+        const useLava = key === 'darkcave';
+        const useWater = key === 'aqueduct' || key === 'ossuary' || key === 'conservatory' || key === 'darkwood';
+        const pitFloorR = Math.min(rows - 1, floorR + 2);
+        op((lv) => {
+          lv.clear(x0 + 7, x0 + 12, floorR, pitFloorR - 1);
+          lv.ground(x0 + 7, x0 + 12, pitFloorR, mat);
+          lv.fill(x0 + 7, x0 + 12, pitFloorR - 1, pitFloorR - 1, useLava ? T_LAVA : (useWater ? T_WATER : T_SPIKES));
+          // Low stepping corbels so non-grapple jump can cross cleanly, PLUS high `floorR - 4` grapple reward balconies!
+          lv.platform(x0 + 6, x0 + 7, floorR - 1);
+          lv.platform(x0 + 12, x0 + 13, floorR - 1);
+          lv.platform(x0 + 1, x0 + 4, floorR - 4);
+          lv.platform(x0 + 15, x0 + 18, floorR - 4);
+        });
+        addDeco(props.tall[0], props.tall[1], x0 + 2, floorR);
+        addDeco(props.tall[0], props.tall[1], x0 + 17, floorR);
+        if (props.sconce) {
+          addDeco(props.sconce[0], props.sconce[1], x0 + 4, floorR, 0, -46);
+          addDeco(props.sconce[0], props.sconce[1], x0 + 15, floorR, 0, -46);
+        }
+        addCandle(x0 + 2, floorR - 4, 'meat');
+        addCandle(x0 + 17, floorR - 4, subDrops[(mc + 3) % subDrops.length]);
+        addCandle(x0 + 5, floorR - 2, 'heart_big', outdoor ? 'lantern' : 'sconce');
+        addCandle(x0 + 14, floorR - 2, 'money', outdoor ? 'lantern' : 'sconce');
+
+        const [gWest, gWestVar] = pickGround(mc);
+        const [hEast, hEastVar] = pickHeavy(mc + 1);
+        const [aHigh, aHighVar] = pickAerial(mc + 2);
+        addEnemy({ type: gWest, variant: gWestVar, off: 3, minOff: 1, maxOff: 5 }, x0, x1, floorR);
+        addEnemy({ type: hEast, variant: hEastVar, off: 16, minOff: 14, maxOff: 18 }, x0, x1, floorR);
+        addEnemy({ type: aHigh, variant: aHighVar, off: 10, minOff: 4, maxOff: 15, row: floorR - 3, h: 3 }, x0, x1, floorR);
+      } else {
+        // `SUNKEN_HAZARD_COURT`: Curated Set-Piece Hazard Crossing (~1 in 6 rooms + pre-boss gauntlet):
+        // Lava basin, flooded sluice canal, or moving mechanical ferry over a spiked abyss!
         colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
         const useLava = key === 'darkcave';
-        const useWater = key === 'aqueduct' || key === 'ossuary';
-        const useFerry = isAccordion2 || ((mc & 1) === 0) || key === 'skykeep' || key === 'ramparts' || key === 'yule' || key === 'clocktower';
+        const useWater = key === 'aqueduct' || key === 'ossuary' || key === 'conservatory';
+        const pitFloorR = Math.min(rows - 1, floorR + 2);
 
-        if (useLava) {
+        if (useLava || useWater) {
           op((lv) => {
-            lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
-            lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
-            lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_LAVA);
-            lv.ground(x0 + 6, x0 + 6, floorR, mat);
-            lv.ground(x0 + 13, x0 + 13, floorR, mat);
-            lv.platform(x0 + 4, x0 + 5, floorR - 1);
+            lv.clear(x0 + 4, x0 + 15, floorR, pitFloorR - 1);
+            lv.ground(x0 + 4, x0 + 15, pitFloorR, mat);
+            lv.fill(x0 + 4, x0 + 15, pitFloorR - 1, pitFloorR - 1, useLava ? T_LAVA : T_WATER);
+            lv.ground(x0 + 7, x0 + 8, floorR, mat);
+            lv.ground(x0 + 11, x0 + 12, floorR, mat);
             lv.platform(x0 + 9, x0 + 10, floorR - 2);
-            lv.platform(x0 + 14, x0 + 15, floorR - 1);
           });
           addCandle(x0 + 10, floorR - 2, 'heart_big');
-        } else if (useWater) {
+          addCandle(x0 + 3, floorR - 2, null, outdoor ? 'lantern' : 'sconce');
+        } else {
           op((lv) => {
-            lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
-            lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
-            lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_WATER);
-            lv.ground(x0 + 6, x0 + 6, floorR, mat);
-            lv.ground(x0 + 13, x0 + 13, floorR, mat);
-            lv.platform(x0 + 4, x0 + 5, floorR - 1);
-            lv.platform(x0 + 9, x0 + 10, floorR - 2);
-            lv.platform(x0 + 14, x0 + 15, floorR - 1);
-          });
-          addCandle(x0 + 10, floorR - 2, 'heart_big');
-        } else if (useFerry) {
-          op((lv) => {
-            lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
-            lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
-            lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
+            lv.clear(x0 + 4, x0 + 15, floorR, pitFloorR - 1);
+            lv.ground(x0 + 4, x0 + 15, pitFloorR, mat);
+            lv.fill(x0 + 4, x0 + 15, pitFloorR - 1, pitFloorR - 1, T_SPIKES);
             if (isBotInCol) {
-              // Deep abyssal chasm hole in the center of the wide spike court
               lv.clear(x0 + 8, x0 + 11, floorR, rows - 1);
             }
-            lv.platform(x0 + 4, x0 + 5, floorR - 1);
-            lv.platform(x0 + 14, x0 + 15, floorR - 1);
+            lv.platform(x0 + 5, x0 + 6, floorR - 1);
+            lv.platform(x0 + 13, x0 + 14, floorR - 1);
           });
           movers.push({
             kind: 'linear',
@@ -1150,26 +1424,10 @@ export function composeGridStage(spec) {
             phase: (mc * 0.35) % 1,
             dwell: 0.14,
           });
-          addCandle(x0 + 5, floorR - 1, 'heart_big');
-          addCandle(x0 + 15, floorR - 1, subDrops[(mc + 2) % subDrops.length]);
-        } else {
-          // 14-tile spike & chasm court crossed by 3 spaced 2-tile floating platforms (3-tile open air gaps between each)
-          op((lv) => {
-            lv.clear(x0 + 3, x0 + 16, floorR, floorR + 1);
-            lv.ground(x0 + 3, x0 + 16, floorR + 2, mat);
-            lv.fill(x0 + 3, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
-            if (isBotInCol) {
-              lv.clear(x0 + 8, x0 + 11, floorR, rows - 1);
-            }
-            lv.platform(x0 + 4, x0 + 5, floorR - 1);
-            lv.platform(x0 + 9, x0 + 10, floorR - 2);
-            lv.platform(x0 + 14, x0 + 15, floorR - 1);
-          });
-          addCandle(x0 + 9, floorR - 2, 'heart_big');
-          addCandle(x0 + 5, floorR - 1);
+          addCandle(x0 + 6, floorR - 1, 'heart_big');
+          addCandle(x0 + 14, floorR - 1, subDrops[(mc + 2) % subDrops.length]);
         }
 
-        // Intentional flanking balustrade piers marking BOTH hazard lips!
         addDeco(props.tall[0], props.tall[1], x0 + 1, floorR);
         addDeco(props.tall[0], props.tall[1], x0 + 18, floorR);
         if (props.sconce) {
@@ -1179,67 +1437,10 @@ export function composeGridStage(spec) {
         const [gLeft, gLeftVar] = pickGround(mc);
         const [aType, aVar] = pickAerial(mc + 1);
         const [rType, rVar] = isAccordion2 ? pickHeavy(mc + 3) : pickSniper(mc + 3);
-        addEnemy({ type: gLeft, variant: gLeftVar, off: 2, minOff: 1, maxOff: 2 }, x0, x1, floorR);
+        addEnemy({ type: gLeft, variant: gLeftVar, off: 2, minOff: 1, maxOff: 3 }, x0, x1, floorR);
         addEnemy({ type: aType, variant: aVar, off: 9, minOff: 4, maxOff: 15, h: 3 }, x0, x1, floorR);
-        if (colPacing !== PACING_ZONES.INTRO_SAFE) {
-          const [aType2, aVar2] = pickAerial(mc + 2);
-          addEnemy({ type: aType2, variant: aVar2, off: 13, minOff: 5, maxOff: 16, h: 4 }, x0, x1, floorR);
-        }
-        addEnemy({ type: rType, variant: rVar, off: 18, minOff: 17, maxOff: 18 }, x0, x1, floorR);
+        addEnemy({ type: rType, variant: rVar, off: 17, minOff: 16, maxOff: 18 }, x0, x1, floorR);
         if (roster.spawner && (mc % 3 === 2)) {
-          spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
-        }
-      } else {
-        // `VIADUCT_PROMENADE`: wide 14-tile broken viaduct chasm & spike gauntlet (`x0 + 3 .. x0 + 16`)
-        // crossed by spaced 2-tile floating platforms (`x0 + 4..5`, `x0 + 14..15`) and a central moving ferry!
-        colArchetype = ROOM_ARCHETYPES.CORRIDOR_HORIZONTAL;
-        op((lv) => {
-          // Left chasm hole (`x0 + 3 .. x0 + 6`) on bottom story or spike trench on upper stories
-          if (isBotInCol) {
-            lv.clear(x0 + 3, x0 + 6, floorR, rows - 1);
-          } else {
-            lv.clear(x0 + 3, x0 + 6, floorR, floorR + 1);
-            lv.ground(x0 + 3, x0 + 6, floorR + 2, mat);
-            lv.fill(x0 + 3, x0 + 6, floorR + 1, floorR + 1, T_SPIKES);
-          }
-          // Wide 10-tile sunken spike bed (`x0 + 7 .. x0 + 16`)
-          lv.clear(x0 + 7, x0 + 16, floorR, floorR + 1);
-          lv.ground(x0 + 7, x0 + 16, floorR + 2, mat);
-          lv.fill(x0 + 7, x0 + 16, floorR + 1, floorR + 1, T_SPIKES);
-          // Spaced 2-tile floating platforms near each end of the 14-tile hazard span
-          lv.platform(x0 + 4, x0 + 5, floorR - 1);
-          lv.platform(x0 + 14, x0 + 15, floorR - 1);
-        });
-        movers.push({
-          kind: 'linear',
-          tiles: 2,
-          x0: (x0 + 7) * TILE + 16,
-          y0: py(floorR - 2),
-          x1: (x0 + 12) * TILE + 16,
-          y1: py(floorR - 2),
-          period: 3.7,
-          phase: (mc * 0.41) % 1,
-          dwell: 0.12,
-        });
-        addDeco(props.altTall[0], props.altTall[1], x0 + 1, floorR);
-        addDeco(props.altTall[0], props.altTall[1], x0 + 18, floorR);
-        if (props.sconce) {
-          addDeco(props.sconce[0], props.sconce[1], x0 + 2, floorR, 0, -46);
-          addDeco(props.sconce[0], props.sconce[1], x0 + 17, floorR, 0, -46);
-        }
-        addCandle(x0 + 5, floorR - 1);
-        addCandle(x0 + 14, floorR - 1, 'heart_big');
-        addCandle(x0 + 18, floorR, 'money');
-
-        const [gType, gVar] = pickGround(mc);
-        const [sType, sVar] = pickSniper(mc + 1);
-        const [hType, hVar] = colPacing === PACING_ZONES.INTRO_SAFE ? pickGround(mc + 2) : pickHeavy(mc + 2);
-        const [aType, aVar] = pickAerial(mc + 3);
-        addEnemy({ type: gType, variant: gVar, off: 2, minOff: 1, maxOff: 2 }, x0, x1, floorR);
-        addEnemy({ type: sType, variant: sVar, off: 15, minOff: 14, maxOff: 15, row: floorR - 1 }, x0, x1, floorR);
-        addEnemy({ type: hType, variant: hVar, off: 18, minOff: 17, maxOff: 18 }, x0, x1, floorR);
-        addEnemy({ type: aType, variant: aVar, off: 10, minOff: 4, maxOff: 16, h: 4 }, x0, x1, floorR);
-        if (roster.spawner && (mc % 2 === 1)) {
           spawners.push({ type: roster.spawner, x0: x0 + 2, x1: x1 - 2, variant: roster.spawnerVariant || 'normal' });
         }
       }
@@ -1409,8 +1610,16 @@ export function composeGridStage(spec) {
 
   const landmarkPoints = [];
   if (sanctuaryAnchor) landmarkPoints.push({ x: px(sanctuaryAnchor.col), y: py(sanctuaryAnchor.row) });
+  if (warpAnchor) landmarkPoints.push({ x: px(warpAnchor.col), y: py(warpAnchor.row) });
   if (vesselAnchor) landmarkPoints.push({ x: px(vesselAnchor.col), y: py(vesselAnchor.row) });
   if (pedestalAnchor) landmarkPoints.push({ x: px(pedestalAnchor.col), y: py(pedestalAnchor.row) });
+  for (const ch of chestAnchors) landmarkPoints.push({ x: px(ch.col), y: py(ch.row) });
+  for (const gl of glyphAnchors) landmarkPoints.push({ x: px(gl.col), y: py(gl.row) });
+  for (const sg of switchGatesData) {
+    landmarkPoints.push({ x: px(sg.gateCol), y: py(sg.floorRow) });
+    landmarkPoints.push({ x: px(sg.leverCol), y: py(sg.floorRow) });
+  }
+  for (const sw of secretWallAnchors) landmarkPoints.push({ x: px(sw.col), y: py(sw.floorRow) });
   for (const da of Object.values(doorAnchors)) {
     landmarkPoints.push({ x: px(da.col), y: py(da.gateRow) });
   }
@@ -1444,17 +1653,25 @@ export function composeGridStage(spec) {
 
   const candles = [];
   const candleSeen = new Set();
-  for (const [cx, cr, drop] of rawCandles) {
+  for (const [cx, cr, drop, kind = 'candelabra'] of rawCandles) {
     if (cx <= 0 || cx >= cols - 1 || cr < 2 || cr >= rows) continue;
     const ck = `${cx},${cr}`;
     if (candleSeen.has(ck)) continue;
+    if (kind === 'sconce' || kind === 'lantern') {
+      // Wall sconces & hanging lanterns mount on open background masonry/beams at jump-slash height!
+      if (isSolidTile(sTile(cx, cr - 1))) continue;
+      if (landmarkPoints.some((lp) => Math.abs(lp.x - px(cx)) < 34 && Math.abs(lp.y - py(cr)) < 48)) continue;
+      candleSeen.add(ck);
+      candles.push([cx, cr, drop, kind]);
+      continue;
+    }
     const foot = sTile(cx, cr);
     const supportOk = isMaterialTile(foot) || foot === T_PLATFORM || foot === T_CRUMBLE || foot === T_BLOCK;
     if (!supportOk) continue;
     if (isSolidTile(sTile(cx, cr - 1) === T_BLOCK && foot !== T_BLOCK ? sTile(cx, cr - 1) : (foot === T_BLOCK ? T_EMPTY : sTile(cx, cr - 1)))) continue;
     if (landmarkPoints.some((lp) => Math.abs(lp.x - px(cx)) < 36 && Math.abs(lp.y - py(cr)) < 48)) continue;
     candleSeen.add(ck);
-    candles.push([cx, cr, drop]);
+    candles.push([cx, cr, drop, kind]);
   }
 
   // =========================================================================
@@ -1586,9 +1803,16 @@ export function composeGridStage(spec) {
     roomSchema,
     doorAnchors,
     sanctuaryAnchor,
+    warpAnchor,
     vesselAnchor,
     pedestalAnchor,
+    magnetAnchors,
+    switchGatesData,
+    chestAnchors,
+    glyphAnchors,
+    secretWallAnchors,
     secretCell: mapRoom.secret,
+    bonusSecretCell: mapRoom.bonusSecret || null,
     secrets,
     waterBasins,
     drawbridge,

@@ -474,8 +474,11 @@ class TextureBank3D {
     for (const k of [
       'wall', 'wall_b', 'catacombwall', 'clockwall', 'arcadewall', 'librarywall', 'cathedralwall', 'cavernwall',
       'alchemywall', 'ballroomwall', 'coliseumwall', 'aqueductwall',
+      'conservatorywall', 'dungeonwall', 'observatorywall',
       'stone_trim', 'crypt_stone', 'marble_stone', 'travertine_stone', 'aqueduct_stone', 'pillar_fluted',
-      'mural_alchemy', 'mural_ballroom', 'mural_coliseum', 'mural_aqueduct', 'mural_throne', 'mural_catacombs',
+      'mural_alchemy', 'mural_ballroom', 'mural_coliseum', 'mural_aqueduct',
+      'mural_conservatory', 'mural_dungeon', 'mural_observatory',
+      'mural_throne', 'mural_catacombs',
     ]) {
       const im = A.img(k);
       if (im) this.reg(k, im);
@@ -626,6 +629,9 @@ class TextureBank3D {
       ['ballroom_hall_floor', 'ballroomfloor', '#180c1c', 0.30],
       ['coliseum_hall_floor', 'coliseumfloor', '#1a0c0e', 0.28],
       ['aqueduct_hall_floor', 'aqueductfloor', '#081420', 0.26],
+      ['conservatory_hall_floor', 'conservatoryfloor', '#0a1418', 0.28],
+      ['dungeon_hall_floor', 'dungeonfloor', '#120a0d', 0.26],
+      ['observatory_hall_floor', 'observatoryfloor', '#0a0e20', 0.30],
     ]) {
       const src = A.img(strip);
       const { c, g } = makeCanvas(256, 96);
@@ -637,17 +643,21 @@ class TextureBank3D {
       }
       this.reg(wing, c);
     }
-    {
-      const blb = A.img('ballroomfloor_b');
+    for (const [carpetKey, stripB, bgCol] of [
+      ['ballroom_carpet', 'ballroomfloor_b', '#5c1438'],
+      ['conservatory_carpet', 'conservatoryfloor_b', '#1c4a38'],
+      ['observatory_carpet', 'observatoryfloor_b', '#1a2458'],
+    ]) {
+      const blb = A.img(stripB);
       const { c, g } = makeCanvas(256, 32);
-      g.fillStyle = '#5c1438';
+      g.fillStyle = bgCol;
       g.fillRect(0, 0, 256, 32);
       if (blb) {
         g.drawImage(blb, 0, 5, 256, 28, 0, 2, 256, 28);
         g.drawImage(blb, 0, 5, 256, 4, 0, 0, 256, 4);
         g.drawImage(blb, 0, 29, 256, 4, 0, 28, 256, 4);
       }
-      this.reg('ballroom_carpet', c);
+      this.reg(carpetKey, c);
     }
 
     // 7. Gnarled Ancient Tree Bark & Harvest Rune-Stone Monolith

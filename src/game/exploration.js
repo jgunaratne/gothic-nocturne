@@ -3,24 +3,25 @@
 // (healing + fast-travel attunement), and 13 persistent Ancient Life Vessels
 // hidden on Night-Wings high balconies and sunken vaults.
 
-import { W, H, TILE, T_EMPTY, T_GATE, isMaterialTile } from '../engine/constants.js';
+import { W, H, TILE, T_EMPTY, T_BLOCK, T_GATE, isMaterialTile } from '../engine/constants.js';
 import { getFxLayers } from '../engine/fxlayers.js';
 import { STAGES } from './stages.js';
 import { THEMES } from './builder.js';
 import { BOSS_RELICS } from './relics.js';
-import { stageDoorsFor, stageIndexOf, canTraverseDoor, isCleared, nextAdjacentStageKey } from './castlemap.js';
+import { MAP_ROOMS, stageDoorsFor, stageIndexOf, canTraverseDoor, isCleared, nextAdjacentStageKey } from './castlemap.js';
 import { bossGateStatus, stageEntryLock, canEnterStage, DEFAULT_DEBUG_FLAGS } from './gates.js';
 import { rectsOverlap } from './objects.js';
 import { getGlowCanvas } from './tex3d.js';
 import { WeaponPedestal } from './armory_ui.js';
 import { STAGE_PEDESTAL_WEAPONS } from './weapons.js';
+import { SOUL_GLYPHS, SOUL_TYPES, SoulOrb } from './souls.js';
 
 const ROYAL_HALL_STAGES = new Set([
-  'arcade', 'library', 'cathedral', 'clocktower', 'throne', 'ballroom', 'alchemy',
+  'arcade', 'library', 'cathedral', 'clocktower', 'throne', 'ballroom', 'alchemy', 'observatory',
 ]);
 
 const HIGH_BALCONY_STAGES = new Set([
-  'graveyard', 'jack', 'ramparts', 'ossuary', 'arcade', 'cathedral', 'ballroom', 'skykeep',
+  'graveyard', 'jack', 'ramparts', 'ossuary', 'arcade', 'cathedral', 'ballroom', 'skykeep', 'conservatory', 'observatory',
 ]);
 
 /**
@@ -159,22 +160,35 @@ export class SanctuaryStone {
     const frameName = lit ? 'sanctuary_lit' : 'sanctuary_idle';
 
     ctx.save();
-    // Soft teal-cyan sanctuary aura
-    const g = ctx.createRadialGradient(sx, sy - 38, 3, sx, sy - 38, lit ? 44 : 28);
-    g.addColorStop(0, `rgba(98, 242, 194, ${((lit ? 0.30 : 0.12) + 0.14 * pulse).toFixed(3)})`);
-    g.addColorStop(1, 'rgba(98, 242, 194, 0)');
+    // Crimson Save Sanctum aura & sacred polyhedron light rays
+    const g = ctx.createRadialGradient(sx, sy - 40, 3, sx, sy - 40, lit ? 48 : 30);
+    g.addColorStop(0, `rgba(232, 46, 86, ${((lit ? 0.34 : 0.14) + 0.14 * pulse).toFixed(3)})`);
+    g.addColorStop(0.55, `rgba(176, 22, 64, ${(lit ? 0.16 : 0.06).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(176, 22, 64, 0)');
     ctx.fillStyle = g;
-    ctx.fillRect(sx - 46, sy - 84, 92, 90);
+    ctx.fillRect(sx - 50, sy - 90, 100, 96);
 
     if (assets && assets.frame('shrines', frameName)) {
       assets.draw(ctx, 'shrines', frameName, sx, sy);
+      // Floating crimson save polyhedron above the shrine
+      const pyPoly = Math.round(sy - 56 + Math.sin(time * 3.2) * 3);
+      ctx.fillStyle = lit ? '#ff3c64' : '#8a2442';
+      ctx.beginPath();
+      ctx.moveTo(sx, pyPoly - 9);
+      ctx.lineTo(sx + 6, pyPoly);
+      ctx.lineTo(sx, pyPoly + 9);
+      ctx.lineTo(sx - 6, pyPoly);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#ffe6ee';
+      ctx.fillRect(sx - 2, pyPoly - 3, 4, 6);
       if (lit) {
         const fxl = getFxLayers();
         if (fxl && fxl.enabled) {
           fxl.addAttack({
-            x: sx, y: sy - 42 + Math.sin(time * 3.4) * 1.5,
-            rx: 13, ry: 18, dirX: 0, dirY: -1, mode: 0, seed: this.x * 0.017,
-            core: [0.85, 1.0, 0.96], rim: [0.18, 0.88, 0.78], alpha: 0.55 + 0.18 * pulse,
+            x: sx, y: pyPoly,
+            rx: 14, ry: 20, dirX: 0, dirY: -1, mode: 0, seed: this.x * 0.017,
+            core: [1.0, 0.88, 0.92], rim: [0.96, 0.16, 0.34], alpha: 0.58 + 0.18 * pulse,
           });
         }
       }
@@ -183,9 +197,9 @@ export class SanctuaryStone {
     }
 
     // Fallback geometry for headless unit tests without full sprite sheets
-    ctx.fillStyle = '#2c334a';
+    ctx.fillStyle = '#361c28';
     ctx.fillRect(sx - 6, sy - 36, 12, 36);
-    ctx.fillStyle = '#62f2c2';
+    ctx.fillStyle = '#ff3c64';
     ctx.fillRect(sx - 2, sy - 26, 4, 8);
     ctx.restore();
   }
@@ -194,18 +208,18 @@ export class SanctuaryStone {
     if (!this.near) return;
     const sx = Math.round(this.x - cam.rx);
     const sy = Math.round(this.y - cam.ry);
-    const lbl = 'SANCTUARY · M FOR MAP';
+    const lbl = 'CRIMSON SAVE SANCTUM · HP RESTORED';
     const lw = font.width(lbl, 1, 1, false) + 10;
     const lx = Math.max(6, Math.min(W - lw - 6, Math.round(sx - lw / 2)));
     const ly = Math.max(48, sy - 86);
     ctx.save();
-    ctx.fillStyle = 'rgba(6, 10, 20, 0.92)';
+    ctx.fillStyle = 'rgba(18, 6, 12, 0.92)';
     ctx.fillRect(lx, ly, lw, 12);
-    ctx.strokeStyle = '#62f2c2';
+    ctx.strokeStyle = '#ff4a6e';
     ctx.strokeRect(lx + 0.5, ly + 0.5, lw - 1, 11);
     font.draw(ctx, lbl, lx + Math.round(lw / 2), ly + 2, {
       align: 'center',
-      color: '#b8fff0',
+      color: '#ffd6e0',
       shadow: '#05040a',
       gothic: false,
     });
@@ -506,6 +520,792 @@ export class AncientVessel {
       ctx.fillStyle = '#ffd25a';
       ctx.fillRect(sx - 6, sy - 26, 12, 10);
     }
+    ctx.restore();
+  }
+}
+
+const GOLD_SECRET_WEAPONS = [
+  'nebula_whipsword',
+  'herald_shield_rod',
+  'meteor_gauntlets',
+  'prism_codex',
+  'astral_rune_sword',
+  'crimson_bloodblade',
+  'helios_rod',
+  'zephyr_galeblade',
+  'solais_greatsword',
+  'thanatos_scythe',
+];
+
+const STAGE_SIGNATURE_SOULS = {
+  graveyard:    'phantom_axes',
+  darkwood:     'flea_agility',
+  jack:         'hellfire_triad',
+  yule:         'glacial_spear',
+  skykeep:      'sovereign_ring',
+  ramparts:     'severed_helm',
+  coliseum:     'golem_might',
+  ballroom:     'blood_feast',
+  alchemy:      'nova_ray',
+  aqueduct:     'aegis_familiar',
+  arcade:       'scholar_fortune',
+  cathedral:    'talisman_bolt',
+  throne:       'sovereign_ring',
+  library:      'wraith_shroud',
+  clocktower:   'bat_echo',
+  catacombs:    'bone_pyre',
+  ossuary:      'petrify_gaze',
+  darkcave:     'bone_pyre',
+  conservatory: 'petrify_gaze',
+  dungeon:      'severed_helm',
+  observatory:  'nova_ray',
+};
+
+/**
+ * Golden Astral Warp Chamber (`WarpMirror`): dedicated fast-travel portal ring
+ * decoupled from Crimson Save Sanctums. Stepping nearby attunes the stage's
+ * Golden Warp cell on the map; pressing `↑` opens the Castle Map for fast travel.
+ */
+export class WarpMirror {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.near = false;
+    this.attunedThisVisit = false;
+  }
+
+  update(player, input, world) {
+    if (world.bossActive) { this.near = false; return; }
+    const dx = Math.abs(player.x - this.x);
+    const dy = Math.abs(player.y - this.y);
+    this.near = dx < 38 && dy < 40;
+    if (dx < 30 && dy < 34 && !this.attunedThisVisit) {
+      this.attunedThisVisit = true;
+      const sIdx = Math.max(0, (world.stage.id || 1) - 1);
+      const wasNew = world.game && world.game.discoverStage ? world.game.discoverStage(sIdx) : false;
+      const rm = MAP_ROOMS[world.stage.key];
+      if (rm && rm.warpKey && world.game && world.game.markCellsExplored) {
+        world.game.markCellsExplored([rm.warpKey]);
+      }
+      if (wasNew) {
+        world.sfx('pickup');
+        world.particles.sparks(this.x, this.y - 42, 14, '#ffd84d');
+        world.emitShockwave(this.x, this.y - 42, { maxR: 104, dur: 0.42, strength: 0.5, color: [1.0, 0.84, 0.28] });
+      }
+    }
+    if (this.near && player.onGround && player.hurtT <= 0 && input && input.pressed && input.pressed.up && !(input.down && input.down.attack)) {
+      if (world.game && world.game.openMap) {
+        world.sfx('select');
+        world.game.openMap();
+      }
+    }
+  }
+
+  draw(ctx, cam, font, time, world = null) {
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    if (sx < -64 || sx > W + 64 || sy < -20 || sy > H + 110) return;
+    const pulse = 0.5 + 0.5 * Math.sin(time * 4.6);
+    const assets = world && world.assets;
+    const fxl = getFxLayers();
+    const cy = sy - 46;
+
+    ctx.save();
+    // Ambient golden-cyan portal halo
+    const g = ctx.createRadialGradient(sx, cy, 4, sx, cy, 52);
+    g.addColorStop(0, `rgba(255, 214, 92, ${(0.34 + 0.14 * pulse).toFixed(3)})`);
+    g.addColorStop(0.55, `rgba(92, 224, 255, ${(0.16 + 0.08 * pulse).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(12, 10, 28, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(sx - 54, sy - 98, 108, 104);
+
+    // Swirling dimensional vortex shader inside the gilded astral mirror aperture
+    if (fxl && fxl.enabled && fxl.vortex) {
+      fxl.vortex(ctx, {
+        x: sx, y: cy + 2, rx: 16, ry: 27, open: 1.0, seed: (this.x * 0.013) % 6.28,
+        core: [0.88, 0.99, 1.0], rim: [1.0, 0.78, 0.22], alpha: 0.90,
+      });
+    }
+
+    const mirrorFr = assets && assets.frame && assets.frame('exploration_props', 'warp_mirror_arch');
+    if (mirrorFr && assets.img('exploration_props')) {
+      ctx.fillStyle = 'rgba(4, 3, 10, 0.52)';
+      ctx.fillRect(sx - 26, sy - 2, 52, 4);
+      assets.draw(ctx, 'exploration_props', 'warp_mirror_arch', sx, sy + 2);
+      for (let i = 0; i < 4; i++) {
+        const my = sy - 14 - ((Math.round(time * 22 + i * 16)) % 58);
+        const mx = sx - 8 + ((i * 5 + Math.round(Math.sin(time * 3 + i) * 4)));
+        ctx.fillStyle = i % 2 === 0 ? '#ffe88a' : '#8ef5ff';
+        ctx.fillRect(mx, my, 2, 2);
+      }
+      if (fxl && fxl.enabled) {
+        fxl.addAttack({
+          x: sx, y: cy, rx: 15, ry: 24, dirX: 0, dirY: -1, mode: 0, seed: this.x * 0.013,
+          core: [0.86, 0.98, 1.0], rim: [1.0, 0.78, 0.18], alpha: 0.44 + 0.16 * pulse,
+        });
+      }
+      void font;
+      ctx.restore();
+      return;
+    }
+
+    // Fallback geometry for headless tests without raster sheets
+    ctx.fillStyle = '#241e30';
+    ctx.fillRect(sx - 24, sy - 6, 48, 6);
+    ctx.strokeStyle = '#d49b28';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(sx, cy, 18, 30, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#58d8ff';
+    ctx.fillRect(sx - 4, cy - 8, 8, 16);
+    void font;
+    ctx.restore();
+  }
+
+  drawPrompt(ctx, cam, font) {
+    if (!this.near) return;
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    drawDoorPrompt(ctx, font, sx, Math.max(46, sy - 98), '↑ ASTRAL WARP PORTAL · FAST TRAVEL', {
+      color: '#fff2b2',
+      border: '#e0a428',
+    });
+  }
+}
+
+/**
+ * Suspended Iron-and-Cobalt Lodestone Ring (`MagnetNode`): allows aerial magnetic
+ * tether & high-velocity directional slingshot (`Q` / `LB` or `↑` while airborne).
+ */
+export class MagnetNode {
+  constructor(x, y, level = null) {
+    this.x = x;
+    this.y = y;
+    this.inRange = false;
+    this.active = false;
+    this.ceilY = y - 84;
+    if (level) {
+      const tx = Math.max(0, Math.min(level.cols - 1, Math.floor(x / TILE)));
+      const startR = Math.floor(y / TILE) - 1;
+      let hitCeil = -1;
+      for (let r = startR; r >= 0; r--) {
+        if (level.isSolid(tx, r)) { hitCeil = (r + 1) * TILE; break; }
+      }
+      if (hitCeil >= 0) {
+        this.ceilY = hitCeil;
+      } else {
+        let matchRoom = null;
+        for (const rm of (level.rooms || [])) {
+          if (tx >= rm.x0 && tx <= rm.x1) { matchRoom = rm; break; }
+        }
+        if (matchRoom && matchRoom._hallBounds && matchRoom._hallBounds.ceilY != null) {
+          this.ceilY = Math.max(y - 148, matchRoom._hallBounds.ceilY + 18);
+        } else {
+          this.ceilY = y - 104;
+        }
+      }
+    }
+  }
+
+  update(player) {
+    const d = Math.hypot(player.x - this.x, (player.y - 28) - this.y);
+    this.inRange = d <= 238;
+    this.active = player.tetherNode === this || player.magnetNode === this;
+    this._playerX = player.x;
+    this._playerY = player.y - 28;
+  }
+
+  draw(ctx, cam, time, assets = null) {
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    const ceilSy = Math.round(this.ceilY - cam.ry);
+    if (sx < -80 || sx > W + 80 || sy < -100 || ceilSy > H + 80) return;
+    const pulse = 0.5 + 0.5 * Math.sin(time * 6.4 + this.x * 0.02);
+
+    ctx.save();
+    // Active magnetic lightning tether to the hunter!
+    if (this.active && this._playerX != null) {
+      const px = Math.round(this._playerX - cam.rx);
+      const py = Math.round(this._playerY - cam.ry);
+      ctx.strokeStyle = '#7ce8ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      const mx = (sx + px) * 0.5 + Math.sin(time * 28) * 5;
+      const my = (sy + py) * 0.5 + Math.cos(time * 28) * 5;
+      ctx.quadraticCurveTo(mx, my, px, py);
+      ctx.stroke();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(px, py);
+      ctx.stroke();
+    }
+
+    const expImg = assets && assets.img && assets.img('exploration_props');
+    const mountFr = assets && assets.frame && assets.frame('exploration_props', 'lodestone_mount');
+    const orbName = (this.active || (this.inRange && pulse > 0.45)) ? 'lodestone_active' : 'lodestone_idle';
+    const orbFr = assets && assets.frame && assets.frame('exploration_props', orbName);
+    const chainFr = assets && assets.frame && assets.frame('arch', 'chain');
+    const archImg = assets && assets.img && assets.img('arch');
+
+    if (expImg && orbFr) {
+      // 1. Pixel-art vertical iron suspension chain from ceiling mount down to the lodestone orb
+      const topY = Math.max(-48, ceilSy + (mountFr ? mountFr.h - 4 : 8));
+      const botY = sy - Math.round(orbFr.h * 0.48);
+      if (archImg && chainFr && botY > topY + 4) {
+        const step = Math.max(8, chainFr.h - 4);
+        for (let cy = botY; cy > topY; cy -= step) {
+          assets.draw(ctx, 'arch', 'chain', sx, Math.round(cy));
+        }
+      }
+      // 2. Ceiling iron boss mount bracket bolted to the vault overhead
+      if (mountFr && ceilSy > -40) {
+        assets.draw(ctx, 'exploration_props', 'lodestone_mount', sx, ceilSy + mountFr.h);
+      }
+      // 3. Soft cobalt-cyan glow + pixel-art forged lodestone ring sprite
+      const glow = getGlowCanvas('cyan');
+      if (glow) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = this.active ? 0.65 : (this.inRange ? 0.36 + 0.18 * pulse : 0.22 + 0.08 * pulse);
+        ctx.drawImage(glow, sx - 28, sy - 28, 56, 56);
+        ctx.restore();
+      }
+      assets.draw(ctx, 'exploration_props', orbName, sx, Math.round(sy + orbFr.h * 0.5));
+      ctx.restore();
+      return;
+    }
+
+    // Fallback geometry for headless tests without raster sheets
+    ctx.fillStyle = '#3d4860';
+    for (let cy = sy - 14; cy > ceilSy; cy -= 6) {
+      ctx.fillRect(sx - 1, cy, 3, 4);
+    }
+    ctx.fillStyle = '#1c2234';
+    ctx.beginPath();
+    ctx.arc(sx, sy, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = this.active ? '#ffffff' : '#58d8ff';
+    ctx.fillRect(sx - 4, sy - 4, 8, 8);
+    ctx.restore();
+  }
+
+  drawPrompt(ctx, cam, font, player) {
+    if (!this.inRange || this.active || (player && player.onGround && Math.abs(player.y - this.y) > 215)) return;
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    if (sx < 20 || sx > W - 20 || sy < 36 || sy > H - 16) return;
+    font.draw(ctx, '[Q / ↑] GRAPPLE', sx, Math.max(46, sy - 24), {
+      align: 'center',
+      color: '#8ef5ff',
+      shadow: '#05040a',
+      gothic: false,
+    });
+  }
+}
+
+/**
+ * One-Way Mechanical Shortcut Portcullis (`SwitchGate`): bars a lower corridor
+ * until the hunter loops over the upper gallery and strikes the brass gear lever
+ * on the far side (`leverSide`), permanently opening the shortcut across visits.
+ */
+export class SwitchGate {
+  constructor(spec, level, alreadyOpen = false) {
+    this.id = spec.id;
+    this.gateCol = spec.gateCol;
+    this.topRow = spec.topRow;
+    this.floorRow = spec.floorRow;
+    this.leverSide = spec.leverSide || 1;
+    this.leverCol = spec.leverCol != null ? spec.leverCol : (this.gateCol + this.leverSide * 3);
+    this.x = this.gateCol * TILE + 16;
+    this.y = this.floorRow * TILE;
+    this.leverX = this.leverCol * TILE + 16;
+    this.leverY = this.floorRow * TILE;
+    this.open = !!alreadyOpen;
+    this.rise = this.open ? 1 : 0;
+    this.solid = false;
+    this.nearLever = false;
+    this.nearBlockedSide = false;
+    this.lastHintT = -9;
+    this.setSolid(level, !this.open);
+  }
+
+  setSolid(level, solid) {
+    if (this.solid === solid) return;
+    this.solid = solid;
+    for (let r = this.topRow; r < this.floorRow; r++) {
+      const t = level.tile(this.gateCol, r);
+      if (solid && t === T_EMPTY) level.set(this.gateCol, r, T_GATE);
+      else if (!solid && t === T_GATE) level.set(this.gateCol, r, T_EMPTY);
+    }
+  }
+
+  get leverBox() {
+    return { x: this.leverX - 14, y: this.leverY - 34, w: 28, h: 34 };
+  }
+
+  triggerOpen(world) {
+    if (this.open) return false;
+    this.open = true;
+    if (world && world.game && world.game.markSwitchOpened) {
+      world.game.markSwitchOpened(this.id);
+    }
+    if (world) {
+      world.sfx('gate');
+      world.camera.shake(2.4, 0.20);
+      world.particles.sparks(this.leverX, this.leverY - 20, 14, '#ffd27a');
+      world.particles.dust(this.x, this.y, 10, '#d8c59e');
+      world.spawnPopup(this.x, this.y - 54, '✦ SHORTCUT GATE UNSEALED! ✦', {
+        color: '#62f2c2',
+        dur: 1.5,
+        vy: -18,
+        banner: true,
+      });
+    }
+    return true;
+  }
+
+  tryStrikeLever(box, world) {
+    if (this.open || !box) return false;
+    if (rectsOverlap(box, this.leverBox)) {
+      return this.triggerOpen(world);
+    }
+    return false;
+  }
+
+  update(dt, player, world) {
+    if (this.open && this.rise < 1) {
+      this.rise = Math.min(1, this.rise + dt * 2.2);
+      if (this.rise >= 0.45 && this.solid) this.setSolid(world.level, false);
+    }
+    const dy = Math.abs(player.y - this.y);
+    this.nearLever = !this.open && Math.abs(player.x - this.leverX) < 30 && dy < 36;
+    if (this.nearLever && world.game && world.game.input && world.game.input.pressed.up) {
+      this.triggerOpen(world);
+    }
+    const dxGate = player.x - this.x;
+    this.nearBlockedSide = !this.open && dy < 38 && (this.leverSide > 0 ? (dxGate < 0 && dxGate > -42) : (dxGate > 0 && dxGate < 42));
+    if (this.nearBlockedSide && world.time - this.lastHintT > 3.2 && Math.abs(dxGate) < 26) {
+      this.lastHintT = world.time;
+      world.sfx('block');
+      world.spawnPopup(this.x, this.y - 48, 'LOCKED FROM OTHER SIDE', { color: '#ff8aa0', dur: 1.1, vy: -14 });
+    }
+  }
+
+  draw(ctx, cam, font, time, assets = null) {
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    const lx = Math.round(this.leverX - cam.rx);
+    const ly = Math.round(this.leverY - cam.ry);
+    if (Math.min(sx, lx) > W + 64 || Math.max(sx, lx) < -64) return;
+
+    const fullH = Math.max(64, (this.floorRow - this.topRow) * TILE);
+    const lift = Math.round(this.rise * (fullH - 10));
+    const gatesImg = assets && assets.img && assets.img('boss_gates');
+    const jambBase = assets && assets.frame && assets.frame('boss_gates', 'jamb_base');
+    const jambShaft = assets && assets.frame && assets.frame('boss_gates', 'jamb_shaft');
+    const botFrame = assets && assets.frame && assets.frame('boss_gates', 'entry_bottom');
+    const spanFrame = assets && assets.frame && assets.frame('boss_gates', 'entry_span');
+    const expImg = assets && assets.img && assets.img('exploration_props');
+    const leverName = this.open ? 'lever_open' : 'lever_locked';
+    const leverFr = assets && assets.frame && assets.frame('exploration_props', leverName);
+
+    ctx.save();
+    // 1. Pixel-art Gothic stone gate-channel column + side-profile iron portcullis clipped strictly to story height
+    const topSy = sy - fullH;
+    if (gatesImg && jambBase && jambShaft && botFrame && spanFrame) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(sx - 30, topSy, 60, fullH + 3);
+      ctx.clip();
+      const shaftX = Math.round(sx - jambShaft.w * 0.5);
+      for (let y = sy - jambBase.h + 4 - jambShaft.h; y + jambShaft.h > topSy - 2; y -= jambShaft.h) {
+        ctx.drawImage(gatesImg, jambShaft.x, jambShaft.y, jambShaft.w, jambShaft.h, shaftX, Math.round(y), jambShaft.w, jambShaft.h);
+      }
+      ctx.drawImage(gatesImg, jambBase.x, jambBase.y, jambBase.w, jambBase.h, Math.round(sx - jambBase.w * 0.5), Math.round(sy - jambBase.h + 2), jambBase.w, jambBase.h);
+
+      const barBottom = sy - lift;
+      if (barBottom > topSy + 2) {
+        ctx.save();
+        ctx.translate(sx, 0);
+        if (this.leverSide > 0) ctx.scale(-1, 1);
+        const botTop = Math.round(barBottom - botFrame.h);
+        ctx.drawImage(gatesImg, botFrame.x, botFrame.y, botFrame.w, botFrame.h, -6, botTop, botFrame.w, botFrame.h);
+        for (let y = botTop - spanFrame.h; y + spanFrame.h > topSy - 2; y -= spanFrame.h) {
+          ctx.drawImage(gatesImg, spanFrame.x, spanFrame.y, spanFrame.w, spanFrame.h, -6, Math.round(y), spanFrame.w, spanFrame.h);
+        }
+        ctx.restore();
+      }
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#242034';
+      ctx.fillRect(sx - 9, topSy, 18, fullH);
+      const barBottom = sy - lift;
+      if (barBottom > topSy) {
+        ctx.fillStyle = '#4c5670';
+        ctx.fillRect(sx - 5, topSy, 10, barBottom - topSy);
+      }
+    }
+
+    // 2. Pixel-art geared brass floor lever on the far side
+    if (expImg && leverFr) {
+      assets.draw(ctx, 'exploration_props', leverName, lx, ly + 1);
+    } else {
+      ctx.fillStyle = '#282238';
+      ctx.fillRect(lx - 10, ly - 6, 20, 6);
+      const tilt = this.open ? 8 : -8;
+      ctx.strokeStyle = '#dce6ff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(lx, ly - 8);
+      ctx.lineTo(lx + tilt, ly - 26);
+      ctx.stroke();
+    }
+
+    if (this.nearLever && !this.open) {
+      font.draw(ctx, 'STRIKE LEVER', lx, ly - 42, { align: 'center', color: '#ffd27a', shadow: '#05040a', gothic: false });
+    }
+    void time;
+    ctx.restore();
+  }
+}
+
+/**
+ * Tiered Gothic Reliquary Chest (`wooden`, `emerald`, `gold`): opens permanently
+ * when struck with a weapon or pressing `↑`, granting coins, wall-roasts, rare
+ * forged weapons, or Soul Orbs!
+ */
+export class TreasureChest {
+  constructor(spec, stageIndex, alreadyOpen = false) {
+    this.id = spec.id;
+    this.x = spec.col * TILE + 16;
+    this.y = spec.row * TILE;
+    this.tier = spec.tier || 'wooden';
+    this.stageIndex = stageIndex;
+    this.opened = !!alreadyOpen;
+    this.openAnim = this.opened ? 1 : 0;
+    this.near = false;
+  }
+
+  get box() {
+    return { x: this.x - 16, y: this.y - 24, w: 32, h: 24 };
+  }
+
+  openChest(world) {
+    if (this.opened) return false;
+    this.opened = true;
+    if (world && world.game && world.game.markChestOpened) {
+      world.game.markChestOpened(this.id);
+    }
+    if (!world) return true;
+    world.sfx('orb');
+    const sparkCol = this.tier === 'gold' ? '#ffd84d' : (this.tier === 'emerald' ? '#62f2c2' : '#e8cfa0');
+    world.particles.sparks(this.x, this.y - 18, 18, sparkCol);
+
+    if (this.tier === 'gold') {
+      const wId = GOLD_SECRET_WEAPONS[this.stageIndex % GOLD_SECRET_WEAPONS.length];
+      if (world.onWeaponCollected) {
+        world.onWeaponCollected(wId, this.x, this.y - 24, true);
+      }
+      world.spawnItem('meat', this.x - 14, this.y - 22);
+      world.addScore(1500);
+    } else if (this.tier === 'emerald') {
+      const altId = GOLD_SECRET_WEAPONS[(this.stageIndex + 5) % GOLD_SECRET_WEAPONS.length];
+      if (world.game && world.game.hasWeapon && !world.game.hasWeapon(altId) && world.onWeaponCollected) {
+        world.onWeaponCollected(altId, this.x, this.y - 22, false);
+      } else {
+        const soulKeys = Object.keys(SOUL_GLYPHS);
+        const sId = soulKeys[(this.stageIndex * 3 + 1) % soulKeys.length];
+        if (world.soulOrbs) world.soulOrbs.push(new SoulOrb(sId, this.x, this.y - 22));
+      }
+      world.spawnItem('money', this.x - 10, this.y - 20);
+      world.spawnItem('heart_big', this.x + 10, this.y - 20);
+      world.addScore(800);
+    } else {
+      world.spawnItem('money', this.x - 8, this.y - 20);
+      world.spawnItem('heart_big', this.x + 8, this.y - 20);
+      world.addScore(400);
+      world.spawnPopup(this.x, this.y - 34, 'RELIQUARY OPENED!', { color: '#ffd27a', dur: 1.0, vy: -18 });
+    }
+    return true;
+  }
+
+  tryStrikeOpen(box, world) {
+    if (this.opened || !box) return false;
+    if (rectsOverlap(box, this.box)) return this.openChest(world);
+    return false;
+  }
+
+  update(dt, player, input, world) {
+    if (this.opened && this.openAnim < 1) {
+      this.openAnim = Math.min(1, this.openAnim + dt * 4.5);
+    }
+    const dx = Math.abs(player.x - this.x);
+    const dy = Math.abs(player.y - this.y);
+    this.near = !this.opened && dx < 28 && dy < 30;
+    if (this.near && player.onGround && input && input.pressed && input.pressed.up && !(input.down && input.down.attack)) {
+      this.openChest(world);
+    }
+  }
+
+  draw(ctx, cam, time, assets = null) {
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    if (sx < -44 || sx > W + 44 || sy < -20 || sy > H + 44) return;
+
+    const tierKey = this.tier === 'gold' ? 'gold' : (this.tier === 'emerald' ? 'emerald' : 'wood');
+    const frameName = `chest_${tierKey}_${this.opened ? 'open' : 'closed'}`;
+    const chestFr = assets && assets.frame && assets.frame('exploration_props', frameName);
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(4, 3, 10, 0.55)';
+    ctx.fillRect(sx - 16, sy - 2, 32, 4);
+
+    if (chestFr && assets.img('exploration_props')) {
+      if (!this.opened) {
+        const glowKind = this.tier === 'gold' ? 'amber' : (this.tier === 'emerald' ? 'emerald' : null);
+        const glow = glowKind ? getGlowCanvas(glowKind) : null;
+        if (glow) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.22 + 0.08 * Math.sin(time * 4.2 + this.x);
+          ctx.drawImage(glow, sx - 24, sy - 34, 48, 38);
+          ctx.restore();
+        }
+      }
+      assets.draw(ctx, 'exploration_props', frameName, sx, sy + 1);
+      if (!this.opened && Math.sin(time * 5 + this.x) > 0.35) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(sx - 9 + (Math.floor(time * 4) % 18), sy - 24, 2, 2);
+      }
+      ctx.restore();
+      return;
+    }
+
+    // Fallback geometry for headless tests without raster sheets
+    ctx.fillStyle = this.tier === 'gold' ? '#6e4c14' : (this.tier === 'emerald' ? '#184e44' : '#4a2e1e');
+    ctx.fillRect(sx - 13, sy - 18, 26, 18);
+    ctx.restore();
+  }
+
+  drawPrompt(ctx, cam, font) {
+    if (!this.near || this.opened) return;
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    const tierLbl = this.tier === 'gold' ? 'GOLD RELIQUARY' : (this.tier === 'emerald' ? 'EMERALD CHEST' : 'WOODEN CHEST');
+    font.draw(ctx, `↑ ${tierLbl}`, sx, Math.max(48, sy - 34), {
+      align: 'center',
+      color: this.tier === 'gold' ? '#ffd84d' : '#b8fff0',
+      shadow: '#05040a',
+      gothic: false,
+    });
+  }
+}
+
+/**
+ * Floating Arcane Glyph Sigil (`GlyphSigil`): pressing/holding `↑` channels and
+ * absorbs a regional Soul Glyph (`SoulOrb`) directly into the Hunter's Grimoire!
+ */
+export class GlyphSigil {
+  constructor(spec, stageKey) {
+    this.id = spec.id;
+    this.x = spec.col * TILE + 16;
+    this.y = spec.row * TILE;
+    this.soulId = STAGE_SIGNATURE_SOULS[stageKey] || 'phantom_axes';
+    this.usedThisVisit = false;
+    this.near = false;
+    this.channelT = 0;
+  }
+
+  update(dt, player, input, world) {
+    if (this.usedThisVisit) { this.near = false; return; }
+    const dx = Math.abs(player.x - this.x);
+    const dy = Math.abs(player.y - this.y);
+    this.near = dx < 34 && dy < 38;
+    if (this.near && input && input.down && input.down.up && !(input.down.attack)) {
+      this.channelT += dt;
+      if (Math.random() < 0.6 && world.particles) {
+        const g = SOUL_GLYPHS[this.soulId];
+        const col = (g && SOUL_TYPES[g.type]?.color) || '#ffd25a';
+        world.particles.sparks(this.x + (Math.random() - 0.5) * 20, this.y - 36, 1, col);
+      }
+      if (this.channelT >= 0.28 || input.pressed.up) {
+        this.usedThisVisit = true;
+        world.sfx('orb');
+        if (world.soulOrbs) {
+          world.soulOrbs.push(new SoulOrb(this.soulId, this.x, this.y - 42));
+        }
+      }
+    } else {
+      this.channelT = Math.max(0, this.channelT - dt * 2);
+    }
+  }
+
+  draw(ctx, cam, time, assets = null) {
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    if (sx < -48 || sx > W + 48 || sy < -20 || sy > H + 80) return;
+
+    const g = SOUL_GLYPHS[this.soulId] || SOUL_GLYPHS.phantom_axes;
+    const meta = SOUL_TYPES[g.type] || SOUL_TYPES.bullet;
+    const pulse = 0.5 + 0.5 * Math.sin(time * 5.0);
+    const pedFr = assets && assets.frame && assets.frame('exploration_props', 'glyph_pedestal');
+    const tabFr = assets && assets.frame && assets.frame('exploration_props', 'glyph_tablet');
+    const expImg = assets && assets.img && assets.img('exploration_props');
+
+    ctx.save();
+    if (expImg && pedFr) {
+      ctx.fillStyle = 'rgba(4, 3, 10, 0.50)';
+      ctx.fillRect(sx - 16, sy - 2, 32, 4);
+      assets.draw(ctx, 'exploration_props', 'glyph_pedestal', sx, sy + 1);
+    } else {
+      ctx.fillStyle = '#1e1a2c';
+      ctx.fillRect(sx - 14, sy - 8, 28, 8);
+    }
+
+    if (!this.usedThisVisit) {
+      const cy = Math.round(sy - 44 + Math.sin(time * 3.4) * 3);
+      const halo = ctx.createRadialGradient(sx, cy, 2, sx, cy, 28);
+      halo.addColorStop(0, meta.color);
+      halo.addColorStop(1, 'rgba(10, 8, 22, 0)');
+      ctx.globalAlpha = 0.48 + 0.24 * pulse;
+      ctx.fillStyle = halo;
+      ctx.fillRect(sx - 28, cy - 28, 56, 56);
+      ctx.globalAlpha = 1;
+
+      if (expImg && tabFr) {
+        assets.draw(ctx, 'exploration_props', 'glyph_tablet', sx, Math.round(cy + tabFr.h * 0.5));
+      } else {
+        ctx.strokeStyle = meta.color;
+        ctx.strokeRect(sx - 8, cy - 8, 16, 16);
+      }
+      const fxl = getFxLayers();
+      if (fxl && fxl.enabled) {
+        fxl.addAttack({
+          x: sx, y: cy, rx: 14, ry: 18, dirX: 0, dirY: -1, mode: 0, seed: this.x * 0.02,
+          core: meta.core, rim: meta.rim, alpha: 0.52 + 0.18 * pulse,
+        });
+      }
+    }
+    ctx.restore();
+  }
+
+  drawPrompt(ctx, cam, font) {
+    if (!this.near || this.usedThisVisit) return;
+    const sx = Math.round(this.x - cam.rx);
+    const sy = Math.round(this.y - cam.ry);
+    const g = SOUL_GLYPHS[this.soulId];
+    const meta = g ? SOUL_TYPES[g.type] : SOUL_TYPES.bullet;
+    drawDoorPrompt(ctx, font, sx, Math.max(46, sy - 74), `↑ ABSORB GLYPH · ${g ? g.short : 'SOUL'}`, {
+      color: '#ffffff',
+      border: meta ? meta.color : '#ffd27a',
+    });
+  }
+}
+
+/**
+ * Breakable Secret Perimeter Wall (`SecretWall`): renders subtle fissured mortar
+ * cracks & drifting dust motes over `T_BLOCK` wall seams, and triggers a secret
+ * discovery chime + map reveal when shattered or entered!
+ */
+export class SecretWall {
+  constructor(spec, level, alreadyDiscovered = false) {
+    this.id = spec.id;
+    this.col = spec.col;
+    this.topRow = spec.topRow;
+    this.botRow = spec.botRow;
+    this.floorRow = spec.floorRow;
+    this.revealCellKey = spec.revealCellKey || null;
+    this.x = this.col * TILE + 16;
+    this.y = this.floorRow * TILE;
+    this.shattered = !!alreadyDiscovered;
+    if (this.shattered && level) {
+      for (let r = this.topRow; r <= this.botRow; r++) {
+        if (level.tile(this.col, r) === T_BLOCK) level.set(this.col, r, T_EMPTY);
+      }
+    }
+  }
+
+  onDiscovered(world) {
+    if (this.shattered) return;
+    this.shattered = true;
+    if (!world) return;
+    // Clear any remaining seam blocks in the doorway
+    if (world.level) {
+      for (let r = this.topRow; r <= this.botRow; r++) {
+        if (world.level.tile(this.col, r) === T_BLOCK) world.level.breakBlock(this.col, r);
+      }
+    }
+    if (this.revealCellKey && world.game && world.game.markCellsExplored) {
+      world.game.markCellsExplored([this.revealCellKey]);
+    }
+    world.sfx('orb');
+    world.emitShockwave(this.x, this.y - 48, { maxR: 112, dur: 0.45, strength: 0.6, color: [0.38, 0.96, 0.76] });
+    world.particles.sparks(this.x, this.y - 48, 16, '#ffd84d');
+    world.spawnPopup(this.x, this.y - 68, '✦ SECRET CHAMBER DISCOVERED! ✦', {
+      color: '#ffd84d',
+      dur: 1.8,
+      vy: -16,
+      banner: true,
+    });
+  }
+
+  checkShattered(world) {
+    if (this.shattered || !world || !world.level) return false;
+    for (let r = this.topRow; r <= this.botRow; r++) {
+      if (world.level.tile(this.col, r) !== T_BLOCK) {
+        this.onDiscovered(world);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  update(player, world) {
+    if (!this.shattered) {
+      this.checkShattered(world);
+    }
+  }
+
+  draw(ctx, cam, time, assets = null) {
+    if (this.shattered) return;
+    const sx = Math.round(this.col * TILE - cam.rx);
+    const syTop = Math.round(this.topRow * TILE - cam.ry);
+    const hPx = (this.botRow - this.topRow + 1) * TILE;
+    if (sx < -40 || sx > W + 40 || syTop > H + 20 || syTop + hPx < -20) return;
+
+    const fallImg = assets && assets.img && assets.img('falling_tiles');
+    const crackFr = assets && assets.frame && assets.frame('falling_tiles', 'breaking');
+
+    ctx.save();
+    if (fallImg && crackFr) {
+      ctx.globalAlpha = 0.58;
+      for (let r = 0; r <= this.botRow - this.topRow; r++) {
+        ctx.drawImage(
+          fallImg,
+          crackFr.x, crackFr.y, crackFr.w, crackFr.h,
+          sx, syTop + r * TILE, TILE, TILE,
+        );
+      }
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.strokeStyle = 'rgba(18, 14, 28, 0.85)';
+      ctx.lineWidth = 1;
+      for (let r = 0; r <= this.botRow - this.topRow; r++) {
+        const ry = syTop + r * TILE;
+        ctx.beginPath();
+        ctx.moveTo(sx + 6, ry + 7);
+        ctx.lineTo(sx + 15, ry + 15);
+        ctx.lineTo(sx + 23, ry + 28);
+        ctx.stroke();
+      }
+    }
+    const glint = 0.28 + 0.36 * (0.5 + 0.5 * Math.sin(time * 3.6 + this.col));
+    ctx.fillStyle = `rgba(255, 224, 132, ${glint.toFixed(3)})`;
+    ctx.fillRect(sx + 14, syTop + Math.round(hPx * 0.48), 3, 3);
     ctx.restore();
   }
 }
@@ -1003,26 +1803,28 @@ export class BossExitDoor {
 
     const assets = world && world.assets;
     const propsImg = assets && assets.img ? assets.img('boss_door_props') : null;
-    const leftProp = assets && assets.frame ? assets.frame('boss_door_props', 'exit_left') : null;
-    const rightProp = assets && assets.frame ? assets.frame('boss_door_props', 'exit_right') : null;
+    const guardFr = assets && assets.frame ? assets.frame('boss_door_props', 'exit_guardian') : null;
+    const steleFr = assets && assets.frame ? assets.frame('boss_door_props', 'ward_stele') : null;
+    const brazFr = assets && assets.frame ? assets.frame('boss_door_props', 'iron_brazier') : null;
+    const gatesImg = assets && assets.img ? assets.img('boss_gates') : null;
+    const baseFr = assets && assets.frame ? assets.frame('boss_gates', 'jamb_base') : null;
 
     ctx.save();
-    // 1. Carved stone ritual dais & dormant arcane floor seal
-    ctx.fillStyle = '#1b1726';
-    ctx.fillRect(sx - 34, sy - 4, 68, 5);
-    ctx.fillStyle = '#3a3250';
-    ctx.fillRect(sx - 30, sy - 6, 60, 2);
-    ctx.fillStyle = this.open ? '#ffd27a' : '#58486e';
-    ctx.fillRect(sx - 20, sy - 6, 40, 1);
-
-    // 2. Flanking guardian ritual steles / braziers
-    if (propsImg && leftProp && rightProp) {
-      const pScale = 0.48;
-      const lw = Math.round(leftProp.w * pScale), lh = Math.round(leftProp.h * pScale);
-      const rw = Math.round(rightProp.w * pScale), rh = Math.round(rightProp.h * pScale);
-      ctx.globalAlpha = this.open ? 0.96 : 0.68;
-      ctx.drawImage(propsImg, leftProp.x, leftProp.y, leftProp.w, leftProp.h, sx - 38 - Math.round(lw * 0.5), sy - lh + 2, lw, lh);
-      ctx.drawImage(propsImg, rightProp.x, rightProp.y, rightProp.w, rightProp.h, sx + 38 - Math.round(rw * 0.5), sy - rh + 2, rw, rh);
+    // 1. Pixel-art carved stone ritual dais (`jamb_base` plinth) + flanking guardian statues & braziers
+    if (gatesImg && baseFr) {
+      ctx.drawImage(gatesImg, baseFr.x, baseFr.y, baseFr.w, Math.min(14, baseFr.h), sx - 28, sy - 8, 56, 10);
+    } else {
+      ctx.fillStyle = '#1b1726';
+      ctx.fillRect(sx - 34, sy - 4, 68, 5);
+    }
+    if (propsImg && guardFr && steleFr) {
+      ctx.globalAlpha = this.open ? 0.96 : 0.72;
+      assets.draw(ctx, 'boss_door_props', 'exit_guardian', sx - 44, sy + 1);
+      assets.draw(ctx, 'boss_door_props', 'ward_stele', sx + 44, sy + 1);
+      if (brazFr) {
+        assets.draw(ctx, 'boss_door_props', 'iron_brazier', sx - 26, sy + 1);
+        assets.draw(ctx, 'boss_door_props', 'iron_brazier', sx + 26, sy + 1);
+      }
       ctx.globalAlpha = 1;
     }
 
@@ -1213,6 +2015,23 @@ export function populateExploration(world) {
     }
   }
 
+  // 1b. Golden Astral Warp Chamber (`WarpMirror`, decoupled from Save Sanctum)
+  let warpMirror = null;
+  if (stage.warpAnchor && stage.warpAnchor.col != null) {
+    const wc = stage.warpAnchor.col;
+    const wr = stage.warpAnchor.row != null ? stage.warpAnchor.row : level.surfaceRow(wc);
+    warpMirror = new WarpMirror(wc * TILE + 16, wr * TILE);
+    usedCols.push(wc);
+    safeWindows.push({ x0Px: (wc - 4) * TILE, x1Px: (wc + 5) * TILE });
+  } else {
+    const warpTarget = Math.max(14, Math.round(bossTriggerCol * 0.68));
+    const warpSpot = findSafeFloor(level, warpTarget, 10, Math.max(16, bossTriggerCol - 18), usedCols, false);
+    if (warpSpot) {
+      warpMirror = new WarpMirror(warpSpot.col * TILE + 16, warpSpot.row * TILE);
+      usedCols.push(warpSpot.col);
+      safeWindows.push({ x0Px: (warpSpot.col - 4) * TILE, x1Px: (warpSpot.col + 5) * TILE });
+    }
+  }
   // 2. Connected Area Passage Gateways (matching MAP_DOORS & authored doorAnchors)
   const passages = [];
   const doorDescs = stageDoorsFor(stage.key);
@@ -1308,7 +2127,51 @@ export function populateExploration(world) {
     }
   }
 
-  // 5. Also include any authored SAVE_ROOMs in safeWindows (`0` enemies, `0` spawners)
+  // 5. Authored Exploration Mechanics: Lodestone Rings, Shortcut Switch Gates, Tiered Chests, Glyph Sigils & Secret Walls
+  const magnetNodes = [];
+  if (Array.isArray(stage.magnetAnchors)) {
+    for (const ma of stage.magnetAnchors) {
+      magnetNodes.push(new MagnetNode(ma.col * TILE + 16, ma.row * TILE, level));
+    }
+  }
+
+  const openedSwitches = (world.game && world.game.openedSwitches) ? world.game.openedSwitches : null;
+  const switchGates = [];
+  if (Array.isArray(stage.switchGatesData)) {
+    for (const sg of stage.switchGatesData) {
+      const isOpen = !!(openedSwitches && openedSwitches.has(sg.id));
+      switchGates.push(new SwitchGate(sg, level, isOpen));
+      safeWindows.push({ x0Px: (sg.leverCol - 2) * TILE, x1Px: (sg.leverCol + 3) * TILE });
+    }
+  }
+
+  const openedChests = (world.game && world.game.openedChests) ? world.game.openedChests : null;
+  const chests = [];
+  if (Array.isArray(stage.chestAnchors)) {
+    for (const ch of stage.chestAnchors) {
+      const isOpen = !!(openedChests && openedChests.has(ch.id));
+      chests.push(new TreasureChest(ch, stageIdx, isOpen));
+    }
+  }
+
+  const glyphSigils = [];
+  if (Array.isArray(stage.glyphAnchors)) {
+    for (const gl of stage.glyphAnchors) {
+      glyphSigils.push(new GlyphSigil(gl, stage.key));
+      safeWindows.push({ x0Px: (gl.col - 2) * TILE, x1Px: (gl.col + 3) * TILE });
+    }
+  }
+
+  const expCells = (world.game && world.game.exploredCells) ? world.game.exploredCells : null;
+  const secretWalls = [];
+  if (Array.isArray(stage.secretWallAnchors)) {
+    for (const sw of stage.secretWallAnchors) {
+      const alreadyDisc = !!(sw.revealCellKey && expCells && expCells.has(sw.revealCellKey));
+      secretWalls.push(new SecretWall(sw, level, alreadyDisc));
+    }
+  }
+
+  // 5b. Also include any authored SAVE_ROOMs in safeWindows (`0` enemies, `0` spawners)
   if (Array.isArray(stage.roomSchema)) {
     for (const rm of stage.roomSchema) {
       if (rm.save_room) {
@@ -1337,5 +2200,18 @@ export function populateExploration(world) {
 
   if (addedPlatforms) level.recompute();
 
-  return { sanctuary, passages, vessel, pedestal, bossExitDoor, bossGateDoor };
+  return {
+    sanctuary,
+    warpMirror,
+    passages,
+    vessel,
+    pedestal,
+    magnetNodes,
+    switchGates,
+    chests,
+    glyphSigils,
+    secretWalls,
+    bossExitDoor,
+    bossGateDoor,
+  };
 }

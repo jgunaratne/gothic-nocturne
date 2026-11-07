@@ -1,0 +1,65 @@
+{
+ "fps": null,
+ "frames": {
+  "attack0": {
+   "ax": 24.5,
+   "ay": 67.0,
+   "clipFrame": 23,
+   "h": 67,
+   "w": 46,
+   "x": 1,
+   "y": 1
+  },
+  "attack1": {
+   "ax": 59.5,
+   "ay": 70.0,
+   "clipFrame": 92,
+   "h": 70,
+   "w": 117,
+   "x": 48,
+   "y": 1
+  },
+  "attack2": {
+   "ax": 65.0,
+   "ay": 69.0,
+   "clipFrame": 158,
+   "h": 69,
+   "w": 114,
+   "x": 166,
+   "y": 1
+  },
+  "attack3": {
+   "ax": 31.0,
+   "ay": 60.0,
+   "clipFrame": 187,
+   "h": 60,
+   "w": 65,
+   "x": 281,
+   "y": 1
+  }
+ },
+ "loop": false,
+ "sheet": "novaskeleton_attack_sheet.png",
+ "source": {
+  "action": "cast",
+  "anchor": "hips",
+  "clip": "novaskeleton_attack.mp4",
+  "frame": "walk0",
+  "model": "omni_1p5",
+  "paletteLocked": true,
+  "picks": [
+   23,
+   92,
+   158,
+   187
+  ],
+  "prompt": "Pixel art sprite animation test footage, 32-bit era console style, crisp hard-edged pixels, limited palette, flat shading. The character stays EXACTLY the same design, proportions, colours and pixel scale as the first frame. Locked static camera, strict orthographic side view, no zoom, no pan, no camera motion. The background stays a perfectly flat solid pure bright green (#00FF00) with no shadow, no floor, no gradient, no particles, no impact flashes, no sparks, no motion lines, nothing else in frame. No text. The glowing cyan-ribbed cosmic skeleton warrior in dark obsidian shoulder armor performs ONE spell cast facing right: it raises both hands, gathers energy with a flourish, thrusts a hand forward to release it toward the right, then lowers its arms. braces low and thrusts both open skeletal palms forward; no projectiles, no energy beams, no laser rays.",
+  "scale": 0.1429,
+  "select": "motion",
+  "sheet": "novaskeleton",
+  "window": [
+   23,
+   187
+  ]
+ }
+}

@@ -39,7 +39,7 @@ const FAMILY_ALIASES = {
 /** Loop playback: px per frame for distance-driven walkers, fps for the rest. */
 const LOOP_DEFAULTS = {
   walk: { px: 8 }, walkb: { px: 8 }, step: { px: 8 }, stalk: { px: 8 }, prowl: { px: 7 }, crawl: { px: 6 },
-  fly: { fps: 12 }, hover: { fps: 10 }, flap: { fps: 10 }, float: { fps: 7 }, wave: { fps: 7 }, idle: { fps: 6 },
+  fly: { fps: 12 }, hover: { fps: 10 }, flap: { fps: 10 }, float: { fps: 7 }, wave: { fps: 7 }, idle: { fps: 6 }, crouch: { fps: 7 },
   flame: { fps: 10 }, wisp: { fps: 9 }, golem: { fps: 6 }, snowman: { fps: 6 }, shell: { fps: 12 },
 };
 const LOOP_MIN_FPS = 6;

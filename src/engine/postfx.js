@@ -70,6 +70,10 @@ uniform float uHeat;      // convective lower-screen heat haze (volcanic caverns
 uniform vec4 uShock;      // (cx, cy in vUv, radius, amplitude)
 uniform float uHurt;      // crimson damage pulse
 uniform float uLightning; // electric storm exposure & blue-violet shadow lift
+uniform float uChrono;    // Chrono Pocketwatch temporal stasis wave (0..1)
+uniform float uLightCount;
+uniform vec4 uLights[6];     // (nx, ny in bottom-up vUv, radiusUv, intensity)
+uniform vec3 uLightCols[6];  // RGB point-light tint
 uniform vec3 uTint;       // colour grade tint (multiplied)
 uniform vec3 uLift;       // shadow lift (added)
 uniform float uGamma;
@@ -139,6 +143,50 @@ void main() {
   float bloomAmt = uBloomAmt + uLightning * 0.65;
   col = 1.0 - (1.0 - col) * (1.0 - bloom * bloomAmt);
 
+  // Screen-space pixel-art normal-mapped dynamic point-light rim & specular illumination:
+  // samples 1-scene-texel luminance relief so stone bevels, fluted pillars & armor catch
+  // flickering torch, sconce, brazier & spell glints without blurring pixel art.
+  if (uLightCount > 0.5) {
+    vec2 tx = 1.0 / uSceneRes;
+    vec2 centerUv = (floor(clamp(uv, vec2(0.001), vec2(0.999)) * uSceneRes) + 0.5) * tx;
+    float lL = dot(texture2D(uScene, centerUv - vec2(tx.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float lR = dot(texture2D(uScene, centerUv + vec2(tx.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float lD = dot(texture2D(uScene, centerUv - vec2(0.0, tx.y)).rgb, vec3(0.299, 0.587, 0.114));
+    float lU = dot(texture2D(uScene, centerUv + vec2(0.0, tx.y)).rgb, vec3(0.299, 0.587, 0.114));
+    vec2 grad = vec2(lL - lR, lD - lU);
+    vec3 surfN = normalize(vec3(grad * 3.4, 1.0));
+    float bevel = clamp(length(grad) * 2.8, 0.0, 1.0);
+    vec2 aspectL = vec2(uSceneRes.x / uSceneRes.y, 1.0);
+    vec3 dynLight = vec3(0.0);
+    for (int i = 0; i < 6; i++) {
+      vec4 lp = uLights[i];
+      if (lp.w > 0.005) {
+        vec2 toL = (lp.xy - uv) * aspectL;
+        float dL = length(toL);
+        if (dL < lp.z) {
+          float att = pow(1.0 - dL / max(0.01, lp.z), 2.0) * lp.w;
+          vec3 Ldir = normalize(vec3(toL, 0.22));
+          float ndl = max(0.0, dot(surfN, Ldir));
+          vec3 Hdir = normalize(Ldir + vec3(0.0, 0.0, 1.0));
+          float spec = pow(max(0.0, dot(surfN, Hdir)), 14.0) * bevel;
+          dynLight += uLightCols[i] * att * (0.12 + ndl * (0.30 + 0.52 * bevel) + spec * 0.52);
+        }
+      }
+    }
+    col += dynLight * (0.26 + 0.74 * col);
+  }
+
+  // Chrono Pocketwatch temporal stasis wave: crystalline cyan-gold clockwork ripple
+  if (uChrono > 0.001) {
+    vec2 cd = (uv - vec2(0.5)) * vec2(uSceneRes.x / uSceneRes.y, 1.0);
+    float cr = length(cd);
+    float tickWave = 0.5 + 0.5 * sin(cr * 26.0 - uTime * 7.5);
+    float lumaC = dot(col, vec3(0.299, 0.587, 0.114));
+    vec3 chronoTint = mix(vec3(lumaC) * vec3(0.76, 0.94, 1.14), col, 0.35);
+    chronoTint += vec3(0.10, 0.22, 0.30) * tickWave * smoothstep(0.12, 0.85, cr) * 0.35;
+    col = mix(col, chronoTint, clamp(uChrono * 0.78, 0.0, 0.82));
+  }
+
   // Colour grade: lift shadows, tint, gamma, saturation
   vec3 lift = uLift + vec3(0.08, 0.11, 0.22) * uLightning;
   col = col + lift * (1.0 - col);
@@ -202,6 +250,9 @@ export const GRADES = {
   coliseum: { tint: [1.07, 0.97, 0.92], lift: [0.022, 0.010, 0.010], gamma: 0.99, sat: 1.06, bloom: 0.64 },
   aqueduct: { tint: [0.92, 1.03, 1.07], lift: [0.006, 0.018, 0.028], gamma: 0.97, sat: 1.10, bloom: 0.74 },
   skykeep: { tint: [0.98, 1.01, 1.08], lift: [0.012, 0.016, 0.030], gamma: 0.98, sat: 1.06, bloom: 0.70 },
+  conservatory: { tint: [0.92, 1.05, 0.99], lift: [0.008, 0.024, 0.018], gamma: 0.97, sat: 1.10, bloom: 0.78 },
+  dungeon: { tint: [1.08, 0.94, 0.90], lift: [0.024, 0.008, 0.010], gamma: 1.01, sat: 1.04, bloom: 0.68, heat: 0.35 },
+  observatory: { tint: [0.95, 1.01, 1.10], lift: [0.010, 0.016, 0.034], gamma: 0.97, sat: 1.10, bloom: 0.80 },
   menu: { tint: [0.98, 0.98, 1.04], lift: [0.010, 0.010, 0.022], gamma: 1.0, sat: 1.0, bloom: 0.52 },
 };
 
@@ -214,6 +265,10 @@ export class PostFX {
     this.shimmer = 0;
     this.hurt = 0;
     this.lightning = 0;
+    this.chrono = 0;
+    this.lightCount = 0;
+    this.lightPosBuf = new Float32Array(24);
+    this.lightColBuf = new Float32Array(18);
     this.shock = { x: 0.5, y: 0.5, r: 0, amp: 0 };
     this.scan = 0.32;
     this.grain = 0.032;
@@ -281,7 +336,10 @@ export class PostFX {
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
     const u = {};
     const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
-    for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name] = gl.getUniformLocation(p, info.name); }
+    for (let i = 0; i < n; i++) {
+      const info = gl.getActiveUniform(p, i);
+      u[info.name.replace('[0]', '')] = gl.getUniformLocation(p, info.name);
+    }
     return { p, u, aPos: gl.getAttribLocation(p, 'aPos') };
   }
 
@@ -350,6 +408,30 @@ export class PostFX {
     this.shock.y = Math.max(0.05, Math.min(0.95, 1.0 - ny));
     this.shock.r = 0.025;
     this.shock.amp = Math.min(1.6, Math.max(0.25, strength));
+  }
+
+  /** Sets up to 6 screen-space dynamic point lights (top-left normalized coords `nx, ny`). */
+  setDynamicLights(lights, chronoAmt = 0) {
+    this.chrono = Math.max(0, Math.min(1, chronoAmt || 0));
+    this.lightPosBuf.fill(0);
+    this.lightColBuf.fill(0);
+    if (!lights || !lights.length) {
+      this.lightCount = 0;
+      return;
+    }
+    const count = Math.min(6, lights.length);
+    for (let i = 0; i < count; i++) {
+      const L = lights[i];
+      const p4 = i * 4, c3 = i * 3;
+      this.lightPosBuf[p4] = L.nx;
+      this.lightPosBuf[p4 + 1] = 1.0 - L.ny;
+      this.lightPosBuf[p4 + 2] = L.radius;
+      this.lightPosBuf[p4 + 3] = L.intensity;
+      this.lightColBuf[c3] = L.r;
+      this.lightColBuf[c3 + 1] = L.g;
+      this.lightColBuf[c3 + 2] = L.b;
+    }
+    this.lightCount = count;
   }
 
   draw(dt, theme) {
@@ -428,6 +510,10 @@ export class PostFX {
     gl.uniform4f(u.uShock, this.shock.x, this.shock.y, this.shock.r, this.shock.amp);
     gl.uniform1f(u.uHurt, this.hurt);
     gl.uniform1f(u.uLightning, this.lightning);
+    if (u.uChrono) gl.uniform1f(u.uChrono, this.chrono);
+    if (u.uLightCount) gl.uniform1f(u.uLightCount, this.lightCount);
+    if (u.uLights) gl.uniform4fv(u.uLights, this.lightPosBuf);
+    if (u.uLightCols) gl.uniform3fv(u.uLightCols, this.lightColBuf);
     gl.uniform3f(u.uTint, g.tint[0], g.tint[1], g.tint[2]);
     gl.uniform3f(u.uLift, g.lift[0], g.lift[1], g.lift[2]);
     gl.uniform1f(u.uGamma, g.gamma);
