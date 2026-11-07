@@ -674,25 +674,36 @@ export class Level {
       if (x < -220 || x > W + 220 || y < -260 || y > H + 300) continue;
       if (d.type === 'pendulum') {
         if (stage3d && stage3d.overlapsMural && stage3d.overlapsMural(d.x, d.y + (d.len || 150) * 0.7)) continue;
+        if (stage3d && stage3d.overlapsThrone && stage3d.overlapsThrone(d.x, d.y + (d.len || 150) * 0.7)) continue;
         this.drawPendulum(ctx, x, y, d, time);
         continue;
       }
       if (d.type === 'chandelier') {
         if (stage3d && stage3d.overlapsMural && stage3d.overlapsMural(d.x, d.y + (d.len != null ? d.len : 64) + 28)) continue;
+        if (stage3d && stage3d.overlapsThrone && stage3d.overlapsThrone(d.x, d.y + (d.len != null ? d.len : 64) + 28)) continue;
         this.drawChandelier(ctx, x, y, d, time);
         continue;
       }
       if (d.type === 'cage') {
         if (stage3d && stage3d.overlapsMural && stage3d.overlapsMural(d.x, d.y + 84)) continue;
+        if (stage3d && stage3d.overlapsThrone && stage3d.overlapsThrone(d.x, d.y + 84)) continue;
         this.drawCage(ctx, x, y, d, time);
         continue;
       }
-      if (stage3d && stage3d.overlapsMural) {
+      if (stage3d && (stage3d.overlapsMural || stage3d.overlapsThrone)) {
         const f = assets.frame(d.sheet, d.frame);
         if (
+          stage3d.overlapsMural &&
           (d.sheet === 'stained_glass' || d.frame === 'torch' || d.frame === 'window' ||
            d.frame === 'canal_lantern' || d.frame === 'water_spout' || (f && f.h >= 52)) &&
           stage3d.overlapsMural(d.x, d.y)
+        ) {
+          continue;
+        }
+        if (
+          stage3d.overlapsThrone &&
+          (d.frame === 'column' || d.frame === 'pillar' || (f && f.h >= 48 && d.frame !== 'torch')) &&
+          stage3d.overlapsThrone(d.x, d.y)
         ) {
           continue;
         }

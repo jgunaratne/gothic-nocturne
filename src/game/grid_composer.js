@@ -1500,10 +1500,13 @@ export function composeGridStage(spec) {
   addCandle(vestX0 + 5, bossRow, 'heart_big');
   addCandle(vestX0 + 14, bossRow, subDrops[(id + 1) % subDrops.length]);
 
-  // 20-tile Boss Arena (`maxC`) — keep cols 17..18 clear for the right-side Boss Exit Door
+  // 20-tile Boss Arena (`maxC`) — keep cols 17..18 clear for the right-side Boss Exit Door,
+  // and keep the center (`arenaX0 + 10`) completely unobstructed in front of the Count's Throne!
   addDeco(bProps.tall[0], bProps.tall[1], arenaX0 + 3, bossRow);
   addDeco(bProps.tall[0], bProps.tall[1], arenaX0 + 15, bossRow);
-  addDeco(bProps.focal[0], bProps.focal[1], arenaX0 + 10, bossRow);
+  if (key !== 'throne' && bossSpec.type !== 'count') {
+    addDeco(bProps.focal[0], bProps.focal[1], arenaX0 + 10, bossRow);
+  }
   if (key === 'cathedral') {
     addDeco('stained_glass', 'rose', arenaX0 + 10, bossRow, 0, -96);
   }

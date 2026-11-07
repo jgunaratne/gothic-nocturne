@@ -558,6 +558,22 @@ export class Stage3D {
     return false;
   }
 
+  /** True when world position `(wx, wy)` would stand in front of the Count's Throne Apse. */
+  overlapsThrone(wx, wy) {
+    const b = this.data && this.data.boss;
+    if (!b || !b.arena || b.type !== 'count') return false;
+    if (
+      this.stageTheme === 'alchemy' || this.stageTheme === 'ballroom' ||
+      this.stageTheme === 'coliseum' || this.stageTheme === 'aqueduct' ||
+      this.stageTheme === 'skykeep'
+    ) {
+      return false;
+    }
+    const cx = (b.arena.x0 + b.arena.x1) * 0.5;
+    const floorY = b.arena.floorY;
+    return Math.abs(wx - cx) < 118 && wy >= floorY - 240 && wy <= floorY + 24;
+  }
+
   /**
    * Which 2.5D feature fills the ground tier of far-wall bay `bi`, with its
    * footing row: 'glass' (stained lancet) | 'crypt' (bone shelves) | 'alcove' |
@@ -2055,6 +2071,15 @@ export class Stage3D {
     const pilasterTex = this.primaryStoneKey();
     const trimKey = this.trimStoneKey();
     const trimTex = this.tex(trimKey);
+    const boss = this.data && this.data.boss;
+    const hasThroneApse = !!(
+      boss && boss.arena && boss.type === 'count' &&
+      this.stageTheme !== 'alchemy' && this.stageTheme !== 'ballroom' &&
+      this.stageTheme !== 'coliseum' && this.stageTheme !== 'aqueduct' &&
+      this.stageTheme !== 'skykeep'
+    );
+    const throneCx = hasThroneApse ? (boss.arena.x0 + boss.arena.x1) * 0.5 : -99999;
+    const throneFloorY = hasThroneApse ? boss.arena.floorY : -99999;
     const pillars = [];
     for (let bi = bStart; bi <= bEnd + 1; bi++) {
       const px = bi * bayW;
@@ -2063,9 +2088,11 @@ export class Stage3D {
     }
     pillars.sort((a, b) => b.dist - a.dist);
     for (const { px, bi } of pillars) {
-      // Skip wall pilaster right down the middle of a 2-bay Grand Mural Gallery (`bi - 1` is `mural_left`)
+      // Skip wall pilaster & colonnade pier right down the middle of a 2-bay Grand Mural Gallery
+      // or across the Count's Throne, Rose-Window & Pipe-Organ Apse
       const splitsMural = special.murals && special.murals.includes(bi - 1);
-      if (!splitsMural) {
+      const splitsThroneApse = hasThroneApse && Math.abs(px - throneCx) < 170 && Math.abs(floorY - throneFloorY) < 96;
+      if (!splitsMural && !splitsThroneApse) {
         // Multi-order Gothic wall respond: wide pilaster + engaged shaft + flared corbel capital
         this.drawBox3D(ctx, camX, camY, px - 16, ceilY + 24, Z_WALL - 18, 32, floorY - ceilY - 24, 18, pilasterTex, { bright: 0.74 });
         this.drawBox3D(ctx, camX, camY, px - 8, ceilY + 26, Z_WALL - 28, 16, floorY - ceilY - 34, 12, trimKey, { bright: 0.78 });
