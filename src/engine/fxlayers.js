@@ -25,6 +25,7 @@ void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }
 `;
 
 const NOISE = `
+uniform sampler2D uNoise;
 float hash(vec2 p) {
   p = fract(p * vec2(0.1031, 0.1030));
   p += dot(p, p.yx + 33.33);
@@ -33,12 +34,11 @@ float hash(vec2 p) {
 float vnoise(vec2 p) {
   vec2 i = floor(p), f = fract(p);
   f = f * f * (3.0 - 2.0 * f);
-  float a = hash(i), b = hash(i + vec2(1.0, 0.0)), c = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
-  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  return texture2D(uNoise, (i + f + 0.5) * (1.0 / 256.0)).r;
 }
 float fbm(vec2 p) {
-  float v = 0.0, a = 0.535;
-  for (int i = 0; i < 3; i++) { v += a * vnoise(p); p = p * 2.03 + vec2(17.0, 9.0); a *= 0.5; }
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 4; i++) { v += a * vnoise(p); p = p * 2.03 + vec2(17.0, 9.0); a *= 0.5; }
   return v;
 }
 float fbm2(vec2 p) {
@@ -67,11 +67,12 @@ void main() {
   float n = fbm(p1) * 0.65 + fbm(p2) * 0.45;
   float band = smoothstep(uTop, uTop + 40.0, px.y) * (1.0 - smoothstep(uBottom - 60.0, uBottom, px.y));
   float d = smoothstep(0.52 - uDensity * 0.2, 0.78, n) * band;
+  // Quantise first and discard clear sky (~65% of dome) before lighting FBM + blend
+  d = floor(d * 5.0) / 5.0 * 0.55;
+  if (d <= 0.001) discard;
   // Silver-lit tops, darker bellies
   float lit = smoothstep(0.55, 0.9, fbm(p1 + vec2(0.0, -0.25)));
   vec3 col = mix(uShade, uColor, lit);
-  // Quantise to keep the pixel-art feel
-  d = floor(d * 5.0) / 5.0 * 0.55;
   gl_FragColor = vec4(col * d, d);
 }
 `;
@@ -91,12 +92,14 @@ void main() {
   vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
   float h = uFloor - px.y;                 // height above the world floor line
   if (h < -40.0 || h > 120.0) discard;
+  float body = (1.0 - smoothstep(0.0, 110.0, h)) * smoothstep(-40.0, 10.0, h);
+  if (body * uAmount < 0.1666) discard;    // floor(a * 6.0) == 0 whenever body * uAmount < 1/6
   float wy = px.y + uScrollY;              // world-anchored Y so camera bob never shifts mist wisps
   vec2 p = vec2((px.x + uScroll * 1.15 + uTime * 14.0) / 120.0, wy / 70.0 + uTime * 0.05);
   float n = fbm(p) * 0.7 + fbm(p * 2.2 + vec2(uTime * 0.08, 0.0)) * 0.3;
-  float body = (1.0 - smoothstep(0.0, 110.0, h)) * smoothstep(-40.0, 10.0, h);
   float a = smoothstep(0.38, 0.75, n) * body * uAmount;
   a = floor(a * 6.0) / 6.0;
+  if (a <= 0.001) discard;
   gl_FragColor = vec4(uColor * a, a);
 }
 `;
@@ -392,8 +395,11 @@ void main() {
   // Soft feathered side edges + spillover crest at top + churning plunge foam at bottom
   float edgeMask = smoothstep(0.0, 0.14, u) * (1.0 - smoothstep(0.86, 1.0, u));
   float lip = (1.0 - smoothstep(0.0, 0.09, v)) * (0.65 + 0.35 * sin(wx * 0.4 + t * 5.0));
-  float boilN = fbm(vec2(wx * 0.16 + t * 0.9, (v - 0.82) * 9.0 - t * 2.2));
-  float plunge = smoothstep(0.76, 0.98, v) * smoothstep(0.28, 0.78, boilN);
+  float plunge = 0.0;
+  if (v > 0.76) {
+    float boilN = fbm(vec2(wx * 0.16 + t * 0.9, (v - 0.82) * 9.0 - t * 2.2));
+    plunge = smoothstep(0.76, 0.98, v) * smoothstep(0.28, 0.78, boilN);
+  }
 
   float streak = smoothstep(0.46, 0.80, sheet);
   vec3 col = mix(uTint * 0.72, uTint * 1.18, sheet);
@@ -417,10 +423,12 @@ uniform vec2 uCam;
 uniform vec4 uRect;      // x, y, w, h in screen px
 uniform vec3 uColor;
 uniform float uAlpha;
+uniform float uFlipY;    // 1.0 when rendering directly into top-down bgFbo, 0.0 default
 ${NOISE}
 
 void main() {
-  vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
+  float sy = uFlipY > 0.5 ? vUv.y : (1.0 - vUv.y);
+  vec2 px = vec2(vUv.x * uRes.x, sy * uRes.y);
   if (px.x < uRect.x || px.x > uRect.x + uRect.z || px.y < uRect.y || px.y > uRect.y + uRect.w) discard;
 
   float v = (px.y - uRect.y) / max(1.0, uRect.w); // 0 top .. 1 bottom (strongest near water below)
@@ -598,8 +606,11 @@ void main() {
 
   // Spillover lip glare at top + violent churning magma plunge boil at base
   float lipHeat = (1.0 - smoothstep(0.0, 0.12, v)) * (0.52 + 0.48 * vnoise(vec2(dx * 4.8 + seed, t * 2.4)));
-  float boilN = fbm2(vec2(dx * 3.2 + seed * 2.3, (v - 0.82) * 10.5 - t * 2.3));
-  float plungeHeat = smoothstep(0.78, 0.99, v) * (0.36 + 0.78 * boilN);
+  float plungeHeat = 0.0;
+  if (v > 0.78) {
+    float boilN = fbm2(vec2(dx * 3.2 + seed * 2.3, (v - 0.82) * 10.5 - t * 2.3));
+    plungeHeat = smoothstep(0.78, 0.99, v) * (0.36 + 0.78 * boilN);
+  }
 
   float coreBias = 1.0 - smoothstep(0.14, 0.96, r);
   float crustRim = smoothstep(0.56, 0.98, r);
@@ -693,9 +704,11 @@ uniform vec3 uColC;
 uniform float uMulti;    // 1 = stained-glass tri-colour cycling, 0 = blend ColA..ColB
 uniform float uLean;     // horizontal slant top-to-bottom (px)
 uniform float uAlpha;
+uniform float uFlipY;    // 1.0 when rendering directly into top-down bgFbo, 0.0 default
 ${NOISE}
 void main() {
-  vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
+  float sy = uFlipY > 0.5 ? vUv.y : (1.0 - vUv.y);
+  vec2 px = vec2(vUv.x * uRes.x, sy * uRes.y);
   float yFrac = px.y / uRes.y;
   if (yFrac > 0.96) discard;
   // Project pixel back to top-of-hall coordinate along the diagonal ray angle
@@ -799,28 +812,29 @@ void main() {
   if (px.y > 224.0) discard;
   vec2 rel = (px - uCenter) / max(8.0, uRadius);
   float r = length(rel);
-  float ang = atan(rel.y, rel.x);
 
   // Deep cosmic nebula veil drifting gently across the upper dome
-  vec2 nebP = vec2((px.x + uScroll * 0.04) / 145.0 + uTime * 0.015, px.y / 88.0);
-  float neb = fbm(nebP) * 0.65 + fbm(nebP * 2.1 - vec2(uTime * 0.02, 0.0)) * 0.35;
-  float nebMask = smoothstep(0.46, 0.84, neb) * (1.0 - smoothstep(90.0, 215.0, px.y)) * 0.26;
+  float nebMask = 0.0;
+  if (px.y < 215.0) {
+    vec2 nebP = vec2((px.x + uScroll * 0.04) / 145.0 + uTime * 0.015, px.y / 88.0);
+    float neb = fbm(nebP) * 0.65 + fbm(nebP * 2.1 - vec2(uTime * 0.02, 0.0)) * 0.35;
+    nebMask = smoothstep(0.46, 0.84, neb) * (1.0 - smoothstep(90.0, 215.0, px.y)) * 0.26;
+  }
 
-  // Solar-lunar eclipse diamond-ring corona & animated plasma prominences
-  float prom = fbm(vec2(ang * 2.8 + uTime * 0.35, r * 2.4 - uTime * 0.48));
-  float corona = exp(-max(0.0, r - 0.96) * (2.3 - prom * 0.75)) * smoothstep(0.86, 1.02, r);
-  float photonRim = exp(-abs(r - 1.0) * 18.0) * (0.85 + 0.35 * cos(ang - 0.65));
-
-  // Concentric engraved brass/starlight astrolabe rings & zodiac degree ticks
-  float ring1 = exp(-abs(r - 1.52) * 20.0) * (0.55 + 0.45 * step(0.2, fract((ang + uTime * 0.08) * 5.7295)));
-  float ring2 = exp(-abs(r - 2.08) * 22.0) * (0.45 + 0.55 * step(0.35, fract((ang - uTime * 0.05) * 3.8197)));
-  // Foreshortened tilted ecliptic meridian ellipse
-  vec2 eq = vec2(rel.x * 0.52 + rel.y * 0.18, rel.y * 1.42 - rel.x * 0.24);
-  float ecliptic = exp(-abs(length(eq) - 1.25) * 22.0) * 0.55;
-  float astro = (ring1 * 0.65 + ring2 * 0.48 + ecliptic) * smoothstep(0.95, 1.18, r);
-
-  // Dark umbral lunar disc occluding the interior of the eclipse
-  float umbra = 1.0 - smoothstep(0.93, 1.01, r);
+  // Cull atan + prominence FBM + astrolabe rings outside 2.45x orb radius (~91% of sky pixels)
+  float corona = 0.0, photonRim = 0.0, astro = 0.0, umbra = 0.0;
+  if (r < 2.45) {
+    float ang = atan(rel.y, rel.x);
+    float prom = fbm(vec2(ang * 2.8 + uTime * 0.35, r * 2.4 - uTime * 0.48));
+    corona = exp(-max(0.0, r - 0.96) * (2.3 - prom * 0.75)) * smoothstep(0.86, 1.02, r);
+    photonRim = exp(-abs(r - 1.0) * 18.0) * (0.85 + 0.35 * cos(ang - 0.65));
+    float ring1 = exp(-abs(r - 1.52) * 20.0) * (0.55 + 0.45 * step(0.2, fract((ang + uTime * 0.08) * 5.7295)));
+    float ring2 = exp(-abs(r - 2.08) * 22.0) * (0.45 + 0.55 * step(0.35, fract((ang - uTime * 0.05) * 3.8197)));
+    vec2 eq = vec2(rel.x * 0.52 + rel.y * 0.18, rel.y * 1.42 - rel.x * 0.24);
+    float ecliptic = exp(-abs(length(eq) - 1.25) * 22.0) * 0.55;
+    astro = (ring1 * 0.65 + ring2 * 0.48 + ecliptic) * smoothstep(0.95, 1.18, r);
+    umbra = 1.0 - smoothstep(0.93, 1.01, r);
+  }
   float glowE = (corona * 0.78 + photonRim * 1.15) * (1.0 - umbra * 0.88) + astro + nebMask;
   if (glowE <= 0.02 && umbra <= 0.02) discard;
 
@@ -1244,12 +1258,14 @@ attribute vec2 aPos;
 attribute vec2 aLocal;
 attribute vec4 aColor;
 uniform vec2 uRes;
+uniform float uYSign;
 varying vec2 vLocal;
 varying vec4 vColor;
 void main() {
   vLocal = aLocal;
   vColor = aColor;
-  gl_Position = vec4((aPos.x / uRes.x) * 2.0 - 1.0, 1.0 - (aPos.y / uRes.y) * 2.0, 0.0, 1.0);
+  float cy = 1.0 - (aPos.y / uRes.y) * 2.0;
+  gl_Position = vec4((aPos.x / uRes.x) * 2.0 - 1.0, cy * uYSign, 0.0, 1.0);
 }
 `;
 
@@ -1436,6 +1452,7 @@ uniform sampler2D uScene;
 uniform vec2 uRes;
 uniform float uPix;    // retro pixel block size in scene px (1 = native, 2 = 320x180 blocks)
 uniform float uLevels; // palette levels per channel (32 = RGB555-style 15-bit)
+uniform float uVeil;   // atmospheric depth-separation veil alpha (rgba(6,5,14,uVeil))
 
 // Non-periodic Interleaved Gradient Noise (Jimenez) in [-0.5, +0.5]:
 // eliminates the repeating 4x4 Bayer lattice harmonics that beat against
@@ -1458,6 +1475,10 @@ void main() {
   vec2 q = (vec2(0.25) * uPix) / uRes;
   vec3 col = 0.25 * (tap(cUv + vec2(-q.x, -q.y)) + tap(cUv + vec2(q.x, -q.y))
                    + tap(cUv + vec2(-q.x,  q.y)) + tap(cUv + vec2(q.x,  q.y)));
+
+  if (uVeil > 0.001) {
+    col = mix(col, vec3(6.0 / 255.0, 5.0 / 255.0, 14.0 / 255.0), uVeil);
+  }
 
   // Retro palette quantization per block + non-periodic IGN dither (no crosshatch moire)
   float dither = ignNoise(block);
@@ -1519,9 +1540,36 @@ export class FxLayers {
       this.ok = false;
       this.enabled = false;
     });
-    const gl = c.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, preserveDrawingBuffer: true });
+    const gl = c.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, preserveDrawingBuffer: false });
     if (!gl) throw new Error('no webgl');
     this.canvas = c; this.gl = gl;
+    // Pre-baked 256x256 seamless hardware-bilinear value-noise lattice bound permanently on TEXTURE1:
+    // turns every 4-hash + 3-mix vnoise() evaluation across all 21 shaders into 1 L1-cached TMU lookup!
+    const noiseBytes = new Uint8Array(256 * 256);
+    for (let y = 0; y < 256; y++) {
+      for (let x = 0; x < 256; x++) {
+        let px = (x * 0.1031) % 1, py = (y * 0.1030) % 1;
+        if (px < 0) px += 1;
+        if (py < 0) py += 1;
+        const d = px * (py + 33.33) + py * (px + 33.33);
+        px += d; py += d;
+        const h = ((px + py) * px) % 1;
+        noiseBytes[y * 256 + x] = Math.max(0, Math.min(255, Math.round((h < 0 ? h + 1 : h) * 255)));
+      }
+    }
+    const noiseTex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, noiseTex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 256, 256, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, noiseBytes);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.activeTexture(gl.TEXTURE0);
+    this.noiseTex = noiseTex;
+
     const quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -1562,12 +1610,42 @@ export class FxLayers {
     this.pRingBatch.aColor = gl.getAttribLocation(this.pRingBatch.p, 'aColor');
     // Snapshot texture of the 2D scene canvas for real-time water reflection & refraction
     const snapTex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, snapTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, c.width, c.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     this.sceneSnapTex = snapTex;
+    this._snapW = c.width;
+    this._snapH = c.height;
+
+    // Offscreen 640x360 WebGL FBO so background flames + god-rays + retroBackground
+    // fuse on the GPU without intermediate WebGL<->2D roundtrip stalls.
+    this.bgFbo = null;
+    try {
+      const bgTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, bgTex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, c.width, c.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      const fb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, bgTex, 0);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) {
+        this.bgFbo = { fb, tex: bgTex, w: c.width, h: c.height };
+      } else {
+        gl.deleteFramebuffer(fb);
+        gl.deleteTexture(bgTex);
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    } catch (e) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this.bgFbo = null;
+    }
     this._rippleUniformBuf = new Float32Array(24);
     this.sparkCap = 720;
     this.sparkFloats = new Float32Array(this.sparkCap * 6 * 12);
@@ -1596,6 +1674,10 @@ export class FxLayers {
     const u = {};
     const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name.replace('[0]', '')] = gl.getUniformLocation(p, info.name); }
+    if (u.uNoise != null) {
+      gl.useProgram(p);
+      gl.uniform1i(u.uNoise, 1);
+    }
     return { p, u, aPos: gl.getAttribLocation(p, 'aPos') };
   }
 
@@ -1699,32 +1781,161 @@ export class FxLayers {
     });
   }
 
+  /**
+   * Composites all active outdoor sky shaders (aurora, celestial eclipse, drifting clouds,
+   * and storm lightning) inside WebGL in one pass chain and blits to `ctx` in a single drawImage.
+   */
+  skyPass(ctx, {
+    camX = 0,
+    setName = 'graveyard',
+    aurora = false,
+    celestialTheme = null,
+    celestialAlpha = 0,
+    flash = 0,
+    boltX = 320,
+    boltSeed = 1.0,
+    horizonY = 232,
+  } = {}) {
+    if (!this.enabled) return;
+    const gl = this.gl;
+    if (gl.isContextLost && gl.isContextLost()) { this.ok = false; this.enabled = false; return; }
+    const k = this.scale, cw = this.canvas.width, ch = this.canvas.height;
+    const T = CLOUD_THEMES[setName] || CLOUD_THEMES.graveyard;
+    const f = Math.max(0, Math.min(1, flash));
+    const hasCelestial = !!(celestialTheme && celestialAlpha > 0.01);
+    const hasLightning = f > 0.03 && boltX >= 0;
+
+    let maxH = T.bottom;
+    if (aurora && 160 > maxH) maxH = 160;
+    if (hasCelestial && 224 > maxH) maxH = 224;
+    if (hasLightning) maxH = Math.max(maxH, Math.min(H, horizonY + 24));
+    const sh = Math.min(ch, Math.ceil(maxH * k) + 1);
+    if (sh <= 0) return;
+
+    gl.viewport(0, 0, cw, ch);
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(0, ch - sh, cw, sh);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+
+    const bindQuad = (prog, boxH) => {
+      const bsh = Math.min(ch, Math.ceil(boxH * k) + 1);
+      gl.scissor(0, ch - bsh, cw, bsh);
+      gl.useProgram(prog.p);
+      gl.enableVertexAttribArray(prog.aPos);
+      gl.vertexAttribPointer(prog.aPos, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(prog.u.uRes, W, H);
+      gl.uniform1f(prog.u.uTime, this.time);
+    };
+
+    gl.enable(gl.BLEND);
+    // 1. Additive aurora curtain (alpha=0 in accumulator so clouds occlude it identically to 2D)
+    if (aurora) {
+      gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
+      bindQuad(this.pAurora, 160);
+      gl.uniform1f(this.pAurora.u.uScroll, camX);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    // 2. Source-over celestial eclipse corona & lunar umbra disc
+    if (hasCelestial) {
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      const isObs = celestialTheme === 'observatory';
+      const isSky = celestialTheme === 'skykeep';
+      const cx = isObs ? 452 - ((camX * 0.025) % 120) : (isSky ? 470 : 488);
+      const cy = isObs ? 74 : (isSky ? 68 : 62);
+      const rad = isObs ? 36 : (isSky ? 32 : 26);
+      const corona = isObs ? [0.46, 0.88, 1.00] : (isSky ? [0.84, 0.92, 1.00] : [0.76, 0.68, 0.98]);
+      const ring = isObs ? [1.00, 0.84, 0.44] : (isSky ? [1.00, 0.90, 0.62] : [0.68, 0.76, 1.00]);
+      bindQuad(this.pCelestial, 224);
+      const u = this.pCelestial.u;
+      gl.uniform1f(u.uScroll, camX);
+      gl.uniform2f(u.uCenter, cx, cy);
+      gl.uniform1f(u.uRadius, rad);
+      gl.uniform3f(u.uCoronaCol, corona[0], corona[1], corona[2]);
+      gl.uniform3f(u.uRingCol, ring[0], ring[1], ring[2]);
+      gl.uniform1f(u.uAlpha, celestialAlpha);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    // 3. Source-over drifting FBM cloud banks
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    bindQuad(this.pCloud, T.bottom);
+    {
+      const u = this.pCloud.u;
+      gl.uniform1f(u.uScroll, camX * 0.06);
+      gl.uniform3f(
+        u.uColor,
+        T.color[0] + (0.94 - T.color[0]) * f,
+        T.color[1] + (0.96 - T.color[1]) * f,
+        T.color[2] + (1.00 - T.color[2]) * f,
+      );
+      gl.uniform3f(
+        u.uShade,
+        T.shade[0] + (0.42 - T.shade[0]) * f,
+        T.shade[1] + (0.48 - T.shade[1]) * f,
+        T.shade[2] + (0.68 - T.shade[2]) * f,
+      );
+      gl.uniform1f(u.uDensity, T.density + f * 0.18);
+      gl.uniform1f(u.uTop, T.top);
+      gl.uniform1f(u.uBottom, T.bottom);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    // 4. Additive lightning bolt fork
+    if (hasLightning) {
+      gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
+      bindQuad(this.pLightning, Math.min(H, horizonY + 24));
+      const u = this.pLightning.u;
+      gl.uniform1f(u.uBoltX, boltX);
+      gl.uniform1f(u.uSeed, boltSeed);
+      gl.uniform1f(u.uFlash, f);
+      gl.uniform1f(u.uHorizon, horizonY);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    gl.disable(gl.BLEND);
+    gl.disable(gl.SCISSOR_TEST);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.imageSmoothingEnabled = false;
+    const dh = Math.round(sh / k);
+    ctx.drawImage(this.canvas, 0, 0, cw, sh, 0, 0, W, dh);
+    ctx.restore();
+  }
+
   /** Snapshots the current 2D frame (`ctx.canvas`) into `this.sceneSnapTex` (top-left UV space). */
   uploadScene(ctx) {
     if (!this.enabled || !ctx || !ctx.canvas) return false;
     const gl = this.gl;
     if (gl.isContextLost && gl.isContextLost()) return false;
+    const src = ctx.canvas;
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.sceneSnapTex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ctx.canvas);
+    if (this._snapW === src.width && this._snapH === src.height) {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    } else {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+      this._snapW = src.width;
+      this._snapH = src.height;
+    }
     return true;
   }
 
   /**
    * Filters only the already-composited background layers (sky, parallax, 3D walls,
    * columns, arches, murals, caustics & god-rays) into a subtle 16/32-bit pixel grid
-   * (`480x270` virtual texels + RGB555 Bayer ordered dithering) before any z = 0
-   * foreground terrain, props, sprites, or HUD elements are drawn.
+   * (`uPix` virtual texels + RGB555 IGN dithering) before any z = 0 foreground
+   * terrain, props, sprites, or HUD elements are drawn.
    */
-  retroBackground(ctx) {
+  retroBackground(ctx, veilAlpha = 0.0) {
     if (!this.enabled) return;
+    if (!this.uploadScene(ctx)) return;
     const pix = this.bgPixel != null ? this.bgPixel : 1.0;
     const levels = this.bgLevels != null ? this.bgLevels : 32.0;
-    // Fast path: at native 1x1 texel grid & >=32 palette levels, skip the full-frame
-    // 2D->WebGL->2D roundtrip stall (saves 1 full-screen upload + 4-tap pass + blit/frame).
-    if (pix <= 1.01 && levels >= 31.5) return;
-    if (!this.uploadScene(ctx)) return;
     const gl = this.gl;
     const cw = this.canvas.width, ch = this.canvas.height;
     const prog = this.pRetroBg;
@@ -1741,7 +1952,146 @@ export class FxLayers {
     gl.uniform2f(prog.u.uRes, W, H);
     gl.uniform1f(prog.u.uPix, pix);
     gl.uniform1f(prog.u.uLevels, levels);
+    if (prog.u.uVeil != null) gl.uniform1f(prog.u.uVeil, veilAlpha);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.canvas, 0, 0, cw, ch, 0, 0, W, H);
+    ctx.restore();
+  }
+
+  /**
+   * Single-upload, single-blit GPU background finalizer:
+   * uploads `ctx.canvas` directly into `this.bgFbo.tex` (zero intermediate blit pass!),
+   * composites optional caustics + queued background flames + god-rays additively onto `bgFbo`,
+   * then runs `RETRO_BG_FRAG` (4-tap sub-pixel box filter + depth veil + RGB555 IGN dither)
+   * and blits to `ctx` in 1 single `drawImage`.
+   */
+  finishBackground(ctx, {
+    camX = 0,
+    godRaysTheme = null,
+    godRaysAlpha = 0.65,
+    causticsOpts = null,
+    veilAlpha = 0.15,
+  } = {}) {
+    if (!this.enabled) {
+      this.flames.length = 0;
+      ctx.fillStyle = `rgba(6, 5, 14, ${veilAlpha})`;
+      ctx.fillRect(0, 0, W, H);
+      return;
+    }
+    const rayCfg = (godRaysTheme && godRaysAlpha > 0.01) ? GODRAY_THEMES[godRaysTheme] : null;
+    const hasCaustics = !!(causticsOpts && causticsOpts.alpha > 0.01);
+    if (!this.bgFbo || (!this.flames.length && !rayCfg && !hasCaustics)) {
+      if (hasCaustics) this.caustics(ctx, causticsOpts, causticsOpts);
+      if (this.flames.length) this.flushFlames(ctx);
+      if (rayCfg) this.godRays(ctx, camX, godRaysTheme, godRaysAlpha);
+      this.retroBackground(ctx, veilAlpha);
+      return;
+    }
+
+    const gl = this.gl;
+    if (gl.isContextLost && gl.isContextLost()) { this.flames.length = 0; return; }
+    const k = this.scale, cw = this.canvas.width, ch = this.canvas.height;
+    const pix = this.bgPixel != null ? this.bgPixel : 1.0;
+    const levels = this.bgLevels != null ? this.bgLevels : 32.0;
+
+    // 1. Direct zero-copy top-down upload of `ctx.canvas` straight into `this.bgFbo.tex`
+    // (row 0 of `ctx.canvas` lands at y_fbo = 0 -> eliminates an entire 640x360 shader copy!)
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.bgFbo.tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    if (this.bgFbo.w === ctx.canvas.width && this.bgFbo.h === ctx.canvas.height) {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, ctx.canvas);
+    } else {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ctx.canvas);
+      this.bgFbo.w = ctx.canvas.width;
+      this.bgFbo.h = ctx.canvas.height;
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bgFbo.fb);
+    gl.viewport(0, 0, cw, ch);
+
+    // 2a. Optional upward-projected water caustics (Aqueduct / Ossuary) directly onto top-down `bgFbo`
+    if (hasCaustics) {
+      const cx0 = Math.max(0, Math.floor(causticsOpts.x * k));
+      const cy0 = Math.max(0, Math.floor(causticsOpts.y * k));
+      const csw = Math.min(cw - cx0, Math.ceil(causticsOpts.w * k) + 1);
+      const csh = Math.min(ch - cy0, Math.ceil(causticsOpts.h * k) + 1);
+      if (csw > 0 && csh > 0) {
+        gl.enable(gl.SCISSOR_TEST);
+        gl.scissor(cx0, cy0, csw, csh);
+        gl.enable(gl.BLEND);
+        gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
+        gl.useProgram(this.pCaustics.p);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+        gl.enableVertexAttribArray(this.pCaustics.aPos);
+        gl.vertexAttribPointer(this.pCaustics.aPos, 2, gl.FLOAT, false, 0, 0);
+        const cu = this.pCaustics.u;
+        const cc = causticsOpts.color || causticsOpts.tint || [0.34, 0.88, 0.96];
+        gl.uniform2f(cu.uRes, W, H);
+        gl.uniform1f(cu.uTime, this.time);
+        gl.uniform2f(cu.uCam, causticsOpts.camX || 0, causticsOpts.camY || 0);
+        gl.uniform4f(cu.uRect, causticsOpts.x, causticsOpts.y, causticsOpts.w, causticsOpts.h);
+        gl.uniform3f(cu.uColor, cc[0], cc[1], cc[2]);
+        gl.uniform1f(cu.uAlpha, causticsOpts.alpha);
+        if (cu.uFlipY != null) gl.uniform1f(cu.uFlipY, 1.0);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+    }
+
+    // 2b. Additive batched wall/chandelier flames directly onto top-down `bgFbo`
+    if (this.flames.length) {
+      this._renderFlamesIntoCurrentTarget(false, true);
+    }
+
+    // 2c. Additive stained-glass / moonlight god-rays directly onto top-down `bgFbo`
+    if (rayCfg) {
+      const sh = Math.max(1, Math.min(ch, Math.ceil((H - 12) * k)));
+      gl.enable(gl.SCISSOR_TEST);
+      gl.scissor(0, 0, cw, sh);
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
+      gl.useProgram(this.pGodRays.p);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+      gl.enableVertexAttribArray(this.pGodRays.aPos);
+      gl.vertexAttribPointer(this.pGodRays.aPos, 2, gl.FLOAT, false, 0, 0);
+      const u = this.pGodRays.u;
+      gl.uniform2f(u.uRes, W, H);
+      gl.uniform1f(u.uTime, this.time);
+      gl.uniform1f(u.uScroll, camX);
+      gl.uniform3f(u.uColA, rayCfg.a[0], rayCfg.a[1], rayCfg.a[2]);
+      gl.uniform3f(u.uColB, rayCfg.b[0], rayCfg.b[1], rayCfg.b[2]);
+      gl.uniform3f(u.uColC, rayCfg.c[0], rayCfg.c[1], rayCfg.c[2]);
+      gl.uniform1f(u.uMulti, rayCfg.multi);
+      gl.uniform1f(u.uLean, rayCfg.lean);
+      gl.uniform1f(u.uAlpha, rayCfg.alpha * godRaysAlpha);
+      if (u.uFlipY != null) gl.uniform1f(u.uFlipY, 1.0);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    gl.disable(gl.BLEND);
+    gl.disable(gl.SCISSOR_TEST);
+
+    // 3. Unbind FBO -> run `RETRO_BG_FRAG` (4-tap sub-pixel filter + depth veil + RGB555 IGN dither)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, cw, ch);
+    const prog = this.pRetroBg;
+    gl.useProgram(prog.p);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+    gl.enableVertexAttribArray(prog.aPos);
+    gl.vertexAttribPointer(prog.aPos, 2, gl.FLOAT, false, 0, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.bgFbo.tex);
+    gl.uniform1i(prog.u.uScene, 0);
+    gl.uniform2f(prog.u.uRes, W, H);
+    gl.uniform1f(prog.u.uPix, pix);
+    gl.uniform1f(prog.u.uLevels, levels);
+    if (prog.u.uVeil != null) gl.uniform1f(prog.u.uVeil, veilAlpha);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // 4. Single 2D blit of the finished dithered background
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
     ctx.imageSmoothingEnabled = false;
@@ -1835,15 +2185,18 @@ export class FxLayers {
   /** Projects shimmering upward water-caustic light onto lower vaulted stone halls. */
   caustics(ctx, rect, {
     camX = 0, camY = 0,
-    color = [0.34, 0.88, 0.96],
+    color = null,
+    tint = null,
     alpha = 0.30,
   } = {}) {
     if (!this.enabled || alpha <= 0.01) return;
+    const c = color || tint || [0.34, 0.88, 0.96];
     this.run(ctx, this.pCaustics, rect, (gl, u) => {
       gl.uniform2f(u.uCam, camX, camY);
       gl.uniform4f(u.uRect, rect.x, rect.y, rect.w, rect.h);
-      gl.uniform3f(u.uColor, color[0], color[1], color[2]);
+      gl.uniform3f(u.uColor, c[0], c[1], c[2]);
       gl.uniform1f(u.uAlpha, alpha);
+      if (u.uFlipY != null) gl.uniform1f(u.uFlipY, 0.0);
     }, 'lighter');
   }
 
@@ -1854,13 +2207,11 @@ export class FxLayers {
     this.flames.push({ x, y, w, h, color, seed });
   }
 
-  /** Draws all queued flames in a single scissored VBO pass + 1 additive blit, then clears the queue. */
-  flushFlames(ctx) {
+  /** Internal helper: draws `this.flames` VBO into the currently bound GL target and returns scissor rect. */
+  _renderFlamesIntoCurrentTarget(clearTarget = true, topDown = false) {
     const list = this.flames;
-    if (!list.length) return;
-    if (!this.enabled) { list.length = 0; return; }
+    if (!list.length) return null;
     const gl = this.gl;
-    if (gl.isContextLost && gl.isContextLost()) { this.ok = false; this.enabled = false; list.length = 0; return; }
     const k = this.scale, cw = this.canvas.width, ch = this.canvas.height;
     const prog = this.pFireBatch;
     const buf = this.sparkFloats;
@@ -1902,7 +2253,7 @@ export class FxLayers {
 
     const bx = Math.max(0, Math.floor(minX)), by = Math.max(0, Math.floor(minY));
     const bw = Math.min(W - bx, Math.ceil(maxX - bx)), bh = Math.min(H - by, Math.ceil(maxY - by));
-    if (bw <= 0 || bh <= 0) return;
+    if (bw <= 0 || bh <= 0) return null;
 
     const sx = Math.floor(bx * k), sy = Math.floor(by * k);
     const sw = Math.min(cw - sx, Math.ceil(bw * k) + 1);
@@ -1910,11 +2261,16 @@ export class FxLayers {
 
     gl.viewport(0, 0, cw, ch);
     gl.enable(gl.SCISSOR_TEST);
-    gl.scissor(sx, ch - sy - sh, sw, sh);
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.scissor(sx, topDown ? sy : (ch - sy - sh), sw, sh);
+    if (clearTarget) {
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    } else {
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
+    }
 
     gl.useProgram(prog.p);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.sparkVbo);
@@ -1930,13 +2286,26 @@ export class FxLayers {
 
     gl.uniform2f(prog.u.uRes, W, H);
     gl.uniform1f(prog.u.uTime, this.time);
+    if (prog.u.uYSign != null) gl.uniform1f(prog.u.uYSign, topDown ? -1.0 : 1.0);
     gl.drawArrays(gl.TRIANGLES, 0, count * 6);
 
     gl.disableVertexAttribArray(prog.aLocal);
     gl.disableVertexAttribArray(prog.aColor);
     gl.disable(gl.BLEND);
     gl.disable(gl.SCISSOR_TEST);
+    return { sx, sy, sw, sh, k };
+  }
 
+  /** Draws all queued flames in a single scissored VBO pass + 1 additive blit, then clears the queue. */
+  flushFlames(ctx) {
+    const list = this.flames;
+    if (!list.length) return;
+    if (!this.enabled) { list.length = 0; return; }
+    const gl = this.gl;
+    if (gl.isContextLost && gl.isContextLost()) { this.ok = false; this.enabled = false; list.length = 0; return; }
+    const box = this._renderFlamesIntoCurrentTarget(true, false);
+    if (!box) return;
+    const { sx, sy, sw, sh, k } = box;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.imageSmoothingEnabled = false;
@@ -1963,6 +2332,7 @@ export class FxLayers {
       gl.uniform1f(u.uMulti, T.multi);
       gl.uniform1f(u.uLean, T.lean);
       gl.uniform1f(u.uAlpha, T.alpha * alpha);
+      if (u.uFlipY != null) gl.uniform1f(u.uFlipY, 0.0);
     }, 'lighter');
   }
 

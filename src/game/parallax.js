@@ -133,18 +133,26 @@ export class Parallax {
 
   update(dt) { this.time += dt; }
 
-  drawSky(ctx, cam, flash, boltX = 320, boltSeed = 1.0, extraSkyFn = null) {
+  drawSky(ctx, cam, flash, boltX = 320, boltSeed = 1.0, extraSkyFn = null, celestial = null) {
     const skyKey = (this.skyImg && this.assets.img(this.skyImg)) ? this.skyImg : 'sky';
     const sky = this.assets.darkened(skyKey, 0.22);
     const off = mod(-(cam.rx * 0.04) - this.time * 1.5, sky.width);
     for (let x = off - sky.width; x < W; x += sky.width) ctx.drawImage(sky, Math.round(x), 0);
-    // Shader & 3D aurora ribbons belong in the celestial sky dome behind mountains & trees.
-    const fx = getFxLayers();
-    if (fx && this.setName === 'yule') fx.aurora(ctx, cam.rx);
     if (extraSkyFn) extraSkyFn(ctx);
-    if (fx) {
-      fx.clouds(ctx, cam.rx, this.setName, flash);
-      if (flash > 0.03) fx.lightning(ctx, boltX, boltSeed, flash, 232);
+    // Composite aurora, celestial eclipse, drifting clouds & lightning in 1 WebGL skyPass + 1 blit.
+    const fx = getFxLayers();
+    if (fx && fx.enabled) {
+      fx.skyPass(ctx, {
+        camX: cam.rx,
+        setName: this.setName,
+        aurora: this.setName === 'yule',
+        celestialTheme: celestial ? celestial.theme : null,
+        celestialAlpha: celestial ? celestial.alpha : 0,
+        flash,
+        boltX,
+        boltSeed,
+        horizonY: 232,
+      });
     }
     if (flash > 0) {
       ctx.fillStyle = `rgba(210, 224, 255, ${0.42 * flash})`;
@@ -194,10 +202,13 @@ export class Parallax {
   }
 
   /** Drawn after 3D outdoor vistas so moonlight beams & mist unify 2D and 3D depth. */
-  drawAtmosphere(ctx, cam) {
+  drawAtmosphere(ctx, cam, deferGodRays = false) {
     const fx = getFxLayers();
-    if (fx && fx.enabled) fx.godRays(ctx, cam.rx, this.setName, 0.72);
-    else if (this.shafts) this.drawShafts(ctx, cam);
+    if (fx && fx.enabled) {
+      if (!deferGodRays) fx.godRays(ctx, cam.rx, this.setName, 0.72);
+    } else if (this.shafts) {
+      this.drawShafts(ctx, cam);
+    }
     this.drawFog(ctx, cam, 0.62, 0.16, 36, 22);
   }
 

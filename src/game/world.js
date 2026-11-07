@@ -2374,7 +2374,7 @@ export class World {
     const fxOn = !!(fxl && fxl.enabled);
     if (fxOn) {
       ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'low';
+      ctx.imageSmoothingQuality = 'medium';
     }
     // Skip outdoor sky/vista overdraw once camera has crossed inside an opaque castle hall!
     const portalX = roomX < Infinity ? Math.round(project3D(roomX - 18, 144, 40, camX, camY).x) : W;
@@ -2387,13 +2387,13 @@ export class World {
         ctx.rect(0, 0, outClipW, H);
         ctx.clip();
       }
-      // 1a. Sky dome + celestial eclipse / 3D aurora (behind mountains & trees) + clouds + lightning
+      // 1a. Sky dome + 3D aurora + fused sky shaders (celestial eclipse, aurora, clouds, lightning)
+      const skyCelestial = (fxOn && (this.fxTheme === 'skykeep' || this.fxTheme === 'graveyard'))
+        ? { theme: this.fxTheme, alpha: this.fxTheme === 'skykeep' ? 0.88 : 0.62 }
+        : null;
       this.parallax.drawSky(ctx, cam, flash, this.boltX, this.boltSeed, (c) => {
-        if (fxOn && (this.fxTheme === 'skykeep' || this.fxTheme === 'graveyard')) {
-          fxl.celestialEclipse(c, camX, this.fxTheme, this.fxTheme === 'skykeep' ? 0.88 : 0.62);
-        }
         this.stage3d.drawSky3D(c, cam, t);
-      });
+      }, skyCelestial);
       // 1b. Far horizon ridges, panoramic vistas & distant castle crags (`fx < 0.25`)
       this.parallax.drawBackRange(ctx, cam, flash, 0, 0.25, false);
       // 1c. Mid-far 3D Gothic Keep (`fx = 0.26`), behind wheeling bat flocks & near trees
@@ -2405,6 +2405,7 @@ export class World {
       // 1e. 3D receding ground/water plane, colonnades & barbican gatehouse set-piece
       this.stage3d.drawOutdoorGround3D(ctx, cam, t);
 
+      const fuseOutdoorRays = fxOn && outClipW >= W;
       if (outClipW > 0) {
         ctx.save();
         if (outClipW < W) {
@@ -2412,7 +2413,7 @@ export class World {
           ctx.rect(0, 0, outClipW, H);
           ctx.clip();
         }
-        this.parallax.drawAtmosphere(ctx, cam);
+        this.parallax.drawAtmosphere(ctx, cam, fuseOutdoorRays);
         ctx.restore();
       }
     } else if (!outdoor) {
@@ -2430,32 +2431,35 @@ export class World {
     // 2. 3D Vaulted Interior Halls / Cylindrical Clock Shaft + 3D Boss Set-Pieces
     this.stage3d.drawInterior3D(ctx, cam, t);
     this.stage3d.drawBossCenterpiece3D(ctx, cam, t);
-    if (fxOn && !showOutdoor && (this.stage.theme === 'aqueduct' || this.fxTheme === 'ossuary')) {
-      fxl.caustics(ctx, { x: 0, y: 72, w: W, h: 204 }, {
-        camX,
-        tint: this.stage.theme === 'aqueduct' ? [0.24, 0.84, 1.0] : [0.20, 0.72, 0.66],
+    const causticsOpts = (fxOn && !showOutdoor && (this.stage.theme === 'aqueduct' || this.fxTheme === 'ossuary'))
+      ? {
+        x: 0, y: 72, w: W, h: 204,
+        camX, camY,
+        color: this.stage.theme === 'aqueduct' ? [0.24, 0.84, 1.0] : [0.20, 0.72, 0.66],
         alpha: this.stage.theme === 'aqueduct' ? 0.16 : 0.09,
-      });
-    }
+      }
+      : null;
 
-    // 3. Far/mid weather particles + stage decor (with extruded 3D cogwheels) + indoor god-rays
+    // 3. Far/mid weather particles + stage decor + fused GPU background shader pass
+    // (caustics + wall flames + god-rays + depth-separation veil + RGB555 IGN-dithered retroBackground).
     this.drawWeather(ctx, false);
     this.level.drawDecor(ctx, cam, this.assets, t, this.stage3d);
-    if (fxl) {
-      fxl.flushFlames(ctx);
-      if (fxl.enabled && !showOutdoor) {
-        fxl.godRays(ctx, camX, this.fxTheme, 0.65);
-      }
-    }
-    // Atmospheric depth-separation veil: keeps all background parallax, 3D architecture,
-    // and wall decor noticeably dimmer so the z = 0 foreground terrain & sprites stand out.
-    ctx.fillStyle = showOutdoor ? 'rgba(6, 5, 14, 0.15)' : 'rgba(6, 5, 14, 0.19)';
-    ctx.fillRect(0, 0, W, H);
-
-    // 3b. Restore strict nearest-neighbor for z = 0 foreground terrain & sprites, then run the
-    // background-only retro pixel quantizer (2x2 blocks + 32-level palette, no blur) on Steps 1-3.
+    const veilAlpha = showOutdoor ? 0.15 : 0.19;
     ctx.imageSmoothingEnabled = false;
-    if (fxl && fxl.enabled) fxl.retroBackground(ctx);
+    if (fxOn) {
+      const outdoorFusedRays = showOutdoor && (roomX === Infinity || Math.min(W, Math.max(0, portalX + 12)) >= W);
+      fxl.finishBackground(ctx, {
+        camX: outdoorFusedRays ? cam.rx : camX,
+        godRaysTheme: !showOutdoor ? this.fxTheme : (outdoorFusedRays ? this.parallax.setName : null),
+        godRaysAlpha: !showOutdoor ? 0.65 : 0.72,
+        causticsOpts,
+        veilAlpha,
+      });
+    } else {
+      if (fxl) fxl.flushFlames(ctx);
+      ctx.fillStyle = `rgba(6, 5, 14, ${veilAlpha})`;
+      ctx.fillRect(0, 0, W, H);
+    }
 
     // 4a. Static architectural terrain (viaducts, 3D decks, z = 0 tiles & static balconies)
     this.level.drawStaticTiles(ctx, cam, this.assets, t);

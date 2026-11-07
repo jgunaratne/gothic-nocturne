@@ -1778,7 +1778,7 @@ export class Stage3D {
     if (!anyVisible) return;
 
     if (typeof document !== 'undefined' && this.tex(this.primaryStoneKey())) {
-      const rate = hasClockwork ? 15 : 6;
+      const rate = hasClockwork ? 20 : 12;
       const tBucket = Math.floor(time * rate);
       const smooth = !!ctx.imageSmoothingEnabled;
       if (
@@ -1800,7 +1800,7 @@ export class Stage3D {
       const g = this._intCtx;
       g.clearRect(0, 0, W, H);
       g.imageSmoothingEnabled = smooth;
-      if (smooth) g.imageSmoothingQuality = 'low';
+      if (smooth) g.imageSmoothingQuality = 'medium';
       this._renderInteriorRooms3D(g, camX, camY, time);
       this._intCamX = camX;
       this._intCamY = camY;
@@ -2819,7 +2819,7 @@ export class Stage3D {
       this._skyView = c;
       this._skyViewKey = null;
     }
-    const key = `${Math.round(camX * 0.22)}|${Math.round(time * 12)}`;
+    const key = `${Math.round(camX * 0.5)}|${Math.round(time * 24)}`;
     if (this._skyViewKey === key) return this._skyView;
     this._skyViewKey = key;
     const g = this._skyView.getContext('2d');

@@ -72,6 +72,7 @@ uniform float uHurt;      // crimson damage pulse
 uniform float uLightning; // electric storm exposure & blue-violet shadow lift
 uniform float uChrono;    // Chrono Pocketwatch temporal stasis wave (0..1)
 uniform float uLightCount;
+uniform vec4 uLightBounds;   // (minX, minY, maxX, maxY) in bottom-up vUv space
 uniform vec4 uLights[6];     // (nx, ny in bottom-up vUv, radiusUv, intensity)
 uniform vec3 uLightCols[6];  // RGB point-light tint
 uniform vec3 uTint;       // colour grade tint (multiplied)
@@ -144,18 +145,19 @@ void main() {
   col = 1.0 - (1.0 - col) * (1.0 - bloom * bloomAmt);
 
   // Screen-space pixel-art normal-mapped dynamic point-light rim & specular illumination:
-  // early-culls pixels outside all active point-light radii before sampling 4 Sobel neighbor texels!
-  if (uLightCount > 0.5) {
+  // AABB-culls ~75% of screen pixels in 1 vec4 comparison, then radius-culls before 4-tap Sobel!
+  if (uLightCount > 0.5
+      && uv.x >= uLightBounds.x && uv.x <= uLightBounds.z
+      && uv.y >= uLightBounds.y && uv.y <= uLightBounds.w) {
     vec2 aspectL = vec2(uSceneRes.x / uSceneRes.y, 1.0);
     bool inReach = false;
     for (int i = 0; i < 6; i++) {
+      if (float(i) >= uLightCount) break;
       vec4 lp = uLights[i];
-      if (lp.w > 0.005) {
-        vec2 toL = (lp.xy - uv) * aspectL;
-        if (dot(toL, toL) < lp.z * lp.z) {
-          inReach = true;
-          break;
-        }
+      vec2 toL = (lp.xy - uv) * aspectL;
+      if (dot(toL, toL) < lp.z * lp.z) {
+        inReach = true;
+        break;
       }
     }
     if (inReach) {
@@ -171,19 +173,18 @@ void main() {
       float bevel = clamp(length(grad) * 2.8, 0.0, 1.0);
       vec3 dynLight = vec3(0.0);
       for (int i = 0; i < 6; i++) {
+        if (float(i) >= uLightCount) break;
         vec4 lp = uLights[i];
-        if (lp.w > 0.005) {
-          vec2 toL = (lp.xy - uv) * aspectL;
-          float d2 = dot(toL, toL);
-          if (d2 < lp.z * lp.z) {
-            float dL = sqrt(d2);
-            float att = pow(1.0 - dL / max(0.01, lp.z), 2.0) * lp.w;
-            vec3 Ldir = normalize(vec3(toL, 0.22));
-            float ndl = max(0.0, dot(surfN, Ldir));
-            vec3 Hdir = normalize(Ldir + vec3(0.0, 0.0, 1.0));
-            float spec = pow(max(0.0, dot(surfN, Hdir)), 14.0) * bevel;
-            dynLight += uLightCols[i] * att * (0.12 + ndl * (0.30 + 0.52 * bevel) + spec * 0.52);
-          }
+        vec2 toL = (lp.xy - uv) * aspectL;
+        float d2 = dot(toL, toL);
+        if (d2 < lp.z * lp.z) {
+          float dL = sqrt(d2);
+          float att = pow(1.0 - dL / max(0.01, lp.z), 2.0) * lp.w;
+          vec3 Ldir = normalize(vec3(toL, 0.22));
+          float ndl = max(0.0, dot(surfN, Ldir));
+          vec3 Hdir = normalize(Ldir + vec3(0.0, 0.0, 1.0));
+          float spec = pow(max(0.0, dot(surfN, Hdir)), 14.0) * bevel;
+          dynLight += uLightCols[i] * att * (0.12 + ndl * (0.30 + 0.52 * bevel) + spec * 0.52);
         }
       }
       col += dynLight * (0.26 + 0.74 * col);
@@ -281,6 +282,7 @@ export class PostFX {
     this.lightning = 0;
     this.chrono = 0;
     this.lightCount = 0;
+    this.lightBounds = new Float32Array([1, 1, 0, 0]);
     this.lightPosBuf = new Float32Array(24);
     this.lightColBuf = new Float32Array(18);
     this.shock = { x: 0.5, y: 0.5, r: 0, amp: 0 };
@@ -321,6 +323,10 @@ export class PostFX {
     this.pComp = this.program(VERT, COMPOSITE_FRAG);
 
     this.sceneTex = this.texture(gl.LINEAR);
+    gl.bindTexture(gl.TEXTURE_2D, this.sceneTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.src.width, this.src.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    this._sceneW = this.src.width;
+    this._sceneH = this.src.height;
     // Try half-res 320x180 bloom buffers first; fall back to power-of-two 256x128 if strict ES2 rejects NPOT FBOs.
     try {
       this.bw = 320; this.bh = 180;
@@ -436,21 +442,39 @@ export class PostFX {
     this.lightColBuf.fill(0);
     if (!lights || !lights.length) {
       this.lightCount = 0;
+      this.lightBounds[0] = 1; this.lightBounds[1] = 1;
+      this.lightBounds[2] = 0; this.lightBounds[3] = 0;
       return;
     }
-    const count = Math.min(6, lights.length);
-    for (let i = 0; i < count; i++) {
+    const invAspect = (this.src.height || 360) / (this.src.width || 640);
+    let minX = 1, minY = 1, maxX = 0, maxY = 0;
+    let outIdx = 0;
+    for (let i = 0; i < lights.length && outIdx < 6; i++) {
       const L = lights[i];
-      const p4 = i * 4, c3 = i * 3;
-      this.lightPosBuf[p4] = L.nx;
-      this.lightPosBuf[p4 + 1] = 1.0 - L.ny;
+      if (!L || L.intensity <= 0.005 || L.radius <= 0.005) continue;
+      const ux = L.nx;
+      const uy = 1.0 - L.ny;
+      const rx = L.radius * invAspect;
+      const ry = L.radius;
+      if (ux - rx < minX) minX = ux - rx;
+      if (uy - ry < minY) minY = uy - ry;
+      if (ux + rx > maxX) maxX = ux + rx;
+      if (uy + ry > maxY) maxY = uy + ry;
+      const p4 = outIdx * 4, c3 = outIdx * 3;
+      this.lightPosBuf[p4] = ux;
+      this.lightPosBuf[p4 + 1] = uy;
       this.lightPosBuf[p4 + 2] = L.radius;
       this.lightPosBuf[p4 + 3] = L.intensity;
       this.lightColBuf[c3] = L.r;
       this.lightColBuf[c3 + 1] = L.g;
       this.lightColBuf[c3 + 2] = L.b;
+      outIdx++;
     }
-    this.lightCount = count;
+    this.lightCount = outIdx;
+    this.lightBounds[0] = Math.max(0, minX);
+    this.lightBounds[1] = Math.max(0, minY);
+    this.lightBounds[2] = Math.min(1, maxX);
+    this.lightBounds[3] = Math.min(1, maxY);
   }
 
   draw(dt, theme) {
@@ -481,11 +505,17 @@ export class PostFX {
       gl.vertexAttribPointer(prog.aPos, 2, gl.FLOAT, false, 0, 0);
     };
 
-    // Upload the 2D frame with UNPACK_FLIP_Y_WEBGL = false so Chromium/ANGLE keeps the zero-copy GPU fast path
+    // Upload the 2D frame with UNPACK_FLIP_Y_WEBGL = false + texSubImage2D so Chromium/ANGLE keeps the zero-copy fast path
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.sceneTex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.src);
+    if (this._sceneW === this.src.width && this._sceneH === this.src.height) {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, this.src);
+    } else {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.src);
+      this._sceneW = this.src.width;
+      this._sceneH = this.src.height;
+    }
 
     // 1. Bright pass -> A
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbA.fb);
@@ -529,6 +559,7 @@ export class PostFX {
     gl.uniform1f(u.uLightning, this.lightning);
     if (u.uChrono) gl.uniform1f(u.uChrono, this.chrono);
     if (u.uLightCount) gl.uniform1f(u.uLightCount, this.lightCount);
+    if (u.uLightBounds) gl.uniform4fv(u.uLightBounds, this.lightBounds);
     if (u.uLights) gl.uniform4fv(u.uLights, this.lightPosBuf);
     if (u.uLightCols) gl.uniform3fv(u.uLightCols, this.lightColBuf);
     gl.uniform3f(u.uTint, g.tint[0], g.tint[1], g.tint[2]);
