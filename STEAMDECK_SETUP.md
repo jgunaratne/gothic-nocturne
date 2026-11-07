@@ -1,24 +1,29 @@
-# Steam Deck Agent Setup Runbook — Gothic Nocturne
+# Steam Deck Agent Setup Runbook — Gothic Nocturne (Local SSD + Live Auto-Update)
 
 > [!IMPORTANT]
 > **Instructions for the Coding Agent on the Steam Deck:**
-> Execute all steps below as the standard `deck` user (`/home/deck` or `$HOME`). **Do NOT use `sudo` or `steamos-readonly disable`** — every step works in user-space on SteamOS's immutable filesystem using pre-installed `/usr/bin/python3`, `/usr/bin/flatpak`, and Google Chrome.
+> Execute all steps below as the standard `deck` user (`$HOME` = `/home/deck`). **Do NOT use `sudo` or `steamos-readonly disable`** — every step runs cleanly in user-space on SteamOS's immutable filesystem using `/usr/bin/python3`, `/usr/bin/flatpak`, and Google Chrome.
 
-## Target Configuration Summary
+## Architecture Overview
 
-- **Game Name**: `Gothic Nocturne`
-- **Live Auto-Update URL**: `https://gothic.gunaratne.com/?touch=0`
-  - The host serves `index.html`, ES modules, and JSON manifests with `Cache-Control: no-cache`, so **every launch on Wi-Fi automatically pulls the latest game update**, multiplayer room (`castle`), and forged castle wings with zero manual patching.
-  - `?touch=0` prevents accidental taps on the Steam Deck touchscreen from showing the mobile virtual D-pad overlay.
-- **Display Scaling**: `--window-size=1280,800 --force-device-scale-factor=1 --device-scale-factor=1` renders the native `640×360` canvas at an exact **2× integer pixel scale (`1280×720`)** centered cleanly on the Steam Deck's `1280×800` display.
-- **Persistent Saves**: Stored in an isolated Chrome profile at `$HOME/.var/app/com.google.Chrome/data/gothic-nocturne` so `localStorage` progression, armory, souls, map cells, and callsign survive updates and never collide with normal Desktop Chrome windows.
-- **Steam Deck Selector Screen**: Registered in `shortcuts.vdf` with `LastPlayTime` set to the current timestamp, `"Favorite"` tag, and all 5 custom Steam Grid artwork files (`<appid>.png`, `<appid>p.png`, `<appid>_hero.png`, `<appid>_logo.png`, `<appid>_icon.png`) so **Gothic Nocturne appears immediately in Slot #1 on the Gaming Mode Home Selector Screen ("Recent Games")**, **Favorites**, and **Non-Steam**.
+1. **Instant Local NVMe Loading (`$HOME/.local/share/gothic-nocturne/site/`)**:
+   - All ~515 game files (~147 MB of pixel-art sprite sheets, 3D wall/floor textures, bitmap fonts, ES modules, 26 Lyria `.mp3` music tracks, 22 Daikon `.mp3` boss voices, 39 SFX clips, and forged castle wings) are stored locally on the Steam Deck's SSD and served by a lightweight Python 3 stdlib edge server (`gothic-edge.py`) on `http://127.0.0.1:8711/?touch=0` (with `206 Partial Content` byte-range streaming).
+   - **Zero idle overhead**: `gothic-edge.py` starts automatically when you launch the game and exits automatically via `trap` when you quit (**STEAM → Exit Game**).
+2. **Automatic Incremental Game Updates from `https://gothic.gunaratne.com`**:
+   - On every launch (~0.3s on Wi-Fi), `gothic-edge.py --sync-boot` checks `https://gothic.gunaratne.com` over parallel keep-alive HTTPS connections:
+     - Updates any changed `.html`, `.js`, or `.json` files immediately (recursively discovering any newly added ES modules, sprite sheets in `atlas.json`, music/voices in `audio.js`, or forged wings in `forge/stages.json`).
+     - Downloads any newly added `.png`/`.mp3` assets immediately, re-verifies existing binary assets whenever `ASSET_VERSION` bumps (plus quietly in a background thread after boot), and acts as a read-through SSD cache for newly forged wings.
+   - **Offline-ready (flights / commutes)**: If `gothic.gunaratne.com` is unreachable within `1.2s`, sync skips immediately and the game boots at full speed from the local SSD copy.
+3. **Live Global Multiplayer & Castle Forge**:
+   - `gothic-edge.py` transparently tunnels `/ws` → `wss://gothic.gunaratne.com/ws` and proxies `/api/*` → `https://gothic.gunaratne.com/api/*`, so hunters on the Steam Deck still share the live `castle` multiplayer realm and Castle Forge when on Wi-Fi.
+4. **Steam Deck Display, Controller & Home Selector Screen**:
+   - `--window-size=1280,800 --force-device-scale-factor=1 --device-scale-factor=1` renders the native `640×360` canvas at an exact **2× integer pixel scale (`1280×720`)** centered on the `1280×800` screen, with `?touch=0` keeping the mobile virtual D-pad hidden.
+   - Save data (`localStorage`) persists permanently on origin `http://127.0.0.1:8711` inside an isolated Chrome profile (`$HOME/.var/app/com.google.Chrome/data/gothic-nocturne`).
+   - Registered in `shortcuts.vdf` with `LastPlayTime = now`, `"Favorite"` tag, and all 5 custom Steam Grid images (`<appid>.png`, `<appid>p.png`, `<appid>_hero.png`, `<appid>_logo.png`, `<appid>_icon.png`) so **Gothic Nocturne appears immediately in Slot #1 on the Gaming Mode Home Selector Screen ("Recent Games")**.
 
 ---
 
 ## Step 1: Ensure Google Chrome Flatpak & Controller `udev` Access
-
-Flatpak sandboxes block access to `/run/udev` by default, which prevents HTML5 `navigator.getGamepads()` from seeing the Steam Deck's built-in XInput controller. Install `com.google.Chrome` (if not already present) and grant read-only `/run/udev` access:
 
 ```bash
 set -euo pipefail
@@ -28,39 +33,713 @@ if ! flatpak info com.google.Chrome >/dev/null 2>&1; then
   flatpak install --user -y flathub com.google.Chrome
 fi
 
-# Required so Web Gamepad API detects the Steam Deck controller in Gaming Mode
+# Required so HTML5 navigator.getGamepads() detects the Steam Deck controller in Gaming Mode
 flatpak --user override --filesystem=/run/udev:ro com.google.Chrome
 ```
 
 ---
 
-## Step 2: Create the Kiosk Wrapper Script & Desktop Launcher
+## Step 2: Install Local SSD Edge Server, Initial Asset Mirror & Launcher
 
-Create `$HOME/.local/bin/gothic-nocturne`.
-- **Crucial**: `unset LD_LIBRARY_PATH` and `unset LD_PRELOAD` MUST run before `/usr/bin/flatpak`, because Steam injects Scout runtime libraries and `gameoverlayrenderer.so` into child processes, which otherwise crash `flatpak` on startup.
-- **Clean Exit**: Resetting `"exit_type":"Normal"` in Chrome's `Preferences` prevents **STEAM → Exit Game** from showing a `"Restore pages?"` bubble on the next launch.
+Write `gothic-edge.py` (`$HOME/.local/share/gothic-nocturne/gothic-edge.py`), perform the full initial download of all code and assets from `https://gothic.gunaratne.com` onto the Steam Deck SSD, and create the `$HOME/.local/bin/gothic-nocturne` Kiosk launcher + `.desktop` entry:
 
 ```bash
-mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/256x256/apps"
+mkdir -p \
+  "$HOME/.local/bin" \
+  "$HOME/.local/share/gothic-nocturne/site" \
+  "$HOME/.local/share/applications" \
+  "$HOME/.local/share/icons/hicolor/256x256/apps"
 
+cat > "$HOME/.local/share/gothic-nocturne/gothic-edge.py" << 'PYEOF'
+#!/usr/bin/env python3
+"""Local SSD cache, delta auto-updater, and live multiplayer/forge proxy for Gothic Nocturne."""
+
+import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import http.client
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import mimetypes
+import os
+import re
+import select
+import shutil
+import socket
+import ssl
+import sys
+import threading
+import urllib.parse
+
+DEFAULT_UPSTREAM = os.environ.get("GOTHIC_UPSTREAM", "https://gothic.gunaratne.com")
+DEFAULT_SITE_DIR = os.path.expanduser("~/.local/share/gothic-nocturne/site")
+DEFAULT_STATE_FILE = os.path.expanduser("~/.local/share/gothic-nocturne/sync_state.json")
+
+MIME_OVERRIDES = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+    ".ttf": "font/ttf",
+    ".woff2": "font/woff2",
+}
+
+IMPORT_RE = re.compile(r"""(?:import|export)\s+(?:[^'"]*?\s+from\s+)?['"](\.[^'"]+\.js)['"]""")
+ASSET_VER_RE = re.compile(r"""ASSET_VERSION\s*=\s*['"]([^'"]+)['"]""")
+AUDIO_MP3_RE = re.compile(r"""['"](assets/(?:music|voice)/[^'"]+\.mp3)['"]""")
+SFX_BLOCK_RE = re.compile(r"""for\s*\(\s*const\s+n\s+of\s*\[(.*?)\]\s*\)\s*this\.ensureSfx""", re.S)
+FORGE_ASSET_RE = re.compile(r'"(forge/[^"]+\.(?:png|mp3|jpg|webp|wav|ogg|json))"')
+
+
+class UpstreamPool:
+    """Thread-local HTTP/HTTPS keep-alive connection pool to gothic.gunaratne.com."""
+
+    def __init__(self, upstream_url: str, timeout: float = 8.0):
+        parsed = urllib.parse.urlsplit(upstream_url.rstrip("/"))
+        self.scheme = parsed.scheme or "https"
+        self.host = parsed.hostname or "gothic.gunaratne.com"
+        self.port = parsed.port or (443 if self.scheme == "https" else 80)
+        self.base_path = parsed.path.rstrip("/")
+        self.timeout = timeout
+        self._local = threading.local()
+        self._ssl_ctx = ssl.create_default_context() if self.scheme == "https" else None
+
+    def _new_conn(self, timeout=None):
+        t = timeout if timeout is not None else self.timeout
+        if self.scheme == "https":
+            return http.client.HTTPSConnection(self.host, self.port, timeout=t, context=self._ssl_ctx)
+        return http.client.HTTPConnection(self.host, self.port, timeout=t)
+
+    def _get_conn(self):
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = self._new_conn()
+            self._local.conn = conn
+        return conn
+
+    def _reset_conn(self):
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            self._local.conn = None
+
+    def request(self, method: str, rel_path: str, headers=None, timeout=None):
+        path = "/" + rel_path.lstrip("/")
+        if self.base_path:
+            path = self.base_path + path
+        hdrs = {"Host": self.host, "User-Agent": "GothicSteamDeck/1.0", "Connection": "keep-alive"}
+        if headers:
+            hdrs.update(headers)
+        for attempt in range(2):
+            conn = self._new_conn(timeout) if timeout is not None else self._get_conn()
+            try:
+                conn.request(method, path, headers=hdrs)
+                resp = conn.getresponse()
+                body = resp.read() if method != "HEAD" else b""
+                if method == "HEAD":
+                    resp.read()
+                info = {
+                    "status": resp.status,
+                    "etag": resp.getheader("ETag") or "",
+                    "last_modified": resp.getheader("Last-Modified") or "",
+                    "content_length": int(resp.getheader("Content-Length") or len(body)),
+                    "content_type": resp.getheader("Content-Type") or "",
+                    "body": body,
+                }
+                if timeout is not None:
+                    conn.close()
+                return info
+            except Exception:
+                if timeout is not None:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                else:
+                    self._reset_conn()
+                if attempt == 1:
+                    raise
+
+
+def atomic_write(dest: str, data: bytes):
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    tmp = f"{dest}.tmp.{os.getpid()}.{threading.get_ident()}"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, dest)
+
+
+def load_state(state_file: str) -> dict:
+    try:
+        with open(state_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"asset_version": "", "files": {}}
+
+
+def save_state(state_file: str, state: dict):
+    atomic_write(state_file, json.dumps(state, indent=1, sort_keys=True).encode("utf-8"))
+
+
+def sync_file(pool: UpstreamPool, site_dir: str, state_files: dict, rel: str, force_get: bool = False, check_remote: bool = True) -> str:
+    local_path = os.path.join(site_dir, rel)
+    exists = os.path.isfile(local_path)
+    meta = state_files.get(rel, {})
+
+    if exists and not force_get and not check_remote:
+        return "cached"
+
+    req_headers = {}
+    if exists and not force_get:
+        if meta.get("etag"):
+            req_headers["If-None-Match"] = meta["etag"]
+        elif meta.get("last_modified"):
+            req_headers["If-Modified-Since"] = meta["last_modified"]
+        else:
+            head = pool.request("HEAD", rel)
+            if head["status"] == 404:
+                return "missing"
+            if head["status"] == 200 and head["content_length"] > 0 and os.path.getsize(local_path) == head["content_length"]:
+                state_files[rel] = {
+                    "size": head["content_length"],
+                    "etag": head["etag"],
+                    "last_modified": head["last_modified"],
+                }
+                return "unchanged"
+
+    if force_get:
+        req_headers["Cache-Control"] = "no-cache"
+
+    res = pool.request("GET", rel, headers=req_headers)
+    if res["status"] == 304 and exists:
+        return "unchanged"
+    if res["status"] != 200:
+        return "missing"
+
+    body = res["body"]
+    if exists:
+        try:
+            with open(local_path, "rb") as f:
+                if f.read() == body:
+                    state_files[rel] = {
+                        "size": len(body),
+                        "etag": res["etag"],
+                        "last_modified": res["last_modified"],
+                    }
+                    return "unchanged"
+        except Exception:
+            pass
+
+    atomic_write(local_path, body)
+    state_files[rel] = {
+        "size": len(body),
+        "etag": res["etag"],
+        "last_modified": res["last_modified"],
+    }
+    return "updated"
+
+
+def discover_and_sync(upstream_url: str, site_dir: str, state_file: str, mode: str = "boot", workers: int = 12) -> bool:
+    os.makedirs(site_dir, exist_ok=True)
+    pool = UpstreamPool(upstream_url, timeout=8.0)
+
+    probe_timeout = 1.2 if mode == "boot" else 10.0
+    try:
+        idx_res = pool.request("GET", "index.html", headers={"Cache-Control": "no-cache"}, timeout=probe_timeout)
+        if idx_res["status"] != 200:
+            raise RuntimeError(f"Upstream HTTP {idx_res['status']}")
+    except Exception as e:
+        print(f"[gothic-sync] Offline or unreachable ({e}); serving from local SSD cache.", file=sys.stderr)
+        return False
+
+    state = load_state(state_file)
+    state_files = state.setdefault("files", {})
+    lock = threading.Lock()
+    updated_count = 0
+
+    def write_if_changed(rel: str, res_obj: dict):
+        nonlocal updated_count
+        lp = os.path.join(site_dir, rel)
+        body = res_obj["body"]
+        changed = True
+        if os.path.isfile(lp):
+            try:
+                with open(lp, "rb") as f:
+                    if f.read() == body:
+                        changed = False
+            except Exception:
+                pass
+        if changed:
+            atomic_write(lp, body)
+            with lock:
+                updated_count += 1
+        with lock:
+            state_files[rel] = {
+                "size": len(body),
+                "etag": res_obj["etag"],
+                "last_modified": res_obj["last_modified"],
+            }
+
+    write_if_changed("index.html", idx_res)
+
+    # Recursively walk and sync all ES modules imported from src/main.js
+    visited_js = set()
+    frontier = {"src/main.js"}
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        while frontier:
+            batch = sorted(frontier - visited_js)
+            if not batch:
+                break
+            visited_js.update(batch)
+            futs = {ex.submit(pool.request, "GET", rel, {"Cache-Control": "no-cache"}): rel for rel in batch}
+            next_frontier = set()
+            for fut in as_completed(futs):
+                rel = futs[fut]
+                try:
+                    res = fut.result()
+                except Exception:
+                    continue
+                if res["status"] != 200:
+                    continue
+                write_if_changed(rel, res)
+                text = res["body"].decode("utf-8", errors="replace")
+                cur_dir = os.path.dirname(rel)
+                for m in IMPORT_RE.finditer(text):
+                    dep = os.path.normpath(os.path.join(cur_dir, m.group(1))).replace("\\", "/")
+                    if not dep.startswith("..") and dep not in visited_js:
+                        next_frontier.add(dep)
+            frontier = next_frontier
+
+        manifests = ["assets/atlas.json", "assets/font_gothic.json", "assets/forge/stages.json"]
+        mfuts = {ex.submit(pool.request, "GET", m, {"Cache-Control": "no-cache"}): m for m in manifests}
+        for fut in as_completed(mfuts):
+            rel = mfuts[fut]
+            try:
+                res = fut.result()
+                if res["status"] == 200:
+                    write_if_changed(rel, res)
+            except Exception:
+                pass
+
+    asset_rels = {"art/fonts/Almendra-Bold.ttf"}
+    constants_path = os.path.join(site_dir, "src/engine/constants.js")
+    new_asset_ver = ""
+    if os.path.isfile(constants_path):
+        with open(constants_path, "r", encoding="utf-8") as f:
+            m = ASSET_VER_RE.search(f.read())
+            if m:
+                new_asset_ver = m.group(1)
+
+    atlas_path = os.path.join(site_dir, "assets/atlas.json")
+    if os.path.isfile(atlas_path):
+        try:
+            with open(atlas_path, "r", encoding="utf-8") as f:
+                atlas = json.load(f)
+            for v in atlas.values():
+                if isinstance(v, dict) and v.get("file"):
+                    asset_rels.add("assets/" + v["file"].lstrip("/"))
+        except Exception:
+            pass
+
+    font_meta_path = os.path.join(site_dir, "assets/font_gothic.json")
+    if os.path.isfile(font_meta_path):
+        try:
+            with open(font_meta_path, "r", encoding="utf-8") as f:
+                fg = json.load(f)
+            for c in fg.get("caps", {}).values():
+                if isinstance(c, dict) and c.get("file"):
+                    asset_rels.add("assets/" + c["file"].lstrip("/"))
+        except Exception:
+            pass
+
+    audio_path = os.path.join(site_dir, "src/engine/audio.js")
+    if os.path.isfile(audio_path):
+        with open(audio_path, "r", encoding="utf-8") as f:
+            audio_src = f.read()
+        asset_rels.update(AUDIO_MP3_RE.findall(audio_src))
+        sfx_m = SFX_BLOCK_RE.search(audio_src)
+        if sfx_m:
+            for sfx_name in re.findall(r"'([a-z0-9_]+)'", sfx_m.group(1)):
+                asset_rels.add(f"assets/sfx/{sfx_name}.mp3")
+
+    forge_path = os.path.join(site_dir, "assets/forge/stages.json")
+    if os.path.isfile(forge_path):
+        try:
+            with open(forge_path, "r", encoding="utf-8") as f:
+                forge_raw = f.read()
+            for fm in FORGE_ASSET_RE.findall(forge_raw):
+                asset_rels.add("assets/" + fm.lstrip("/"))
+        except Exception:
+            pass
+
+    version_bumped = bool(new_asset_ver and new_asset_ver != state.get("asset_version", ""))
+    check_existing_assets = (mode in ("full", "verify")) or version_bumped
+
+    to_process = []
+    for rel in sorted(asset_rels):
+        if rel.startswith("..") or "/../" in rel:
+            continue
+        exists = os.path.isfile(os.path.join(site_dir, rel))
+        if not exists or check_existing_assets:
+            to_process.append(rel)
+
+    if to_process:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            afuts = {}
+            for rel in to_process:
+                with lock:
+                    meta_snapshot = dict(state_files)
+                afuts[ex.submit(sync_file, pool, site_dir, meta_snapshot, rel, False, True)] = (rel, meta_snapshot)
+            for fut in as_completed(afuts):
+                rel, meta_snapshot = afuts[fut]
+                try:
+                    status = fut.result()
+                    if rel in meta_snapshot:
+                        with lock:
+                            state_files[rel] = meta_snapshot[rel]
+                    if status == "updated":
+                        with lock:
+                            updated_count += 1
+                except Exception:
+                    pass
+
+    if new_asset_ver:
+        state["asset_version"] = new_asset_ver
+    save_state(state_file, state)
+    print(f"[gothic-sync] mode={mode} complete: {updated_count} file(s) updated, {len(asset_rels)} assets tracked (ASSET_VERSION={new_asset_ver}).")
+    return True
+
+
+def make_handler(site_dir: str, upstream_url: str):
+    parsed_up = urllib.parse.urlsplit(upstream_url.rstrip("/"))
+    up_scheme = parsed_up.scheme or "https"
+    up_host = parsed_up.hostname or "gothic.gunaratne.com"
+    up_port = parsed_up.port or (443 if up_scheme == "https" else 80)
+    ssl_ctx = ssl.create_default_context() if up_scheme == "https" else None
+    fetch_pool = UpstreamPool(upstream_url, timeout=12.0)
+
+    class EdgeHandler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, fmt, *args):
+            pass
+
+        def _open_upstream_socket(self, timeout=10.0):
+            raw_sock = socket.create_connection((up_host, up_port), timeout=timeout)
+            if up_scheme == "https":
+                return ssl_ctx.wrap_socket(raw_sock, server_hostname=up_host)
+            return raw_sock
+
+        def _tunnel_websocket(self):
+            try:
+                up_sock = self._open_upstream_socket(timeout=6.0)
+            except Exception:
+                self.send_error(502, "Upstream Offline")
+                return
+
+            try:
+                req_lines = [f"GET {self.path} HTTP/1.1\r\n", f"Host: {up_host}\r\n"]
+                for k, v in self.headers.items():
+                    if k.lower() == "host":
+                        continue
+                    req_lines.append(f"{k}: {v}\r\n")
+                req_lines.append("\r\n")
+                up_sock.sendall("".join(req_lines).encode("latin-1", errors="ignore"))
+
+                client_sock = self.connection
+                client_sock.setblocking(False)
+                up_sock.setblocking(False)
+                sockets = [client_sock, up_sock]
+                while True:
+                    readable, _, errored = select.select(sockets, [], sockets, 30.0)
+                    if errored:
+                        break
+                    if not readable:
+                        continue
+                    for s in readable:
+                        while True:
+                            try:
+                                chunk = s.recv(65536)
+                            except (BlockingIOError, ssl.SSLWantReadError):
+                                break
+                            except Exception:
+                                return
+                            if not chunk:
+                                return
+                            dst = up_sock if s is client_sock else client_sock
+                            dst.setblocking(True)
+                            dst.sendall(chunk)
+                            dst.setblocking(False)
+                            if not (isinstance(s, ssl.SSLSocket) and s.pending() > 0):
+                                break
+            except Exception:
+                pass
+            finally:
+                try:
+                    up_sock.close()
+                except Exception:
+                    pass
+                self.close_connection = True
+
+        def _proxy_api(self):
+            body = b""
+            clen = int(self.headers.get("Content-Length") or 0)
+            if clen > 0:
+                body = self.rfile.read(clen)
+
+            try:
+                if up_scheme == "https":
+                    conn = http.client.HTTPSConnection(up_host, up_port, timeout=30.0, context=ssl_ctx)
+                else:
+                    conn = http.client.HTTPConnection(up_host, up_port, timeout=30.0)
+                fwd_headers = {
+                    k: v for k, v in self.headers.items()
+                    if k.lower() not in ("host", "connection", "transfer-encoding")
+                }
+                fwd_headers["Host"] = up_host
+                conn.request(self.command, self.path, body=body if body else None, headers=fwd_headers)
+                resp = conn.getresponse()
+            except Exception:
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", "29")
+                self.end_headers()
+                if self.command != "HEAD":
+                    self.wfile.write(b'{"ok":false,"error":"offline"}')
+                return
+
+            try:
+                ctype = resp.getheader("Content-Type") or "application/octet-stream"
+                if "text/event-stream" in ctype.lower():
+                    self.send_response(resp.status)
+                    self.send_header("Content-Type", ctype)
+                    self.send_header("Cache-Control", "no-cache")
+                    self.send_header("Connection", "close")
+                    self.end_headers()
+                    while True:
+                        chunk = resp.read(1024)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                    self.close_connection = True
+                else:
+                    payload = resp.read()
+                    self.send_response(resp.status)
+                    self.send_header("Content-Type", ctype)
+                    self.send_header("Cache-Control", "no-store")
+                    self.send_header("Content-Length", str(len(payload)))
+                    self.end_headers()
+                    if self.command != "HEAD":
+                        self.wfile.write(payload)
+            except Exception:
+                self.close_connection = True
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+        def _serve_local_or_cache(self):
+            parsed = urllib.parse.urlsplit(self.path)
+            rel = urllib.parse.unquote(parsed.path)
+            if rel == "/":
+                rel = "/index.html"
+            parts = [p for p in rel.split("/") if p]
+            if any(p == ".." or p.startswith(".") for p in parts):
+                self.send_error(403, "Forbidden")
+                return
+
+            rel_clean = "/".join(parts)
+            abs_path = os.path.join(site_dir, *parts) if parts else os.path.join(site_dir, "index.html")
+
+            # Read-through SSD cache for newly forged wings or any uncached file
+            if not os.path.isfile(abs_path):
+                try:
+                    res = fetch_pool.request("GET", rel_clean)
+                    if res["status"] == 200:
+                        atomic_write(abs_path, res["body"])
+                except Exception:
+                    pass
+
+            if not os.path.isfile(abs_path):
+                self.send_error(404, "Not Found")
+                return
+
+            ext = os.path.splitext(abs_path)[1].lower()
+            mime = MIME_OVERRIDES.get(ext) or mimetypes.guess_type(abs_path)[0] or "application/octet-stream"
+            size = os.path.getsize(abs_path)
+            range_hdr = self.headers.get("Range")
+
+            if range_hdr and range_hdr.startswith("bytes="):
+                start_s, _, end_s = range_hdr[6:].partition("-")
+                start = int(start_s) if start_s.strip().isdigit() else 0
+                end = int(end_s) if end_s.strip().isdigit() else size - 1
+                end = min(end, size - 1)
+                if start < 0 or start > end or start >= size:
+                    self.send_response(416)
+                    self.send_header("Content-Range", f"bytes */{size}")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                length = end - start + 1
+                self.send_response(206)
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Content-Length", str(length))
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                if self.command != "HEAD":
+                    with open(abs_path, "rb") as f:
+                        f.seek(start)
+                        remaining = length
+                        while remaining > 0:
+                            buf = f.read(min(65536, remaining))
+                            if not buf:
+                                break
+                            self.wfile.write(buf)
+                            remaining -= len(buf)
+                return
+
+            self.send_response(200)
+            self.send_header("Content-Type", mime)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(size))
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            if self.command != "HEAD":
+                with open(abs_path, "rb") as f:
+                    shutil.copyfileobj(f, self.wfile, 65536)
+
+        def do_GET(self):
+            if (self.headers.get("Upgrade") or "").lower() == "websocket":
+                self._tunnel_websocket()
+                return
+            if self.path.startswith("/api/"):
+                self._proxy_api()
+                return
+            self._serve_local_or_cache()
+
+        def do_HEAD(self):
+            if self.path.startswith("/api/"):
+                self._proxy_api()
+                return
+            self._serve_local_or_cache()
+
+        def do_POST(self):
+            if self.path.startswith("/api/"):
+                self._proxy_api()
+                return
+            self.send_error(405, "Method Not Allowed")
+
+    return EdgeHandler
+
+
+class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--upstream", default=DEFAULT_UPSTREAM)
+    ap.add_argument("--site-dir", default=DEFAULT_SITE_DIR)
+    ap.add_argument("--state-file", default=DEFAULT_STATE_FILE)
+    ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--port", type=int, default=8711)
+    ap.add_argument("--sync-full", action="store_true", help="Download full game & assets to local SSD")
+    ap.add_argument("--sync-boot", action="store_true", help="Fast pre-launch delta sync (skips if offline)")
+    ap.add_argument("--serve", action="store_true", help="Run local SSD HTTP + live multiplayer/forge proxy")
+    args = ap.parse_args()
+
+    if args.sync_full:
+        ok = discover_and_sync(args.upstream, args.site_dir, args.state_file, mode="full")
+        if not ok and not os.path.isfile(os.path.join(args.site_dir, "index.html")):
+            sys.exit(1)
+
+    if args.sync_boot:
+        discover_and_sync(args.upstream, args.site_dir, args.state_file, mode="boot")
+
+    if args.serve:
+        threading.Thread(
+            target=discover_and_sync,
+            args=(args.upstream, args.site_dir, args.state_file, "verify", 6),
+            daemon=True,
+        ).start()
+        srv = ReusableThreadingHTTPServer((args.host, args.port), make_handler(args.site_dir, args.upstream))
+        print(f"[gothic-edge] Serving local SSD cache on http://{args.host}:{args.port}/", flush=True)
+        try:
+            srv.serve_forever()
+        except KeyboardInterrupt:
+            pass
+
+
+if __name__ == "__main__":
+    main()
+PYEOF
+
+chmod +x "$HOME/.local/share/gothic-nocturne/gothic-edge.py"
+
+# Initial full mirror (~147 MB of sprites, music, voices, SFX, and code onto the Steam Deck SSD)
+/usr/bin/python3 "$HOME/.local/share/gothic-nocturne/gothic-edge.py" --sync-full
+
+# Create the Steam launcher wrapper script
+# - Strips Steam Scout LD_LIBRARY_PATH / LD_PRELOAD so /usr/bin/flatpak never crashes
+# - Syncs any new updates from gothic.gunaratne.com (~0.3s on Wi-Fi, instant skip if offline)
+# - Starts local NVMe edge server on 127.0.0.1:8711 and cleans it up on STEAM -> Exit Game
 cat > "$HOME/.local/bin/gothic-nocturne" << 'EOF'
 #!/usr/bin/env bash
-# Strip Steam Runtime preload/library paths so /usr/bin/flatpak never crashes
 unset LD_LIBRARY_PATH
 unset LD_PRELOAD
 
+PORT="${GOTHIC_PORT:-8711}"
+EDGE_PY="$HOME/.local/share/gothic-nocturne/gothic-edge.py"
 PROFILE_DIR="$HOME/.var/app/com.google.Chrome/data/gothic-nocturne"
 mkdir -p "$PROFILE_DIR/Default"
 
-# Prevent Chrome's "Restore pages? Chrome didn't shut down correctly" bubble after STEAM -> Exit Game
+# Prevent Chrome's "Restore pages?" bubble after STEAM -> Exit Game
 PREFS="$PROFILE_DIR/Default/Preferences"
 if [ -f "$PREFS" ]; then
   sed -i 's/"exit_type":"[^"]*"/"exit_type":"Normal"/g; s/"exited_cleanly":false/"exited_cleanly":true/g' "$PREFS" 2>/dev/null || true
 fi
 
-URL="${GOTHIC_URL:-https://gothic.gunaratne.com/?touch=0}"
+# Fast delta check against https://gothic.gunaratne.com (skips in <=1.2s if offline)
+/usr/bin/python3 "$EDGE_PY" --sync-boot || true
 
-exec /usr/bin/flatpak run \
+# Stop any stale edge server on PORT, then launch fresh local SSD server
+pkill -f "gothic-edge.py --serve --port ${PORT}" 2>/dev/null || true
+/usr/bin/python3 "$EDGE_PY" --serve --port "$PORT" >/dev/null 2>&1 &
+EDGE_PID=$!
+
+cleanup() {
+  if [ -n "${CHROME_PID:-}" ]; then kill "$CHROME_PID" 2>/dev/null || true; fi
+  if [ -n "${EDGE_PID:-}" ]; then kill "$EDGE_PID" 2>/dev/null || true; fi
+}
+trap cleanup EXIT INT TERM
+
+# Wait until 127.0.0.1:$PORT is listening (typically <30ms)
+for _ in $(seq 1 40); do
+  if /usr/bin/python3 -c "import socket; s=socket.create_connection(('127.0.0.1', $PORT), 0.1); s.close()" 2>/dev/null; then
+    break
+  fi
+  sleep 0.05
+done
+
+URL="${GOTHIC_URL:-http://127.0.0.1:${PORT}/?touch=0}"
+
+/usr/bin/flatpak run \
   --filesystem=/run/udev:ro \
   --command=/app/bin/chrome \
   com.google.Chrome \
@@ -74,7 +753,9 @@ exec /usr/bin/flatpak run \
   --window-size=1280,800 \
   --force-device-scale-factor=1 \
   --device-scale-factor=1 \
-  --kiosk "$URL" "$@"
+  --kiosk "$URL" "$@" &
+CHROME_PID=$!
+wait "$CHROME_PID"
 EOF
 
 chmod +x "$HOME/.local/bin/gothic-nocturne"
@@ -82,7 +763,7 @@ chmod +x "$HOME/.local/bin/gothic-nocturne"
 cat > "$HOME/.local/share/applications/gothic-nocturne.desktop" << EOF
 [Desktop Entry]
 Name=Gothic Nocturne
-Comment=32-bit era 2.5D gothic side-scrolling action platformer (live updates from gothic.gunaratne.com)
+Comment=32-bit era 2.5D gothic side-scrolling action platformer (local SSD + auto-updates from gothic.gunaratne.com)
 Exec="$HOME/.local/bin/gothic-nocturne"
 Path=$HOME/.local/bin
 Icon=$HOME/.local/share/icons/hicolor/256x256/apps/gothic-nocturne.png
@@ -98,30 +779,24 @@ update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
 ---
 
-## Step 3: Render Custom Steam Deck Selector Screen Artwork
+## Step 3: Render Custom Steam Deck Selector Screen Artwork (from Local SSD Assets)
 
-Use Headless Chrome (writing inside `$HOME/.var/app/com.google.Chrome/cache/gothic-art`, which is natively bind-mounted inside the Flatpak sandbox) to composite official pixel art (`castle.png`, `sky.png`, `skykeep_backdrop.png`, `mural_throne.png`) and the game's display font (`Almendra-Bold.ttf`) directly from `https://gothic.gunaratne.com` into all 5 Steam Deck UI artwork sizes:
-
-| Asset Key | Dimensions | Steam Deck UI Placement |
-| :--- | :--- | :--- |
-| `wide.png` → `<appid>.png` | `920 × 430` | **Home Selector Screen** featured card ("Recent Games" slot #1) |
-| `portrait.png` → `<appid>p.png` | `600 × 900` | **Library Grid** vertical box-art poster |
-| `hero.png` → `<appid>_hero.png` | `1920 × 620` | **Game Details Page** top hero backdrop |
-| `logo.png` → `<appid>_logo.png` | `1280 × 720` | **Game Details Page** transparent title logo overlay |
-| `icon.png` → `<appid>_icon.png` | `256 × 256` | Small square game icon in lists & Desktop Mode |
-
-Run this script to generate the 5 PNG files:
+Render all 5 Steam Deck UI artwork sizes (`wide.png` `920×430`, `portrait.png` `600×900`, `hero.png` `1920×620`, transparent `logo.png` `1280×720`, and `icon.png` `256×256`) using Headless Chrome backed by the freshly mirrored local SSD server:
 
 ```bash
 ART_DIR="$HOME/.var/app/com.google.Chrome/cache/gothic-art"
 rm -rf "$ART_DIR"
 mkdir -p "$ART_DIR"
 
+/usr/bin/python3 "$HOME/.local/share/gothic-nocturne/gothic-edge.py" --serve --port 18719 >/dev/null 2>&1 &
+ART_SRV_PID=$!
+sleep 0.4
+
 python3 - "$ART_DIR" << 'PYEOF'
 import os, subprocess, sys
 
 art_dir = sys.argv[1]
-base_url = "https://gothic.gunaratne.com"
+base_url = "http://127.0.0.1:18719"
 
 COMMON_CSS = f"""
 @font-face {{
@@ -228,7 +903,7 @@ for name, (w, h, transparent, html) in PAGES.items():
     cmd = [
         "/usr/bin/flatpak", "run", "--command=/app/bin/chrome", "com.google.Chrome",
         "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars",
-        "--force-device-scale-factor=1", "--virtual-time-budget=5000",
+        "--force-device-scale-factor=1", "--virtual-time-budget=3000",
         f"--window-size={w},{h}",
         f"--screenshot={png_path}",
     ]
@@ -239,6 +914,7 @@ for name, (w, h, transparent, html) in PAGES.items():
     print(f"Rendered {png_path} ({os.path.getsize(png_path)} bytes)")
 PYEOF
 
+kill "$ART_SRV_PID" 2>/dev/null || true
 cp "$ART_DIR/icon.png" "$HOME/.local/share/icons/hicolor/256x256/apps/gothic-nocturne.png"
 ```
 
@@ -247,20 +923,14 @@ cp "$ART_DIR/icon.png" "$HOME/.local/share/icons/hicolor/256x256/apps/gothic-noc
 ## Step 4: Safely Stop Steam, Update `shortcuts.vdf` + `grid/`, and Reload Selector Screen
 
 > [!WARNING]
-> **Why stopping Steam before writing `shortcuts.vdf` matters:**
-> If Steam is running while `shortcuts.vdf` is edited on disk, Steam will either ignore the change until restarted or overwrite `shortcuts.vdf` from memory during shutdown.
-> However, **check ancestor PIDs first** so that if you (the coding agent) are running inside a terminal nested under `gamescope-session`, you do NOT kill your own parent process!
-
-Run this all-in-one registration & reload script (uses 100% Python 3 standard library — no `pip` or external packages required):
+> Steam must be stopped **before** writing `shortcuts.vdf` so Steam does not overwrite the file on exit. The script below checks ancestor PIDs first so that if the coding agent is running inside a terminal nested under `gamescope-session`, it will never kill its own parent session.
 
 ```bash
 python3 - << 'PYEOF'
-import glob
 import os
 import shutil
 import struct
 import subprocess
-import sys
 import time
 import zlib
 
@@ -273,10 +943,8 @@ DESKTOP_PATH = os.path.join(HOME, ".local/share/applications/gothic-nocturne.des
 ART_DIR = os.path.join(HOME, ".var/app/com.google.Chrome/cache/gothic-art")
 APP_NAME = "Gothic Nocturne"
 
-# Deterministic unsigned 32-bit Non-Steam AppID used by Steam & grid/ filenames
 APPID = (zlib.crc32((EXE_QUOTED + APP_NAME).encode("utf-8")) & 0xFFFFFFFF) | 0x80000000
 
-# ---------------- Pure-Stdlib Binary VDF (shortcuts.vdf) Codec ----------------
 BIN_MAP = 0x00
 BIN_STR = 0x01
 BIN_INT32 = 0x02
@@ -366,7 +1034,6 @@ def dump_binary_vdf(mapping):
     return bytes(chunks)
 
 
-# ---------------- Safe Steam Session Detection ----------------
 def ancestor_comm_names():
     names = set()
     pid = os.getpid()
@@ -374,7 +1041,7 @@ def ancestor_comm_names():
         try:
             with open(f"/proc/{pid}/comm", "r", encoding="utf-8") as f:
                 names.add(f.read().strip())
-            with open(f"/proc/{pid}/ status" if False else f"/proc/{pid}/stat", "r", encoding="utf-8") as f:
+            with open(f"/proc/{pid}/stat", "r", encoding="utf-8") as f:
                 stat = f.read()
             ppid = int(stat[stat.rfind(")") + 2:].split()[1])
             if ppid == pid:
@@ -408,7 +1075,7 @@ was_desktop_steam_active = (not was_gamescope_active) and proc_running("steam")
 
 restart_mode = "none"
 if was_gamescope_active and not in_gamescope_tree:
-    print("Gaming Mode active (agent is on SSH/background) -> stopping gamescope-session cleanly before VDF edit...")
+    print("Gaming Mode active (agent on SSH/background) -> stopping gamescope-session cleanly before VDF edit...")
     subprocess.run(["systemctl", "--user", "stop", "gamescope-session"], check=False)
     wait_steam_exit(15.0)
     restart_mode = "gamescope"
@@ -418,10 +1085,9 @@ elif was_desktop_steam_active:
     wait_steam_exit(15.0)
     restart_mode = "desktop_steam"
 elif was_gamescope_active and in_gamescope_tree:
-    print("Agent is running inside gamescope-session -> will also invoke steamos-add-to-steam live.")
+    print("Agent running inside gamescope-session -> will also invoke steamos-add-to-steam live.")
     restart_mode = "live_inside_gamescope"
 
-# ---------------- Locate All Steam Userdata Directories ----------------
 userdata_roots = set()
 for candidate in [
     os.path.join(HOME, ".local/share/Steam/userdata"),
@@ -459,7 +1125,6 @@ def build_shortcut_entry(existing_map=None):
     base["Devkit"] = ("int", 0)
     base["DevkitGameID"] = ("str", "")
     base["DevkitOverrideAppID"] = ("int", 0)
-    # Non-zero LastPlayTime places Gothic Nocturne in Slot #1 of the Gaming Mode Home Selector ("Recent Games")
     base["LastPlayTime"] = ("int", now_ts)
     base["FlatpakAppID"] = ("str", "")
     tags = dict(base.get("tags", ("map", {}))[1])
@@ -491,11 +1156,9 @@ for udir in user_dirs:
 
     root = {}
     if os.path.isfile(vdf_path) and os.path.getsize(vdf_path) > 0:
-        backup = f"{vdf_path}.bak.{now_ts}"
-        shutil.copy2(vdf_path, backup)
+        shutil.copy2(vdf_path, f"{vdf_path}.bak.{now_ts}")
         with open(vdf_path, "rb") as f:
-            raw = f.read()
-        root, _ = parse_binary_vdf(raw)
+            root, _ = parse_binary_vdf(f.read())
 
     sc_key = next((k for k in root if k.lower() == "shortcuts"), "shortcuts")
     shortcuts = dict(root.get(sc_key, ("map", {}))[1])
@@ -515,7 +1178,7 @@ for udir in user_dirs:
 
     if matched_idx is not None:
         shortcuts[matched_idx] = build_shortcut_entry(shortcuts[matched_idx][1])
-        print(f"[{os.path.basename(udir)}] Updated existing shortcut #{matched_idx} (AppID={APPID})")
+        print(f"[{os.path.basename(udir)}] Updated shortcut #{matched_idx} (AppID={APPID})")
     else:
         next_idx = str(max([int(k) for k in shortcuts if k.isdigit()] + [-1]) + 1)
         shortcuts[next_idx] = build_shortcut_entry()
@@ -523,8 +1186,7 @@ for udir in user_dirs:
 
     root[sc_key] = ("map", shortcuts)
     encoded = dump_binary_vdf(root)
-    # Verify round-trip parse before writing
-    verify, end_pos = parse_binary_vdf(encoded)
+    _, end_pos = parse_binary_vdf(encoded)
     assert end_pos == len(encoded), "Binary VDF round-trip verification failed"
 
     tmp_path = f"{vdf_path}.tmp"
@@ -537,7 +1199,6 @@ for udir in user_dirs:
         install_grid_art(grid_dir, aid)
     print(f"[{os.path.basename(udir)}] Installed 5 Steam Deck grid artwork files for AppID(s): {sorted(existing_appids)}")
 
-# ---------------- Restart / Reload Steam UI ----------------
 if restart_mode == "gamescope":
     print("Restarting Gaming Mode (gamescope-session)...")
     subprocess.run(["systemctl", "--user", "start", "gamescope-session"], check=False)
@@ -557,23 +1218,23 @@ PYEOF
 
 ## Step 5: Post-Setup Verification Checklist
 
-Before finishing, run these checks and report the output back to the user:
+Run these checks and report the output back to the user:
 
-1. **Launcher & Permissions**:
-   ```bash
-   test -x "$HOME/.local/bin/gothic-nocturne" && echo "launcher OK"
-   flatpak info --show-permissions com.google.Chrome | grep -E "udev|filesystems" || true
-   curl -fsSI https://gothic.gunaratne.com/ | head -n 5
-   ```
-2. **Shortcuts & Grid Artwork**:
-   - Confirm `shortcuts.vdf` contains `Gothic Nocturne` with `Exe = "/home/deck/.local/bin/gothic-nocturne"` and non-zero `LastPlayTime`.
-   - Confirm all 5 artwork files (`<appid>.png`, `<appid>p.png`, `<appid>_hero.png`, `<appid>_logo.png`, `<appid>_icon.png`) exist and are non-empty inside `~/.local/share/Steam/userdata/<STEAM_ID3>/config/grid/`.
+```bash
+du -sh "$HOME/.local/share/gothic-nocturne/site"
+/usr/bin/python3 "$HOME/.local/share/gothic-nocturne/gothic-edge.py" --sync-boot
+test -x "$HOME/.local/bin/gothic-nocturne" && echo "launcher OK"
+flatpak info --show-permissions com.google.Chrome | grep -E "udev|filesystems" || true
+```
+
+- Confirm `~/.local/share/gothic-nocturne/site` holds the full mirrored assets (~145+ MB) and `--sync-boot` reports `0 file(s) updated`.
+- Confirm all 5 artwork files (`<appid>.png`, `<appid>p.png`, `<appid>_hero.png`, `<appid>_logo.png`, `<appid>_icon.png`) exist in `~/.local/share/Steam/userdata/<STEAM_ID3>/config/grid/`.
 
 ---
 
 ## Controller Layout Notes (For the User in Gaming Mode)
 
-All primary controls work out of the box with Steam's default **Gamepad with Mouse Trackpad** layout:
+All primary controls work out of the box with Steam's **Gamepad with Mouse Trackpad** template:
 - **D-Pad / Left Stick**: Move, Crouch, Enter doorways (`↑`)
 - **`A` / `B`**: Jump (hold for height; `↓` + `A` slide/divekick)
 - **`X` / `RB`**: Left Hand Weapon (Whip) · `↑` + `X` throws Sub-Weapon
@@ -582,9 +1243,9 @@ All primary controls work out of the box with Steam's default **Gamepad with Mou
 - **`View` (Top-Left)**: Castle Map · **`Menu` (Top-Right)**: Pause / Start
 - **`L3`**: Toggle PostFX Shaders · **`R3`**: Mute Audio
 
-**Optional Rear Grip Paddle Bindings** (via the **Controller icon** on the Gothic Nocturne game page in Gaming Mode):
+**Optional Rear Grip Paddle Bindings** (via the **Controller icon** on the Gothic Nocturne game page):
 - **`L4` → `E` key**: Open Hunter's Grimoire (`Armory` · `Souls` · `Bestiary`)
 - **`R4` → `G` key**: Salute nearby multiplayer hunters
 - **`L5` → `B` key**: Open Bestiary directly
-- **`R5` → `P` key**: Open Castle Forge (press **STEAM + X** to open the on-screen keyboard)
+- **`R5` → `P` key**: Open Castle Forge (press **STEAM + X** for the on-screen keyboard)
 - **Exit Game**: Press the physical **STEAM** button → **Exit Game**.
