@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generates all eighteen gothic boss approach voice clips (plus ending narrator)
+# Generates all twenty-one gothic boss approach voice clips (plus ending narrator)
 # using the Daikon NLM TTS engine (models/gemini-v4s-tts-nlm-daikon on Beyond prod),
 # matching male voices to male bosses and female voices to female bosses, with
 # expressive evil laughs, whispers, coughs, and dramatic shouting.
@@ -159,6 +159,21 @@ gen_daikon "wing_aqueduct_voice" "msf00005" "en-GB" \
 gen_daikon "wing_skykeep_voice" "star17" "en-GB" \
   $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature female voice\nDirection: Begin with a cold, crystalline, imperious laugh, murmur a lofty celestial whisper from high above the clouds, then thunder down with pitiless divine wrath.\nEmotion: Imperious, coldly radiant, wrathful\nTexture: Rich, resonant, commanding\nPacing: Majestic then fierce\nPitch: Medium\nExpressivity: High\nRole: Celestial Sanctuary Warden\nCharacter: The Moonlit Seraph' \
   "<|laughter|> <|whisper|> Above the clouds no mortal foot may tread... <|/whisper|> PLUMMET FROM THESE CELESTIAL GARDENS INTO THE NIGHT!"
+
+# 19. Stage 19 — The Nightshade Queen (Female: msf00005, venomous conservatory sovereign)
+gen_daikon "wing_conservatory_voice" "msf00005" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature female voice\nDirection: Begin with an intoxicating, silky wicked laugh, lean close in a venomous greenhouse whisper, then command with predatory royal fury.\nEmotion: Venomous, alluring, cruel, imperious\nTexture: Silky, lush, resonant\nPacing: Slow then fierce\nPitch: Medium\nExpressivity: High\nRole: Sovereign of the Blighted Conservatory\nCharacter: The Nightshade Queen' \
+  "<|laughter|> <|whisper|> Breathe deep of my crimson blossoms, little hunter... <|/whisper|> YOUR BONES SHALL FERTILIZE MY GARDEN FOREVER!"
+
+# 20. Stage 20 — The Grand Inquisitor (Male: star15, pitiless iron torture-vault magistrate)
+gen_daikon "wing_dungeon_voice" "star15" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Open with a cold, dry metallic chuckle, speak in a merciless subterranean whisper, then thunder out the execution sentence with wrathful finality.\nEmotion: Pitiless, fanatical, wrathful, commanding\nTexture: Deep, weathered, iron-hard\nPacing: Measured then booming\nPitch: Low\nExpressivity: High\nRole: Magistrate of the Iron Oubliette\nCharacter: The Grand Inquisitor' \
+  "<|chuckle|> <|whisper|> Confess your trespass upon the rack, heretic... <|/whisper|> BY IRON AND FLAME, I SENTENCE YOU TO DEATH!"
+
+# 21. Stage 21 — The Eclipse Astromancer (Male: msm00001, cosmic observatory arch-seer)
+gen_daikon "wing_observatory_voice" "msm00001" "en-GB" \
+  $'Language: English\nRegion: United Kingdom\nAccent: Received Pronunciation\nVoice: mature male voice\nDirection: Exhale a cold astral sigh and a dark resonant chuckle, murmur an ominous prophetic whisper beneath the stars, then roar with apocalyptic authority.\nEmotion: Cosmic dread, aristocratic, apocalyptic\nTexture: Deep, velvety, echoing\nPacing: Majestic then thunderous\nPitch: Low\nExpressivity: High\nRole: Arch-Seer of the Astral Observatory\nCharacter: The Eclipse Astromancer' \
+  "<|sigh|> <|chuckle|> <|whisper|> I have read your fleeting star in the heavens, mortal... <|/whisper|> KNEEL BEFORE THE TOTAL ECLIPSE!"
 
 # Ending narrator (epilogue, male chronicler — keep warm & solemn)
 if [ ! -s "${OUT_DIR}/narrator_ending.mp3" ]; then

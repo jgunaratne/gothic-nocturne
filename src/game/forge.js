@@ -545,6 +545,7 @@ export async function registerForgedEntry(entry, { assets, audio = null } = {}) 
   Object.assign(stage.boss, {
     line: bp.boss.line,
     voice: voiceKey,
+    female: Boolean(bp.boss.voice && bp.boss.voice.female),
     sheet: loaded.boss || null,
     tint: loaded.boss ? null : `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.38)`,
     aura: `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.22)`,
@@ -601,6 +602,15 @@ export class Forge {
         const res = await fetch(`${FORGE_API}/stages`, { cache: 'no-store' });
         if (res.ok) list = (await res.json()).stages || [];
       } catch (e) { /* offline after all */ }
+    }
+    if (!list.length) {
+      try {
+        const res = await fetch(`assets/forge/stages.json?v=${ASSET_VERSION}`);
+        if (res.ok) {
+          const data = await res.json();
+          list = Array.isArray(data) ? data : (data.stages || []);
+        }
+      } catch (e) { /* no static forge registry */ }
     }
     for (const local of this.loadLocal()) if (!list.some((e) => e.key === local.key)) list.push(local);
     for (const entry of list.slice(0, MAX_FORGED_WINGS)) {

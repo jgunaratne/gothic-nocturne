@@ -1336,12 +1336,9 @@ class Game {
         if (inp.pressed.armory) { this.openArmory('play', 'armory'); break; }
         if (inp.pressed.bestiary) { this.openArmory('play', 'bestiary'); break; }
         if (inp.pressed.map) { this.openMap(); break; }
-        if (this.world.canSkipBossIntro && this.world.canSkipBossIntro()) {
-          const introReady = !this.world.bossIntro || this.world.bossIntro.t >= 0.22 || this.world.voiceSpeaking();
-          if (inp.pressed.start || inp.pressed.escape || (introReady && (inp.pressed.jump || inp.pressed.attack || inp.pressed.offhand || inp.pressed.sprint))) {
-            this.world.skipBossIntro();
-            break;
-          }
+        if (this.world.canSkipBossIntroWith && this.world.canSkipBossIntroWith(inp.pressed)) {
+          this.world.skipBossIntro();
+          break;
         }
         if (inp.pressed.escape && this.world.phase === 'play') { this.setState('pause'); break; }
         if (inp.pressed.start && (this.world.phase === 'play' || this.world.phase === 'intro')) {

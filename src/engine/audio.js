@@ -399,39 +399,66 @@ export class AudioSys {
     const cb = typeof onDuration === 'function' ? onDuration : null;
 
     if (!VOICES[key]) {
-      // Offline forged wing fallback: speak subtitle via Web Speech API if available while ducking boss music
-      if (opts && opts.speechText && !this.muted && typeof window !== 'undefined' && window.speechSynthesis) {
-        try {
-          window.speechSynthesis.cancel();
-          this._voiceSeq = (this._voiceSeq || 0) + 1;
-          const mySeq = this._voiceSeq;
-          if (this.duckTimer) { clearTimeout(this.duckTimer); this.duckTimer = null; }
-          this.voiceDucking = true;
+      // Offline forged wing fallback: speak subtitle via Web Speech API if voices exist,
+      // or synthesize a dark formant-filtered gothic vocal cadence through the hall reverb chain.
+      if (opts && opts.speechText && !this.muted) {
+        const textStr = String(opts.speechText);
+        const words = textStr.trim().split(/\s+/).filter(Boolean);
+        const estDur = Math.max(3.2, Math.min(11.0, words.length * 0.42 + 0.9));
+        if (opts.space) this.setVoiceSpace(opts.space);
+        this._voiceSeq = (this._voiceSeq || 0) + 1;
+        const mySeq = this._voiceSeq;
+        if (this.duckTimer) { clearTimeout(this.duckTimer); this.duckTimer = null; }
+        this.voiceDucking = true;
+        if (this.musicBus && this.ctx) {
+          const now0 = this.ctx.currentTime;
+          this.musicBus.gain.cancelScheduledValues(now0);
+          this.musicBus.gain.setTargetAtTime(this.musicVolume * VOICE_DUCK_RATIO, now0, 0.06);
+        }
+        const restoreSpeech = () => {
+          if (this._voiceSeq !== mySeq) return;
+          this.voiceDucking = false;
           if (this.musicBus && this.ctx) {
-            const now0 = this.ctx.currentTime;
-            this.musicBus.gain.cancelScheduledValues(now0);
-            this.musicBus.gain.setTargetAtTime(this.musicVolume * VOICE_DUCK_RATIO, now0, 0.06);
+            this.musicBus.gain.setTargetAtTime(this.musicVolume, this.ctx.currentTime, 0.34);
           }
-          const restoreSpeech = () => {
-            if (this._voiceSeq !== mySeq) return;
-            this.voiceDucking = false;
-            if (this.musicBus && this.ctx) {
-              this.musicBus.gain.setTargetAtTime(this.musicVolume, this.ctx.currentTime, 0.34);
+        };
+        if (cb) cb(estDur);
+        let usedWebSpeech = false;
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          try {
+            const avail = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+            if (avail && avail.length > 0) {
+              window.speechSynthesis.cancel();
+              const u = new SpeechSynthesisUtterance(textStr);
+              const wantFemale = Boolean(opts.female);
+              const enVoices = avail.filter((v) => /^en/i.test(v.lang || ''));
+              const pool = enVoices.length ? enVoices : avail;
+              const match = pool.find((v) => wantFemale
+                ? /female|woman|zira|victoria|samantha|fiona|kate|serena|moira/i.test(v.name)
+                : /male|man|daniel|alex|david|george|oliver|thomas|arthur/i.test(v.name));
+              if (match) u.voice = match;
+              u.pitch = wantFemale ? 0.88 : 0.62;
+              u.rate = 0.86;
+              u.volume = 1.0;
+              u.onend = () => {
+                if (this.duckTimer) clearTimeout(this.duckTimer);
+                this.duckTimer = setTimeout(restoreSpeech, 280);
+              };
+              u.onerror = restoreSpeech;
+              this.duckTimer = setTimeout(restoreSpeech, Math.ceil((estDur + 1.0) * 1000));
+              window.speechSynthesis.speak(u);
+              usedWebSpeech = true;
             }
-          };
-          const u = new SpeechSynthesisUtterance(String(opts.speechText));
-          u.pitch = 0.62;
-          u.rate = 0.86;
-          u.volume = 1.0;
-          u.onend = () => {
-            if (this.duckTimer) clearTimeout(this.duckTimer);
-            this.duckTimer = setTimeout(restoreSpeech, 280);
-          };
-          u.onerror = restoreSpeech;
-          this.duckTimer = setTimeout(restoreSpeech, 5200);
-          window.speechSynthesis.speak(u);
-          this.lastVoicePlayed = key;
-        } catch (e) { /* ignore speechSynthesis quirks */ }
+          } catch (e) { /* fall through to WebAudio synth cadence */ }
+        }
+        if (!usedWebSpeech && this.ctx) {
+          if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+          this._playSynthBossCadence(words, Boolean(opts.female), mySeq);
+          this.duckTimer = setTimeout(restoreSpeech, Math.ceil((estDur + 0.35) * 1000));
+        } else if (!usedWebSpeech) {
+          this.duckTimer = setTimeout(restoreSpeech, 4000);
+        }
+        this.lastVoicePlayed = key;
       }
       return;
     }
@@ -553,6 +580,66 @@ export class AudioSys {
     return Math.max(0, this.ctx.currentTime - this.activeVoiceStartCtxTime);
   }
 
+  /**
+   * Formant-filtered WebAudio gothic boss speech cadence used only when an offline
+   * locally forged wing has no Daikon `.mp3` and `window.speechSynthesis` has no OS voices.
+   */
+  _playSynthBossCadence(words, female, mySeq) {
+    if (!this.ctx || !words || !words.length) return;
+    this._stopSynthVoiceNodes();
+    const ctx = this.ctx;
+    const dest = this.voiceBus || this.master;
+    if (!dest) return;
+    const nodes = [];
+    const baseHz = female ? 178 : 96;
+    const f1Base = female ? 620 : 440;
+    const f2Base = female ? 1480 : 1080;
+    let t = ctx.currentTime + 0.04;
+    const count = Math.min(20, words.length);
+    for (let i = 0; i < count; i++) {
+      if (this._voiceSeq !== mySeq) break;
+      const w = words[i];
+      const dur = Math.max(0.16, Math.min(0.42, 0.12 + w.length * 0.028));
+      const pause = /[,.!?;:]/.test(w) ? 0.24 : 0.065;
+      const hash = (w.charCodeAt(0) * 31 + w.charCodeAt(w.length - 1) * 17 + i * 13) & 255;
+      const f0 = baseHz * (0.90 + (hash % 23) * 0.01) * (i >= count - 2 ? 1.12 : 1.0);
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(f0 * 1.04, t);
+      osc.frequency.exponentialRampToValueAtTime(f0 * (w.endsWith('?') ? 1.16 : 0.88), t + dur);
+      const form1 = ctx.createBiquadFilter();
+      form1.type = 'bandpass';
+      form1.frequency.setValueAtTime(f1Base + (hash % 5) * 75, t);
+      form1.Q.value = 4.5;
+      const form2 = ctx.createBiquadFilter();
+      form2.type = 'peaking';
+      form2.frequency.setValueAtTime(f2Base + ((hash >> 3) % 5) * 140, t);
+      form2.Q.value = 3.2;
+      form2.gain.value = 6.0;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.0001, t);
+      env.gain.linearRampToValueAtTime(0.26, t + 0.028);
+      env.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+      osc.connect(form1).connect(form2).connect(env).connect(dest);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+      nodes.push(osc, env);
+      t += dur + pause;
+    }
+    this._synthVoiceNodes = nodes;
+  }
+
+  _stopSynthVoiceNodes() {
+    if (!this._synthVoiceNodes) return;
+    for (const n of this._synthVoiceNodes) {
+      try {
+        if (n.stop) n.stop();
+        if (n.disconnect) n.disconnect();
+      } catch (e) { /* already stopped */ }
+    }
+    this._synthVoiceNodes = null;
+  }
+
   stopVoice() {
     this._voiceSeq = (this._voiceSeq || 0) + 1;
     this.pendingVoice = null;
@@ -560,6 +647,7 @@ export class AudioSys {
     this.activeVoiceStartCtxTime = null;
     this.activeVoiceDuration = null;
     this.activeVoiceEnded = false;
+    this._stopSynthVoiceNodes();
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
     }

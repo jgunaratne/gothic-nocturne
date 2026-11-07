@@ -68,6 +68,17 @@ const BOSS_POSE_FRAME = {
   mandragora: 'idle', inquisitor: 'walk0', astromancer: 'idle',
 };
 
+export const BOSS_VOICE_BY_SHEET = {
+  alchemist: 'wing_alchemy_voice',
+  masquerade: 'wing_ballroom_voice',
+  gladiator: 'wing_coliseum_voice',
+  oracle: 'wing_aqueduct_voice',
+  seraph: 'wing_skykeep_voice',
+  mandragora: 'wing_conservatory_voice',
+  inquisitor: 'wing_dungeon_voice',
+  astromancer: 'wing_observatory_voice',
+};
+
 export const BOSS_LINES = {
   giantbat: 'SMELL THAT WARM PULSE IN THE MIST, LITTLE HUNTER... MY FANGS SHALL DRAIN YOUR VEINS DRY!',
   treant: 'HEAR THE HUNGRY ROOTS COILING BENEATH YOUR BOOTS... FEED YOUR BONES TO THE DARKWOOD!',
@@ -82,6 +93,14 @@ export const BOSS_LINES = {
   archon: 'A THOUSAND NIGHTS I HAVE HUNGERED IN THE RAFTERS, WORM! KNEEL BENEATH THE GLASS OR BE CRUSHED TO DUST!',
   reaperlord: 'LISTEN... THE GEARS OF MIDNIGHT TOLL YOUR FINAL BREATH... BOW BEFORE THE LORD OF DEATH!',
   count: 'SO... THE LITTLE HUNTER CRAWLS BLEEDING INTO MY THRONE HALL... TONIGHT THE DARKNESS DRINKS ITS FILL!',
+  alchemist: 'BEHOLD THE GREAT WORK, MORTAL... YOUR VERY BLOOD SHALL TRANSMUTE MY PHILOSOPHER STONE!',
+  masquerade: 'MAY I HAVE THIS FINAL WALTZ, LITTLE HUNTER? WHEN THE HARPSICHORD STOPS, YOUR HEART SHALL TOO!',
+  gladiator: 'SALUTE THE BLOOD SANDS, CHALLENGER! NO MORTAL HAS EVER WALKED OUT THROUGH MY CHAMPION GATE!',
+  oracle: 'HEAR THE BLACK TIDE RISING IN THE CISTERNS, HUNTER... SINK BENEATH MY SILENT WATERS FOREVER!',
+  seraph: 'ABOVE THE CLOUDS NO MORTAL FOOT MAY TREAD... PLUMMET FROM THESE CELESTIAL GARDENS INTO THE NIGHT!',
+  mandragora: 'BREATHE DEEP OF MY CRIMSON BLOSSOMS, LITTLE HUNTER... YOUR BONES SHALL FERTILIZE MY GARDEN FOREVER!',
+  inquisitor: 'CONFESS YOUR TRESPASS UPON THE RACK, HERETIC... BY IRON AND FLAME, I SENTENCE YOU TO DEATH!',
+  astromancer: 'I HAVE READ YOUR FLEETING STAR IN THE HEAVENS, MORTAL... KNEEL BEFORE THE TOTAL ECLIPSE!',
 };
 
 export class World {
@@ -159,12 +178,18 @@ export class World {
       : (this.theme.weather === 'leaves' || this.fxTheme === 'forest' ? makeFlakes(36, 'leaves') : null);
     this.spawnAll();
     if (this.audio.prefetch) this.audio.prefetch(this.bossMusicKey());
-    if (data.boss && this.audio.prefetchVoice) this.audio.prefetchVoice(data.boss.voice || data.boss.type);
+    if (data.boss && this.audio.prefetchVoice) this.audio.prefetchVoice(this.bossVoiceKey());
   }
 
   bossMusicKey() {
     const b = this.data && this.data.boss;
     return (b && b.music) ? b.music : 'boss';
+  }
+
+  bossVoiceKey() {
+    const b = this.data && this.data.boss;
+    if (!b) return null;
+    return b.voice || (b.sheet && BOSS_VOICE_BY_SHEET[b.sheet]) || b.type || 'reaper';
   }
 
   hasRelic(key) { return this.relics ? this.relics.has(key) : false; }
@@ -1563,6 +1588,22 @@ export class World {
     return this.inBossIntro() || !!(this.bossActive && this.voiceSpeaking());
   }
 
+  /**
+   * Checks whether `pressed` should skip the boss intro/speech:
+   * - Explicit menu/skip keys (`start`, `escape`) skip after a short 0.18s debounce.
+   * - Combat/jump buttons (`jump`, `attack`, `offhand` — never `sprint`) only skip once the boss
+   *   has actually begun speaking (`voiceCue.t >= 0.65`), so dashing/jumping/whipping across the
+   *   threshold never silently swallows the boss's voice before a single syllable plays.
+   */
+  canSkipBossIntroWith(pressed) {
+    if (!pressed || !this.canSkipBossIntro()) return false;
+    const introT = this.bossIntro ? this.bossIntro.t : 99;
+    if (introT >= 0.18 && (pressed.start || pressed.escape)) return true;
+    const voiceHeard = !!(this.voiceCue && this.voiceCue.boss && this.voiceCue.t >= 0.65);
+    if (voiceHeard && (pressed.jump || pressed.attack || pressed.offhand)) return true;
+    return false;
+  }
+
   /** Immediately silences boss voice playback, dismisses intro subtitles, and begins the boss fight. */
   skipBossIntro() {
     if (this.audio && this.audio.stopVoice) this.audio.stopVoice();
@@ -1620,9 +1661,7 @@ export class World {
     }
     const intro = this.bossIntro;
     intro.t += dt;
-    if (intro.t >= 0.18 && input && input.pressed && (
-      input.pressed.start || input.pressed.escape || input.pressed.jump || input.pressed.attack || input.pressed.offhand
-    )) {
+    if (input && input.pressed && this.canSkipBossIntroWith(input.pressed)) {
       this.skipBossIntro();
       return;
     }
@@ -1689,12 +1728,12 @@ export class World {
     const b = this.data.boss;
     if (!b || this.bossSpoken) return;
     this.bossSpoken = true;
-    const key = b.voice || b.type || 'reaper';   // forged bosses carry their own Daikon clip
+    const key = this.bossVoiceKey() || 'reaper';   // wing & forged bosses carry their own Daikon clip
     const cue = {
       speaker: b.name || 'BOSS',
-      text: b.line || BOSS_LINES[b.type || 'reaper'] || 'NONE SHALL PASS BEYOND THIS THRESHOLD!',
+      text: b.line || (b.sheet && BOSS_LINES[b.sheet]) || BOSS_LINES[b.type || 'reaper'] || 'NONE SHALL PASS BEYOND THIS THRESHOLD!',
       t: 0,
-      dur: VOICES[key] ? 8.5 : 4.6,
+      dur: VOICES[key] ? 15.5 : 5.6,
       boss: true,
     };
     this.voiceCue = cue;
@@ -1706,6 +1745,7 @@ export class World {
         this.audio.playVoice(key, {
           space: this.voiceSpaceForStage(),
           speechText: cue.text,
+          female: Boolean(b.female),
           onReady: (dur) => {
             if (this.voiceCue === cue && dur > 1) cue.dur = Math.max(cue.t + 1.2, dur + 0.35);
           },
