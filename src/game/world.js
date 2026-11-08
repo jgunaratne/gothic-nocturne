@@ -2,7 +2,7 @@
 // scripting and draw order. The Game (main.js) drives it and layers menus.
 
 import {
-  W, H, TILE, T_EMPTY, T_PLATFORM, T_GATE, T_BLOCK, SCORE, PLAYER,
+  W, H, TILE, T_EMPTY, T_PLATFORM, T_GATE, T_BLOCK, T_SPIKES, T_LAVA, SCORE, PLAYER,
 } from '../engine/constants.js';
 import { setClipClock } from './anim_clips.js';
 import { Camera } from '../engine/camera.js';
@@ -24,7 +24,8 @@ import { BOSS_RELICS, FORGED_RELIC_EFFECTS } from './relics.js';
 import { computeExpYield, enemyExpProfile, stageRankFor } from './progression.js';
 import { drawRemotePlayers, drawRemotePlayerLabels, drawRemoteEdgeIndicators } from './net_player.js';
 import {
-  WEAPONS, ELEMENT_META, computeStrengthBreakdown, computeWeaponHit, rollEnemyWeaponDrop, getWeaponIconCanvas,
+  WEAPONS, ELEMENT_META, computeStrengthBreakdown, computeWeaponHit, rollEnemyWeaponDrop,
+  getWeaponIconCanvas, getWeaponShieldProfileCanvas,
 } from './weapons.js';
 import {
   SOUL_GLYPHS, SOUL_TYPES, SoulOrb, computeEnchantBonuses, rollEnemySoulDrop, getEnemyDisplayInfo,
@@ -134,6 +135,9 @@ export class World {
     this.subWeaponCarry = carry ? carry.subWeapon : null;
     this.carryHp = carry && carry.hp ? carry.hp : null;
     this.enterFromDoorId = carry && carry.enterFromDoorId ? carry.enterFromDoorId : null;
+    this.carrySavePos = (carry && Number.isFinite(carry.saveX) && Number.isFinite(carry.saveY))
+      ? { x: carry.saveX, y: carry.saveY }
+      : null;
     this.savedSanctuaryPos = null;
     this.timeLeft = this.difficulty.time;
     this.checkpoint = 0;
@@ -332,6 +336,23 @@ export class World {
         if (this.sanctuary) this.savedSanctuaryPos = { x: this.sanctuary.x, y: this.sanctuary.y };
         enteredViaPassage = true;
         resumeBannerSub = 'GUARDIAN FELLED · EXIT VORTEX OPEN';
+      } else if (this.enterFromDoorId === 'manual_pos' && this.carrySavePos) {
+        const sx = Math.max(TILE * 1.5, Math.min(this.level.width - TILE * 1.5, this.carrySavePos.x));
+        const sy = Math.max(TILE * 2, Math.min(this.level.height - TILE, this.carrySavePos.y));
+        this.player.x = sx;
+        this.player.y = sy;
+        this.player.onGround = true;
+        const stNear = this.level.solidStairNear && this.level.solidStairNear(sx, sy, 36);
+        if (stNear) {
+          this.player.y = this.level.stairY(stNear, sx);
+          this.player.onStair = stNear;
+        }
+        if (this.sanctuary && this.sanctuary.x <= sx + 64) {
+          this.savedSanctuaryPos = { x: this.sanctuary.x, y: this.sanctuary.y };
+        }
+        enteredViaPassage = true;
+        resumeBannerSub = 'RESUMED FROM SAVE SLOT';
+        this.carrySavePos = null;
       } else if (this.enterFromDoorId === 'save_point') {
         const target = this.sanctuary || this.warpMirror;
         if (target) {
@@ -1942,6 +1963,66 @@ export class World {
     }, extra);
   }
 
+  /**
+   * Resolves a safe grounded world anchor when manually saving from the Equip/Save screen,
+   * avoiding mid-air pit drops, hazards, or half-triggered boss locks.
+   */
+  getSafeManualSaveAnchor() {
+    if (this.bossCleared || this.bossDefeated) {
+      return { spawnKind: 'boss_clear', saveX: null, saveY: null };
+    }
+    if (!this.player || !this.level) {
+      return { spawnKind: 'stage_start', saveX: null, saveY: null };
+    }
+    if (this.bossActive && this.data && this.data.boss) {
+      if (this.data.boss.gateCol != null) {
+        const gx = this.data.boss.gateCol * TILE - 64;
+        const gy = this.data.boss.arena ? this.data.boss.arena.floorY : this.player.y;
+        return { spawnKind: 'manual_pos', saveX: Math.round(gx), saveY: Math.round(gy) };
+      }
+      if (this.sanctuary) {
+        return { spawnKind: 'sanctuary', saveX: Math.round(this.sanctuary.x), saveY: Math.round(this.sanctuary.y) };
+      }
+    }
+    if (this.sanctuary && Math.abs(this.player.x - this.sanctuary.x) < 48 && Math.abs(this.player.y - this.sanctuary.y) < 48) {
+      return { spawnKind: 'sanctuary', saveX: Math.round(this.sanctuary.x), saveY: Math.round(this.sanctuary.y) };
+    }
+    if (this.player.onStair) {
+      return { spawnKind: 'manual_pos', saveX: Math.round(this.player.x), saveY: Math.round(this.player.y) };
+    }
+    const lvl = this.level;
+    const baseCol = Math.max(1, Math.min(lvl.cols - 2, Math.floor(this.player.x / TILE)));
+    const startRow = Math.max(1, Math.min(lvl.rows - 2, Math.floor((this.player.y - 8) / TILE)));
+    const isSafeStandRow = (c, r) => {
+      if (r < 1 || r >= lvl.rows) return false;
+      if (!lvl.isStandable(c, r)) return false;
+      const t = lvl.tile(c, r);
+      const above = lvl.tile(c, r - 1);
+      return t !== T_SPIKES && t !== T_LAVA && above !== T_SPIKES && above !== T_LAVA;
+    };
+    for (let r = startRow; r < lvl.rows; r++) {
+      if (isSafeStandRow(baseCol, r)) {
+        const sx = Math.round(
+          Math.floor(this.player.x / TILE) === baseCol ? this.player.x : (baseCol * TILE + TILE * 0.5),
+        );
+        return { spawnKind: 'manual_pos', saveX: sx, saveY: r * TILE };
+      }
+    }
+    for (const off of [-1, 1, -2, 2, -3, 3, -4, 4]) {
+      const c = baseCol + off;
+      if (c < 1 || c >= lvl.cols - 1) continue;
+      for (let r = Math.max(1, startRow - 2); r < lvl.rows; r++) {
+        if (isSafeStandRow(c, r)) {
+          return { spawnKind: 'manual_pos', saveX: Math.round(c * TILE + TILE * 0.5), saveY: r * TILE };
+        }
+      }
+    }
+    if (this.sanctuary) {
+      return { spawnKind: 'sanctuary', saveX: Math.round(this.sanctuary.x), saveY: Math.round(this.sanctuary.y) };
+    }
+    return { spawnKind: 'stage_start', saveX: null, saveY: null };
+  }
+
   /** Marks the Castle Grid cell(s) around the hunter's current coordinates as explored. */
   recordExploration(extraOpts = {}) {
     if (!this.game || !this.game.markCellsExplored || !this.player || !this.stage.key) return;
@@ -2691,6 +2772,26 @@ export class World {
     if (this.warpMirror) {
       pushL(this.warpMirror.x, this.warpMirror.y - 46, 0.36, 0.44, 0.64, 0.48, 1.0);
     }
+    // Dynamic normal-mapped stone & sprite illumination for skeleton lasers & high-energy beams
+    if (this.projectiles && out.length < 6) {
+      for (let i = 0; i < this.projectiles.length && out.length < 6; i++) {
+        const pr = this.projectiles[i];
+        if (pr.dead) continue;
+        if (pr.type === 'nova_beam' || pr.type === 'helios_beam' || pr.type === 'volt_lance') {
+          const rim = pr.beamRim || (pr.type === 'nova_beam' ? [0.16, 0.90, 1.0] : (pr.type === 'helios_beam' ? [1.0, 0.56, 0.16] : [1.0, 0.88, 0.24]));
+          pushL(pr.x, pr.y, pr.type === 'volt_lance' ? 0.26 : 0.36, 0.62, rim[0], rim[1], rim[2]);
+        }
+      }
+    }
+    if (this.enemies && out.length < 6) {
+      for (let i = 0; i < this.enemies.length && out.length < 6; i++) {
+        const e = this.enemies[i];
+        if (!e.alive || e.sheet !== 'novaskeleton' || e.state !== 'charge') continue;
+        const rim = e.beamRim || [0.16, 0.90, 1.0];
+        const chargeK = Math.min(1, (e.stateT || 0) / 0.52);
+        pushL(e.x + e.facing * 16, e.y - 38, 0.28 + 0.10 * chargeK, 0.35 + 0.35 * chargeK, rim[0], rim[1], rim[2]);
+      }
+    }
     for (let i = 0; i < this.fires.length && out.length < 6; i++) {
       const f = this.fires[i];
       if (!f.dead) pushL(f.x, f.y - 16, 0.28, 0.48, 0.42, 0.86, 1.0);
@@ -2736,12 +2837,22 @@ export class World {
     } else if (guardId === 'aegis_familiar' && this.guardianWardCd <= 0) {
       const fx = Math.round(px + this.player.facing * 24);
       const fy = Math.round(py - 32 + Math.sin(time * 4.5) * 3);
-      const icon = getWeaponIconCanvas('heraldic_buckler');
-      if (icon) {
+      const prof = getWeaponShieldProfileCanvas('heraldic_buckler');
+      if (prof) {
         ctx.save();
-        ctx.globalAlpha = 0.92;
-        ctx.drawImage(icon, Math.round(fx - icon.width * 0.5), Math.round(fy - icon.height * 0.5));
+        ctx.globalAlpha = 0.94;
+        ctx.translate(fx, fy);
+        if (this.player.facing < 0) ctx.scale(-1, 1);
+        ctx.drawImage(prof.canvas, -prof.gx, -prof.gy);
         ctx.restore();
+      } else {
+        const icon = getWeaponIconCanvas('heraldic_buckler');
+        if (icon) {
+          ctx.save();
+          ctx.globalAlpha = 0.92;
+          ctx.drawImage(icon, Math.round(fx - icon.width * 0.5), Math.round(fy - icon.height * 0.5));
+          ctx.restore();
+        }
       }
     }
 

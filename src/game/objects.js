@@ -876,9 +876,13 @@ export class Projectile {
       case 'volt_lance': {
         if (useFx) {
           fx.addAttack({
-            x, y, rx: 22, ry: 8, dirX: this.dir, dirY: 0,
-            mode: 1, seed, core: [1.0, 1.0, 0.86], rim: [1.0, 0.86, 0.18], alpha: 0.96,
+            x, y, rx: 24, ry: 8.5, dirX: this.dir, dirY: 0,
+            mode: 4, seed, core: [1.0, 1.0, 0.86], rim: [1.0, 0.86, 0.18], alpha: 0.98,
           });
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(-16, -1, 32, 2);
+          ctx.fillRect(this.dir * 12 - 2, -2, 4, 4);
+          break;
         }
         ctx.fillStyle = '#fff8c8';
         ctx.fillRect(-14, -2, 28, 4);
@@ -989,16 +993,22 @@ export class Projectile {
       case 'helios_beam':
       case 'nova_beam': {
         const isNova = this.type === 'nova_beam';
-        const rimCol = isNova ? '#28e8f8' : '#ff8a24';
+        const rimCol = this.beamHex || (isNova ? '#28e8f8' : '#ff8a24');
         const midCol = isNova ? '#9efcff' : '#ffe878';
         if (useFx) {
           fx.addAttack({
-            x, y, rx: 38, ry: 10, dirX: this.dir, dirY: 0,
-            mode: 1, seed,
-            core: isNova ? [0.92, 1.0, 1.0] : [1.0, 0.99, 0.88],
-            rim: isNova ? [0.14, 0.88, 0.98] : [1.0, 0.48, 0.12],
-            alpha: 0.96,
+            x, y, rx: 44, ry: 12.5, dirX: this.dir, dirY: 0,
+            mode: 4, seed,
+            core: this.beamCore || (isNova ? [0.92, 1.0, 1.0] : [1.0, 0.99, 0.88]),
+            rim: this.beamRim || (isNova ? [0.12, 0.88, 1.0] : [1.0, 0.48, 0.12]),
+            alpha: 0.98,
           });
+          // Incandescent 2px core filament + nose star spark; outer corona & helices come from Mode 4 GLSL shader
+          ctx.globalAlpha = 0.92;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(-36, -1, 72, 2);
+          ctx.fillRect(this.dir * 32 - 2, -2, 5, 4);
+          break;
         }
         ctx.fillStyle = rimCol;
         ctx.fillRect(-34, -6, 68, 12);

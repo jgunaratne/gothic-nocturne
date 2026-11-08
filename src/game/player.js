@@ -12,7 +12,7 @@ import {
 } from './hero_anim.js';
 import {
   WEAPONS, ELEMENT_META, SET_RESONANCES, InputBuffer,
-  computeStrengthBreakdown, computeWeaponHit, drawWeaponAction, resolvePairResonance,
+  computeStrengthBreakdown, computeWeaponHit, drawWeaponAction, drawCarriedShield, resolvePairResonance,
 } from './weapons.js';
 import { computeEnchantBonuses } from './souls.js';
 
@@ -436,6 +436,7 @@ export class Player extends Entity {
 
     const wL = (world && world.getHandWeapon ? world.getHandWeapon(0) : null) || WEAPONS.hunters_lash;
     const wR = (wL && wL.isTwoHanded) ? null : (world && world.getHandWeapon ? world.getHandWeapon(1) : null);
+    this.handWeapons = [wL, wR];
     this.noWhip = !!(wL && wL.category !== 'whip');
 
     // Check active movement constraints across both hands:
@@ -1418,8 +1419,23 @@ export class Player extends Entity {
       ctx.restore();
     }
 
-    // Dual-Hand weapon visual arcs, needle thrusts, 2H cleaves, fist blitzes & held shields
+    // Dual-Hand weapon visual arcs, needle thrusts, 2H cleaves, fist blitzes & side-perspective shields
     const fxl = getFxLayers();
+    if (this.handWeapons && this.state !== 'dead' && this.state !== 'stairs') {
+      const carryState = (this.state === 'walk' && this.runT > 0) ? 'run' : this.state;
+      const stridePhase = carryState === 'run'
+        ? (this.runFrame / 8) * Math.PI * 2
+        : (carryState === 'walk' ? (this.walkFrame / Math.max(1, this.walkFrames || 6)) * Math.PI * 2 : 0);
+      let firstCarriedShield = false;
+      for (let si = 0; si < 2; si++) {
+        const hw = this.handWeapons[si];
+        const s = this.slots[si];
+        if (hw && hw.category === 'shield' && !(s && s.active)) {
+          drawCarriedShield(ctx, hw, x, y, this.facing, carryState, this.crouching, stridePhase, alpha, firstCarriedShield);
+          firstCarriedShield = true;
+        }
+      }
+    }
     for (let si = 0; si < 2; si++) {
       const s = this.slots[si];
       if (s && s.active && s.weapon && s.weapon.category !== 'whip') {

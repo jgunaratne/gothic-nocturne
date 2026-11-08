@@ -7,7 +7,7 @@
 import { W, H, TILE, PLAYER } from '../engine/constants.js';
 import { getFxLayers } from '../engine/fxlayers.js';
 import { heroFrame, drawWhipFrame } from './hero_anim.js';
-import { WEAPONS, drawWeaponAction } from './weapons.js';
+import { WEAPONS, drawWeaponAction, drawCarriedShield } from './weapons.js';
 
 export const HUNTER_PALETTES = [
   {
@@ -298,6 +298,8 @@ export function drawRemotePlayers(ctx, world, peersInStage, time = 0) {
           guarding: !!p.wGd,
           isSkill: false,
         }, sx, sy, p.facing, !!(p.wCr || p.anim === 'crouch'), getFxLayers(), time, fr.name);
+      } else if (rw && rw.category === 'shield') {
+        drawCarriedShield(ctx, rw, sx, sy, p.facing, p.anim || 'idle', !!(p.wCr || p.anim === 'crouch'), time * 9, alpha, false);
       }
     }
   }

@@ -1592,6 +1592,7 @@ export function registerWeaponSprites(assets) {
     _weaponSheetFrames = info.frames;
     ICON_CACHE.clear();
     BLADE_CACHE.clear();
+    SHIELD_PROFILE_CACHE.clear();
   }
 }
 
@@ -1790,6 +1791,213 @@ export function getWeaponIconCanvas(weaponId, variant = 'compact') {
 
   ICON_CACHE.set(cacheKey, c);
   return c;
+}
+
+const SHIELD_PROFILE_CACHE = new Map();
+
+/**
+ * Generates and caches a crisp pixel-art SIDE-PERSPECTIVE (3/4 foreshortened
+ * edge profile) shield sprite facing `+X` (the direction the hunter runs/faces),
+ * showing the dark concave inner rim + forearm strap on `-X`, bowed metallic
+ * rim & foreshortened convex face curving toward `+X`, and forward-protruding
+ * central boss / flame crest / frost prow on `+X`, finished with a 1px dark outline.
+ */
+export function getWeaponShieldProfileCanvas(weaponId) {
+  if (typeof document === 'undefined') return null;
+  if (SHIELD_PROFILE_CACHE.has(weaponId)) return SHIELD_PROFILE_CACHE.get(weaponId);
+
+  const w = WEAPONS[weaponId];
+  if (!w) return null;
+
+  let cw = 15, ch = 24, gx = 5, gy = 12;
+  if (weaponId === 'pyre_shield') {
+    cw = 16; ch = 30; gx = 5; gy = 14;
+  } else if (weaponId === 'rime_aegis') {
+    cw = 17; ch = 34; gx = 5; gy = 16;
+  }
+
+  const c = document.createElement('canvas');
+  c.width = cw;
+  c.height = ch;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const px = (x, y, col, pw = 1, ph = 1) => {
+    g.fillStyle = col;
+    g.fillRect(x, y, pw, ph);
+  };
+
+  if (weaponId === 'heraldic_buckler') {
+    // Ironwood Targe in side profile: curved oak-and-steel dish bowed toward +X with conical iron spike boss
+    px(2, 9, '#5c3b20', 2, 6);   // leather forearm strap on -X
+    px(2, 11, '#c8a664', 1, 2);  // brass strap buckle
+    for (let y = 2; y <= 21; y++) {
+      const ny = (y - 11.5) / 9.8;
+      const bow = Math.round((1 - ny * ny) * 3.4); // 0 at top/bot rims -> +3 at center belly
+      const xIn = 3 + Math.max(0, Math.round((1 - ny * ny) * 1.4));
+      const xOut = 6 + bow;
+      // Dark concave oak/iron inner rim visible on the hunter (-X) side
+      px(xIn, y, y < 11 ? '#3a2618' : '#241812', 2, 1);
+      // Foreshortened steel outer shell curving toward +X
+      const faceCol = y < 8 ? '#c6d6ee' : (y < 15 ? '#8a9ab5' : '#53627a');
+      px(xIn + 2, y, faceCol, Math.max(1, xOut - xIn - 1), 1);
+      // Forged brass/steel front rim edge + top catchlight
+      const isRivet = (y === 3 || y === 7 || y === 16 || y === 20);
+      px(xOut, y, isRivet ? '#ffe89e' : (y < 10 ? '#e6f0ff' : '#d9b36a'), 1, 1);
+    }
+    // Conical steel umbone boss & spike protruding forward (+X)
+    px(9, 9, '#dce8ff', 2, 2);
+    px(9, 11, '#9ab0cc', 3, 2);
+    px(9, 13, '#586882', 2, 2);
+    px(11, 10, '#ffffff', 2, 1); // bright top-edge specular glint on spike
+    px(12, 11, '#c8d8f0', 2, 1);
+    px(11, 12, '#687894', 2, 1);
+  } else if (weaponId === 'pyre_shield') {
+    // Salamander Heater Shield in side profile: gothic curved heater tapering to a swept lower point + flame boss
+    px(2, 10, '#68381e', 2, 7);  // heavy leather forearm strap
+    px(2, 13, '#ffd27a', 1, 2);  // gold buckle rivet
+    for (let y = 2; y <= 27; y++) {
+      // Asymmetric heater curve: broad upper chest, swept tapered point curving down-back
+      const t = (y - 2) / 25;
+      const bow = t < 0.48
+        ? Math.round(Math.sin((t / 0.48) * (Math.PI * 0.5)) * 4.0)
+        : Math.round(Math.cos(((t - 0.48) / 0.52) * (Math.PI * 0.5)) * 4.0);
+      const taper = t > 0.65 ? Math.round((t - 0.65) * 4.5) : 0;
+      const xIn = 3 + Math.max(0, Math.round(bow * 0.35)) + Math.round(taper * 0.4);
+      const xOut = Math.max(xIn + 2, 6 + bow - taper);
+      px(xIn, y, '#28131a', 2, 1);
+      const enamel = y < 10 ? '#ee5834' : (y < 19 ? '#c84228' : '#7e2018');
+      px(xIn + 2, y, enamel, Math.max(1, xOut - xIn - 1), 1);
+      // Gilded salamander rim bevel
+      const goldCol = y < 9 ? '#fff4b8' : (y < 20 ? '#ffd27a' : '#b87c2e');
+      px(xOut, y, goldCol, 1, 1);
+      if (y === 2 || y === 3) px(xIn + 1, y, '#fff4b8', Math.max(2, xOut - xIn), 1);
+    }
+    // Sculpted blazing salamander/flame crest jutting forward (+X)
+    px(10, 10, '#ffe88a', 2, 2);
+    px(10, 12, '#ff9838', 3, 3);
+    px(10, 15, '#c84228', 2, 2);
+    px(12, 11, '#ffffff', 2, 1);
+    px(13, 12, '#ffd27a', 2, 2);
+    px(12, 14, '#ff6a24', 2, 1);
+  } else if (weaponId === 'rime_aegis') {
+    // Glacial Tower Aegis in side profile: tall scalloped frost-crystal pavise with diamond frost prow
+    px(2, 12, '#3d506e', 2, 8);  // steel-and-leather tower arm brace
+    px(2, 15, '#aef4ff', 1, 2);  // frost rivet
+    for (let y = 2; y <= 31; y++) {
+      const t = (y - 2) / 29;
+      const bow = t < 0.45
+        ? Math.round(Math.sin((t / 0.45) * (Math.PI * 0.5)) * 4.4)
+        : Math.round(Math.cos(((t - 0.45) / 0.55) * (Math.PI * 0.5)) * 4.4);
+      const scallop = (y === 5 || y === 26) ? -1 : 0;
+      const xIn = 3 + Math.max(0, Math.round(bow * 0.35));
+      const xOut = Math.max(xIn + 2, 6 + bow + scallop);
+      px(xIn, y, '#162236', 2, 1);
+      const iceCol = y < 11 ? '#9eeeff' : (y < 22 ? '#52a8e8' : '#285e99');
+      px(xIn + 2, y, iceCol, Math.max(1, xOut - xIn - 1), 1);
+      const rimCol = y < 12 ? '#ffffff' : (y < 24 ? '#dff8ff' : '#7cc2f0');
+      px(xOut, y, rimCol, 1, 1);
+      if (y === 2 || y === 3) px(xIn + 1, y, '#ffffff', Math.max(2, xOut - xIn), 1);
+    }
+    // Faceted crystalline rime prow jutting forward (+X)
+    px(11, 13, '#ffffff', 2, 2);
+    px(11, 15, '#8ee8ff', 3, 2);
+    px(11, 17, '#3c8cd4', 2, 2);
+    px(13, 14, '#ffffff', 2, 1);
+    px(14, 15, '#c8f8ff', 2, 2);
+    px(13, 17, '#52a8e8', 2, 1);
+  } else {
+    const bCol = w.bladeColor || '#8a9ab5';
+    const tCol = w.trimColor || '#ffd27a';
+    px(2, 9, '#5c3b20', 2, 6);
+    for (let y = 3; y <= 20; y++) {
+      const ny = (y - 11.5) / 9.0;
+      const bow = Math.round((1 - ny * ny) * 3.2);
+      px(4, y, '#221a2e', 2, 1);
+      px(6, y, bCol, Math.max(1, bow), 1);
+      px(6 + bow, y, tCol, 1, 1);
+    }
+    px(9, 10, '#ffffff', 3, 2);
+  }
+
+  // Crisp 1px dark outline (#120e1c) around opaque pixels so side-profile shields pop cleanly
+  try {
+    const imgData = g.getImageData(0, 0, cw, ch);
+    const sd = imgData.data;
+    const outData = g.createImageData(cw, ch);
+    const od = outData.data;
+    od.set(sd);
+    for (let y = 0; y < ch; y++) {
+      for (let x = 0; x < cw; x++) {
+        const idx = (y * cw + x) * 4;
+        if (sd[idx + 3] > 0) continue;
+        let adj = false;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < cw && ny >= 0 && ny < ch && sd[(ny * cw + nx) * 4 + 3] > 0) {
+            adj = true;
+            break;
+          }
+        }
+        if (adj) {
+          od[idx] = 18;
+          od[idx + 1] = 14;
+          od[idx + 2] = 28;
+          od[idx + 3] = 242;
+        }
+      }
+    }
+    g.putImageData(outData, 0, 0);
+  } catch {
+    // Ignore getImageData errors in restricted environments
+  }
+
+  const res = { canvas: c, gx, gy, w: cw, h: ch };
+  SHIELD_PROFILE_CACHE.set(weaponId, res);
+  return res;
+}
+
+/**
+ * Draws an equipped shield carried on the hunter's forearm in side perspective
+ * (facing the direction of movement `facing`) while running, walking, jumping,
+ * crouching, or standing idle when that hand is not actively mid-bash/guard.
+ */
+export function drawCarriedShield(ctx, weapon, sx, sy, facing, state, crouch, stridePhase = 0, alpha = 1, rearOffset = false) {
+  if (!weapon || weapon.category !== 'shield') return;
+  const prof = getWeaponShieldProfileCanvas(weapon.id);
+  if (!prof) return;
+
+  let dx = 9;
+  let dy = -35;
+  let tilt = 0;
+  if (crouch || state === 'crouch' || state === 'slide') {
+    dx = 11;
+    dy = -21;
+    tilt = 0.06;
+  } else if (state === 'run') {
+    dx = 11 + Math.round(Math.sin(stridePhase) * 1.5);
+    dy = -34 + Math.round(Math.abs(Math.cos(stridePhase)) * 2);
+    tilt = 0.12; // matches hunter's forward sprint lean
+  } else if (state === 'walk') {
+    dx = 9 + Math.round(Math.sin(stridePhase) * 1.2);
+    dy = -35 + Math.round(Math.abs(Math.cos(stridePhase)) * 1.5);
+    tilt = 0.04;
+  } else if (state === 'jump') {
+    dx = 10;
+    dy = -38;
+    tilt = -0.05;
+  }
+  if (rearOffset) {
+    dx -= 3;
+    dy += 2;
+  }
+
+  ctx.save();
+  ctx.globalAlpha = alpha * 0.96;
+  ctx.translate(Math.round(sx + facing * dx), Math.round(sy + dy));
+  if (facing < 0) ctx.scale(-1, 1);
+  if (tilt) ctx.rotate(tilt);
+  ctx.drawImage(prof.canvas, -prof.gx, -prof.gy);
+  ctx.restore();
 }
 
 const BLADE_CACHE = new Map();
@@ -2114,21 +2322,27 @@ export function drawWeaponAction(ctx, slotExec, sx, sy, facing, crouch, fxLayers
 
   ctx.save();
   if (w.category === 'shield' && slotExec.guarding && slotExec.timer >= dur * 0.85) {
-    // Raised active shield guard in front of torso
-    const gx = Math.round(sx + facing * 14);
-    const gy = Math.round(sy - (crouch ? 23 : 38));
-    ctx.globalAlpha = 0.96;
-    if (icon) {
+    // Raised active shield guard in side perspective braced ahead of the torso
+    const shieldProf = getWeaponShieldProfileCanvas(w.id);
+    const gx = Math.round(sx + facing * 15);
+    const gy = Math.round(sy - (crouch ? 24 : 38));
+    ctx.globalAlpha = 0.98;
+    if (shieldProf) {
       ctx.translate(gx, gy);
       if (facing < 0) ctx.scale(-1, 1);
-      ctx.drawImage(icon, -13, -13, 26, 26);
+      ctx.drawImage(shieldProf.canvas, -shieldProf.gx, -shieldProf.gy);
+    } else if (icon) {
+      ctx.translate(gx, gy);
+      if (facing < 0) ctx.scale(-1, 1);
+      ctx.drawImage(icon, -6, -13, 12, 26);
     }
     ctx.restore();
     if (fxLayers && fxLayers.enabled) {
+      const halfH = shieldProf ? Math.round(shieldProf.h * 0.50) : 15;
       fxLayers.addAttack({
-        x: gx + facing * 3, y: gy, rx: 10, ry: 16, dirX: facing, dirY: 0,
+        x: gx + facing * 6, y: gy, rx: 8, ry: halfH, dirX: facing, dirY: 0,
         mode: 3, seed: slotExec.slot + 0.3, core: coreRgb, rim: rimRgb,
-        alpha: 0.36 + 0.12 * Math.sin(time * 9),
+        alpha: 0.40 + 0.12 * Math.sin(time * 9),
       });
     }
     return;
@@ -2372,14 +2586,39 @@ export function drawWeaponAction(ctx, slotExec, sx, sy, facing, crouch, fxLayers
     }
 
     case 'shield': {
-      // Crisp shield bash thrust
-      const push = Math.sin(k * Math.PI) * 14;
-      const gx = Math.round(handX + facing * push);
+      // Crisp side-perspective shield bash / armored ram thrust
+      const shieldProf = getWeaponShieldProfileCanvas(w.id);
+      const push = Math.sin(k * Math.PI) * (slotExec.isSkill ? 20 : 15);
+      const gx = Math.round(handX + facing * (4 + push));
       const gy = Math.round(handY + 3);
-      if (icon) {
-        ctx.translate(gx, gy);
-        if (facing < 0) ctx.scale(-1, 1);
-        ctx.drawImage(icon, -13, -13, 26, 26);
+      if (k >= 0.14 && k <= 0.78) {
+        const bashA = Math.sin(((k - 0.14) / 0.64) * Math.PI);
+        ctx.save();
+        ctx.globalAlpha = 0.72 * bashA;
+        ctx.fillStyle = rimHex;
+        const streakLen = slotExec.isSkill ? 22 : 13;
+        const sx0 = facing > 0 ? gx - streakLen + 4 : gx - 4;
+        ctx.fillRect(sx0, gy - 8, streakLen, 1);
+        ctx.fillRect(sx0, gy + 8, streakLen, 1);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(facing > 0 ? gx + 5 : gx - 11, gy - 1, 6, 2);
+        ctx.restore();
+        if (fxLayers && fxLayers.enabled) {
+          const halfH = shieldProf ? Math.round(shieldProf.h * 0.52) : 15;
+          fxLayers.addAttack({
+            x: gx + facing * 9, y: gy, rx: slotExec.isSkill ? 16 : 11, ry: halfH,
+            dirX: facing, dirY: 0, mode: 3, seed: slotExec.slot + k * 2.1,
+            core: coreRgb, rim: rimRgb, alpha: (slotExec.isSkill ? 0.78 : 0.54) * bashA,
+          });
+        }
+      }
+      ctx.translate(gx, gy);
+      if (facing < 0) ctx.scale(-1, 1);
+      ctx.rotate(k < 0.25 ? -0.06 : (k < 0.65 ? 0.07 : 0.02));
+      if (shieldProf) {
+        ctx.drawImage(shieldProf.canvas, -shieldProf.gx, -shieldProf.gy);
+      } else if (icon) {
+        ctx.drawImage(icon, -6, -13, 12, 26);
       }
       break;
     }
@@ -2393,21 +2632,27 @@ export function drawWeaponAction(ctx, slotExec, sx, sy, facing, crouch, fxLayers
         const beamA = k < 0.22 ? (k - 0.10) / 0.12 : Math.max(0, 1 - (k - 0.58) / 0.30);
         const beamH = (slotExec.isSkill ? 14 : 9) * Math.max(0.35, beamA);
         const bx0 = facing > 0 ? gx + 8 : gx - 8 - beamLen;
-        ctx.save();
-        ctx.globalAlpha = Math.min(1, beamA * 0.92);
-        ctx.fillStyle = '#ff7a1f';
-        ctx.fillRect(bx0, Math.round(gy - beamH), beamLen, Math.round(beamH * 2));
-        ctx.fillStyle = '#ffe878';
-        ctx.fillRect(bx0, Math.round(gy - beamH * 0.58), beamLen, Math.max(2, Math.round(beamH * 1.16)));
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(bx0, Math.round(gy - Math.max(1, beamH * 0.25)), beamLen, Math.max(2, Math.round(beamH * 0.5)));
-        ctx.restore();
         if (fxLayers && fxLayers.enabled) {
           fxLayers.addAttack({
-            x: gx + facing * (beamLen * 0.5), y: gy, rx: beamLen * 0.52, ry: beamH * 1.35,
-            dirX: facing, dirY: 0, mode: 1, seed: time * 3.1,
-            core: [1.0, 0.99, 0.88], rim: [1.0, 0.48, 0.12], alpha: 0.88 * Math.min(1, beamA),
+            x: gx + facing * (8 + beamLen * 0.5), y: gy, rx: beamLen * 0.52, ry: beamH * 1.45,
+            dirX: facing, dirY: 0, mode: 4, seed: time * 3.1,
+            core: [1.0, 0.99, 0.88], rim: [1.0, 0.48, 0.12], alpha: 0.96 * Math.min(1, beamA),
           });
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, beamA * 0.88);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(bx0, Math.round(gy - 1), beamLen, 2);
+          ctx.restore();
+        } else {
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, beamA * 0.92);
+          ctx.fillStyle = '#ff7a1f';
+          ctx.fillRect(bx0, Math.round(gy - beamH), beamLen, Math.round(beamH * 2));
+          ctx.fillStyle = '#ffe878';
+          ctx.fillRect(bx0, Math.round(gy - beamH * 0.58), beamLen, Math.max(2, Math.round(beamH * 1.16)));
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(bx0, Math.round(gy - Math.max(1, beamH * 0.25)), beamLen, Math.max(2, Math.round(beamH * 0.5)));
+          ctx.restore();
         }
       } else if (fxLayers && fxLayers.enabled) {
         fxLayers.addAttack({

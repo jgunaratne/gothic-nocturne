@@ -208,7 +208,7 @@ export class TouchControls {
     // Landscape touch mode: fill vertical height cleanly during active play,
     // and reserve a 36px bottom strip on map/menu/forge screens so the bottom
     // toolbar never overlaps inspector cards or prompts.
-    const reserveBottomStrip = inTextForm || s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'forging';
+    const reserveBottomStrip = inTextForm || s === 'map' || s === 'armory' || s === 'saveslots' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'forging';
     const availW = Math.max(200, vw - safe.left - safe.right);
     const availH = reserveBottomStrip
       ? Math.max(110, vh - Math.max(2, Math.round(safe.top * 0.5)) - Math.max(36, safe.bottom + 30))
@@ -348,7 +348,7 @@ export class TouchControls {
         if (s === 'map') this.input.pulse('map');
         else if (s === 'armory') this.input.pulse('armory');
         else if (s === 'forge') { this.blurTextProxy(); g.forgeUI.cancel(); }
-        else if (s === 'forging' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'stageselect') this.input.pulseEscape();
+        else if (s === 'forging' || s === 'saveslots' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'stageselect') this.input.pulseEscape();
         else if (s === 'play') {
           if (g.world && g.world.canSkipBossIntro && g.world.canSkipBossIntro()) this.input.pulse('start');
           else this.input.pulseEscape();
@@ -740,7 +740,7 @@ export class TouchControls {
     const target = this.stageWrap || this.canvas;
     if (!target) return;
     target.addEventListener('pointerdown', (e) => {
-      if (!this.active && e.pointerType !== 'touch' && this.game.state !== 'armory') return;
+      if (!this.active && e.pointerType !== 'touch' && this.game.state !== 'armory' && this.game.state !== 'saveslots') return;
       if (e.pointerType === 'touch') this.enable();
       this.game.audio.unlock();
       const rect = this.canvas.getBoundingClientRect();
@@ -824,14 +824,26 @@ export class TouchControls {
         return false;
       }
 
+      case 'saveslots':
+        return g.handleSaveSlotsPoint ? g.handleSaveSlotsPoint(gx, gy) : false;
+
       case 'difficulty': {
+        if (gy >= 80 && gy < 112 && gx >= 130 && gx <= W - 130) {
+          g.activeSaveSlot = ((g.activeSaveSlot || 0) + 1) % 4;
+          g.audio.sfx('bone');
+          return true;
+        }
         if (gx >= 70 && gx <= W - 70 && gy >= 112 && gy < 278) {
           const idx = Math.max(0, Math.min(DIFFICULTY_ORDER.length - 1, Math.floor((gy - 114) / 54)));
           g.menuIndex = idx;
           if (g.stateT > 0.2) {
-            g.chooseDifficulty(DIFFICULTY_ORDER[idx]);
-            g.carryState = null;
-            g.startGame(0, null);
+            if (g.beginChosenHunt) {
+              g.beginChosenHunt(DIFFICULTY_ORDER[idx]);
+            } else {
+              g.chooseDifficulty(DIFFICULTY_ORDER[idx]);
+              g.carryState = null;
+              g.startGame(0, null);
+            }
           } else {
             g.audio.sfx('bone');
           }
@@ -1064,8 +1076,8 @@ export class TouchControls {
     const s = g.state;
     const w = g.world;
     const inTextForm = !!(g.editingCallsign || s === 'forge');
-    const reserveBottomStrip = inTextForm || s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'forging';
-    const subtleMenuPads = !inTextForm && (s === 'map' || s === 'armory' || s === 'stageselect' || s === 'title' || s === 'controls');
+    const reserveBottomStrip = inTextForm || s === 'map' || s === 'armory' || s === 'saveslots' || s === 'stageselect' || s === 'title' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'forging';
+    const subtleMenuPads = !inTextForm && (s === 'map' || s === 'armory' || s === 'saveslots' || s === 'stageselect' || s === 'title' || s === 'controls');
 
     this._setClass('bodyTextForm', document.body, 'in-text-form', inTextForm);
     this._setClass('bodyBottomStrip', document.body, 'has-bottom-strip', reserveBottomStrip);
@@ -1089,7 +1101,7 @@ export class TouchControls {
     // Toolbar pills
     const pauseTxt = s === 'play' ? 'PAUSE'
       : (s === 'pause' || s === 'map' || s === 'armory') ? '▶ RESUME'
-      : (s === 'forge' || s === 'forging' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'stageselect') ? '✕ BACK'
+      : (s === 'forge' || s === 'forging' || s === 'saveslots' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'stageselect') ? '✕ BACK'
       : 'START';
     this._setText('pillPause', this.pills.pause, pauseTxt);
     this._setClass('pillPauseGold', this.pills.pause, 't-pill-gold', s === 'pause' || s === 'map' || s === 'armory' || s === 'title');
@@ -1149,6 +1161,12 @@ export class TouchControls {
         this._setHidden('offHide', this.btns.offhand, false);
         this._setText('offLbl', this.offhandLabel, 'EQUIP R');
         this._setText('offMeta', this.offhandMeta, 'SLOT 1');
+      } else if (tab === 'save') {
+        this._setText('whipLbl', this.whipLabel, 'SAVE');
+        this._setText('jumpLbl', this.jumpLabel, 'SAVE');
+        this._setHidden('offHide', this.btns.offhand, false);
+        this._setText('offLbl', this.offhandLabel, 'LOAD');
+        this._setText('offMeta', this.offhandMeta, 'SLOT');
       } else {
         const lbl = tab === 'souls' ? 'ATTUNE' : 'OK';
         this._setText('whipLbl', this.whipLabel, lbl);
@@ -1163,7 +1181,7 @@ export class TouchControls {
       this._setText('whipLbl', this.whipLabel, 'OK');
       this._setText('jumpLbl', this.jumpLabel, 'OK');
       this._setHidden('offHide', this.btns.offhand, true);
-      const canBack = s === 'map' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'stageselect' || s === 'forging';
+      const canBack = s === 'map' || s === 'saveslots' || s === 'difficulty' || s === 'controls' || s === 'settings' || s === 'stageselect' || s === 'forging';
       this._setText('subLbl', this.subLabel, canBack ? 'BACK' : 'ALT');
       this._setText('subMeta', this.subMeta, canBack ? 'ESC' : '');
       this._setClass('subArmed', this.btns.sub, 'is-armed', false);

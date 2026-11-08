@@ -2,6 +2,7 @@
 // plus the region spawners that feed zombies and heads.
 
 import { TILE, SCORE } from '../engine/constants.js';
+import { getFxLayers } from '../engine/fxlayers.js';
 import { clipFrame } from './anim_clips.js';
 import { Entity } from './entities.js';
 import { Projectile } from './objects.js';
@@ -3735,6 +3736,13 @@ export class NovaSkeleton extends Enemy {
     this.minX = min; this.maxX = max; this.facing = -1;
     this.state = 'walk'; this.stateT = 0; this.animT = 0;
     this.beamCd = 1.35 + Math.random() * 0.7;
+    // Alternate skeleton gunners between Astral Cyan-Plasma and Eldritch Crimson-Violet shader harmonics
+    const isCrimson = (Math.floor(x / (TILE * 2)) & 1) === 1;
+    this.spectralVariant = isCrimson ? 'crimson' : 'astral';
+    this.beamCore = isCrimson ? [1.0, 0.90, 0.98] : [0.92, 1.0, 1.0];
+    this.beamRim = isCrimson ? [0.96, 0.16, 0.58] : [0.12, 0.88, 1.0];
+    this.sparkHex = isCrimson ? '#ff52b8' : '#38f2ff';
+    if (isCrimson) this.tint = 'rgba(218, 46, 148, 0.22)';
   }
 
   update(dt, level, world) {
@@ -3767,16 +3775,24 @@ export class NovaSkeleton extends Enemy {
     } else {
       this.vx = 0;
       this.frame = this.stateT < 0.52 ? 'windup' : 'attack';
-      if (this.stateT < 0.52 && Math.random() < 0.6) {
-        world.particles.sparks(this.x + this.facing * 14, this.y - 38, 1, '#38f2ff');
+      if (this.stateT < 0.52 && Math.random() < 0.65) {
+        world.particles.sparks(this.x + this.facing * 14, this.y - 38, 1, this.sparkHex);
       }
       if (!this.fired && this.stateT >= 0.52) {
         this.fired = true;
         for (let seg = 0; seg < 3; seg++) {
-          const bm = new Projectile('nova_beam', this.x + this.facing * (34 + seg * 54), this.y - 38, this.facing, 'enemy');
+          const bm = new Projectile('nova_beam', this.x + this.facing * (32 + seg * 48), this.y - 38, this.facing, 'enemy');
+          bm.beamCore = this.beamCore;
+          bm.beamRim = this.beamRim;
+          bm.beamHex = this.sparkHex;
           world.spawnProjectile(bm);
         }
-        world.particles.sparks(this.x + this.facing * 20, this.y - 38, 10, '#7efcff');
+        if (world.emitShockwave) {
+          world.emitShockwave(this.x + this.facing * 18, this.y - 38, {
+            maxR: 42, dur: 0.28, strength: 0.18, color: this.beamRim,
+          });
+        }
+        world.particles.sparks(this.x + this.facing * 20, this.y - 38, 12, this.sparkHex);
         enemySfx(world, this, 'throw');
       }
       if (this.stateT > 0.86) {
@@ -3789,26 +3805,67 @@ export class NovaSkeleton extends Enemy {
   }
 
   draw(ctx, assets, camX, camY) {
-    // Crisp aiming telegraph beam line during charge (`0..0.52s`) so players can crouch/slide/jump!
-    if (this.deathT < 0 && this.state === 'charge' && this.stateT < 0.52) {
-      const sx = Math.round(this.x - camX + this.facing * 14);
-      const sy = Math.round(this.y - camY - 38);
-      const pulse = 0.35 + 0.65 * Math.abs(Math.sin(this.stateT * 28));
-      ctx.save();
-      ctx.globalAlpha = pulse;
-      ctx.fillStyle = '#38f2ff';
-      ctx.fillRect(this.facing > 0 ? sx : sx - 240, sy - 1, 240, 2);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(sx - 2, sy - 2, 5, 5);
-      ctx.restore();
-    }
     super.draw(ctx, assets, camX, camY);
+    if (this.deathT >= 0 || this.state !== 'charge') return;
+
+    const sx = Math.round(this.x - camX + this.facing * 15);
+    const sy = Math.round(this.y - camY - 38);
+    const fx = getFxLayers();
+    const useFx = !!(fx && fx.enabled);
+
+    if (this.stateT < 0.52) {
+      // Converging shader target-lock laser sight + swirling palm plasma singularity (`0..0.52s`)
+      const chargeK = Math.max(0, Math.min(1, this.stateT / 0.52));
+      const pulse = 0.45 + 0.55 * Math.abs(Math.sin(this.stateT * 30));
+      if (useFx) {
+        fx.addAttack({
+          x: sx + this.facing * 124, y: sy,
+          rx: 124, ry: 2.0 + chargeK * 4.5,
+          dirX: this.facing, dirY: 0,
+          mode: 4, seed: (this.x * 0.031) % 10,
+          core: this.beamCore, rim: this.beamRim,
+          alpha: (0.34 + 0.54 * chargeK) * (0.75 + 0.25 * pulse),
+        });
+        fx.addAttack({
+          x: sx, y: sy,
+          rx: 5 + chargeK * 8, ry: 7 + chargeK * 6,
+          dirX: -this.facing, dirY: 0,
+          mode: 0, seed: this.stateT * 5.3,
+          core: this.beamCore, rim: this.beamRim,
+          alpha: 0.72 + 0.26 * chargeK,
+        });
+        ctx.save();
+        ctx.globalAlpha = 0.35 + 0.45 * chargeK;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(this.facing > 0 ? sx : sx - 240, sy, 240, 1);
+        ctx.restore();
+      } else {
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.fillStyle = this.sparkHex;
+        ctx.fillRect(this.facing > 0 ? sx : sx - 240, sy - 1, 240, 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(sx - 2, sy - 2, 5, 5);
+        ctx.restore();
+      }
+    } else if (useFx && this.stateT < 0.84) {
+      // Decaying recoil muzzle starburst flare right after discharge (`0.52..0.84s`)
+      const decay = Math.max(0, 1 - (this.stateT - 0.52) / 0.32);
+      fx.addAttack({
+        x: sx + this.facing * 6, y: sy,
+        rx: 14 * decay + 4, ry: 12 * decay + 3,
+        dirX: this.facing, dirY: 0,
+        mode: 0, seed: this.stateT * 8.1,
+        core: this.beamCore, rim: this.beamRim,
+        alpha: 0.86 * decay,
+      });
+    }
   }
 
   kill(world) {
     super.kill(world);
     world.particles.shards(this.x, this.y, 12, '#e8e2c8', this.y);
-    world.particles.sparks(this.x, this.y - 32, 10, '#38f2ff');
+    world.particles.sparks(this.x, this.y - 32, 10, this.sparkHex || '#38f2ff');
   }
 }
 

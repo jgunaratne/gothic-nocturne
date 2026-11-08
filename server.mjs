@@ -40,6 +40,8 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.mp3': 'audio/mpeg',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
   '.wav': 'audio/wav',
   '.ogg': 'audio/ogg',
   '.woff2': 'font/woff2',

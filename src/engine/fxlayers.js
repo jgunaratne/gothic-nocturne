@@ -855,6 +855,7 @@ void main() {
 //   uMode 1 = serpentine petrifying gaze beam
 //   uMode 2 = billowing FBM petrifying miasma cloud
 //   uMode 3 = blazing crescent slash wave
+//   uMode 4 = collimated high-energy plasma / arcane skeleton laser beam
 const ATTACK_FRAG = `
 ${SHADER_PREC}
 varying vec2 vUv;
@@ -930,7 +931,7 @@ void main() {
     vec3 col = mix(uRimCol, uCoreCol, clamp(swirl * 0.8 + spark * 0.9, 0.0, 1.0));
     a = floor(a * 5.0) / 5.0;
     gl_FragColor = vec4(col * a, a);
-  } else {
+  } else if (mode < 3.5) {
     // Mode 3: Blazing crescent slash / spinning scythe arc
     float r = max(1.0, uCenter.z);
     vec2 q = vec2(lx, ly);
@@ -948,6 +949,32 @@ void main() {
     if (e <= 0.04) discard;
     vec3 col = mix(uRimCol, uCoreCol, smoothstep(0.4, 0.92, e));
     float a = floor(clamp(e * uAlpha, 0.0, 1.0) * 5.0) / 5.0;
+    gl_FragColor = vec4(col * a, a);
+  } else {
+    // Mode 4: Collimated high-energy plasma / arcane skeleton laser beam
+    float halfL = max(2.0, uCenter.z);
+    float halfH = max(1.5, uCenter.w);
+    if (abs(lx) > halfL * 1.08 || abs(ly) > halfH * 1.75) discard;
+    float along = lx / halfL;
+    float endTap = 1.0 - smoothstep(0.82, 1.05, abs(along));
+    float turb = fbm(vec2(lx * 0.09 - uTime * 16.0 + seed, ly * 0.22 + seed * 1.7));
+    float mach = 0.74 + 0.26 * cos(lx * 0.38 - uTime * 46.0 + seed * 3.0);
+    float coreLine = exp(-abs(ly) / max(0.85, halfH * 0.19));
+    float sheath = exp(-abs(ly) / max(1.4, halfH * (0.50 + 0.22 * turb))) * mach;
+    float h1 = sin(lx * 0.25 - uTime * 34.0 + seed) * (halfH * 0.64) + (turb - 0.5) * halfH * 0.42;
+    float h2 = -sin(lx * 0.32 - uTime * 29.0 + seed * 2.3 + 1.7) * (halfH * 0.58);
+    float helix = exp(-abs(ly - h1) / max(0.85, halfH * 0.15)) * 0.85
+                + exp(-abs(ly - h2) / max(0.85, halfH * 0.15)) * 0.70;
+    float muzzleX = lx + halfL * 0.82;
+    float flare = exp(-abs(muzzleX) / 2.6) * exp(-abs(ly) / max(2.0, halfH * 1.40)) * 0.72;
+    float e = clamp((coreLine * 1.18 + sheath * 0.78 + helix * 0.62) * endTap + flare, 0.0, 1.35);
+    if (e <= 0.035) discard;
+    vec3 midCol = mix(uRimCol, uCoreCol, 0.58);
+    vec3 hotCol = mix(uCoreCol, vec3(1.0), 0.72);
+    vec3 col = e < 0.55
+      ? mix(uRimCol, midCol, clamp(e / 0.55, 0.0, 1.0))
+      : mix(midCol, hotCol, clamp((e - 0.55) / 0.55, 0.0, 1.0));
+    float a = floor(clamp(e * uAlpha, 0.0, 1.0) * 7.0) / 7.0;
     gl_FragColor = vec4(col * a, a);
   }
 }
@@ -1381,7 +1408,7 @@ void main() {
     vec3 col = mix(uRimCol, uCoreCol, clamp(swirl * 0.8 + spark * 0.9, 0.0, 1.0));
     a = floor(a * 5.0) / 5.0;
     gl_FragColor = vec4(col * a, a);
-  } else {
+  } else if (mode < 3.5) {
     float r = max(1.0, rx);
     vec2 q = vec2(lx, ly);
     vec2 arcC = vec2(-r * 0.32, 0.0);
@@ -1397,6 +1424,32 @@ void main() {
     if (e <= 0.04) discard;
     vec3 col = mix(uRimCol, uCoreCol, smoothstep(0.4, 0.92, e));
     float a = floor(clamp(e * uAlpha, 0.0, 1.0) * 5.0) / 5.0;
+    gl_FragColor = vec4(col * a, a);
+  } else {
+    // Mode 4: Collimated high-energy plasma / arcane skeleton laser beam
+    float halfL = max(2.0, rx);
+    float halfH = max(1.5, ry);
+    if (abs(lx) > halfL * 1.08 || abs(ly) > halfH * 1.75) discard;
+    float along = lx / halfL;
+    float endTap = 1.0 - smoothstep(0.82, 1.05, abs(along));
+    float turb = fbm(vec2(lx * 0.09 - uTime * 16.0 + seed, ly * 0.22 + seed * 1.7));
+    float mach = 0.74 + 0.26 * cos(lx * 0.38 - uTime * 46.0 + seed * 3.0);
+    float coreLine = exp(-abs(ly) / max(0.85, halfH * 0.19));
+    float sheath = exp(-abs(ly) / max(1.4, halfH * (0.50 + 0.22 * turb))) * mach;
+    float h1 = sin(lx * 0.25 - uTime * 34.0 + seed) * (halfH * 0.64) + (turb - 0.5) * halfH * 0.42;
+    float h2 = -sin(lx * 0.32 - uTime * 29.0 + seed * 2.3 + 1.7) * (halfH * 0.58);
+    float helix = exp(-abs(ly - h1) / max(0.85, halfH * 0.15)) * 0.85
+                + exp(-abs(ly - h2) / max(0.85, halfH * 0.15)) * 0.70;
+    float muzzleX = lx + halfL * 0.82;
+    float flare = exp(-abs(muzzleX) / 2.6) * exp(-abs(ly) / max(2.0, halfH * 1.40)) * 0.72;
+    float e = clamp((coreLine * 1.18 + sheath * 0.78 + helix * 0.62) * endTap + flare, 0.0, 1.35);
+    if (e <= 0.035) discard;
+    vec3 midCol = mix(uRimCol, uCoreCol, 0.58);
+    vec3 hotCol = mix(uCoreCol, vec3(1.0), 0.72);
+    vec3 col = e < 0.55
+      ? mix(uRimCol, midCol, clamp(e / 0.55, 0.0, 1.0))
+      : mix(midCol, hotCol, clamp((e - 0.55) / 0.55, 0.0, 1.0));
+    float a = floor(clamp(e * uAlpha, 0.0, 1.0) * 7.0) / 7.0;
     gl_FragColor = vec4(col * a, a);
   }
 }
@@ -1442,6 +1495,75 @@ void main() {
   vec3 hot = min(vec3(1.0), vColor.rgb * 1.35 + vec3(0.28, 0.24, 0.20));
   vec3 col = mix(vColor.rgb, hot, smoothstep(0.68, 0.98, crest) * vColor.a);
   gl_FragColor = vec4(col * a, a);
+}
+`;
+
+// Late-1990s / Early-2000s CD-ROM Video Game FMV Shader (PS1 MDEC / Dreamcast .STR/.BIK aesthetic):
+// - 4:2:0 CD-ROM chroma subsampling + subtle analog horizontal chroma bleed
+// - Hardware 4x4 Bayer ordered 15-bit (5-5-5 High-Color) MDEC dithering
+// - Subtle interlaced CRT scanlines, anamorphic vignette & optional quake/flash tint
+const FMV_FRAG = `
+${SHADER_PREC}
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime;
+uniform sampler2D uVideo;
+uniform vec4 uShakeFlash; // shakeX (px), shakeY (px), flashAmt, dimAmt
+float bayer4x4(vec2 p) {
+  vec2 m = floor(mod(p, 4.0));
+  float idx = m.y * 4.0 + m.x;
+  if (idx < 0.5) return  0.0 / 16.0 - 0.5;
+  if (idx < 1.5) return  8.0 / 16.0 - 0.5;
+  if (idx < 2.5) return  2.0 / 16.0 - 0.5;
+  if (idx < 3.5) return 10.0 / 16.0 - 0.5;
+  if (idx < 4.5) return 12.0 / 16.0 - 0.5;
+  if (idx < 5.5) return  4.0 / 16.0 - 0.5;
+  if (idx < 6.5) return 14.0 / 16.0 - 0.5;
+  if (idx < 7.5) return  6.0 / 16.0 - 0.5;
+  if (idx < 8.5) return  3.0 / 16.0 - 0.5;
+  if (idx < 9.5) return 11.0 / 16.0 - 0.5;
+  if (idx < 10.5) return 1.0 / 16.0 - 0.5;
+  if (idx < 11.5) return 9.0 / 16.0 - 0.5;
+  if (idx < 12.5) return 15.0 / 16.0 - 0.5;
+  if (idx < 13.5) return 7.0 / 16.0 - 0.5;
+  if (idx < 14.5) return 13.0 / 16.0 - 0.5;
+  return 5.0 / 16.0 - 0.5;
+}
+void main() {
+  vec2 px = vec2(vUv.x * uRes.x, (1.0 - vUv.y) * uRes.y);
+  float weaveY = sin(floor(uTime * 24.0) * 1.91) * 0.28;
+  vec2 spx = px + vec2(uShakeFlash.x, uShakeFlash.y + weaveY);
+  vec2 uv = clamp(spx / uRes, vec2(0.002), vec2(0.998));
+
+  vec2 uvMacro = clamp((floor(spx * 0.5) * 2.0 + 1.0) / uRes, vec2(0.002), vec2(0.998));
+  vec3 cSharp = texture2D(uVideo, uv).rgb;
+  vec3 cMacro = texture2D(uVideo, uvMacro).rgb;
+  vec3 cBase = mix(cSharp, cMacro, 0.28);
+  float luma = dot(cBase, vec3(0.299, 0.587, 0.114));
+
+  vec2 chromaStep = vec2(1.25 / uRes.x, 0.0);
+  vec3 cChL = texture2D(uVideo, clamp(uvMacro - chromaStep, vec2(0.002), vec2(0.998))).rgb;
+  vec3 cChR = texture2D(uVideo, clamp(uvMacro + chromaStep, vec2(0.002), vec2(0.998))).rgb;
+  vec3 cChroma = (cMacro * 0.5 + cChL * 0.25 + cChR * 0.25);
+  float chLuma = dot(cChroma, vec3(0.299, 0.587, 0.114));
+  vec3 col = clamp(cChroma + (luma - chLuma), 0.0, 1.0);
+
+  col = clamp((col - 0.5) * 1.07 + 0.5, 0.0, 1.0);
+  col = mix(col, col * vec3(1.03, 0.99, 1.04) + vec3(0.010, 0.006, 0.018) * (1.0 - luma), 0.55);
+
+  if (uShakeFlash.z > 0.001) {
+    col = mix(col, vec3(1.0, 0.36, 0.26), clamp(uShakeFlash.z, 0.0, 0.65));
+  }
+
+  float d = bayer4x4(floor(px));
+  col = clamp(floor(col * 36.0 + d * 0.85 + 0.5) / 36.0, 0.0, 1.0);
+
+  float scan = mod(floor(px.y), 2.0) > 0.5 ? 0.915 : 1.0;
+  vec2 vigUv = (vUv - 0.5) * vec2(1.12, 1.24);
+  float vig = clamp(1.0 - dot(vigUv, vigUv) * 0.28, 0.72, 1.0);
+  col *= scan * vig * (1.0 - clamp(uShakeFlash.w, 0.0, 0.92));
+
+  gl_FragColor = vec4(col, 1.0);
 }
 `;
 
@@ -1593,6 +1715,15 @@ export class FxLayers {
     this.pVortex = this.program(VERT, VORTEX_FRAG);
     this.pSoulWisp = this.program(VERT, SOUL_WISP_FRAG);
     this.pRetroBg = this.program(VERT, RETRO_BG_FRAG);
+    this.pFmv = this.program(VERT, FMV_FRAG);
+    const fmvTex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, fmvTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.fmvTex = fmvTex;
     this.pSpark = this.program(SPARK_VERT, SPARK_FRAG);
     this.pSpark.aLocal = gl.getAttribLocation(this.pSpark.p, 'aLocal');
     this.pSpark.aColor = gl.getAttribLocation(this.pSpark.p, 'aColor');
@@ -2461,8 +2592,10 @@ export class FxLayers {
         const batchCount = endIdx - startIdx;
         for (let i = startIdx; i < endIdx; i++) {
           const a = atk[i];
-          const x0 = a.x - a.pad, y0 = a.y - a.pad;
-          const x1 = a.x + a.pad, y1 = a.y + a.pad;
+          const isHorizBeam = a.mode >= 3.5 && Math.abs(a.dirY) < 0.15;
+          const padY = isHorizBeam ? Math.min(a.pad, Math.ceil(a.ry * 1.9) + 8) : a.pad;
+          const x0 = a.x - a.pad, y0 = a.y - padY;
+          const x1 = a.x + a.pad, y1 = a.y + padY;
           if (x0 < minX) minX = x0;
           if (y0 < minY) minY = y0;
           if (x1 > maxX) maxX = x1;
@@ -2702,6 +2835,31 @@ export class FxLayers {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.canvas, sx, sy, sw, sh, Math.round(sx / k), Math.round(sy / k), Math.round(sw / k), Math.round(sh / k));
     ctx.restore();
+  }
+
+  /**
+   * Renders a live `<video>` FMV frame through the late-1990s / early-2000s
+   * CD-ROM MDEC / Bink shader (`FMV_FRAG`) into `ctx`. Returns `true` if drawn.
+   */
+  drawFmvFrame(ctx, videoEl, { shakeX = 0, shakeY = 0, flash = 0, dim = 0, rect = null } = {}) {
+    if (!this.enabled || !this.pFmv || !this.fmvTex || !videoEl || videoEl.readyState < 2) return false;
+    const gl = this.gl;
+    if (gl.isContextLost && gl.isContextLost()) { this.ok = false; this.enabled = false; return false; }
+    try {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.fmvTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, videoEl);
+    } catch {
+      return false;
+    }
+    const box = rect || { x: 0, y: 0, w: W, h: H };
+    this.run(ctx, this.pFmv, box, (g, u) => {
+      g.activeTexture(g.TEXTURE0);
+      g.bindTexture(g.TEXTURE_2D, this.fmvTex);
+      g.uniform1i(u.uVideo, 0);
+      g.uniform4f(u.uShakeFlash, shakeX, shakeY, flash, dim);
+    }, 'source-over');
+    return true;
   }
 }
 

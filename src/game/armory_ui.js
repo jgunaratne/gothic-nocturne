@@ -1,11 +1,13 @@
-// Dual-Hand Equipment Matrix, Tactical Soul Glyphs, Bestiary & Settings Grimoire:
+// Dual-Hand Equipment Matrix, Tactical Soul Glyphs, Bestiary, 4-Slot Saves & Settings:
 // - `WeaponPedestal`: physical gothic stone altar holding each stage's signature weapon
-// - `ArmoryScreen`: 4-Tab Gothic Grimoire (`START` / `E` / `I` / `B` / Touch `GEAR`):
+// - `ArmoryScreen`: 6-Item Gothic Grimoire (`START` / `E` / `I` / `B` / Touch `GEAR`):
 //     1. ARMORY: Ambidextrous Hand_L & Hand_R sockets, Dual Loadout A/B swap (`R`),
 //        Stat Deficit Gate math, Shield Rod Sacred Call & Set Resonance
 //     2. SOULS: Crimson Bullet, Cobalt Guardian & Amber Enchant Soul Glyphs (`Lv 1..9`)
 //     3. BESTIARY: Monster Compendium with kill counts, weaknesses, weapon & soul drops
-//     4. SETTINGS: Audio, Shaders, Callsign, Debug Unlocks, Reset & Exit to Home Screen.
+//     4. SAVE: 4 Independent Chronicle Save Slots (Save, Load, Clear, Save & Exit)
+//     5. SETTINGS: Audio, Shaders, Callsign, Debug Unlocks, Reset & Exit to Main Menu
+//     6. MAIN MENU: Top-bar Exit to Main Menu item (1-click exit or Save & Exit).
 
 import { W, H } from '../engine/constants.js';
 import { getFxLayers } from '../engine/fxlayers.js';
@@ -22,15 +24,23 @@ import {
 import { formatCompactExp } from './progression.js';
 import { STAGES } from './stages.js';
 
-const TABS = ['armory', 'souls', 'bestiary', 'settings'];
+const TABS = ['armory', 'souls', 'bestiary', 'save', 'settings', 'exit'];
+const SAVE_SLOTS_N = 4;
 
 const ARMORY_SETTINGS_ROWS = [
   {
     id: 'exitHome',
-    label: 'EXIT TO HOME',
+    label: 'EXIT TO MAIN MENU',
     sub: 'BACK TO START SCREEN',
-    title: 'EXIT TO HOME SCREEN',
-    desc: 'LEAVE THE CURRENT HUNT AND RETURN TO THE HOME START SCREEN. YOUR ARSENAL, SOULS, BESTIARY, LEVEL, VESSELS, AND LAST SANCTUM SAVE ARE KEPT.',
+    title: 'EXIT TO MAIN MENU',
+    desc: 'LEAVE THE CURRENT HUNT AND RETURN TO THE MAIN MENU START SCREEN. YOUR SAVED CHRONICLE SLOTS ARE PRESERVED.',
+  },
+  {
+    id: 'openSave',
+    label: 'SAVE GAME (4 SLOTS)',
+    sub: 'SAVE OR LOAD SLOT 1-4',
+    title: 'CHRONICLE SAVE SLOTS (1-4)',
+    desc: 'OPEN THE 4-SLOT CHRONICLE SAVE MANAGER TO RECORD YOUR CURRENT HUNT, LOAD ANOTHER SAVE SLOT, OR CLEAR A SLOT.',
   },
   {
     id: 'mute',
@@ -233,6 +243,9 @@ export class ArmoryScreen {
     this.soulScroll = 0;
     this.bestiaryCursor = 0;
     this.bestiaryScroll = 0;
+    this.saveCursor = 0;
+    this.confirmClearSlot = false;
+    this.exitCursor = 0;
     this.settingsCursor = 0;
     this.confirmReset = false;
     this.returnState = 'play';
@@ -248,6 +261,9 @@ export class ArmoryScreen {
     const idx = list.indexOf(curL);
     this.cursor = idx >= 0 ? idx : 0;
     this.ensureVisible(list.length);
+    this.saveCursor = Math.max(0, Math.min(SAVE_SLOTS_N - 1, this.game.activeSaveSlot || 0));
+    this.confirmClearSlot = false;
+    this.exitCursor = 0;
     this.confirmReset = false;
     this.flashT = 0;
   }
@@ -292,18 +308,21 @@ export class ArmoryScreen {
 
   update(dt, inp) {
     this.flashT = Math.max(0, this.flashT - dt);
-    const kbdEnterOnSettings = this.tab === 'settings' && inp.pressed.start && !inp.pressed.escape && !inp.isGamepad;
+    const onActionTab = this.tab === 'settings' || this.tab === 'save' || this.tab === 'exit';
+    const kbdEnterOnActionTab = onActionTab && inp.pressed.start && !inp.pressed.escape && !inp.isGamepad;
     if (
-      !kbdEnterOnSettings
+      !kbdEnterOnActionTab
       && (inp.pressed.armory || inp.pressed.escape || inp.pressed.start || inp.pressed.sprint || (this.tab === 'bestiary' && inp.pressed.bestiary))
     ) {
       this.confirmReset = false;
+      this.confirmClearSlot = false;
       this.game.setState(this.returnState || 'play');
       this.game.audio.sfx('pause');
       return;
     }
     if (inp.pressed.bestiary && this.tab !== 'bestiary') {
       this.confirmReset = false;
+      this.confirmClearSlot = false;
       this.tab = 'bestiary';
       this.game.audio.sfx('select');
       if (this.game.touch && this.game.touch.active) this.game.touch.syncUI(true);
@@ -311,6 +330,7 @@ export class ArmoryScreen {
     }
     if (inp.pressed.map && this.game.world) {
       this.confirmReset = false;
+      this.confirmClearSlot = false;
       this.game.openMap();
       return;
     }
@@ -319,21 +339,57 @@ export class ArmoryScreen {
       this.toast(`SWITCHED TO ${this.game.activeLoadout === 0 ? 'LOADOUT SET A' : 'LOADOUT SET B'}`);
       return;
     }
-    // Left / Right switch between ARMORY · SOULS · BESTIARY · SETTINGS tabs
+    // Left / Right switch between ARMORY · SOULS · BESTIARY · SAVE · SETTINGS · MAIN MENU
     if (inp.pressed.left) {
       this.confirmReset = false;
+      this.confirmClearSlot = false;
       const ti = (TABS.indexOf(this.tab) + TABS.length - 1) % TABS.length;
       this.tab = TABS[ti];
+      if (this.tab === 'exit') this.exitCursor = 0;
       this.game.audio.sfx('bone');
       if (this.game.touch && this.game.touch.active) this.game.touch.syncUI(true);
       return;
     }
     if (inp.pressed.right) {
       this.confirmReset = false;
+      this.confirmClearSlot = false;
       const ti = (TABS.indexOf(this.tab) + 1) % TABS.length;
       this.tab = TABS[ti];
+      if (this.tab === 'exit') this.exitCursor = 0;
       this.game.audio.sfx('bone');
       if (this.game.touch && this.game.touch.active) this.game.touch.syncUI(true);
+      return;
+    }
+
+    if (this.tab === 'exit') {
+      if (inp.pressed.up) {
+        this.exitCursor = (this.exitCursor + 2) % 3;
+        this.game.audio.sfx('bone');
+      } else if (inp.pressed.down) {
+        this.exitCursor = (this.exitCursor + 1) % 3;
+        this.game.audio.sfx('bone');
+      } else if (kbdEnterOnActionTab || inp.pressed.jump || inp.pressed.attack || inp.pressed.offhand) {
+        this._activateExitOption(this.exitCursor);
+      }
+      return;
+    }
+
+    if (this.tab === 'save') {
+      if (inp.pressed.up) {
+        this.saveCursor = (this.saveCursor + SAVE_SLOTS_N - 1) % SAVE_SLOTS_N;
+        this.confirmClearSlot = false;
+        this.game.audio.sfx('bone');
+      } else if (inp.pressed.down) {
+        this.saveCursor = (this.saveCursor + 1) % SAVE_SLOTS_N;
+        this.confirmClearSlot = false;
+        this.game.audio.sfx('bone');
+      } else if (kbdEnterOnActionTab || inp.pressed.jump || inp.pressed.attack) {
+        this._saveIntoSlot(this.saveCursor);
+      } else if (inp.pressed.offhand) {
+        this._loadSlot(this.saveCursor);
+      } else if (inp.pressed.dash) {
+        this._clearSlot(this.saveCursor);
+      }
       return;
     }
 
@@ -347,7 +403,7 @@ export class ArmoryScreen {
         this.settingsCursor = (this.settingsCursor + 1) % sn;
         this.confirmReset = false;
         this.game.audio.sfx('bone');
-      } else if (kbdEnterOnSettings || inp.pressed.jump || inp.pressed.attack || inp.pressed.offhand) {
+      } else if (kbdEnterOnActionTab || inp.pressed.jump || inp.pressed.attack || inp.pressed.offhand) {
         this._activateSettingsRow(this.settingsCursor, false);
       }
       return;
@@ -444,9 +500,85 @@ export class ArmoryScreen {
   _setTab(nextTab) {
     if (!TABS.includes(nextTab)) return;
     this.confirmReset = false;
+    this.confirmClearSlot = false;
+    if (nextTab === 'exit') this.exitCursor = 0;
     this.tab = nextTab;
     this.game.audio.sfx('bone');
     if (this.game.touch && this.game.touch.active) this.game.touch.syncUI(true);
+  }
+
+  _saveIntoSlot(slotIdx, andExit = false) {
+    const g = this.game;
+    this.confirmClearSlot = false;
+    const idx = Math.max(0, Math.min(SAVE_SLOTS_N - 1, slotIdx | 0));
+    this.saveCursor = idx;
+    if (g.saveToSlot) {
+      g.saveToSlot(idx, {
+        spawnKind: 'manual_pos',
+        reason: 'GRIMOIRE SAVE',
+        world: g.world,
+        manual: true,
+        silentToast: false,
+      });
+    }
+    const disc = g.getCastleDiscoveryStats ? g.getCastleDiscoveryStats().label : '';
+    this.toast(`SAVED TO SLOT ${idx + 1}${disc ? ` · CASTLE ${disc}` : ''}`);
+    g.audio.sfx('orb');
+    if (andExit) {
+      g.returnToTitle();
+    }
+  }
+
+  _loadSlot(slotIdx) {
+    const g = this.game;
+    this.confirmClearSlot = false;
+    const idx = Math.max(0, Math.min(SAVE_SLOTS_N - 1, slotIdx | 0));
+    this.saveCursor = idx;
+    const hasSlot = !!(g.saveSlots && g.saveSlots[idx]);
+    if (!hasSlot) {
+      this.toast(`SLOT ${idx + 1} IS EMPTY · PRESS SAVE FIRST`);
+      g.audio.sfx('block');
+      return;
+    }
+    if (g.loadFromSaveSlot) {
+      g.loadFromSaveSlot(idx);
+    }
+  }
+
+  _clearSlot(slotIdx) {
+    const g = this.game;
+    const idx = Math.max(0, Math.min(SAVE_SLOTS_N - 1, slotIdx | 0));
+    this.saveCursor = idx;
+    const hasSlot = !!(g.saveSlots && g.saveSlots[idx]);
+    if (!hasSlot) {
+      this.confirmClearSlot = false;
+      this.toast(`SLOT ${idx + 1} IS ALREADY EMPTY`);
+      g.audio.sfx('bone');
+      return;
+    }
+    if (!this.confirmClearSlot) {
+      this.confirmClearSlot = true;
+      this.toast(`PRESS CLEAR AGAIN TO ERASE SLOT ${idx + 1}`);
+      g.audio.sfx('block');
+      return;
+    }
+    this.confirmClearSlot = false;
+    if (g.clearSaveSlot) g.clearSaveSlot(idx);
+    this.toast(`SLOT ${idx + 1} CLEARED`);
+    g.audio.sfx('orb');
+  }
+
+  _activateExitOption(idx) {
+    const g = this.game;
+    if (idx === 0) {
+      g.returnToTitle();
+    } else if (idx === 1) {
+      const slot = Math.max(0, Math.min(SAVE_SLOTS_N - 1, g.activeSaveSlot || 0));
+      this._saveIntoSlot(slot, true);
+    } else {
+      g.setState(this.returnState || 'play');
+      g.audio.sfx('pause');
+    }
   }
 
   _activateSettingsRow(idx, fromPointer = false) {
@@ -458,6 +590,10 @@ export class ArmoryScreen {
       case 'exitHome':
         this.confirmReset = false;
         g.returnToTitle();
+        break;
+      case 'openSave':
+        this.confirmReset = false;
+        this._setTab('save');
         break;
       case 'mute': {
         this.confirmReset = false;
@@ -509,19 +645,28 @@ export class ArmoryScreen {
   }
 
   handlePoint(gx, gy) {
-    // Top tab pills (`y < 32`)
+    // Top header bar items (`y < 32`)
     if (gy < 32) {
-      if (gx >= 12 && gx < 82) { this._setTab('armory'); return true; }
-      if (gx >= 82 && gx < 150) { this._setTab('souls'); return true; }
-      if (gx >= 150 && gx < 232) { this._setTab('bestiary'); return true; }
-      if (gx >= 232 && gx < 315) { this._setTab('settings'); return true; }
-      if (gx >= 316 && gx < 398 && this.game.swapLoadout) {
+      if (gx >= 6 && gx < 56) { this._setTab('armory'); return true; }
+      if (gx >= 56 && gx < 100) { this._setTab('souls'); return true; }
+      if (gx >= 100 && gx < 162) { this._setTab('bestiary'); return true; }
+      if (gx >= 162 && gx < 202) { this._setTab('save'); return true; }
+      if (gx >= 202 && gx < 264) { this._setTab('settings'); return true; }
+      // Clicking/tapping MAIN MENU in the top bar exits directly to the Main Menu!
+      if (gx >= 264 && gx < 333) {
+        this.confirmReset = false;
+        this.confirmClearSlot = false;
+        this.game.returnToTitle();
+        return true;
+      }
+      if (gx >= 335 && gx < 410 && this.game.swapLoadout) {
         this.game.swapLoadout(this.game.world);
         this.toast(`SWITCHED TO ${this.game.activeLoadout === 0 ? 'LOADOUT SET A' : 'LOADOUT SET B'}`);
         return true;
       }
-      if (gx > 490) {
+      if (gx > 470) {
         this.confirmReset = false;
+        this.confirmClearSlot = false;
         this.game.setState(this.returnState || 'play');
         this.game.audio.sfx('pause');
         return true;
@@ -529,13 +674,47 @@ export class ArmoryScreen {
     }
     if (gy > 328 && gx > 470) {
       this.confirmReset = false;
+      this.confirmClearSlot = false;
       this.game.setState(this.returnState || 'play');
       this.game.audio.sfx('pause');
       return true;
     }
+    if (this.tab === 'exit') {
+      if (gx >= 140 && gx <= 500 && gy >= 110 && gy < 278) {
+        const idx = Math.floor((gy - 110) / 56);
+        if (idx >= 0 && idx < 3) {
+          this.exitCursor = idx;
+          this._activateExitOption(idx);
+          return true;
+        }
+      }
+      return false;
+    }
+    if (this.tab === 'save') {
+      // Left panel: 4 Chronicle Save Slot Cards (`16..246, 42..318`)
+      if (gx >= 16 && gx <= 246 && gy >= 42 && gy < 318) {
+        const idx = Math.floor((gy - 42) / 69);
+        if (idx >= 0 && idx < SAVE_SLOTS_N) {
+          this.saveCursor = idx;
+          this.confirmClearSlot = false;
+          this.game.audio.sfx('bone');
+          return true;
+        }
+      }
+      // Right panel action buttons (`266..612, 244..310`)
+      if (gy >= 244 && gy <= 272) {
+        if (gx >= 266 && gx <= 434) { this._saveIntoSlot(this.saveCursor, false); return true; }
+        if (gx >= 444 && gx <= 612) { this._loadSlot(this.saveCursor); return true; }
+      }
+      if (gy >= 278 && gy <= 306) {
+        if (gx >= 266 && gx <= 434) { this._clearSlot(this.saveCursor); return true; }
+        if (gx >= 444 && gx <= 612) { this._saveIntoSlot(this.saveCursor, true); return true; }
+      }
+      return false;
+    }
     if (this.tab === 'settings') {
-      if (gx >= 16 && gx <= 246 && gy >= 42 && gy < 42 + ARMORY_SETTINGS_ROWS.length * 39) {
-        const idx = Math.floor((gy - 42) / 39);
+      if (gx >= 16 && gx <= 246 && gy >= 42 && gy < 42 + ARMORY_SETTINGS_ROWS.length * 34) {
+        const idx = Math.floor((gy - 42) / 34);
         if (idx >= 0 && idx < ARMORY_SETTINGS_ROWS.length) {
           if (ARMORY_SETTINGS_ROWS[idx].id === 'resetProgress' && this.settingsCursor !== idx) {
             this.settingsCursor = idx;
@@ -630,36 +809,42 @@ export class ArmoryScreen {
     ctx.fillStyle = 'rgba(5, 4, 14, 0.91)';
     ctx.fillRect(0, 0, W, H);
 
-    // Header band + 4 Grimoire Tabs + Set A/B Toggle
+    // Header band + 6 Top Grimoire Items (including SAVE & MAIN MENU) + Set A/B Toggle
     ctx.fillStyle = 'rgba(16, 12, 30, 0.96)';
     ctx.fillRect(0, 0, W, 30);
     ctx.fillStyle = '#6e5838';
     ctx.fillRect(0, 29, W, 1);
 
     const tabDefs = [
-      ['armory', 'ARMORY', 12, 68],
-      ['souls', 'SOULS', 84, 64],
-      ['bestiary', 'BESTIARY', 152, 78],
-      ['settings', 'SETTINGS', 234, 78],
+      ['armory', 'ARMORY', 8, 47],
+      ['souls', 'SOULS', 58, 41],
+      ['bestiary', 'BESTIARY', 102, 59],
+      ['save', 'SAVE', 164, 37],
+      ['settings', 'SETTINGS', 204, 59],
+      ['exit', 'MAIN MENU', 266, 65],
     ];
     for (const [tk, lbl, tx, tw] of tabDefs) {
       const act = this.tab === tk;
-      ctx.fillStyle = act ? 'rgba(66, 46, 94, 0.96)' : 'rgba(18, 14, 34, 0.92)';
+      const isExit = tk === 'exit';
+      ctx.fillStyle = act
+        ? (isExit ? 'rgba(92, 34, 48, 0.96)' : 'rgba(66, 46, 94, 0.96)')
+        : (isExit ? 'rgba(34, 16, 28, 0.94)' : 'rgba(18, 14, 34, 0.92)');
       ctx.fillRect(tx, 5, tw, 20);
-      ctx.strokeStyle = act ? '#ffd27a' : '#42385c';
+      ctx.strokeStyle = act ? '#ffd27a' : (isExit ? '#8a4252' : '#42385c');
       ctx.strokeRect(tx + 0.5, 5.5, tw - 1, 19);
+      const txtCol = act ? '#ffd27a' : (isExit ? '#ffb89a' : (tk === 'save' ? '#9ef5dc' : '#8a9ab5'));
       f.draw(ctx, lbl, tx + Math.round(tw / 2), 11, {
-        align: 'center', color: act ? '#ffd27a' : '#8a9ab5', shadow, gothic: false,
+        align: 'center', color: txtCol, shadow, gothic: false,
       });
     }
 
     const isPad = !!(g.input && g.input.isGamepad);
     const setIdx = g.activeLoadout ? 1 : 0;
     ctx.fillStyle = 'rgba(20, 28, 38, 0.94)';
-    ctx.fillRect(318, 5, 76, 20);
+    ctx.fillRect(337, 5, 70, 20);
     ctx.strokeStyle = setIdx === 0 ? '#ffd27a' : '#62f2c2';
-    ctx.strokeRect(318.5, 5.5, 75, 19);
-    f.draw(ctx, `[${isPad ? 'LT' : 'R'}] SET ${setIdx === 0 ? 'A' : 'B'}`, 356, 11, {
+    ctx.strokeRect(337.5, 5.5, 69, 19);
+    f.draw(ctx, `[${isPad ? 'LT' : 'R'}] SET ${setIdx === 0 ? 'A' : 'B'}`, 372, 11, {
       align: 'center', color: setIdx === 0 ? '#ffd27a' : '#62f2c2', shadow, gothic: false,
     });
 
@@ -670,7 +855,7 @@ export class ArmoryScreen {
     f.draw(
       ctx,
       `LV ${String(strInfo.level).padStart(2, '0')} · EXP ${xpTxt} · STR ${String(strInfo.total).padStart(2, '0')}`,
-      626,
+      632,
       11,
       { align: 'right', color: '#9ef5dc', shadow, gothic: false },
     );
@@ -685,8 +870,18 @@ export class ArmoryScreen {
       ctx.restore();
       return;
     }
+    if (this.tab === 'save') {
+      this._drawSaveTab(ctx);
+      ctx.restore();
+      return;
+    }
     if (this.tab === 'settings') {
       this._drawSettingsTab(ctx);
+      ctx.restore();
+      return;
+    }
+    if (this.tab === 'exit') {
+      this._drawExitTab(ctx);
       ctx.restore();
       return;
     }
@@ -1093,11 +1288,290 @@ export class ArmoryScreen {
     );
   }
 
+  _drawSaveTab(ctx) {
+    const g = this.game;
+    const f = g.font;
+    const shadow = '#05040a';
+    const isPad = !!(g.input && g.input.isGamepad);
+
+    // Left panel: 4 Chronicle Save Slots (`SLOT 1` .. `SLOT 4`)
+    ctx.fillStyle = 'rgba(10, 8, 22, 0.94)';
+    ctx.fillRect(16, 38, 230, 284);
+    ctx.strokeStyle = '#3e3556';
+    ctx.strokeRect(16.5, 38.5, 229, 283);
+
+    for (let i = 0; i < SAVE_SLOTS_N; i++) {
+      const sum = g.getSlotSummary
+        ? g.getSlotSummary(i)
+        : { slotIdx: i, slotNum: i + 1, label: `SLOT ${i + 1}`, empty: true, isActive: i === 0 };
+      const selected = i === this.saveCursor;
+      const ry = 42 + i * 69;
+      const rh = 65;
+
+      ctx.fillStyle = selected
+        ? (this.confirmClearSlot ? 'rgba(84, 24, 34, 0.92)' : 'rgba(64, 46, 88, 0.92)')
+        : (i % 2 === 1 ? 'rgba(20, 16, 36, 0.65)' : 'rgba(14, 11, 28, 0.78)');
+      ctx.fillRect(18, ry, 226, rh);
+      ctx.strokeStyle = selected
+        ? (this.confirmClearSlot ? '#ff5a6e' : '#ffd27a')
+        : (sum.empty ? '#322b46' : '#524678');
+      ctx.strokeRect(18.5, ry + 0.5, 225, rh - 1);
+
+      f.draw(ctx, `${selected ? '→ ' : ''}${sum.label}`, 24, ry + 6, {
+        color: selected ? '#ffd27a' : '#e8e2c8', shadow, gothic: false,
+      });
+
+      const badge = sum.empty
+        ? (sum.isActive ? 'TARGET' : 'EMPTY')
+        : (sum.isActive ? 'ACTIVE' : 'SAVED');
+      const bCol = sum.empty
+        ? (sum.isActive ? '#ffd27a' : '#58627a')
+        : (sum.isActive ? '#62f2c2' : '#9eb0d0');
+      const bw = 48, bx = 240 - bw;
+      ctx.fillStyle = '#120e22';
+      ctx.fillRect(bx, ry + 4, bw, 13);
+      ctx.strokeStyle = bCol;
+      ctx.strokeRect(bx + 0.5, ry + 4.5, bw - 1, 12);
+      f.draw(ctx, badge, bx + Math.round(bw / 2), ry + 7, {
+        align: 'center', color: bCol, shadow, gothic: false,
+      });
+
+      if (sum.empty) {
+        f.draw(ctx, '- EMPTY SAVE SLOT -', 24, ry + 24, { color: '#6e7894', shadow, gothic: false });
+        f.draw(ctx, selected ? 'PRESS SAVE TO RECORD HUNT' : 'SELECT TO RECORD HUNT', 24, ry + 40, {
+          color: selected ? '#9ef5dc' : '#505870', shadow, gothic: false,
+        });
+      } else {
+        f.draw(ctx, sum.shortStage.slice(0, 22), 24, ry + 22, { color: '#f6f0de', shadow, gothic: false });
+        f.draw(ctx, `LV ${String(sum.level).padStart(2, '0')}`, 238, ry + 22, {
+          align: 'right', color: '#ffd27a', shadow, gothic: false,
+        });
+        f.draw(ctx, `CASTLE ${sum.castleLabel} · BOSSES ${sum.felled}/${sum.totalGuardians}`, 24, ry + 36, {
+          color: '#9ef5dc', shadow, gothic: false,
+        });
+        f.draw(ctx, `${sum.diffName} · ${sum.spawnLabel}`, 24, ry + 49, {
+          color: sum.diffColor || '#9aa8c4', shadow, gothic: false,
+        });
+      }
+    }
+
+    // Right panel: Selected Slot Chronicle Inspector + 4 Action Buttons
+    const selIdx = Math.max(0, Math.min(SAVE_SLOTS_N - 1, this.saveCursor));
+    const selSum = g.getSlotSummary
+      ? g.getSlotSummary(selIdx)
+      : { slotIdx: selIdx, slotNum: selIdx + 1, label: `SLOT ${selIdx + 1}`, empty: true };
+    const ix = 254, iy = 38, iw = 370, ih = 284;
+    ctx.fillStyle = 'rgba(12, 10, 26, 0.96)';
+    ctx.fillRect(ix, iy, iw, ih);
+    ctx.strokeStyle = this.confirmClearSlot ? '#ff5a6e' : '#6e5838';
+    ctx.strokeRect(ix + 0.5, iy + 0.5, iw - 1, ih - 1);
+
+    f.draw(ctx, `CHRONICLE ${selSum.label}`, ix + 12, iy + 10, {
+      scale: 2, gothic: false, color: '#ffd27a', shadow,
+    });
+    const statusLine = selSum.empty
+      ? 'EMPTY SLOT · READY TO RECORD INDEPENDENT HUNT'
+      : `OCCUPIED · ${selSum.fullStage} · ${selSum.savedTimeStr}`;
+    f.draw(ctx, statusLine, ix + 12, iy + 31, {
+      color: selSum.empty ? '#8a9ab5' : '#9ef5dc', shadow, gothic: false,
+    });
+
+    // Saved Slot Data Box
+    const bx = ix + 12, by = iy + 48, bw = iw - 24, bh = 100;
+    ctx.fillStyle = 'rgba(18, 15, 36, 0.90)';
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = '#524678';
+    ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+
+    if (selSum.empty) {
+      f.draw(ctx, `NO SAVE RECORDED IN ${selSum.label}`, bx + 10, by + 12, {
+        color: '#ffb088', shadow, gothic: false,
+      });
+      f.draw(ctx, 'EACH OF THE 4 SLOTS STORES ITS OWN STAGE, SAFE', bx + 10, by + 30, {
+        color: '#dce4f5', shadow, gothic: false,
+      });
+      f.draw(ctx, 'POSITION, LEVEL, CASTLE MAP %, CLEARED BOSSES,', bx + 10, by + 44, {
+        color: '#dce4f5', shadow, gothic: false,
+      });
+      f.draw(ctx, 'WEAPONS, TACTICAL SOULS, VESSELS & BESTIARY.', bx + 10, by + 58, {
+        color: '#dce4f5', shadow, gothic: false,
+      });
+      f.draw(ctx, 'SAVING HERE ALSO MAKES THIS YOUR AUTO-SAVE SLOT.', bx + 10, by + 76, {
+        color: '#9ef5dc', shadow, gothic: false,
+      });
+    } else {
+      const rows = [
+        ['LEVEL & FATE', `LV ${String(selSum.level).padStart(2, '0')} · ${selSum.diffName}`],
+        ['CHECKPOINT', `${selSum.spawnLabel} (${selSum.save.reason})`],
+        ['CASTLE & BOSSES', `${selSum.castleLabel} · ${selSum.felled}/${selSum.totalGuardians} GUARDIANS`],
+        ['ARSENAL & SOULS', `${selSum.weaponCount} WEAPONS · ${selSum.soulCount} SOULS · ${selSum.vessels} VESSELS`],
+      ];
+      rows.forEach(([k, v], ri) => {
+        const rowY = by + 6 + ri * 22;
+        if (ri % 2 === 0) {
+          ctx.fillStyle = 'rgba(26, 22, 48, 0.72)';
+          ctx.fillRect(bx + 4, rowY, bw - 8, 19);
+        }
+        f.draw(ctx, k, bx + 10, rowY + 6, { color: '#9aa8c4', shadow, gothic: false });
+        f.draw(ctx, v, bx + bw - 10, rowY + 6, { align: 'right', color: '#f6f0de', shadow, gothic: false });
+      });
+    }
+
+    // Current Live Hunt Strip
+    const curStage = (g.world && g.world.stage) || STAGES[g.stageIndex] || STAGES[0];
+    const curStageShort = curStage.name.replace(/^THE\s+/, '');
+    const curDisc = g.getCastleDiscoveryStats ? g.getCastleDiscoveryStats().label : '0.0%';
+    const curLv = String(g.charLevel || 1).padStart(2, '0');
+    const lx = ix + 12, ly = iy + 154, lw = iw - 24, lh = 44;
+    ctx.fillStyle = 'rgba(16, 24, 34, 0.90)';
+    ctx.fillRect(lx, ly, lw, lh);
+    ctx.strokeStyle = '#3c5a68';
+    ctx.strokeRect(lx + 0.5, ly + 0.5, lw - 1, lh - 1);
+    f.draw(
+      ctx,
+      `LIVE HUNT: ${curStageShort} · LV ${curLv} · CASTLE ${curDisc}`,
+      lx + 10,
+      ly + 9,
+      { color: '#62f2c2', shadow, gothic: false },
+    );
+    f.draw(
+      ctx,
+      `ACTIVE AUTO-SAVE: SLOT ${(g.activeSaveSlot || 0) + 1} · SAVE CAPTURES SAFE POSITION`,
+      lx + 10,
+      ly + 24,
+      { color: '#9eb0d0', shadow, gothic: false },
+    );
+
+    // 4 Action Buttons (`SAVE`, `LOAD`, `CLEAR`, `SAVE & MAIN MENU`)
+    this._drawActionBtn(
+      ctx,
+      ix + 12,
+      244,
+      168,
+      28,
+      `${isPad ? '[A/X]' : '[ENT]'} SAVE SLOT ${selSum.slotNum}`,
+      '#ffd27a',
+      true,
+    );
+    this._drawActionBtn(
+      ctx,
+      ix + 190,
+      244,
+      168,
+      28,
+      `${isPad ? '[Y]' : '[C]'} LOAD SLOT ${selSum.slotNum}`,
+      selSum.empty ? '#505870' : '#62f2c2',
+      false,
+    );
+    this._drawActionBtn(
+      ctx,
+      ix + 12,
+      278,
+      168,
+      28,
+      this.confirmClearSlot
+        ? 'CONFIRM CLEAR?'
+        : `${isPad ? '[LB]' : '[Q]'} CLEAR SLOT ${selSum.slotNum}`,
+      selSum.empty ? '#505870' : (this.confirmClearSlot ? '#ff5a6e' : '#ffb0a0'),
+      this.confirmClearSlot,
+    );
+    this._drawActionBtn(
+      ctx,
+      ix + 190,
+      278,
+      168,
+      28,
+      'SAVE & MAIN MENU',
+      '#9ef5dc',
+      false,
+    );
+
+    const foot = this.flashT > 0
+      ? this.flashMsg
+      : (isPad
+        ? '4 SAVE SLOTS · ←/→ TABS · ↑↓ SLOT 1-4 · A/X SAVE · Y LOAD · LB CLEAR'
+        : '4 SAVE SLOTS · ←/→ TABS · ↑↓ SLOT 1-4 · ENTER/X SAVE · C LOAD · Q CLEAR');
+    f.draw(ctx, foot, W / 2, 336, {
+      align: 'center', color: this.flashT > 0 ? '#ffd27a' : '#9aa8c4', shadow, gothic: false,
+    });
+  }
+
+  _drawExitTab(ctx) {
+    const g = this.game;
+    const f = g.font;
+    const shadow = '#05040a';
+    const isPad = !!(g.input && g.input.isGamepad);
+    const activeNum = (g.activeSaveSlot || 0) + 1;
+
+    const px = 110, py = 54, pw = 420, ph = 256;
+    ctx.fillStyle = 'rgba(12, 10, 26, 0.96)';
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeStyle = '#8a4252';
+    ctx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+    ctx.strokeStyle = '#6e5838';
+    ctx.strokeRect(px + 2.5, py + 2.5, pw - 5, ph - 5);
+
+    f.draw(ctx, 'RETURN TO MAIN MENU?', W / 2, py + 16, {
+      scale: 2, align: 'center', color: '#ffd27a', shadow, gothic: false,
+    });
+    f.draw(ctx, 'LEAVE THE CURRENT HUNT OR SAVE TO YOUR ACTIVE SLOT FIRST', W / 2, py + 39, {
+      align: 'center', color: '#9eb0d0', shadow, gothic: false,
+    });
+
+    const opts = [
+      {
+        label: 'EXIT TO MAIN MENU',
+        sub: 'RETURN TO THE START SCREEN IMMEDIATELY',
+        accent: '#ffd27a',
+      },
+      {
+        label: `SAVE TO SLOT ${activeNum} & MAIN MENU`,
+        sub: `RECORDS CURRENT HUNT IN SLOT ${activeNum}, THEN EXITS`,
+        accent: '#62f2c2',
+      },
+      {
+        label: 'RESUME HUNT',
+        sub: 'STAY IN THE CASTLE AND CONTINUE PLAYING',
+        accent: '#9ef5dc',
+      },
+    ];
+
+    opts.forEach((opt, i) => {
+      const sel = i === this.exitCursor;
+      const cy = 112 + i * 56;
+      ctx.fillStyle = sel ? 'rgba(72, 36, 62, 0.94)' : 'rgba(18, 15, 34, 0.92)';
+      ctx.fillRect(140, cy, 360, 46);
+      ctx.strokeStyle = sel ? opt.accent : '#463c62';
+      ctx.strokeRect(140.5, cy + 0.5, 359, 45);
+      f.draw(ctx, `${sel ? '→ ' : ''}${opt.label}`, W / 2, cy + 10, {
+        align: 'center', color: sel ? opt.accent : '#e8e2c8', shadow, gothic: false,
+      });
+      f.draw(ctx, opt.sub, W / 2, cy + 26, {
+        align: 'center', color: sel ? '#dce4f5' : '#7e8aa8', shadow, gothic: false,
+      });
+    });
+
+    const foot = isPad
+      ? 'MAIN MENU · ↑↓ SELECT · A/X CONFIRM · START/B RESUME HUNT'
+      : 'MAIN MENU · ↑↓ SELECT · ENTER/SPACE CONFIRM · ESC/E RESUME HUNT';
+    f.draw(ctx, foot, W / 2, 336, {
+      align: 'center', color: '#9aa8c4', shadow, gothic: false,
+    });
+  }
+
   _getSettingsRowState(row) {
     const g = this.game;
     switch (row.id) {
       case 'exitHome':
-        return { badge: 'HOME', color: '#ffd27a', status: 'ACTION · RETURN TO HOME START SCREEN' };
+        return { badge: 'MENU', color: '#ffd27a', status: 'ACTION · RETURN TO MAIN MENU START SCREEN' };
+      case 'openSave': {
+        const occ = g.getOccupiedSlotCount ? g.getOccupiedSlotCount() : 0;
+        return {
+          badge: `${occ}/4`,
+          color: '#62f2c2',
+          status: `ACTIVE SLOT ${(g.activeSaveSlot || 0) + 1} · ${occ}/4 SAVE SLOTS OCCUPIED`,
+        };
+      }
       case 'mute': {
         const on = !(g.audio && g.audio.muted);
         return {
@@ -1164,31 +1638,33 @@ export class ArmoryScreen {
       const st = this._getSettingsRowState(row);
       const selected = i === this.settingsCursor;
       const confirming = row.id === 'resetProgress' && this.confirmReset;
-      const ry = 42 + i * 39;
+      const ry = 42 + i * 34;
 
       if (selected) {
         ctx.fillStyle = confirming ? 'rgba(84, 24, 34, 0.90)' : 'rgba(64, 46, 88, 0.88)';
-        ctx.fillRect(18, ry, 226, 35);
+        ctx.fillRect(18, ry, 226, 31);
         ctx.strokeStyle = confirming ? '#ff5a6e' : '#ffd27a';
-        ctx.strokeRect(18.5, ry + 0.5, 225, 34);
+        ctx.strokeRect(18.5, ry + 0.5, 225, 30);
       } else if (i % 2 === 1) {
         ctx.fillStyle = 'rgba(20, 16, 36, 0.55)';
-        ctx.fillRect(18, ry, 226, 35);
+        ctx.fillRect(18, ry, 226, 31);
       }
 
-      const labelCol = confirming ? '#ff8a98' : (selected ? '#ffffff' : (row.id === 'exitHome' ? '#ffd27a' : '#e8e2c8'));
-      f.draw(ctx, row.label, 24, ry + 7, { color: labelCol, shadow, gothic: false });
+      const labelCol = confirming
+        ? '#ff8a98'
+        : (selected ? '#ffffff' : (row.id === 'exitHome' ? '#ffd27a' : (row.id === 'openSave' ? '#9ef5dc' : '#e8e2c8')));
+      f.draw(ctx, row.label, 24, ry + 5, { color: labelCol, shadow, gothic: false });
       const subText = confirming ? 'PRESS AGAIN TO CONFIRM!' : row.sub;
-      f.draw(ctx, subText, 24, ry + 19, {
+      f.draw(ctx, subText, 24, ry + 17, {
         color: confirming ? '#ffb0a0' : '#7e8aa8', shadow, gothic: false,
       });
 
-      const bx = 180, bw = 58, bh = 15, by = ry + 10;
+      const bx = 180, bw = 58, bh = 14, by = ry + 8;
       ctx.fillStyle = '#120e22';
       ctx.fillRect(bx, by, bw, bh);
       ctx.strokeStyle = st.color;
       ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
-      f.draw(ctx, st.badge, bx + Math.round(bw / 2), by + 4, {
+      f.draw(ctx, st.badge, bx + Math.round(bw / 2), by + 3, {
         align: 'center', color: st.color, shadow, gothic: false,
       });
     }
@@ -1253,24 +1729,31 @@ export class ArmoryScreen {
 
     if (g.hasSaveGame && g.hasSaveGame() && g.saveData) {
       const sv = g.saveData;
+      const slotNum = (Number.isFinite(sv.slot) ? sv.slot : (g.activeSaveSlot || 0)) + 1;
       const stLabel = String(sv.stageName || 'THE CASTLE').replace(/^THE\s+/, '');
-      const kindLbl = sv.spawnKind === 'boss_clear' ? 'BOSS CLEAR' : sv.spawnKind === 'stage_start' ? 'ENTRANCE' : 'SANCTUM';
-      f.draw(ctx, `SAVED CHECKPOINT: ${stLabel} (${kindLbl})`, bx + 8, by + 74, {
+      const kindLbl = sv.spawnKind === 'boss_clear'
+        ? 'BOSS CLEAR'
+        : sv.spawnKind === 'manual_pos'
+          ? 'SAVED POS'
+          : sv.spawnKind === 'stage_start'
+            ? 'ENTRANCE'
+            : 'SANCTUM';
+      f.draw(ctx, `SLOT ${slotNum}: ${stLabel} (${kindLbl})`, bx + 8, by + 74, {
         color: '#7ef5c8', shadow, gothic: false,
       });
     } else {
-      f.draw(ctx, 'SAVED CHECKPOINT: NONE RECORDED YET', bx + 8, by + 74, {
+      f.draw(ctx, `ACTIVE SLOT ${(g.activeSaveSlot || 0) + 1}: NONE RECORDED YET`, bx + 8, by + 74, {
         color: '#ffb088', shadow, gothic: false,
       });
     }
-    f.draw(ctx, 'ARSENAL, SOULS, BESTIARY & LEVEL AUTO-SAVE.', bx + 8, by + 90, {
+    f.draw(ctx, 'USE THE SAVE TAB FOR 4 INDEPENDENT SAVE SLOTS.', bx + 8, by + 90, {
       color: '#8a9ab5', shadow, gothic: false,
     });
-    f.draw(ctx, 'PRAY AT A CRIMSON SANCTUM TO SAVE STAGE SPAWN.', bx + 8, by + 103, {
+    f.draw(ctx, 'CRIMSON SANCTUMS AUTO-SAVE INTO YOUR ACTIVE SLOT.', bx + 8, by + 103, {
       color: '#7e8aa8', shadow, gothic: false,
     });
 
-    // Always-accessible Resume Hunt & Exit to Home Start Screen buttons
+    // Always-accessible Resume Hunt & Exit to Main Menu buttons
     const btnY = iy + 242;
     this._drawActionBtn(
       ctx,
@@ -1288,7 +1771,7 @@ export class ArmoryScreen {
       btnY,
       168,
       28,
-      '[HOME] EXIT TO START',
+      'EXIT TO MAIN MENU',
       '#ffd27a',
       selRow.id === 'exitHome',
     );

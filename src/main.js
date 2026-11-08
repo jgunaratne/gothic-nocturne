@@ -38,6 +38,15 @@ import { resolveEnemySpeciesKey } from './game/weapons.js';
 import { TouchControls } from './engine/touch.js';
 
 const SAVE_STORAGE_KEY = 'gothic.save.v1';
+const SAVE_SLOTS_KEY = 'gothic.saves.v2';
+const ACTIVE_SLOT_KEY = 'gothic.activeSlot.v1';
+export const SAVE_SLOT_COUNT = 4;
+
+function clampSlotIndex(idx) {
+  const n = parseInt(idx, 10);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(SAVE_SLOT_COUNT - 1, n));
+}
 
 class Game {
   constructor(canvas) {
@@ -116,7 +125,14 @@ class Game {
       || this.params.get('cleared') === 'all'
       || this.params.get('explored') === 'all'
     );
-    this.saveData = this.loadSaveData();
+    this.activeSaveSlot = clampSlotIndex(safeStorageGet(ACTIVE_SLOT_KEY) || '0');
+    this.saveSlotCursor = this.activeSaveSlot;
+    this.saveSlotConfirmClear = false;
+    this.saveSlotsReturnState = 'title';
+    this._newHuntMode = false;
+    this.saveSlots = new Array(SAVE_SLOT_COUNT).fill(null);
+    this.saveData = null;
+    this.loadSaveSlots();
     this.editingCallsign = false;
     this.callsignDraft = '';
     this.net = new NetClient(this.params);
@@ -188,7 +204,7 @@ class Game {
       const urlStage = parseInt(this.params.get('stage') || '0', 10);
       const want = urlStage >= 1 && urlStage <= STAGES.length ? urlStage - 1 : 0;
       if (want !== this.stageIndex) { this.stageIndex = want; this.stageCursor = want; this.mapCursor = STAGES[want].key; }
-      this.saveData = this.loadSaveData();
+      this.loadSaveSlots();
       this.titleMenu = 0;
     }
     if (bootEl) bootEl.remove();
@@ -208,6 +224,8 @@ class Game {
       if (this.params.has('ending')) this.stateT = Math.max(0, parseFloat(this.params.get('ending')) || 0);
     } else if (screen === 'difficulty' || screen === 'stageselect') {
       this.setState(screen);
+    } else if (screen === 'saveslots') {
+      this.openSaveSlots('title');
     } else if (screen === 'controls') {
       this.openControls();
     } else if (screen === 'settings') {
@@ -219,9 +237,9 @@ class Game {
     } else if (screen === 'map') {
       this.startGame();
       this.openMap();
-    } else if (screen === 'armory' || screen === 'souls' || screen === 'bestiary') {
+    } else if (screen === 'armory' || screen === 'souls' || screen === 'bestiary' || screen === 'save' || screen === 'exit') {
       this.startGame();
-      const tab = this.params.get('tab') || (screen === 'souls' || screen === 'bestiary' ? screen : 'armory');
+      const tab = this.params.get('tab') || (screen !== 'armory' ? screen : 'armory');
       this.openArmory('play', tab);
     } else if (screen === 'clear') {
       this.startGame();
@@ -265,6 +283,40 @@ class Game {
     }
     const skip = parseInt(this.params.get('skip') || '0', 10);
     for (let i = 0; i < skip; i++) { this.input.update(DT); this.update(DT); }
+    if (this.state === 'ending') {
+      const vid = this._ensureEndingVideo();
+      if (vid) {
+        const targetT = Math.max(0, Math.min(41.8, this.stateT || 0));
+        await new Promise((resolve) => {
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            vid.removeEventListener('seeked', finish);
+            vid.removeEventListener('loadeddata', onLoaded);
+            vid.removeEventListener('error', finish);
+            resolve();
+          };
+          const onLoaded = () => {
+            if (targetT > 0.05) {
+              try { vid.currentTime = targetT; } catch { finish(); }
+            } else {
+              finish();
+            }
+          };
+          const timer = setTimeout(finish, 750);
+          const wrapFinish = () => { clearTimeout(timer); finish(); };
+          vid.addEventListener('seeked', wrapFinish, { once: true });
+          vid.addEventListener('error', wrapFinish, { once: true });
+          if (vid.readyState >= 1) {
+            onLoaded();
+            if (targetT <= 0.05 && vid.readyState >= 2) wrapFinish();
+          } else {
+            vid.addEventListener('loadeddata', onLoaded, { once: true });
+          }
+        });
+      }
+    }
     this.fit();
     if (!this.touch || !this.touch.active) this.canvas.focus();
     requestAnimationFrame((t) => this.frame(t));
@@ -274,6 +326,9 @@ class Game {
     const prev = this.state;
     this.state = s;
     this.stateT = 0;
+    if (prev === 'ending' && s !== 'ending' && this.endingVideo) {
+      try { this.endingVideo.pause(); } catch {}
+    }
     if (s === 'pause' && prev !== 'pause') {
       if (prev === 'play') {
         this.audio.sfx('game_pause');
@@ -382,10 +437,14 @@ class Game {
    */
   resetProgress() {
     for (const k of [
-      SAVE_STORAGE_KEY,
+      SAVE_STORAGE_KEY, SAVE_SLOTS_KEY, ACTIVE_SLOT_KEY,
       'gothic.cleared.v3', 'gothic.discovered.v1', 'gothic.vessels.v1', 'gothic.explored.v2',
       'gothic.progression.v1', 'gothic.armory.v1', 'gothic.souls.v1', 'gothic.stage', 'gothic.difficulty', 'gothic.debug.v1',
     ]) safeStorageRemove(k);
+    this.saveSlots = new Array(SAVE_SLOT_COUNT).fill(null);
+    this.activeSaveSlot = 0;
+    this.saveSlotCursor = 0;
+    this.saveSlotConfirmClear = false;
     this.saveData = null;
     this.saveToast = null;
     this.cleared = 0;
@@ -466,11 +525,25 @@ class Game {
     return n;
   }
 
-  // ------------------------------------------------ Save points & castle discovery
+  // ------------------------------------------------ 4-Slot Chronicle Saves & Castle Discovery
 
-  /** True when a continuable save point or post-boss save exists. */
+  /** True when at least one of the 4 save slots holds a continuable chronicle. */
   hasSaveGame() {
-    return !!this.saveData;
+    return Array.isArray(this.saveSlots) && this.saveSlots.some(Boolean);
+  }
+
+  /** Number of occupied save slots (`0..4`). */
+  getOccupiedSlotCount() {
+    if (!Array.isArray(this.saveSlots)) return 0;
+    let n = 0;
+    for (let i = 0; i < SAVE_SLOT_COUNT; i++) if (this.saveSlots[i]) n++;
+    return n;
+  }
+
+  /** Active slot's save object, falling back to the first occupied slot if active is empty. */
+  getPrimarySaveData() {
+    if (!Array.isArray(this.saveSlots)) return null;
+    return this.saveSlots[clampSlotIndex(this.activeSaveSlot)] || this.saveSlots.find(Boolean) || null;
   }
 
   /** Returns `{ count, total, exactPct, roundedPct, label }` for castle map discovery. */
@@ -483,36 +556,145 @@ class Game {
     return exploredCellStats(this.exploredCells, started);
   }
 
-  /** Loads `gothic.save.v1` (or synthesizes a continuable save for legacy progress). */
-  loadSaveData() {
+  /** Normalizes a raw `v1` or `v2` save object into a canonical `v2` Chronicle Slot record. */
+  _normalizeSlotEntry(obj, slotIdx = 0) {
+    if (!obj || typeof obj !== 'object' || typeof obj.stageKey !== 'string') return null;
+    const sIdx = stageIndexOf(obj.stageKey);
+    const diffKey = DIFFICULTIES[obj.difficultyKey] ? obj.difficultyKey : this.difficultyKey;
+    const diff = DIFFICULTIES[diffKey] || DIFFICULTIES[DEFAULT_DIFFICULTY];
+    const validKinds = ['sanctuary', 'boss_clear', 'stage_start', 'manual_pos'];
+    const spawnKind = validKinds.includes(obj.spawnKind) ? obj.spawnKind : 'sanctuary';
+    const saveX = Number.isFinite(Number(obj.saveX)) ? Math.round(Number(obj.saveX)) : null;
+    const saveY = Number.isFinite(Number(obj.saveY)) ? Math.round(Number(obj.saveY)) : null;
+
+    const cleared = Number.isFinite(Number(obj.cleared)) ? (parseInt(obj.cleared, 10) || 0) : (this.cleared || 0);
+    const discovered = Number.isFinite(Number(obj.discovered))
+      ? ((parseInt(obj.discovered, 10) || 1) | 1 | cleared)
+      : ((this.discovered || 1) | 1 | cleared);
+    const vessels = Number.isFinite(Number(obj.vessels)) ? (parseInt(obj.vessels, 10) || 0) : (this.vessels || 0);
+    const exploredCells = Array.isArray(obj.exploredCells)
+      ? obj.exploredCells.filter((c) => typeof c === 'string')
+      : [...(this.exploredCells || [])];
+
+    let armory = null;
+    if (obj.armory && typeof obj.armory === 'object') {
+      const owned = Array.isArray(obj.armory.owned)
+        ? obj.armory.owned.filter((w) => WEAPONS[w])
+        : ['hunters_lash'];
+      if (!owned.includes('hunters_lash')) owned.unshift('hunters_lash');
+      const handL = obj.armory.handL && WEAPONS[obj.armory.handL] ? obj.armory.handL : 'hunters_lash';
+      if (!owned.includes(handL)) owned.push(handL);
+      const handR = !WEAPONS[handL].isTwoHanded && obj.armory.handR && WEAPONS[obj.armory.handR] && !WEAPONS[obj.armory.handR].isTwoHanded
+        ? obj.armory.handR
+        : null;
+      if (handR && !owned.includes(handR)) owned.push(handR);
+      const activeLoadout = obj.armory.activeLoadout === 1 ? 1 : 0;
+      const loadouts = Array.isArray(obj.armory.loadouts) && obj.armory.loadouts.length === 2
+        ? obj.armory.loadouts.map((pair) => [
+          Array.isArray(pair) && pair[0] && WEAPONS[pair[0]] ? pair[0] : 'hunters_lash',
+          Array.isArray(pair) && pair[1] && WEAPONS[pair[1]] && !WEAPONS[pair[1]].isTwoHanded ? pair[1] : null,
+        ])
+        : [[handL, handR], ['hunters_lash', null]];
+      armory = { owned, handL, handR, activeLoadout, loadouts };
+    } else {
+      armory = {
+        owned: [...(this.ownedWeapons || ['hunters_lash'])],
+        handL: this.handL || 'hunters_lash',
+        handR: this.handR || null,
+        activeLoadout: this.activeLoadout || 0,
+        loadouts: this.loadouts || [[this.handL || 'hunters_lash', this.handR || null], ['hunters_lash', null]],
+      };
+    }
+
+    let grimoire = null;
+    if (obj.grimoire && typeof obj.grimoire === 'object') {
+      const soulRanks = {};
+      if (obj.grimoire.soulRanks && typeof obj.grimoire.soulRanks === 'object') {
+        for (const [sid, rk] of Object.entries(obj.grimoire.soulRanks)) {
+          if (SOUL_GLYPHS[sid] && (rk | 0) > 0) soulRanks[sid] = Math.min(SOUL_MAX_RANK, rk | 0);
+        }
+      }
+      const equippedSouls = { bullet: null, guardian: null, enchant: null };
+      if (obj.grimoire.equippedSouls && typeof obj.grimoire.equippedSouls === 'object') {
+        for (const t of ['bullet', 'guardian', 'enchant']) {
+          const sid = obj.grimoire.equippedSouls[t];
+          if (sid && SOUL_GLYPHS[sid] && soulRanks[sid] > 0) equippedSouls[t] = sid;
+        }
+      }
+      const bestiarySeen = Array.isArray(obj.grimoire.bestiarySeen)
+        ? obj.grimoire.bestiarySeen.filter((s) => typeof s === 'string')
+        : [];
+      const bestiaryKills = {};
+      if (obj.grimoire.bestiaryKills && typeof obj.grimoire.bestiaryKills === 'object') {
+        for (const [sp, cnt] of Object.entries(obj.grimoire.bestiaryKills)) {
+          if ((cnt | 0) > 0) {
+            bestiaryKills[sp] = cnt | 0;
+            if (!bestiarySeen.includes(sp)) bestiarySeen.push(sp);
+          }
+        }
+      }
+      grimoire = {
+        soulRanks,
+        equippedSouls,
+        bestiarySeen,
+        bestiaryKills,
+        bloodBladeStacks: Math.max(0, Math.min(24, obj.grimoire.bloodBladeStacks | 0)),
+        openedChests: Array.isArray(obj.grimoire.openedChests) ? obj.grimoire.openedChests.map(String) : [],
+        openedSwitches: Array.isArray(obj.grimoire.openedSwitches) ? obj.grimoire.openedSwitches.map(String) : [],
+      };
+    } else {
+      grimoire = {
+        soulRanks: Object.assign({}, this.soulRanks || {}),
+        equippedSouls: Object.assign({ bullet: null, guardian: null, enchant: null }, this.equippedSouls || {}),
+        bestiarySeen: [...(this.bestiarySeen || [])],
+        bestiaryKills: Object.assign({}, this.bestiaryKills || {}),
+        bloodBladeStacks: this.bloodBladeStacks || 0,
+        openedChests: [...(this.openedChests || [])],
+        openedSwitches: [...(this.openedSwitches || [])],
+      };
+    }
+
+    const charLevel = Math.max(START_LEVEL, Math.min(LEVEL_CAP, parseInt(obj.charLevel, 10) || this.charLevel || START_LEVEL));
+    const reqExp = expRequiredForNextLevel(charLevel);
+    const rawExp = Number.isFinite(Number(obj.charExp)) ? parseInt(obj.charExp, 10) : (this.charExp || 0);
+    const charExp = reqExp > 0 ? Math.max(0, Math.min(reqExp - 1, rawExp || 0)) : 0;
+
+    return {
+      version: 2,
+      slot: clampSlotIndex(slotIdx),
+      savedAt: Number(obj.savedAt) || Date.now(),
+      stageKey: obj.stageKey,
+      stageName: (sIdx >= 0 ? STAGES[sIdx].name : obj.stageName) || 'THE CASTLE',
+      spawnKind,
+      saveX,
+      saveY,
+      reason: typeof obj.reason === 'string' ? obj.reason : 'CRIMSON SANCTUM',
+      difficultyKey: diffKey,
+      score: Math.max(0, parseInt(obj.score, 10) || 0),
+      lives: Math.max(diff.lives, parseInt(obj.lives, 10) || diff.lives),
+      hearts: Math.max(0, Number.isFinite(Number(obj.hearts)) ? parseInt(obj.hearts, 10) : diff.hearts),
+      subWeapon: typeof obj.subWeapon === 'string' ? obj.subWeapon : null,
+      hp: Math.max(1, parseInt(obj.hp, 10) || PLAYER.maxHp),
+      charLevel,
+      charExp,
+      cleared,
+      discovered,
+      vessels,
+      exploredCells,
+      armory,
+      grimoire,
+      visitedStages: Array.isArray(obj.visitedStages) ? obj.visitedStages.filter((s) => typeof s === 'string') : [],
+    };
+  }
+
+  /** Loads legacy single-slot `gothic.save.v1` (or synthesizes from v1 storage keys) for Slot 1 migration. */
+  loadLegacySaveData() {
     const raw = safeStorageGet(SAVE_STORAGE_KEY);
     if (raw) {
       try {
         const obj = JSON.parse(raw);
-        if (obj && typeof obj === 'object' && typeof obj.stageKey === 'string') {
-          const sIdx = stageIndexOf(obj.stageKey);
-          const diffKey = DIFFICULTIES[obj.difficultyKey] ? obj.difficultyKey : this.difficultyKey;
-          const diff = DIFFICULTIES[diffKey] || DIFFICULTIES[DEFAULT_DIFFICULTY];
-          const spawnKind = (obj.spawnKind === 'sanctuary' || obj.spawnKind === 'boss_clear' || obj.spawnKind === 'stage_start')
-            ? obj.spawnKind
-            : 'sanctuary';
-          return {
-            version: 1,
-            savedAt: Number(obj.savedAt) || Date.now(),
-            stageKey: obj.stageKey,
-            stageName: (sIdx >= 0 ? STAGES[sIdx].name : obj.stageName) || 'THE CASTLE',
-            spawnKind,
-            reason: typeof obj.reason === 'string' ? obj.reason : 'CRIMSON SANCTUM',
-            difficultyKey: diffKey,
-            score: Math.max(0, parseInt(obj.score, 10) || 0),
-            lives: Math.max(diff.lives, parseInt(obj.lives, 10) || diff.lives),
-            hearts: Math.max(0, Number.isFinite(Number(obj.hearts)) ? parseInt(obj.hearts, 10) : diff.hearts),
-            subWeapon: typeof obj.subWeapon === 'string' ? obj.subWeapon : null,
-            hp: Math.max(1, parseInt(obj.hp, 10) || PLAYER.maxHp),
-            charLevel: Math.max(START_LEVEL, parseInt(obj.charLevel, 10) || this.charLevel || START_LEVEL),
-            visitedStages: Array.isArray(obj.visitedStages) ? obj.visitedStages.filter((s) => typeof s === 'string') : [],
-          };
-        }
+        const norm = this._normalizeSlotEntry(obj, 0);
+        if (norm) return norm;
       } catch (e) { /* ignore malformed save */ }
     }
     if (!this._ephemeralSession) {
@@ -524,8 +706,7 @@ class Game {
         const idx = Math.max(0, Math.min(STAGES.length - 1, storedIdx));
         const st = STAGES[idx] || STAGES[0];
         const disc = !!(((this.discovered >>> idx) & 1) || ((legacyCleared >>> idx) & 1));
-        return {
-          version: 1,
+        return this._normalizeSlotEntry({
           savedAt: Date.now(),
           stageKey: st.key,
           stageName: st.name,
@@ -539,44 +720,264 @@ class Game {
           hp: PLAYER.maxHp + this.getVesselCount(),
           charLevel: this.charLevel,
           visitedStages: [st.key],
-        };
+        }, 0);
       }
     }
     return null;
   }
 
+  /** Loads all 4 Chronicle Save Slots (`gothic.saves.v2`), migrating legacy `v1` saves into Slot 1. */
+  loadSaveSlots() {
+    const slots = new Array(SAVE_SLOT_COUNT).fill(null);
+    let loadedV2 = false;
+    const rawV2 = safeStorageGet(SAVE_SLOTS_KEY);
+    if (rawV2) {
+      try {
+        const parsed = JSON.parse(rawV2);
+        const arr = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.slots) ? parsed.slots : null);
+        if (arr) {
+          loadedV2 = true;
+          for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+            slots[i] = arr[i] ? this._normalizeSlotEntry(arr[i], i) : null;
+          }
+        }
+      } catch (e) { /* ignore malformed v2 slots */ }
+    }
+    if (!loadedV2) {
+      const legacy = this.loadLegacySaveData();
+      if (legacy) {
+        slots[0] = legacy;
+        this.activeSaveSlot = 0;
+      }
+    }
+    this.saveSlots = slots;
+    this.activeSaveSlot = clampSlotIndex(safeStorageGet(ACTIVE_SLOT_KEY) ?? this.activeSaveSlot);
+    this.saveData = this.getPrimarySaveData();
+    if (!loadedV2 && slots[0] && !this._ephemeralSession) {
+      this.persistSaveSlots();
+    }
+    return this.saveSlots;
+  }
+
+  /** Persists all 4 save slots + active slot index to localStorage. */
+  persistSaveSlots() {
+    this.saveData = this.getPrimarySaveData();
+    if (this._ephemeralSession) return;
+    safeStorageSet(SAVE_SLOTS_KEY, JSON.stringify({ version: 2, slots: this.saveSlots }));
+    safeStorageSet(ACTIVE_SLOT_KEY, String(clampSlotIndex(this.activeSaveSlot)));
+    if (this.saveData) {
+      safeStorageSet(SAVE_STORAGE_KEY, JSON.stringify(this.saveData));
+    } else {
+      safeStorageRemove(SAVE_STORAGE_KEY);
+    }
+  }
+
+  /** Syncs the active in-memory run's progression/armory/map keys to localStorage. */
+  syncLiveGlobalStorageFromCurrent() {
+    if (this._ephemeralSession) return;
+    safeStorageSet('gothic.cleared.v3', String(this.cleared || 0));
+    safeStorageSet('gothic.discovered.v1', String(this.discovered || 1));
+    safeStorageSet('gothic.vessels.v1', String(this.vessels || 0));
+    safeStorageSet('gothic.explored.v2', JSON.stringify([...(this.exploredCells || [])]));
+    safeStorageSet('gothic.difficulty', this.difficultyKey);
+    safeStorageSet('gothic.stage', String(this.stageIndex || 0));
+    this.saveProgression();
+    this.saveArmory();
+    this.saveGrimoire();
+  }
+
+  /**Formatted UI summary of `slotIdx` (`0..3`) for Equip -> SAVE and Title -> CONTINUE screens. */
+  getSlotSummary(slotIdx) {
+    const idx = clampSlotIndex(slotIdx);
+    const sv = this.saveSlots ? this.saveSlots[idx] : null;
+    const isActive = idx === clampSlotIndex(this.activeSaveSlot);
+    if (!sv) {
+      return {
+        slotIdx: idx,
+        slotNum: idx + 1,
+        label: `SLOT ${idx + 1}`,
+        empty: true,
+        isActive,
+      };
+    }
+    const sIdx = stageIndexOf(sv.stageKey);
+    const fullStage = (sIdx >= 0 ? STAGES[sIdx].name : sv.stageName) || 'THE CASTLE';
+    const shortStage = fullStage.replace(/^THE\s+/, '');
+    const spawnLabel = sv.spawnKind === 'boss_clear'
+      ? 'BOSS CLEAR'
+      : sv.spawnKind === 'manual_pos'
+        ? 'SAVED POS'
+        : sv.spawnKind === 'stage_start'
+          ? 'ENTRANCE'
+          : 'SANCTUM';
+    const diffKey = DIFFICULTIES[sv.difficultyKey] ? sv.difficultyKey : DEFAULT_DIFFICULTY;
+    const diffName = DIFFICULTIES[diffKey].name;
+    const diffColors = { easy: '#9ad17a', normal: '#ffd27a', hard: '#ff6a7a' };
+    const cellSet = new Set(Array.isArray(sv.exploredCells) ? sv.exploredCells : []);
+    const disc = exploredCellStats(cellSet, true);
+    const gp = guardianProgress(sv.cleared || 0);
+    let vesselCount = 0;
+    let vm = (sv.vessels || 0) >>> 0;
+    for (let i = 0; i < STAGES.length; i++) { if (vm & 1) vesselCount++; vm >>>= 1; }
+    const weaponCount = sv.armory && Array.isArray(sv.armory.owned) ? sv.armory.owned.length : 1;
+    const soulCount = sv.grimoire && sv.grimoire.soulRanks
+      ? Object.values(sv.grimoire.soulRanks).filter((r) => (r | 0) > 0).length
+      : 0;
+    let savedTimeStr = 'RECENT';
+    if (sv.savedAt) {
+      try {
+        const d = new Date(sv.savedAt);
+        const mo = String(d.getMonth() + 1).padStart(2, '0');
+        const da = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        savedTimeStr = `${mo}/${da} ${hh}:${mm}`;
+      } catch (e) { /* ignore */ }
+    }
+    return {
+      slotIdx: idx,
+      slotNum: idx + 1,
+      label: `SLOT ${idx + 1}`,
+      empty: false,
+      isActive,
+      save: sv,
+      fullStage,
+      shortStage,
+      spawnLabel,
+      diffKey,
+      diffName,
+      diffColor: diffColors[diffKey] || '#ffd27a',
+      level: sv.charLevel || START_LEVEL,
+      castleLabel: disc.label,
+      felled: gp.felled,
+      totalGuardians: gp.total,
+      vessels: vesselCount,
+      weaponCount,
+      soulCount,
+      score: sv.score || 0,
+      hearts: sv.hearts || 0,
+      hp: sv.hp || PLAYER.maxHp,
+      savedTimeStr,
+    };
+  }
+
+  /** Resets active in-memory hunt state for starting a brand-new hunt in `slotIdx` without erasing other slots. */
+  applyFreshRunStateForSlot(slotIdx) {
+    this.activeSaveSlot = clampSlotIndex(slotIdx);
+    const startCell = (MAP_ROOMS.graveyard && MAP_ROOMS.graveyard.spine && MAP_ROOMS.graveyard.spine[0]) || [1, 15];
+    this.cleared = 0;
+    this.discovered = 1;
+    this.vessels = 0;
+    this.exploredCells = new Set([`${startCell[0]},${startCell[1]}`]);
+    this.charLevel = START_LEVEL;
+    this.charExp = 0;
+    this._urlLevelOverride = false;
+    this.ownedWeapons = new Set(['hunters_lash']);
+    this.handL = 'hunters_lash';
+    this.handR = null;
+    this.activeLoadout = 0;
+    this.loadouts = [['hunters_lash', null], ['hunters_lash', null]];
+    this._urlArmoryOverride = false;
+    this.soulRanks = {};
+    this.equippedSouls = { bullet: null, guardian: null, enchant: null };
+    this.bestiarySeen = new Set();
+    this.bestiaryKills = {};
+    this.bloodBladeStacks = 0;
+    this.openedChests = new Set();
+    this.openedSwitches = new Set();
+    this._urlSoulOverride = false;
+    this.stageIndex = 0;
+    this.stageCursor = 0;
+    this.mapCursor = STAGES[0].key;
+    this.visitedStages = new Set([STAGES[0].key]);
+    this.carryState = null;
+    this.persistSaveSlots();
+    this.syncLiveGlobalStorageFromCurrent();
+  }
+
+  /** Begins a brand-new hunt targeted at `slotIdx` (`0..3`) and opens Fate selection. */
+  startNewHuntInSlot(slotIdx) {
+    this.activeSaveSlot = clampSlotIndex(slotIdx);
+    this._newHuntMode = true;
+    this.setState('difficulty');
+    this.audio.sfx('select');
+  }
+
   /**
-   * Records a persistent checkpoint save at a Crimson Save Sanctum or after a Boss Fight.
-   * Safe to call multiple times (e.g. boss felled -> orb/rewards claimed -> next stage entered).
+   * Saves a complete chronicle snapshot into `slotIdx` (`0..3`) and makes it the active slot.
+   * When `manual: true`, captures a safe grounded position in the current stage (`manual_pos`).
    */
-  saveCheckpoint({
+  saveToSlot(slotIdx, {
     spawnKind = 'sanctuary',
     reason = 'CRIMSON SANCTUM',
     world = this.world,
+    manual = false,
     silentToast = false,
   } = {}) {
+    const idx = clampSlotIndex(slotIdx);
+    if (world && world.recordExploration) world.recordExploration();
     const stage = (world && world.stage) || STAGES[this.stageIndex] || STAGES[0];
     const diff = this.difficulty || DIFFICULTIES[DEFAULT_DIFFICULTY];
     const maxHp = world && world.computeMaxHp ? world.computeMaxHp() : PLAYER.maxHp;
-    const saveObj = {
-      version: 1,
+
+    let effKind = spawnKind;
+    let saveX = null;
+    let saveY = null;
+    if (manual && world && world.getSafeManualSaveAnchor) {
+      const anchor = world.getSafeManualSaveAnchor();
+      effKind = anchor.spawnKind;
+      saveX = anchor.saveX;
+      saveY = anchor.saveY;
+    }
+    const savedHp = (manual && world && world.player && world.player.alive)
+      ? Math.max(1, Math.round(world.player.hp))
+      : maxHp;
+
+    const saveObj = this._normalizeSlotEntry({
+      version: 2,
+      slot: idx,
       savedAt: Date.now(),
       stageKey: stage.key,
       stageName: stage.name,
-      spawnKind,
+      spawnKind: effKind,
+      saveX,
+      saveY,
       reason,
       difficultyKey: this.difficultyKey,
       score: world ? Math.max(0, Math.round(world.score || 0)) : 0,
       lives: Math.max(diff.lives, world ? (world.lives ?? diff.lives) : diff.lives),
       hearts: world ? Math.max(0, world.hearts ?? diff.hearts) : diff.hearts,
       subWeapon: (world && world.player && world.player.subWeapon) || (world && world.subWeaponCarry) || null,
-      hp: maxHp,
+      hp: savedHp,
       charLevel: this.charLevel,
+      charExp: this.charExp,
+      cleared: this.cleared,
+      discovered: this.discovered,
+      vessels: this.vessels,
+      exploredCells: [...(this.exploredCells || [])],
+      armory: {
+        owned: [...(this.ownedWeapons || ['hunters_lash'])],
+        handL: this.handL || 'hunters_lash',
+        handR: this.handR || null,
+        activeLoadout: this.activeLoadout || 0,
+        loadouts: this.loadouts || [[this.handL || 'hunters_lash', this.handR || null], ['hunters_lash', null]],
+      },
+      grimoire: {
+        soulRanks: Object.assign({}, this.soulRanks || {}),
+        equippedSouls: Object.assign({ bullet: null, guardian: null, enchant: null }, this.equippedSouls || {}),
+        bestiarySeen: [...(this.bestiarySeen || [])],
+        bestiaryKills: Object.assign({}, this.bestiaryKills || {}),
+        bloodBladeStacks: this.bloodBladeStacks || 0,
+        openedChests: [...(this.openedChests || [])],
+        openedSwitches: [...(this.openedSwitches || [])],
+      },
       visitedStages: [...(this.visitedStages || [stage.key])],
-    };
-    this.saveData = saveObj;
+    }, idx);
+
+    this.activeSaveSlot = idx;
+    this.saveSlots[idx] = saveObj;
+    this.persistSaveSlots();
     if (!this._ephemeralSession) {
-      safeStorageSet(SAVE_STORAGE_KEY, JSON.stringify(saveObj));
       safeStorageSet('gothic.difficulty', this.difficultyKey);
       const sIdx = stageIndexOf(stage.key);
       if (sIdx >= 0) safeStorageSet('gothic.stage', String(sIdx));
@@ -584,7 +985,7 @@ class Game {
     if (!silentToast) {
       const disc = this.getCastleDiscoveryStats();
       this.saveToast = {
-        text: `GAME SAVED · ${reason} · CASTLE ${disc.label}`,
+        text: `SLOT ${idx + 1} SAVED · ${reason} · CASTLE ${disc.label}`,
         t: 0,
         dur: 2.9,
       };
@@ -592,17 +993,72 @@ class Game {
     return saveObj;
   }
 
-  /** Resumes gameplay directly from `this.saveData` (Save Point or Post-Boss Save). */
-  continueFromSave() {
-    const save = this.saveData;
-    if (!save) {
-      this.setState('difficulty');
-      this.audio.sfx('select');
-      return;
-    }
+  /**
+   * Records a persistent checkpoint save at a Crimson Save Sanctum or after a Boss Fight
+   * into the currently active save slot (`SLOT 1..4`).
+   */
+  saveCheckpoint(opts = {}) {
+    return this.saveToSlot(this.activeSaveSlot, opts);
+  }
+
+  /** Clears a single Chronicle Save Slot (`0..3`) without erasing other slots. */
+  clearSaveSlot(slotIdx) {
+    const idx = clampSlotIndex(slotIdx);
+    this.saveSlots[idx] = null;
+    this.persistSaveSlots();
+  }
+
+  /** Restores all progression, arsenal, souls, map & position from `slotIdx` (`0..3`) and resumes play. */
+  loadFromSaveSlot(slotIdx) {
+    const idx = clampSlotIndex(slotIdx);
+    const save = this.saveSlots ? this.saveSlots[idx] : null;
+    if (!save) return false;
+
+    this.activeSaveSlot = idx;
+    this._newHuntMode = false;
     if (save.difficultyKey && DIFFICULTIES[save.difficultyKey]) {
       this.chooseDifficulty(save.difficultyKey);
     }
+    if (typeof save.cleared === 'number') this.cleared = save.cleared;
+    if (typeof save.discovered === 'number') this.discovered = save.discovered | 1 | this.cleared;
+    if (typeof save.vessels === 'number') this.vessels = save.vessels;
+    if (Array.isArray(save.exploredCells)) {
+      const startCell = (MAP_ROOMS.graveyard && MAP_ROOMS.graveyard.spine && MAP_ROOMS.graveyard.spine[0]) || [1, 15];
+      this.exploredCells = new Set([`${startCell[0]},${startCell[1]}`, ...save.exploredCells]);
+    }
+    if (typeof save.charLevel === 'number') {
+      this.charLevel = Math.max(START_LEVEL, Math.min(LEVEL_CAP, save.charLevel));
+    }
+    if (typeof save.charExp === 'number') {
+      this.charExp = Math.max(0, save.charExp);
+    }
+    if (save.armory) {
+      this.ownedWeapons = new Set(save.armory.owned && save.armory.owned.length ? save.armory.owned : ['hunters_lash']);
+      this.ownedWeapons.add('hunters_lash');
+      this.handL = save.armory.handL && WEAPONS[save.armory.handL] ? save.armory.handL : 'hunters_lash';
+      this.ownedWeapons.add(this.handL);
+      this.handR = !WEAPONS[this.handL].isTwoHanded && save.armory.handR && WEAPONS[save.armory.handR]
+        ? save.armory.handR
+        : null;
+      if (this.handR) this.ownedWeapons.add(this.handR);
+      this.activeLoadout = save.armory.activeLoadout === 1 ? 1 : 0;
+      this.loadouts = Array.isArray(save.armory.loadouts) && save.armory.loadouts.length === 2
+        ? save.armory.loadouts.map((pair) => [pair[0] || 'hunters_lash', pair[1] || null])
+        : [[this.handL, this.handR], ['hunters_lash', null]];
+    }
+    if (save.grimoire) {
+      this.soulRanks = Object.assign({}, save.grimoire.soulRanks || {});
+      this.equippedSouls = Object.assign(
+        { bullet: null, guardian: null, enchant: null },
+        save.grimoire.equippedSouls || {},
+      );
+      this.bestiarySeen = new Set(save.grimoire.bestiarySeen || []);
+      this.bestiaryKills = Object.assign({}, save.grimoire.bestiaryKills || {});
+      this.bloodBladeStacks = save.grimoire.bloodBladeStacks || 0;
+      this.openedChests = new Set(save.grimoire.openedChests || []);
+      this.openedSwitches = new Set(save.grimoire.openedSwitches || []);
+    }
+
     const foundIdx = stageIndexOf(save.stageKey);
     const targetIdx = foundIdx >= 0 ? foundIdx : 0;
     const st = STAGES[targetIdx];
@@ -612,8 +1068,14 @@ class Game {
         : [st.key],
     );
     this.visitedStages.add(st.key);
+
+    this.persistSaveSlots();
+    this.syncLiveGlobalStorageFromCurrent();
+
     const kind = foundIdx >= 0 ? save.spawnKind : 'stage_start';
-    const enterFromDoorId = kind === 'sanctuary' ? 'save_point'
+    const hasManualPos = kind === 'manual_pos' && Number.isFinite(save.saveX) && Number.isFinite(save.saveY);
+    const enterFromDoorId = hasManualPos ? 'manual_pos'
+      : kind === 'sanctuary' ? 'save_point'
       : kind === 'boss_clear' ? 'boss_clear'
       : null;
     const carry = {
@@ -623,9 +1085,293 @@ class Game {
       subWeapon: save.subWeapon || null,
       hp: Number(save.hp) || null,
       enterFromDoorId,
+      saveX: hasManualPos ? save.saveX : null,
+      saveY: hasManualPos ? save.saveY : null,
     };
     this.carryState = carry;
     this.startGame(targetIdx, carry);
+    return true;
+  }
+
+  /** Resumes gameplay from the active or primary occupied slot, or opens Fate selection if none. */
+  continueFromSave() {
+    if (this.saveSlots && this.saveSlots[this.activeSaveSlot]) {
+      this.loadFromSaveSlot(this.activeSaveSlot);
+      return;
+    }
+    const firstIdx = this.saveSlots ? this.saveSlots.findIndex(Boolean) : -1;
+    if (firstIdx >= 0) {
+      this.loadFromSaveSlot(firstIdx);
+      return;
+    }
+    this.startNewHuntInSlot(0);
+  }
+
+  /** Opens the 4-Slot Chronicle Select screen from the Home Menu (`CONTINUE`). */
+  openSaveSlots(returnState = 'title') {
+    this.saveSlotsReturnState = returnState;
+    this.saveSlotConfirmClear = false;
+    if (this.saveSlots[this.activeSaveSlot]) {
+      this.saveSlotCursor = this.activeSaveSlot;
+    } else {
+      const firstOcc = this.saveSlots.findIndex(Boolean);
+      this.saveSlotCursor = firstOcc >= 0 ? firstOcc : clampSlotIndex(this.activeSaveSlot);
+    }
+    this.setState('saveslots');
+    this.audio.sfx('select');
+  }
+
+  closeSaveSlots() {
+    this.saveSlotConfirmClear = false;
+    this.setState(this.saveSlotsReturnState || 'title');
+    this.audio.sfx('pause');
+  }
+
+  updateSaveSlots(dt, inp) {
+    if (inp.pressed.escape || inp.pressed.sprint) {
+      this.closeSaveSlots();
+      return;
+    }
+    if (inp.pressed.up) {
+      this.saveSlotCursor = (this.saveSlotCursor + SAVE_SLOT_COUNT - 1) % SAVE_SLOT_COUNT;
+      this.saveSlotConfirmClear = false;
+      this.audio.sfx('bone');
+      return;
+    }
+    if (inp.pressed.down) {
+      this.saveSlotCursor = (this.saveSlotCursor + 1) % SAVE_SLOT_COUNT;
+      this.saveSlotConfirmClear = false;
+      this.audio.sfx('bone');
+      return;
+    }
+    if (this.stateT < 0.18) return;
+    const idx = clampSlotIndex(this.saveSlotCursor);
+    const hasSlot = !!this.saveSlots[idx];
+    if (inp.pressed.dash && hasSlot) {
+      if (!this.saveSlotConfirmClear) {
+        this.saveSlotConfirmClear = true;
+        this.audio.sfx('block');
+      } else {
+        this.saveSlotConfirmClear = false;
+        this.clearSaveSlot(idx);
+        this.audio.sfx('orb');
+      }
+      return;
+    }
+    if (inp.pressed.offhand && hasSlot) {
+      this.saveSlotConfirmClear = false;
+      this.startNewHuntInSlot(idx);
+      return;
+    }
+    if (inp.pressed.start || inp.pressed.jump || inp.pressed.attack) {
+      this.saveSlotConfirmClear = false;
+      if (hasSlot) {
+        this.loadFromSaveSlot(idx);
+      } else {
+        this.startNewHuntInSlot(idx);
+      }
+    }
+  }
+
+  handleSaveSlotsPoint(gx, gy) {
+    // Left column: 4 Slot Cards (`x = 20..250, y = 52..324`)
+    if (gx >= 20 && gx <= 250 && gy >= 52 && gy < 328) {
+      const idx = Math.floor((gy - 52) / 69);
+      if (idx >= 0 && idx < SAVE_SLOT_COUNT) {
+        if (this.saveSlotCursor !== idx) {
+          this.saveSlotCursor = idx;
+          this.saveSlotConfirmClear = false;
+          this.audio.sfx('bone');
+        } else if (this.stateT > 0.2) {
+          if (this.saveSlots[idx]) this.loadFromSaveSlot(idx);
+          else this.startNewHuntInSlot(idx);
+        }
+        return true;
+      }
+    }
+    // Right column action buttons (`x = 270..608, y = 248..318`)
+    const idx = clampSlotIndex(this.saveSlotCursor);
+    const hasSlot = !!this.saveSlots[idx];
+    if (gy >= 248 && gy <= 278) {
+      if (gx >= 270 && gx <= 434) {
+        this.saveSlotConfirmClear = false;
+        if (hasSlot) this.loadFromSaveSlot(idx);
+        else this.startNewHuntInSlot(idx);
+        return true;
+      }
+      if (gx >= 444 && gx <= 608) {
+        this.saveSlotConfirmClear = false;
+        this.startNewHuntInSlot(idx);
+        return true;
+      }
+    }
+    if (gy >= 286 && gy <= 316) {
+      if (gx >= 270 && gx <= 434 && hasSlot) {
+        if (!this.saveSlotConfirmClear) {
+          this.saveSlotConfirmClear = true;
+          this.audio.sfx('block');
+        } else {
+          this.saveSlotConfirmClear = false;
+          this.clearSaveSlot(idx);
+          this.audio.sfx('orb');
+        }
+        return true;
+      }
+      if (gx >= 444 && gx <= 608) {
+        this.closeSaveSlots();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  drawSaveSlots(ctx) {
+    this.titleWorld.draw(ctx, { hud: false });
+    ctx.fillStyle = 'rgba(4, 3, 12, 0.78)';
+    ctx.fillRect(0, 0, W, H);
+
+    const f = this.font;
+    const shadow = '#05040a';
+    const isPad = !!(this.input && this.input.isGamepad);
+
+    f.draw(ctx, 'SELECT CHRONICLE SAVE SLOT', W / 2, 14, {
+      scale: 2, align: 'center', color: '#ffd27a', shadow, gothic: false,
+    });
+    f.draw(ctx, `${this.getOccupiedSlotCount()}/${SAVE_SLOT_COUNT} SLOTS OCCUPIED`, W - 20, 18, {
+      align: 'right', color: '#9ef5dc', shadow, gothic: false,
+    });
+    ctx.fillStyle = '#6e5838';
+    ctx.fillRect(20, 38, W - 40, 1);
+
+    for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+      const sum = this.getSlotSummary(i);
+      const cy = 48 + i * 69;
+      const ch = 64;
+      const sel = i === this.saveSlotCursor;
+
+      ctx.fillStyle = sel ? 'rgba(64, 46, 88, 0.94)' : 'rgba(12, 10, 24, 0.92)';
+      ctx.fillRect(20, cy, 230, ch);
+      ctx.strokeStyle = sel ? '#ffd27a' : (sum.empty ? '#322b46' : '#564b74');
+      ctx.strokeRect(20.5, cy + 0.5, 229, ch - 1);
+
+      f.draw(ctx, `${sel ? '→ ' : ''}${sum.label}`, 28, cy + 7, {
+        color: sel ? '#ffd27a' : '#e8e2c8', shadow, gothic: false,
+      });
+      const badge = sum.empty ? 'EMPTY' : (sum.isActive ? 'LAST USED' : 'SAVED');
+      const bCol = sum.empty ? '#5c6680' : (sum.isActive ? '#62f2c2' : '#9eb0d0');
+      f.draw(ctx, badge, 242, cy + 7, { align: 'right', color: bCol, shadow, gothic: false });
+
+      if (sum.empty) {
+        f.draw(ctx, '- EMPTY CHRONICLE -', 28, cy + 26, { color: '#6e7894', shadow, gothic: false });
+        f.draw(ctx, 'SELECT TO START NEW HUNT', 28, cy + 42, { color: '#505870', shadow, gothic: false });
+      } else {
+        f.draw(ctx, sum.shortStage.slice(0, 24), 28, cy + 22, { color: '#f6f0de', shadow, gothic: false });
+        f.draw(ctx, `LV ${String(sum.level).padStart(2, '0')}`, 242, cy + 22, {
+          align: 'right', color: '#ffd27a', shadow, gothic: false,
+        });
+        f.draw(ctx, `CASTLE ${sum.castleLabel} · BOSSES ${sum.felled}/${sum.totalGuardians}`, 28, cy + 36, {
+          color: '#9ef5dc', shadow, gothic: false,
+        });
+        f.draw(ctx, `${sum.diffName} · ${sum.spawnLabel}`, 28, cy + 49, {
+          color: sum.diffColor, shadow, gothic: false,
+        });
+      }
+    }
+
+    const selSum = this.getSlotSummary(this.saveSlotCursor);
+    const ix = 258, iy = 48, iw = 362, ih = 272;
+    ctx.fillStyle = 'rgba(12, 10, 26, 0.95)';
+    ctx.fillRect(ix, iy, iw, ih);
+    ctx.strokeStyle = this.saveSlotConfirmClear ? '#ff5a6e' : '#6e5838';
+    ctx.strokeRect(ix + 0.5, iy + 0.5, iw - 1, ih - 1);
+
+    f.draw(ctx, `CHRONICLE ${selSum.label}`, ix + 14, iy + 12, {
+      scale: 2, color: '#ffd27a', shadow, gothic: false,
+    });
+
+    if (selSum.empty) {
+      f.draw(ctx, 'EMPTY SLOT · NO HUNT RECORDED', ix + 14, iy + 36, {
+        color: '#8a9ab5', shadow, gothic: false,
+      });
+      f.draw(ctx, 'BEGIN A FRESH HUNT IN THIS SLOT WITHOUT', ix + 14, iy + 64, {
+        color: '#dce4f5', shadow, gothic: false,
+      });
+      f.draw(ctx, 'AFFECTING ANY OF YOUR OTHER SAVE SLOTS.', ix + 14, iy + 78, {
+        color: '#dce4f5', shadow, gothic: false,
+      });
+      f.draw(ctx, 'AUTO-SAVES AT CRIMSON SANCTUMS AND MANUAL', ix + 14, iy + 102, {
+        color: '#9eb0d0', shadow, gothic: false,
+      });
+      f.draw(ctx, 'SAVES IN EQUIP -> SAVE WILL WRITE HERE.', ix + 14, iy + 116, {
+        color: '#9eb0d0', shadow, gothic: false,
+      });
+    } else {
+      f.draw(ctx, `${selSum.fullStage}  ·  ${selSum.savedTimeStr}`, ix + 14, iy + 36, {
+        color: '#9ef5dc', shadow, gothic: false,
+      });
+      const rows = [
+        ['HUNTER LEVEL & FATE', `LV ${String(selSum.level).padStart(2, '0')} · ${selSum.diffName}`],
+        ['CHECKPOINT', `${selSum.spawnLabel} (${selSum.save.reason})`],
+        ['CASTLE DISCOVERED', `${selSum.castleLabel} · BOSSES ${selSum.felled}/${selSum.totalGuardians}`],
+        ['ARSENAL & SOULS', `${selSum.weaponCount} WEAPONS · ${selSum.soulCount} SOULS · ${selSum.vessels} VESSELS`],
+        ['SCORE & HEARTS', `${String(selSum.score).padStart(7, '0')} PTS · ♥ ${selSum.hearts}`],
+      ];
+      rows.forEach(([k, v], ri) => {
+        const ry = iy + 60 + ri * 26;
+        ctx.fillStyle = ri % 2 === 0 ? 'rgba(22, 18, 42, 0.85)' : 'rgba(16, 13, 32, 0.85)';
+        ctx.fillRect(ix + 12, ry, iw - 24, 22);
+        f.draw(ctx, k, ix + 18, ry + 7, { color: '#9aa8c4', shadow, gothic: false });
+        f.draw(ctx, v, ix + iw - 18, ry + 7, { align: 'right', color: '#f6f0de', shadow, gothic: false });
+      });
+    }
+
+    const drawBtn = (bx, by, bw, bh, lbl, col, active) => {
+      ctx.fillStyle = active ? 'rgba(46, 36, 68, 0.96)' : 'rgba(18, 15, 34, 0.94)';
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.strokeStyle = active ? col : '#4e4668';
+      ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+      f.draw(ctx, lbl, bx + Math.round(bw / 2), by + 10, {
+        align: 'center', color: col, shadow, gothic: false,
+      });
+    };
+
+    drawBtn(
+      270, 248, 164, 28,
+      selSum.empty
+        ? (isPad ? '[A] NEW HUNT' : '[ENTER] NEW HUNT')
+        : (isPad ? '[A] CONTINUE SLOT' : '[ENTER] CONTINUE'),
+      '#62f2c2',
+      true,
+    );
+    drawBtn(
+      444, 248, 164, 28,
+      selSum.empty ? 'CHOOSE FATE →' : (isPad ? '[Y] NEW IN SLOT' : '[C] NEW IN SLOT'),
+      '#ffd27a',
+      false,
+    );
+    drawBtn(
+      270, 286, 164, 28,
+      this.saveSlotConfirmClear
+        ? 'CONFIRM ERASE?'
+        : (isPad ? '[LB] CLEAR SLOT' : '[Q] CLEAR SLOT'),
+      selSum.empty ? '#4c546c' : (this.saveSlotConfirmClear ? '#ff5a6e' : '#ffb0a0'),
+      this.saveSlotConfirmClear,
+    );
+    drawBtn(
+      444, 286, 164, 28,
+      isPad ? '[B] BACK TO TITLE' : '[ESC] BACK TO TITLE',
+      '#9eb0d0',
+      false,
+    );
+
+    const foot = this.saveSlotConfirmClear
+      ? `PRESS ${isPad ? 'LB' : 'Q'} OR CLICK AGAIN TO PERMANENTLY ERASE ${selSum.label}`
+      : (isPad
+        ? '↑↓ SELECT SLOT · A CONTINUE / START · Y NEW HUNT IN SLOT · LB CLEAR · B BACK'
+        : '↑↓ SELECT SLOT · ENTER CONTINUE / START · C NEW HUNT IN SLOT · Q CLEAR · ESC BACK');
+    f.draw(ctx, foot, W / 2, 336, {
+      align: 'center', color: this.saveSlotConfirmClear ? '#ff6a7a' : '#9aa8c4', shadow, gothic: false,
+    });
   }
 
   /** Dynamic Home Screen menu items and vertical geometry (shared with TouchControls). */
@@ -639,19 +1385,15 @@ class Game {
     const debugOn = this.debug.unlockAreas || this.debug.unlockBosses;
     const items = [];
     if (this.hasSaveGame()) {
-      const sv = this.saveData;
-      const sIdx = stageIndexOf(sv.stageKey);
-      const stName = ((sIdx >= 0 ? STAGES[sIdx].name : sv.stageName) || 'THE CASTLE').replace(/^THE\s+/, '');
-      const pointTag = sv.spawnKind === 'boss_clear'
-        ? 'BOSS CLEARED'
-        : sv.spawnKind === 'stage_start'
-          ? 'ENTRANCE'
-          : 'SAVE SANCTUM';
-      const lv = String(this.charLevel || sv.charLevel || START_LEVEL).padStart(2, '0');
+      const sv = this.getPrimarySaveData();
+      const slotNum = (sv && Number.isFinite(sv.slot) ? sv.slot : this.activeSaveSlot) + 1;
+      const sum = this.getSlotSummary(slotNum - 1);
+      const occ = this.getOccupiedSlotCount();
+      const lv = String(sum.level || this.charLevel || START_LEVEL).padStart(2, '0');
       items.push({
         id: 'continue',
         label: 'CONTINUE',
-        sub: `${stName} (${pointTag}) · LV ${lv} · ${disc.label} CASTLE DISCOVERED`,
+        sub: `SLOT ${slotNum}: ${sum.shortStage} (${sum.spawnLabel}) · LV ${lv} · ${occ}/${SAVE_SLOT_COUNT} SAVE SLOTS`,
       });
     }
     items.push(
@@ -692,7 +1434,7 @@ class Game {
     this.titleMenu = Math.max(0, Math.min(menu.items.length - 1, row));
     switch (item.id) {
       case 'continue':
-        this.continueFromSave();
+        this.openSaveSlots('title');
         break;
       case 'forge':
         this.openForge('title');
@@ -704,10 +1446,11 @@ class Game {
         this.openSettings();
         break;
       case 'begin':
-      default:
-        this.setState('difficulty');
-        this.audio.sfx('select');
+      default: {
+        const emptyIdx = this.saveSlots ? this.saveSlots.findIndex((s) => !s) : -1;
+        this.startNewHuntInSlot(emptyIdx >= 0 ? emptyIdx : this.activeSaveSlot);
         break;
+      }
     }
   }
 
@@ -1132,6 +1875,7 @@ class Game {
     if (this.world.bossActive || (this.params.has('boss') && stage.boss && !carry)) {
       this.world.recordExploration();
     }
+    if (stage.key === 'throne') this._ensureEndingVideo();
     // Testing teleports may land inside the Boss Sanctum or Castle Foyer: sync gates & drawbridge.
     this.world.syncBossGateToPlayer();
     if (this.world.syncDrawbridgeToPlayer) this.world.syncDrawbridgeToPlayer();
@@ -1257,7 +2001,7 @@ class Game {
       }
     } else {
       if (this.postfx.setDynamicLights) this.postfx.setDynamicLights(null, 0);
-      if ((this.state === 'title' || this.state === 'controls' || this.state === 'settings' || this.state === 'difficulty' || this.state === 'stageselect') && this.titleWorld && this.titleWorld.flash > 0.02) {
+      if ((this.state === 'title' || this.state === 'saveslots' || this.state === 'controls' || this.state === 'settings' || this.state === 'difficulty' || this.state === 'stageselect') && this.titleWorld && this.titleWorld.flash > 0.02) {
         this.postfx.strike(this.titleWorld.flash);
       }
     }
@@ -1273,7 +2017,7 @@ class Game {
     }
     this.net.update(dt, this.net.enabled ? (this._netSnapFn || (this._netSnapFn = () => this.buildNetSnapshot())) : null);
     if (this.editingCallsign) {
-      if (this.state === 'title' || this.state === 'controls' || this.state === 'settings' || this.state === 'difficulty' || this.state === 'stageselect') {
+      if (this.state === 'title' || this.state === 'saveslots' || this.state === 'controls' || this.state === 'settings' || this.state === 'difficulty' || this.state === 'stageselect') {
         this.updateTitleBackdrop(dt);
       }
       return;
@@ -1303,6 +2047,10 @@ class Game {
         }
         break;
       }
+      case 'saveslots':
+        this.updateTitleBackdrop(dt);
+        this.updateSaveSlots(dt, inp);
+        break;
       case 'controls':
         this.updateTitleBackdrop(dt);
         this.updateControls(dt, inp);
@@ -1319,14 +2067,25 @@ class Game {
         break;
       case 'difficulty': {
         this.updateTitleBackdrop(dt);
-        if (inp.pressed.escape || inp.pressed.sprint) { this.setState('title'); this.audio.sfx('pause'); break; }
+        if (inp.pressed.escape || inp.pressed.sprint) {
+          this._newHuntMode = false;
+          this.setState('title');
+          this.audio.sfx('pause');
+          break;
+        }
         const n = DIFFICULTY_ORDER.length;
-        if (inp.pressed.up || inp.pressed.left) { this.menuIndex = (this.menuIndex + n - 1) % n; this.audio.sfx('bone'); }
-        if (inp.pressed.down || inp.pressed.right) { this.menuIndex = (this.menuIndex + 1) % n; this.audio.sfx('bone'); }
+        if (inp.pressed.up) { this.menuIndex = (this.menuIndex + n - 1) % n; this.audio.sfx('bone'); }
+        if (inp.pressed.down) { this.menuIndex = (this.menuIndex + 1) % n; this.audio.sfx('bone'); }
+        if (inp.pressed.left) {
+          this.activeSaveSlot = (this.activeSaveSlot + SAVE_SLOT_COUNT - 1) % SAVE_SLOT_COUNT;
+          this.audio.sfx('bone');
+        }
+        if (inp.pressed.right) {
+          this.activeSaveSlot = (this.activeSaveSlot + 1) % SAVE_SLOT_COUNT;
+          this.audio.sfx('bone');
+        }
         if (this.stateT > 0.25 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) {
-          this.chooseDifficulty(DIFFICULTY_ORDER[this.menuIndex]);
-          this.carryState = null;
-          this.startGame(0, null);
+          this.beginChosenHunt(DIFFICULTY_ORDER[this.menuIndex]);
         }
         break;
       }
@@ -1448,6 +2207,7 @@ class Game {
     ctx.imageSmoothingEnabled = false;
     switch (this.state) {
       case 'title': this.drawTitle(ctx); break;
+      case 'saveslots': this.drawSaveSlots(ctx); break;
       case 'controls': this.drawControls(ctx); break;
       case 'settings': this.drawSettings(ctx); break;
       case 'difficulty': this.drawDifficulty(ctx); break;
@@ -1974,15 +2734,42 @@ class Game {
     }
   }
 
+  /** Starts a fresh hunt from Fate selection into `this.activeSaveSlot`. */
+  beginChosenHunt(diffKey) {
+    if (this._newHuntMode) {
+      this.applyFreshRunStateForSlot(this.activeSaveSlot);
+      this._newHuntMode = false;
+    }
+    this.chooseDifficulty(diffKey);
+    this.carryState = null;
+    this.startGame(0, null);
+    this.saveToSlot(this.activeSaveSlot, {
+      spawnKind: 'stage_start',
+      reason: 'HUNT BEGUN',
+      world: this.world,
+      silentToast: true,
+    });
+  }
+
   drawDifficulty(ctx) {
     this.titleWorld.draw(ctx, { hud: false });
     ctx.fillStyle = 'rgba(4, 3, 10, 0.6)';
     ctx.fillRect(0, 0, W, H);
     const f = this.font;
-    f.draw(ctx, 'GOTHIC NOCTURNE', W / 2, 28, { scale: 2, align: 'center', color: '#8a9ab5', spacing: 2, shadow: '#120f1c' });
-    f.draw(ctx, 'CHOOSE YOUR FATE', W / 2, 62, { scale: 3, align: 'center', color: '#e8e2c8', shadow: '#5b2a3a' });
+    f.draw(ctx, 'GOTHIC NOCTURNE', W / 2, 24, { scale: 2, align: 'center', color: '#8a9ab5', spacing: 2, shadow: '#120f1c' });
+    f.draw(ctx, 'CHOOSE YOUR FATE', W / 2, 54, { scale: 3, align: 'center', color: '#e8e2c8', shadow: '#5b2a3a' });
+    const slotSum = this.getSlotSummary(this.activeSaveSlot);
+    const slotNote = slotSum.empty
+      ? `← TARGET: ${slotSum.label} (EMPTY) →`
+      : `← TARGET: ${slotSum.label} (OVERWRITES ${slotSum.shortStage} LV ${String(slotSum.level).padStart(2, '0')}) →`;
+    f.draw(ctx, slotNote, W / 2, 88, {
+      align: 'center',
+      color: slotSum.empty ? '#62f2c2' : '#ffb088',
+      shadow: '#120f1c',
+      gothic: false,
+    });
     ctx.fillStyle = '#5b6b86';
-    ctx.fillRect(W / 2 - 170, 100, 340, 1);
+    ctx.fillRect(W / 2 - 190, 103, 380, 1);
 
     const colors = { easy: '#9ad17a', normal: '#ffd27a', hard: '#e23c3c' };
     const top = 122, rowH = 54;
@@ -2005,10 +2792,10 @@ class Game {
 
     const pulse = 0.5 + 0.5 * Math.sin(this.stateT * 2.2);
     const diffPrompt = (this.touch && this.touch.active)
-      ? 'TAP A FATE OR USE D-PAD + OK'
-      : '↑↓ SELECT     ENTER / JUMP / WHIP CONFIRM';
+      ? 'TAP A FATE OR USE D-PAD  ·  TAP SLOT LINE TO SWITCH SLOT'
+      : '↑↓ SELECT FATE   ·   ←→ SAVE SLOT   ·   ENTER / JUMP CONFIRM';
     if (pulse > 0.25) f.draw(ctx, diffPrompt, W / 2, 300, { align: 'center', color: '#ffd27a', shadow: '#120f1c' });
-    f.draw(ctx, 'YOUR CHOICE IS REMEMBERED FOR NEXT TIME', W / 2, 322, { align: 'center', color: '#5b6b86' });
+    f.draw(ctx, 'EACH CHRONICLE SAVE SLOT STORES AN INDEPENDENT HUNT', W / 2, 322, { align: 'center', color: '#5b6b86' });
   }
 
   drawClear(ctx) {
@@ -2126,7 +2913,22 @@ class Game {
     });
   }
 
-  /** Starts the finale: 5-act animated dawn story (including Gemini Omni vigil scene) + Grand Epilogue & Credits. */
+  /** Lazily creates and preloads the 5-act Omni Live FMV ending video element (`assets/video/ending_fmv.mp4`). */
+  _ensureEndingVideo() {
+    if (typeof document === 'undefined') return null;
+    if (this.endingVideo) return this.endingVideo;
+    const v = document.createElement('video');
+    v.src = `assets/video/ending_fmv.mp4?v=${ASSET_VERSION}`;
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    v.crossOrigin = 'anonymous';
+    try { v.load(); } catch {}
+    this.endingVideo = v;
+    return v;
+  }
+
+  /** Starts the finale: 5-act Omni Live Full-Motion Video (FMV) cutscene + Grand Epilogue & Credits. */
   beginEnding() {
     this.setState('ending');
     this.endingNarrated = false;
@@ -2134,6 +2936,12 @@ class Game {
     this.audio.playMusic('ending', false);
     this.audio.stopAmbient();
     if (this.audio.prefetchVoice) this.audio.prefetchVoice('narrator_ending');
+    const vid = this._ensureEndingVideo();
+    if (vid) {
+      try { vid.currentTime = 0; } catch {}
+      const p = vid.play && vid.play();
+      if (p && p.catch) p.catch(() => {});
+    }
   }
 
   drawEnding(ctx) {
@@ -2146,26 +2954,25 @@ class Game {
     const f = this.font;
     const w = this.world;
     const A = this.assets;
+    const fxl = getFxLayers();
+    const vid = this._ensureEndingVideo();
     const p1 = A.img('ending_1');
     const p2 = A.img('ending_2');
     const p3 = A.img('ending_3');
     const p4 = A.img('ending_4');
     const p5 = A.img('ending_5');
-    const omniImg = A.img('ending_omni');
 
-    // Timeline locked to `narrator_ending.mp3` (38.67s spoken voice starting at t = 1.2s):
-    //   0.0 - 14.1  Act I:   The Shattering of the Sovereign Keep (ending_1 + quake, lightning, falling debris, bats)
-    //  14.1 - 24.2  Act II:  The Breaking of the Blood Curse (ending_4 + dawn rays & rising guardian relic soul motes)
-    //  24.2 - 27.6  Act III: The Sanctuary Vigil — Gemini Omni (`omni_1p5`) 12-frame animated cutscene (`ending_omni`)
-    //  27.6 - 32.3  Act IV:  The Graveyard Road at First Light (ending_2 + lifting silver mist & soul wisps)
-    //  32.3 - 40.3  Act V:   Sunrise Over the Freed Valley (ending_3 + golden sunbeams & wheeling dawn birds)
-    //  40.3+        Act VI:  Grand Epilogue & Credits Roll (Junius & Alex Gunaratne attribution + hunt chronicle)
-    const drawPanel = (img, from, to, zoomFrom, zoomTo, panX, panY = 0) => {
+    // Timeline locked to `narrator_ending.mp3` (38.67s spoken voice starting at t = 1.2s)
+    // and continuous 24fps Omni Live FMV (`assets/video/ending_fmv.mp4`):
+    //   0.0 - 14.1  Act I:   The Shattering of the Sovereign Keep (Omni Live FMV Act 1)
+    //  14.1 - 24.2  Act II:  The Breaking of the Blood Curse (Omni Live FMV Act 2)
+    //  24.2 - 27.6  Act III: The Sanctuary Vigil (Omni Live FMV Act 3)
+    //  27.6 - 32.3  Act IV:  The Graveyard Road at First Light (Omni Live FMV Act 4)
+    //  32.3 - 40.3  Act V:   Sunrise Over the Freed Valley (Omni Live FMV Act 5)
+    //  40.3+        Act VI:  Grand Epilogue & Credits Roll over dimmed FMV dawn horizon
+    const drawFallbackPanel = (img, from, to, zoomFrom, zoomTo, panX, panY = 0) => {
       if (!img) return;
       const k = Math.max(0, Math.min(1, (t - from) / Math.max(0.01, to - from)));
-      // Smooth cosine ease + gentle zoom on 2x (1280x720) supersampled panels with
-      // high-quality bilinear filtering and subpixel float coordinates to avoid
-      // nearest-neighbor row/column beat interference (moiré) when zooming.
       const ease = 0.5 - 0.5 * Math.cos(k * Math.PI);
       const z = zoomFrom + (zoomTo - zoomFrom) * ease;
       const dw = W * z, dh = H * z;
@@ -2177,18 +2984,46 @@ class Game {
       ctx.drawImage(img, dx, dy, dw, dh);
       ctx.imageSmoothingEnabled = prevSmooth;
     };
-    const drawOmniClip = (from) => {
-      const fi = Math.max(0, Math.floor((t - from) * 6)) % 12;
-      const fr = A.frame('ending_omni', `f${fi}`);
-      if (omniImg && fr) {
-        // Exact 2x integer scale (320x180 -> 640x360) with no fractional zoom
-        // so the 32-bit pixel-art Omni animation renders without moiré.
-        ctx.drawImage(omniImg, fr.x, fr.y, fr.w, fr.h, 0, 0, W, H);
-      } else if (p5) {
-        drawPanel(p5, 24.2, 27.6, 1.0, 1.03, -4);
+
+    // Sync Omni Live `<video>` clock to narration timeline `t`
+    let fmvReady = !!(vid && vid.readyState >= 2 && vid.videoWidth > 0);
+    if (vid) {
+      const wantVideoT = t < 40.3
+        ? Math.max(0, Math.min(40.25, t))
+        : (39.2 + ((t - 40.3) * 0.35) % 2.8);
+      if (t < 40.3 && vid.paused && vid.readyState >= 2) {
+        const pr = vid.play && vid.play();
+        if (pr && pr.catch) pr.catch(() => {});
+      } else if (t >= 40.3 && !vid.paused && Math.abs(vid.currentTime - wantVideoT) > 0.6 && !vid.seeking) {
+        try { vid.currentTime = wantVideoT; } catch {}
       }
+      if (t < 40.3 && vid.readyState >= 1 && !vid.seeking && Math.abs(vid.currentTime - wantVideoT) > 0.42) {
+        try { vid.currentTime = wantVideoT; } catch {}
+      }
+      fmvReady = !!(vid.readyState >= 2 && vid.videoWidth > 0);
+    }
+
+    const renderFmvSurface = ({ shakeX = 0, shakeY = 0, flash = 0, dim = 0 } = {}) => {
+      if (!fmvReady) return false;
+      if (fxl && fxl.enabled && fxl.drawFmvFrame(ctx, vid, { shakeX, shakeY, flash, dim })) {
+        return true;
+      }
+      // 2D late-90s CD-ROM FMV fallback when WebGL shaders are toggled off
+      ctx.save();
+      ctx.drawImage(vid, Math.round(shakeX), Math.round(shakeY), W, H);
+      if (flash > 0.01) {
+        ctx.fillStyle = `rgba(255, 86, 62, ${Math.min(0.55, flash)})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+      for (let sy = 1; sy < H; sy += 2) ctx.fillRect(0, sy, W, 1);
+      if (dim > 0.01) {
+        ctx.fillStyle = `rgba(6, 4, 14, ${Math.min(0.92, dim)})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+      ctx.restore();
+      return true;
     };
-    const fadeBetween = (a, b) => Math.max(0, Math.min(1, (t - a) / Math.max(0.01, b - a)));
 
     if (!this._embers) {
       this._embers = Array.from({ length: 76 }, (_, i) => ({
@@ -2203,40 +3038,14 @@ class Game {
     ctx.fillRect(0, 0, W, H);
 
     if (t < 14.1) {
-      // Act I: The Shattering of the Sovereign Keep
-      const quake = t < 5.6 ? Math.max(0, 1 - t / 5.6) * 5 : 0;
-      ctx.save();
-      ctx.translate(
-        Math.round(Math.sin(t * 43) * quake),
-        Math.round(Math.cos(t * 37) * quake),
-      );
-      drawPanel(p1, 0, 14.1, 1.0, 1.035, -8);
-      ctx.restore();
-
-      const flash = Math.max(0, Math.sin(t * 7.3) * Math.sin(t * 3.1)) * Math.max(0, 1 - t / 7.5);
-      if (flash > 0.52) {
-        ctx.fillStyle = `rgba(255, 86, 62, ${(flash - 0.52) * 0.52})`;
-        ctx.fillRect(0, 0, W, H);
-      }
-      // Falling masonry fragments & rising embers
-      for (const e of this._embers) {
-        const ex = (e.x + Math.sin(t * 0.9 + e.p) * 12 + t * 9 * e.s) % (W + 20) - 10;
-        const ey = (e.y - t * 28 * e.s) % H;
-        const yy = ey < 0 ? ey + H : ey;
-        ctx.fillStyle = e.p % 3 === 0 ? '#ffd27a' : (e.p % 2 === 0 ? '#ff8a3c' : '#e23c3c');
-        ctx.fillRect(Math.round(ex), Math.round(yy), e.s > 1.05 ? 2 : 1, e.s > 1.05 ? 2 : 1);
-      }
-      // Escaping belfry bats wheeling across the moon
-      for (let b = 0; b < 9; b++) {
-        const bx = ((280 + b * 24 + t * (36 + b * 5)) % (W + 60)) - 30;
-        const by = 118 - (t % 7.0) * (12 + (b % 3) * 4) + Math.sin(t * 6 + b) * 8;
-        if (by > 24 && by < H - 70) {
-          const wing = Math.sin(t * 18 + b * 1.7) > 0 ? -2 : 2;
-          ctx.fillStyle = '#120a1c';
-          ctx.fillRect(Math.round(bx), Math.round(by), 2, 2);
-          ctx.fillRect(Math.round(bx - 3), Math.round(by + wing), 3, 1);
-          ctx.fillRect(Math.round(bx + 2), Math.round(by + wing), 3, 1);
-        }
+      // Act I: The Shattering of the Sovereign Keep (Omni Live FMV)
+      const quake = t < 5.2 ? Math.max(0, 1 - t / 5.2) * 3.5 : 0;
+      const shakeX = Math.sin(t * 43) * quake;
+      const shakeY = Math.cos(t * 37) * quake;
+      const flashRaw = Math.max(0, Math.sin(t * 7.3) * Math.sin(t * 3.1)) * Math.max(0, 1 - t / 7.5);
+      const flash = flashRaw > 0.56 ? (flashRaw - 0.56) * 0.45 : 0;
+      if (!renderFmvSurface({ shakeX, shakeY, flash })) {
+        drawFallbackPanel(p1, 0, 14.1, 1.0, 1.035, -8);
       }
       if (t > 0.5 && t < 5.0) {
         ctx.save();
@@ -2245,31 +3054,10 @@ class Game {
         ctx.restore();
       }
     } else if (t < 24.2) {
-      // Act II: The Breaking of the Blood Curse in the Sovereign Throne Hall (`ending_4`)
-      drawPanel(p4 || p1, 14.1, 24.2, 1.035, 1.0, 6, -2);
-      // Streaming dawn sunbeams through the shattered rose window
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      for (let r = 0; r < 4; r++) {
-        const pulse = 0.05 + 0.03 * Math.sin(t * 2.1 + r * 1.4);
-        ctx.fillStyle = `rgba(255, 210, 122, ${pulse})`;
-        ctx.beginPath();
-        ctx.moveTo(W * 0.5 - 36 + r * 22, 22);
-        ctx.lineTo(W * 0.5 - 18 + r * 22, 22);
-        ctx.lineTo(W * 0.5 - 120 + r * 68, H - 58);
-        ctx.lineTo(W * 0.5 - 165 + r * 68, H - 58);
-        ctx.closePath();
-        ctx.fill();
+      // Act II: The Breaking of the Blood Curse in the Sovereign Throne Hall (Omni Live FMV)
+      if (!renderFmvSurface()) {
+        drawFallbackPanel(p4 || p1, 14.1, 24.2, 1.035, 1.0, 6, -2);
       }
-      // Ascending guardian relic soul motes (gold & spectral teal)
-      for (let i = 0; i < 36; i++) {
-        const e = this._embers[i];
-        const sx = W * 0.22 + ((e.x * 0.62 + Math.sin(t * 1.4 + i) * 18) % (W * 0.56));
-        const sy = H - 64 - (((t - 14.1) * (22 + (i % 5) * 6) + i * 19) % (H - 96));
-        ctx.fillStyle = i % 3 === 0 ? '#62f2c2' : (i % 2 === 0 ? '#ffd27a' : '#ff9ad5');
-        ctx.fillRect(Math.round(sx), Math.round(sy), i % 4 === 0 ? 3 : 2, i % 4 === 0 ? 3 : 2);
-      }
-      ctx.restore();
       if (t > 14.5 && t < 17.5) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, Math.min(1, (t - 14.5) / 0.35, (17.5 - t) / 0.45));
@@ -2277,26 +3065,10 @@ class Game {
         ctx.restore();
       }
     } else if (t < 27.6) {
-      // Act III: The Sanctuary Vigil — Gemini Omni (`omni_1p5`) animated video scene (`ending_omni`)
-      drawOmniClip(24.2);
-      // Warm watchfire flicker & drifting fireflies
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const flicker = 0.10 + 0.04 * Math.sin(t * 9.5) + 0.03 * Math.cos(t * 14.2);
-      const fg = ctx.createRadialGradient(W * 0.42, H * 0.66, 8, W * 0.42, H * 0.66, 175);
-      fg.addColorStop(0, `rgba(255, 168, 74, ${flicker})`);
-      fg.addColorStop(1, 'rgba(255, 120, 40, 0)');
-      ctx.fillStyle = fg;
-      ctx.fillRect(0, 0, W, H);
-      for (let i = 0; i < 28; i++) {
-        const e = this._embers[i];
-        const fx = (e.x + Math.sin(t * 1.6 + e.p) * 20) % W;
-        const fy = (e.y - (t - 24.2) * 18 * e.s) % (H - 60);
-        const yy = fy < 24 ? fy + (H - 84) : fy;
-        ctx.fillStyle = i % 3 === 0 ? '#ffd27a' : '#ff9a3c';
-        ctx.fillRect(Math.round(fx), Math.round(yy), 2, 2);
+      // Act III: The Sanctuary Vigil (Omni Live FMV)
+      if (!renderFmvSurface()) {
+        drawFallbackPanel(p5 || p1, 24.2, 27.6, 1.0, 1.03, -4);
       }
-      ctx.restore();
       if (t > 24.5 && t < 27.2) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, Math.min(1, (t - 24.5) / 0.35, (27.2 - t) / 0.40));
@@ -2304,48 +3076,22 @@ class Game {
         ctx.restore();
       }
     } else if (t < 32.3) {
-      // Act IV: The Graveyard Road at First Light (`ending_2`)
-      drawPanel(p2, 27.6, 32.3, 1.035, 1.0, 6);
-      // Drifting silver morning mist ribbons lifting off the road
-      ctx.save();
-      ctx.globalAlpha = 0.16;
-      for (let m = 0; m < 3; m++) {
-        const my = 198 + m * 28 - (t - 27.6) * 2.2;
-        const mx = (((t - 27.6) * (14 + m * 6) + m * 140) % (W + 260)) - 260;
-        const mg = ctx.createLinearGradient(mx, 0, mx + 260, 0);
-        mg.addColorStop(0, 'rgba(210, 220, 245, 0)');
-        mg.addColorStop(0.5, 'rgba(210, 220, 245, 1)');
-        mg.addColorStop(1, 'rgba(210, 220, 245, 0)');
-        ctx.fillStyle = mg;
-        ctx.fillRect(mx, my, 260, 16);
+      // Act IV: The Graveyard Road at First Light (Omni Live FMV)
+      if (!renderFmvSurface()) {
+        drawFallbackPanel(p2, 27.6, 32.3, 1.035, 1.0, 6);
       }
-      ctx.restore();
     } else if (t < 40.3) {
-      // Act V: Sunrise Over the Freed Valley (`ending_3`)
-      drawPanel(p3, 32.3, 40.3, 1.0, 1.035, -6);
-      const kd = fadeBetween(32.3, 39.5);
-      const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, `rgba(255, 198, 118, ${0.06 + 0.16 * kd})`);
-      g.addColorStop(1, 'rgba(255, 190, 110, 0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, H);
-      // Wheeling white dawn birds rising into the golden sky
-      for (let b = 0; b < 7; b++) {
-        const bx = ((120 + b * 48 + (t - 32.3) * (24 + b * 3)) % (W - 80)) + 40;
-        const by = 148 - (t - 32.3) * (7 + (b % 3) * 2) + Math.sin(t * 4 + b) * 5;
-        if (by > 28 && by < 220) {
-          const wing = Math.sin(t * 12 + b * 1.4) > 0 ? -1 : 1;
-          ctx.fillStyle = '#fff4dc';
-          ctx.fillRect(Math.round(bx), Math.round(by), 2, 1);
-          ctx.fillRect(Math.round(bx - 2), Math.round(by + wing), 2, 1);
-          ctx.fillRect(Math.round(bx + 2), Math.round(by + wing), 2, 1);
-        }
+      // Act V: Sunrise Over the Freed Valley (Omni Live FMV)
+      if (!renderFmvSurface()) {
+        drawFallbackPanel(p3, 32.3, 40.3, 1.0, 1.035, -6);
       }
     } else {
-      // Act VI: Grand Epilogue & Credits Roll (40.3s+)
-      drawPanel(p3, 40.3, 66.0, 1.035, 1.06, -4);
-      ctx.fillStyle = 'rgba(6, 4, 14, 0.76)';
-      ctx.fillRect(0, 0, W, H);
+      // Act VI: Grand Epilogue & Credits Roll (40.3s+) over dimmed Omni Live FMV dawn horizon
+      if (!renderFmvSurface({ dim: 0.74 })) {
+        drawFallbackPanel(p3, 40.3, 66.0, 1.035, 1.06, -4);
+        ctx.fillStyle = 'rgba(6, 4, 14, 0.76)';
+        ctx.fillRect(0, 0, W, H);
+      }
       // Gentle golden dust motes over the epilogue
       for (let i = 0; i < 32; i++) {
         const e = this._embers[i];
@@ -2402,8 +3148,8 @@ class Game {
           { dy: 195, text: 'JUNIUS GUNARATNE  &  ALEX GUNARATNE', scale: 2, color: '#ffd27a' },
           { dy: 225, text: '2.5D RENDERING ENGINE & WEBGL SHADERS', scale: 1, color: '#a89a74' },
           { dy: 240, text: 'JUNIUS & ALEX GUNARATNE', scale: 1, color: '#e8e2c8' },
-          { dy: 266, text: 'PIXEL ART, SPRITES & ANIMATED CUTSCENES', scale: 1, color: '#a89a74' },
-          { dy: 281, text: 'GEMINI  ·  GEMINI OMNI (OMNI_1P5)  ·  GEMPIX', scale: 1, color: '#b8c4dc' },
+          { dy: 266, text: 'FULL-MOTION VIDEO (FMV), SPRITES & ART', scale: 1, color: '#a89a74' },
+          { dy: 281, text: 'OMNI LIVE  ·  GEMINI OMNI  ·  GEMPIX', scale: 1, color: '#b8c4dc' },
           { dy: 307, text: 'SYMPHONIC GOTHIC SCORE & BOSS THEMES', scale: 1, color: '#a89a74' },
           { dy: 322, text: 'LYRIA 3 GENERATIVE AUDIO', scale: 1, color: '#b8c4dc' },
           { dy: 348, text: 'VOICE ACTING & NARRATION', scale: 1, color: '#a89a74' },
@@ -2427,7 +3173,6 @@ class Game {
         for (const item of creditRows) {
           const ry = Math.round(startBaseY + item.dy - scrollOffset);
           if (ry < cy - 18 || ry > cy + ch + 18) continue;
-          // Smooth fade near top and bottom edges of the scroll window
           const distTop = ry - (cy + 8);
           const distBot = (cy + ch - 14) - ry;
           const edgeAlpha = Math.max(0, Math.min(1, distTop / 18, distBot / 18));
@@ -2472,17 +3217,18 @@ class Game {
       ctx.fillRect(0, 0, W, 22);
       ctx.fillStyle = '#5a462c';
       ctx.fillRect(0, 22, W, 1);
-      // Scene progress chapter indicator in the top letterbox bar
+      // Scene progress chapter indicator + late-90s CD-ROM FMV badge in the top letterbox bar
       const actIdx = t < 14.1 ? 1 : t < 24.2 ? 2 : t < 27.6 ? 3 : t < 32.3 ? 4 : 5;
       const actTitle = [
         '',
         'ACT I · THE FALL OF CASTLE NOCTURNE',
         'ACT II · THE SHATTERED SOVEREIGN THRONE',
-        'ACT III · THE SANCTUARY WATCHFIRE (GEMINI OMNI)',
+        'ACT III · THE SANCTUARY WATCHFIRE',
         'ACT IV · THE CYPRESS ROAD AT DAWN',
         'ACT V · SUNRISE OVER THE FREED VALLEY',
       ][actIdx];
       f.draw(ctx, actTitle, W / 2, 7, { align: 'center', color: '#a89a74', shadow: '#05040a', gothic: false });
+      f.draw(ctx, 'OMNI LIVE · FMV', W - 10, 7, { align: 'right', color: '#62b89a', shadow: '#05040a', gothic: false });
 
       const barH = 58, barY = H - barH;
       ctx.fillStyle = 'rgba(5, 4, 12, 0.94)';
