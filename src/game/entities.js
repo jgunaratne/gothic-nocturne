@@ -248,8 +248,36 @@ export class Entity {
     } else {
       const ty = Math.floor(this.top / TILE);
       for (let tx = tx0; tx <= tx1; tx++) {
-        if (level.isSolid(tx, ty)) { this.y = (ty + 1) * TILE + this.h; this.vy = 0; return; }
+        if (level.isSolid(tx, ty)) {
+          const pushedY = (ty + 1) * TILE + this.h;
+          const floorTy = Math.floor((pushedY - 0.01) / TILE);
+          let hitsFloor = false;
+          for (let ftx = tx0; ftx <= tx1; ftx++) {
+            if (level.isSolid(ftx, floorTy)) { hitsFloor = true; break; }
+          }
+          this.y = hitsFloor ? Math.min(pushedY, floorTy * TILE) : pushedY;
+          this.vy = 0;
+          return;
+        }
       }
+    }
+  }
+
+  /** Nudges `x` out of one-sided horizontal wall overlap so low-ceiling transitions never pin inside a tile. */
+  depenetrateX(level) {
+    if (!level) return;
+    const ty0 = Math.floor(this.top / TILE), ty1 = Math.floor((this.bottom - 0.01) / TILE);
+    const tx0 = Math.floor(this.left / TILE), tx1 = Math.floor((this.right - 0.01) / TILE);
+    if (tx0 === tx1) return;
+    let leftSolid = false, rightSolid = false;
+    for (let ty = ty0; ty <= ty1; ty++) {
+      if (level.isSolid(tx0, ty)) leftSolid = true;
+      if (level.isSolid(tx1, ty)) rightSolid = true;
+    }
+    if (leftSolid && !rightSolid) {
+      this.x = (tx0 + 1) * TILE + this.w / 2;
+    } else if (rightSolid && !leftSolid) {
+      this.x = tx1 * TILE - this.w / 2;
     }
   }
 

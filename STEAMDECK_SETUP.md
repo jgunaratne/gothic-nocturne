@@ -1248,7 +1248,7 @@ flatpak info --show-permissions com.google.Chrome | grep -E "udev|filesystems" |
 
 All primary controls work out of the box with Steam's **Gamepad with Mouse Trackpad** template:
 - **D-Pad / Left Stick**: Move, Crouch, Enter doorways (`↑`)
-- **`B`**: Forward Dash / Sprint (same as double-tapping `←` / `→`)
+- **`B`**: Forward Dash / Sprint (same as double-tapping `←` / `→`; `↓` + `B` slides)
 - **`A`**: Jump (hold for height; `↓` + `A` slide/divekick)
 - **`X` / `RB`**: Left Hand Weapon (Whip) · `↑` + `X` throws Sub-Weapon
 - **`Y` / `RT`**: Right Hand Weapon · `↑` + `Y` casts Crimson Soul

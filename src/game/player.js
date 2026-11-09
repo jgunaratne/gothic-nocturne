@@ -1,7 +1,7 @@
 // The vampire hunter: movement, ambidextrous dual-hand equipment matrix,
 // 30-frame fighting-game command skills, cross-hand resonance, sub-weapons, damage & death.
 
-import { PLAYER, TILE } from '../engine/constants.js';
+import { PLAYER, TILE, T_BLOCK } from '../engine/constants.js';
 import { Entity } from './entities.js';
 import { Projectile } from './objects.js';
 import { getFxLayers } from '../engine/fxlayers.js';
@@ -141,7 +141,7 @@ export class Player extends Entity {
     }
     this.petrified = dur;
     this._clearSlots();
-    this.crouching = false; this.h = PLAYER.height;
+    this._resolveSafeHeight(world && world.level, false);
     this.vx = 0; this.hurtT = 0;
     world.sfx('block');
     world.particles.dust(this.x, this.y - 30, 8, '#9a9aa8');
@@ -375,7 +375,11 @@ export class Player extends Entity {
     // -----------------------------------------------------------------------
     // Forward DASH / RUN (double-tap Left/Right OR controller `B` / `sprint` button):
     // breaks into a sustained sprint (RUN_SPEED) opening with a launch burst, dust & whoosh.
+    // Pressing Down + Run (or Down while running / double-tapping while holding Down) slides!
     // -----------------------------------------------------------------------
+    const wasRunning = this.runT > 0;
+    const prevRunDir = this.runDir;
+    let doubleTapSlideDir = 0;
     this.dashTapT = Math.max(0, this.dashTapT - dt);
     this.sprintBurstT = Math.max(0, (this.sprintBurstT || 0) - dt);
     if (this.dashTapT <= 0) this.dashTapDir = 0;
@@ -389,7 +393,7 @@ export class Player extends Entity {
         || (this.runDir < 0 && input.down.right && !input.down.left);
       if (holdingDir) this._sprintAutoSteer = false;
       const holding = ctl && !oppositeDir && (holdingDir || (this._sprintAutoSteer && input.down.sprint) || this.sprintBurstT > 0);
-      const blocked = this.hurtT > 0 || this.crouching || (this._sprintAutoSteer && this.onGround && input.down.down);
+      const blocked = this.hurtT > 0 || this.crouching || (this.onGround && input.down.down);
       return holding && !blocked;
     };
     if (this.runT > 0 && !isRunHeld()) {
@@ -399,10 +403,17 @@ export class Player extends Entity {
     }
     if (ctl) {
       const canRun = this.runT <= 0 && this.onGround && this.hurtT <= 0 && !this.crouching && this.backdashT <= 0 && this.slideT <= 0;
+      const lowTunnel = this.onGround && this.crouching && this.h <= PLAYER.slideHeight;
       const tap = input.pressed.right ? 1 : input.pressed.left ? -1 : 0;
       if (tap !== 0) {
-        if (tap === this.dashTapDir && this.dashTapT > 0 && canRun) {
-          this._startSprint(tap, world, false);
+        if (tap === this.dashTapDir && this.dashTapT > 0) {
+          if ((input.down.down || lowTunnel) && this.onGround && this.hurtT <= 0 && this.backdashT <= 0 && this.slideT <= 0) {
+            doubleTapSlideDir = tap;
+            this.dashTapDir = 0;
+            this.dashTapT = 0;
+          } else if (canRun) {
+            this._startSprint(tap, world, false);
+          }
         } else {
           this.dashTapDir = tap;
           this.dashTapT = PLAYER.runTapWindow;
@@ -527,8 +538,7 @@ export class Player extends Entity {
       this.runT = 0;
       this._sprintAutoSteer = false;
       this.sprintBurstT = 0;
-      this.crouching = false;
-      this.h = PLAYER.height;
+      this._resolveSafeHeight(level, false);
       this.backdashT = PLAYER.backdashTime;
       this.backdashCd = 0.26;
       this.grazeT = 0.11;
@@ -541,50 +551,13 @@ export class Player extends Entity {
       }
     }
 
-    // Advance Low Crouch-Slide Kick (`slideT`) & Aerial Diagonal Divekick (`divekickT`)
-    if (this.slideT > 0) {
-      this.slideT = Math.max(0, this.slideT - dt);
-      if (Math.random() < 0.6) this.pushAfterimage('rgba(120, 225, 255, 0.48)', 0.18);
-      if (world && Math.random() < 0.5) world.particles.dust(this.x - this.facing * 8, this.y, 1);
-      if (this.slideT <= 0) {
-        // Keep low slide going if still inside a 1-tile crawl tunnel!
-        this.h = PLAYER.crouchHeight;
-        if (level && this.headBlocked(level)) {
-          this.h = PLAYER.slideHeight;
-          this.slideT = 0.06;
-          this.vx = this.facing * PLAYER.slideSpeed * 0.72;
-        } else {
-          this.crouching = true;
-        }
-      }
-    } else if (
-      ctl && !wantTether && input.down.down && input.pressed.dash
-      && this.onGround && this.slideCd <= 0 && !this.onStair
-    ) {
-      this._startSlide(relicSpeedMul, world);
-    }
-
-    if (this.divekickT > 0) {
-      this.divekickT = Math.max(0, this.divekickT - dt);
-      if (this.onGround) {
-        this.divekickT = 0;
-        if (world) world.particles.dust(this.x, this.y, 6);
-      } else {
-        this.vx = this.facing * PLAYER.divekickVx * relicSpeedMul;
-        this.vy = Math.max(this.vy, PLAYER.divekickVy);
-        if (Math.random() < 0.7) this.pushAfterimage('rgba(255, 118, 168, 0.52)', 0.18);
-      }
-    }
-    if (this.superJumpT > 0 && Math.random() < 0.7) {
-      this.pushAfterimage('rgba(198, 148, 255, 0.56)', 0.22);
-    }
-
     // -----------------------------------------------------------------------
     // Walkable Staircase Engagement (Bottom `Up` / sprint climb & Top `Down` / open-balcony descent)
+    // Evaluated before slide/crouch so pressing `Down` at the top of a staircase descends cleanly.
     // -----------------------------------------------------------------------
     let stairIntentAxis = 0;
     let suppressCrouchForStair = false;
-    if (ctl && !rooted && this.onGround && !this.onStair && !this.dropThrough && level) {
+    if (ctl && !rooted && this.slideT <= 0 && this.onGround && !this.onStair && !this.dropThrough && level) {
       if (!input.down.down && level.findBottomStair) {
         const bs = level.findBottomStair(this.x, this.y, running ? 32 : 26, 16);
         const wantClimb = bs && (
@@ -600,7 +573,7 @@ export class Player extends Entity {
         }
       }
       if (!this.onStair && level.findTopStair) {
-        const ts = level.findTopStair(this.x, this.y, running ? 32 : 26, 14);
+        const ts = level.findTopStair(this.x, this.y, (running || wasRunning) ? 32 : 26, 14);
         if (ts) {
           const downDir = -ts.ascDir;
           if (input.down.down && !input.down.up && (axis === 0 || axis === downDir)) {
@@ -624,18 +597,69 @@ export class Player extends Entity {
       }
     }
 
-    // Crouch (ground only, suppressed on stairs), with head-room check when standing up.
+    // Advance Low Crouch-Slide Kick (`slideT`) & Aerial Diagonal Divekick (`divekickT`)
+    if (this.slideT > 0) {
+      const hitSolidWall = this.hitWall && this._wallAheadAtHeight(level, this.facing, PLAYER.slideHeight);
+      this.slideT = hitSolidWall ? 0 : Math.max(0, this.slideT - dt);
+      if (Math.random() < 0.6) this.pushAfterimage('rgba(120, 225, 255, 0.48)', 0.18);
+      if (world && Math.random() < 0.5) world.particles.dust(this.x - this.facing * 8, this.y, 1);
+      if (this.slideT <= 0) {
+        // Keep low slide coasting through open 1-tile crawl tunnels, but stop cleanly against dead-end walls
+        // or when steering opposite so dead-end 1-tile niches (e.g. Wall-Meat pockets) never trap the hunter!
+        this.h = PLAYER.crouchHeight;
+        if (level && this.headBlocked(level)) {
+          this.h = PLAYER.slideHeight;
+          this.crouching = true;
+          if (!hitSolidWall && !this._wallAheadAtHeight(level, this.facing, PLAYER.slideHeight) && axis !== -this.facing) {
+            this.slideT = 0.06;
+            this.vx = this.facing * PLAYER.slideSpeed * 0.72;
+          } else {
+            this.vx = 0;
+          }
+        } else {
+          this.crouching = true;
+        }
+      }
+    } else if (ctl && !wantTether && this.onGround && this.slideCd <= 0 && !this.onStair) {
+      const lowTunnel = this.crouching && this.h <= PLAYER.slideHeight;
+      const wantRunSlide = (
+        (input.down.down && (input.pressed.dash || input.pressed.sprint))
+        || (!suppressCrouchForStair && input.pressed.down && (input.down.sprint || wasRunning))
+        || (!suppressCrouchForStair && doubleTapSlideDir !== 0)
+        || (lowTunnel && input.pressed.sprint)
+      );
+      if (wantRunSlide) {
+        if (doubleTapSlideDir !== 0) this.facing = doubleTapSlideDir;
+        else if (axis !== 0) this.facing = axis;
+        else if (wasRunning && prevRunDir !== 0) this.facing = prevRunDir;
+        this._startSlide(relicSpeedMul, world);
+      }
+    }
+
+    if (this.divekickT > 0) {
+      this.divekickT = Math.max(0, this.divekickT - dt);
+      if (this.onGround) {
+        this.divekickT = 0;
+        if (world) world.particles.dust(this.x, this.y, 6);
+      } else {
+        this.vx = this.facing * PLAYER.divekickVx * relicSpeedMul;
+        this.vy = Math.max(this.vy, PLAYER.divekickVy);
+        if (Math.random() < 0.7) this.pushAfterimage('rgba(255, 118, 168, 0.52)', 0.18);
+      }
+    }
+    if (this.superJumpT > 0 && Math.random() < 0.7) {
+      this.pushAfterimage('rgba(198, 148, 255, 0.56)', 0.22);
+    }
+
+    // Crouch (ground only, suppressed on stairs), with head-room check across standing/crouch/slide heights.
     const wantCrouch = ctl && input.down.down && this.onGround && !this.onStair && !suppressCrouchForStair && !anyBlockingCrouch && this.backdashT <= 0;
+    const prevCrouch = this.crouching;
     if (this.slideT > 0) {
       this.crouching = true;
       this.h = PLAYER.slideHeight;
-    } else if (wantCrouch && !this.crouching) { this.crouching = true; this.h = PLAYER.crouchHeight; this.crouchBlendT = CROUCH_BLEND; }
-    else if (!wantCrouch && this.crouching) {
-      this.h = PLAYER.height;
-      if (this.headBlocked(level)) {
-        this.h = PLAYER.crouchHeight;
-        if (this.headBlocked(level)) this.h = PLAYER.slideHeight;
-      } else { this.crouching = false; this.crouchBlendT = CROUCH_BLEND; }
+    } else {
+      this._resolveSafeHeight(level, wantCrouch);
+      if (this.crouching !== prevCrouch) this.crouchBlendT = CROUCH_BLEND;
     }
     this.crouchBlendT = Math.max(0, this.crouchBlendT - dt);
     this.turnT = Math.max(0, this.turnT - dt);
@@ -648,7 +672,8 @@ export class Player extends Entity {
       else driveAxis = 0;
     }
     const stairSpeedMul = this.onStair ? (1 / Math.hypot(1, this.onStair.slope * 0.65)) : 1;
-    let target = rooted || this.crouching ? 0 : driveAxis * moveSpeed * stairSpeedMul;
+    const inLowTunnel = this.onGround && this.crouching && this.h <= PLAYER.slideHeight && this.slideT <= 0;
+    let target = rooted ? 0 : (inLowTunnel ? driveAxis * moveSpeed * 0.9 : (this.crouching ? 0 : driveAxis * moveSpeed * stairSpeedMul));
     let accel = this.onGround ? PLAYER.accel : PLAYER.airAccel;
     if (running) {
       // Sprint: quick ramp to RUN_SPEED (relic speed bonuses still apply), held while the direction is held.
@@ -753,6 +778,7 @@ export class Player extends Entity {
         this.jumpBuffer = 0; this.coyote = 0;
       } else if (this.slideCd <= 0) {
         // On solid stone (`↓ + Jump`): execute the classic Low Crouch-Slide Kick!
+        if (axis !== 0) this.facing = axis;
         this.jumpBuffer = 0;
         this._startSlide(relicSpeedMul, world);
       }
@@ -904,6 +930,7 @@ export class Player extends Entity {
 
     const wasGround = this.onGround;
     const prevVy = this.vy;
+    this.depenetrateX(level);
     this.physics(level, dt);
     if (!wasGround && this.onGround) {
       // Touchdown: squash + recovery frames, dust and a thud when it was a real fall.
@@ -969,9 +996,7 @@ export class Player extends Entity {
       this.inputBuffer.consumeMotion();
       // Stand up cleanly if headroom allows so dash/uppercut/cleave skills launch freely
       if (this.crouching) {
-        this.h = PLAYER.height;
-        if (this.headBlocked(level)) this.h = PLAYER.crouchHeight;
-        else this.crouching = false;
+        this._resolveSafeHeight(level, false);
       }
       const elemCol = weapon.element && ELEMENT_META[weapon.element]
         ? ELEMENT_META[weapon.element].color
@@ -1023,7 +1048,7 @@ export class Player extends Entity {
     } else if (weapon.category === 'heavy_blade' && this.onGround && this.runT <= 0) {
       this.vx = 0;
     }
-    if (isSkill && weapon.skill.popVy) {
+    if (isSkill && weapon.skill.popVy && this.h >= PLAYER.height) {
       if (this.onStair && Math.abs(this.x - this.onStair.topX) < this.w * 0.5 + 2 && this.y > this.onStair.topY) {
         this.y = this.onStair.topY;
       }
@@ -1233,11 +1258,48 @@ export class Player extends Entity {
     }
   }
 
-    // Re-add headBlocked immediately before canDropThrough
   headBlocked(level) {
-    const ty = Math.floor(this.top / TILE);
+    if (!level) return false;
+    const ty0 = Math.floor(this.top / TILE);
+    const ty1 = Math.floor((this.bottom - 0.01) / TILE);
     const tx0 = Math.floor(this.left / TILE), tx1 = Math.floor((this.right - 0.01) / TILE);
-    for (let tx = tx0; tx <= tx1; tx++) if (level.isSolid(tx, ty)) return true;
+    for (let ty = ty0; ty <= ty1; ty++) {
+      for (let tx = tx0; tx <= tx1; tx++) if (level.isSolid(tx, ty)) return true;
+    }
+    return false;
+  }
+
+  /** Picks the tallest safe stance (`height` -> `crouchHeight` -> `slideHeight`) that does not overlap a ceiling. */
+  _resolveSafeHeight(level, wantCrouch = false) {
+    if (!level) {
+      this.crouching = !!wantCrouch;
+      this.h = wantCrouch ? PLAYER.crouchHeight : PLAYER.height;
+      return;
+    }
+    if (!wantCrouch) {
+      this.h = PLAYER.height;
+      if (!this.headBlocked(level)) {
+        this.crouching = false;
+        return;
+      }
+    }
+    this.crouching = true;
+    this.h = PLAYER.crouchHeight;
+    if (this.headBlocked(level)) {
+      this.h = PLAYER.slideHeight;
+    }
+  }
+
+  /** True if an unbreakable solid wall blocks horizontal motion `dir` (-1/+1) at `height`. */
+  _wallAheadAtHeight(level, dir, height = PLAYER.slideHeight) {
+    if (!level || !dir) return false;
+    const probeX = dir > 0 ? this.right + 1.5 : this.left - 1.5;
+    const tx = Math.floor(probeX / TILE);
+    const ty0 = Math.floor((this.y - height) / TILE);
+    const ty1 = Math.floor((this.y - 0.01) / TILE);
+    for (let ty = ty0; ty <= ty1; ty++) {
+      if (level.isSolid(tx, ty) && level.tile(tx, ty) !== T_BLOCK) return true;
+    }
     return false;
   }
 
@@ -1291,12 +1353,12 @@ export class Player extends Entity {
     this.invuln = PLAYER.invuln * (d.invulnMul || 1) * (hasRelic('yule') ? 1.45 : 1) * (1 + (world.relicBonus ? world.relicBonus('invuln') : 0));
     this.hurtT = guarded ? PLAYER.hurtTime * 0.45 : PLAYER.hurtTime;
     if (!guarded) this._clearSlots();
-    this.crouching = false; this.h = PLAYER.height;
+    this._resolveSafeHeight(world && world.level, false);
     const dir = fromX > this.x ? -1 : 1;
     const kb = (d.knockbackMul == null ? 1 : d.knockbackMul) * (hasRelic('yule') ? 0.5 : 1) * (guarded ? 0.35 : 1);
     this.vx = dir * 150 * kb;
-    this.vy = guarded ? -95 * kb : -230 * kb;
-    this.onGround = false;
+    this.vy = this.h < PLAYER.height ? 0 : (guarded ? -95 * kb : -230 * kb);
+    if (this.vy < 0) this.onGround = false;
     this.onStair = null;
     return true;
   }

@@ -478,7 +478,12 @@ export class World {
   }
   spawnProjectile(p) { this.projectiles.push(p); }
   spawnFire(x, y, owner = 'player') { this.fires.push(new Fire(x, y, owner)); this.sfx('fire'); }
-  spawnItem(type, x, y) { if (type) this.items.push(new Item(type, x, y)); }
+  spawnItem(type, x, y) {
+    if (!type) return null;
+    const it = new Item(type, x, y);
+    this.items.push(it);
+    return it;
+  }
 
   onPlayerProjectile(type, x, y, dir) {
     if (this.game && this.game.net && this.game.net.connected) {
@@ -1207,7 +1212,17 @@ export class World {
       const drop = lvl.breakBlock(tx, ty);
       broken++;
       this.particles.shards(tx * TILE + 16, ty * TILE + 24, 12, '#8a9ab5', (ty + 1) * TILE);
-      if (drop) this.spawnItem(drop, tx * TILE + 16, ty * TILE + 20);
+      if (drop) {
+        const ceilBlocked = lvl.isSolid(tx, ty - 1) && lvl.tile(tx, ty - 1) !== T_BLOCK;
+        const leftSolid = lvl.isSolid(tx - 1, ty) && lvl.tile(tx - 1, ty) !== T_BLOCK;
+        const rightSolid = lvl.isSolid(tx + 1, ty) && lvl.tile(tx + 1, ty) !== T_BLOCK;
+        const openDir = ceilBlocked && leftSolid !== rightSolid ? (leftSolid ? 1 : -1) : 0;
+        const it = this.spawnItem(drop, tx * TILE + 16 + openDir * 10, ty * TILE + 20);
+        if (it && openDir !== 0) {
+          it.vx = openDir * 72;
+          it.vy = -65;
+        }
+      }
       if (propagate) {
         if (isFloorHatch) {
           for (const dir of [-1, 1]) {

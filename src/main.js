@@ -2547,7 +2547,7 @@ class Game {
       ['←/→ OR A/D', 'WALK · →→ / PAD B DASH'],
       ['Q / LB', 'BACKDASH · LODESTONE RING'],
       ['Z/SPC/PAD A', 'JUMP · ↓↑+JUMP HIGH JUMP'],
-      ['↓+JUMP', 'SLIDE (GND) · DIVEKICK (AIR)'],
+      ['↓+RUN/JMP', 'SLIDE (GND) · DIVEKICK (AIR)'],
     ];
     moveRows.forEach(([k, desc], i) => {
       const ry = py + 30 + i * 21;

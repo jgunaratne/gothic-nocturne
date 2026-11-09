@@ -97,8 +97,24 @@ export class Item extends Entity {
       this.life -= dt;
       if (this.life <= 0) this.dead = true;
     }
-    // Drops always fall under gravity and settle on the floor; nothing pulls them toward the hunter.
-    if (this.onGround) this.vx *= 0.8;
+    // Drops always fall under gravity and settle on the floor; if one lands inside a
+    // 1-tile-high dead-end wall niche, nudge it out toward the open room face so it
+    // never stays wedged under an overhang.
+    if (this.onGround) {
+      const tx = Math.floor(this.x / TILE);
+      const ty = Math.floor((this.y - 2) / TILE);
+      if (!isOrb && level && level.isSolid(tx, ty - 1)) {
+        const leftSolid = level.isSolid(tx - 1, ty);
+        const rightSolid = level.isSolid(tx + 1, ty);
+        if (leftSolid !== rightSolid) {
+          this.vx = (leftSolid ? 1 : -1) * 60;
+        } else {
+          this.vx *= 0.8;
+        }
+      } else {
+        this.vx *= 0.8;
+      }
+    }
     this.physics(level, dt, { collide: true, oneWay: !isOrb });
     if (isOrb) {
       if (this.arenaX0 != null) this.x = Math.max(this.arenaX0, Math.min(this.arenaX1, this.x));
