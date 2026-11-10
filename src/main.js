@@ -3,16 +3,16 @@
 import {
   W, H, DT, DIFFICULTIES, DIFFICULTY_ORDER, DEFAULT_DIFFICULTY, ASSET_VERSION, PLAYER,
   TITLE_MENU_Y0, TITLE_MENU_ROW_H, TITLE_MENU_SAVE_Y0, TITLE_MENU_SAVE_ROW_H,
-  SETTINGS_ITEMS, SETTINGS_TOP, SETTINGS_ROW_H,
+  SETTINGS_ITEMS, SETTINGS_TOP, SETTINGS_ROW_H, SETTINGS_TEST_ARROWS_X,
 } from './engine/constants.js';
 import { Input } from './engine/input.js';
 import { Assets } from './engine/assets.js';
-import { AudioSys } from './engine/audio.js';
+import { AudioSys, VOICES, hasTrack } from './engine/audio.js';
 import { Font } from './engine/font.js';
 import { PostFX } from './engine/postfx.js';
 import { getFxLayers } from './engine/fxlayers.js';
 import { NetClient } from './engine/net.js';
-import { World } from './game/world.js';
+import { World, BOSS_VOICE_BY_SHEET } from './game/world.js';
 import { STAGES } from './game/stages.js';
 import { THEMES } from './game/builder.js';
 import { drawHud, drawBanner } from './game/hud.js';
@@ -48,6 +48,38 @@ function clampSlotIndex(idx) {
   return Math.max(0, Math.min(SAVE_SLOT_COUNT - 1, n));
 }
 
+/** Non-stage music cues appended to the Settings BG MUSIC TEST after the stage themes. */
+const BGM_TEST_EXTRAS = [
+  { key: 'title', label: 'TITLE THEME' },
+  { key: 'boss', label: 'BOSS BATTLE' },
+  { key: 'clear', label: 'STAGE CLEAR' },
+  { key: 'gameover', label: 'GAME OVER' },
+  { key: 'ending', label: 'ENDING' },
+];
+
+/** Sound effects offered by the Settings SOUND TEST (after the boss voice overs), in `audio.sfx()` name order. */
+const SFX_TEST_LIST = [
+  ['whip', 'WHIP CRACK'], ['crack', 'LASH TIP'], ['sword_thrust', 'SWORD THRUST'], ['sword_slash', 'SWORD SLASH'],
+  ['sword_heavy', 'HEAVY SWORD'], ['jump', 'JUMP'], ['dash', 'DASH'], ['land', 'LAND'], ['step', 'FOOTSTEP'],
+  ['water_step', 'WATER STEP'], ['water_splash', 'WATER SPLASH'], ['hit', 'HIT'], ['hurt', 'HURT'], ['die', 'HUNTER FALLS'],
+  ['block', 'BLOCK'], ['candle', 'CANDLE'], ['heart', 'HEART'], ['pickup', 'PICKUP'], ['throw', 'THROW SUB-WEAPON'],
+  ['orb', 'ORB'], ['level_up', 'LEVEL UP'], ['enemy_die', 'ENEMY SLAIN'], ['bone', 'BONE'], ['fire', 'FIRE'],
+  ['thunder', 'THUNDER'], ['gate', 'GATE'], ['select', 'MENU SELECT'], ['pause', 'MENU BACK'],
+  ['game_pause', 'PAUSE CHIME'], ['game_unpause', 'RESUME CHIME'],
+  ['boss_roar', 'BOSS ROAR'], ['boss_hit', 'BOSS HIT'], ['boss_die', 'BOSS SLAIN'],
+  ['wolf_snarl', 'WOLF SNARL'], ['zombie_groan', 'ZOMBIE GROAN'], ['bat_flutter', 'BAT FLUTTER'], ['owl_screech', 'OWL SCREECH'],
+  ['pumpkin_hop', 'PUMPKIN HOP'], ['spore_puff', 'SPORE PUFF'], ['petrify_gas', 'PETRIFY GAS'], ['ice_shard', 'ICE SHARD'],
+  ['ghost_moan', 'GHOST MOAN'], ['wraith_shriek', 'WRAITH SHRIEK'], ['tome_flap', 'TOME FLAP'], ['tome_chomp', 'TOME CHOMP'],
+  ['gargoyle_wake', 'GARGOYLE WAKE'], ['magma_slime', 'MAGMA SLIME'], ['lava_hurl', 'LAVA HURL'],
+  ['knight_slash', 'KNIGHT SLASH'], ['shell_spin', 'SHELL SPIN'],
+].map(([key, label]) => ({ kind: 'sfx', key, label }));
+
+/** Resolves the Daikon voice clip key for a stage's boss (mirrors `World.bossVoiceKey()`). */
+function bossVoiceKeyFor(boss) {
+  if (!boss) return null;
+  return boss.voice || (boss.sheet && BOSS_VOICE_BY_SHEET[boss.sheet]) || boss.type || 'reaper';
+}
+
 class Game {
   constructor(canvas) {
     this.canvas = canvas;
@@ -66,6 +98,7 @@ class Game {
     this.settingsIndex = 0;           // cursor on the title Settings screen
     this.settingsConfirmReset = false; // RESET PROGRESS asks twice
     this.settingsFlash = null;        // { text, t } confirmation line on the Settings screen
+    this.audioTest = { bgm: 0, sfx: 0, playingBgm: null, playingSfx: null, sfxT: 0 }; // Settings BG MUSIC / SOUND TEST cursors
     this.wingBanner = null;           // { name, t } after a wing is raised in the background
     this.stateT = 0;
     this.world = null;
@@ -2601,15 +2634,114 @@ class Game {
     this.settingsIndex = 0;
     this.settingsConfirmReset = false;
     this.settingsFlash = null;
+    this.audioTest.playingBgm = null;
+    this.audioTest.playingSfx = null;
     this.setState('settings');
     this.audio.sfx('select');
   }
 
   closeSettings() {
     this.settingsConfirmReset = false;
+    this.stopAudioTests();
     this.titleMenu = this.indexOfTitleAction('settings');
     this.setState('title');
     this.audio.sfx('pause');
+  }
+
+  /** Silences any BG MUSIC / SOUND TEST playback and brings the title theme back. */
+  stopAudioTests() {
+    const t = this.audioTest;
+    if (t.playingSfx && t.playingSfx.kind === 'voice') this.audio.stopVoice();
+    t.playingSfx = null;
+    if (t.playingBgm) {
+      t.playingBgm = null;
+      this.audio.playMusic('title');
+    }
+  }
+
+  /** Every music cue in the Settings BG MUSIC TEST: one entry per stage theme (incl. forged wings), then the jingles. */
+  getBgmTestList() {
+    const list = [];
+    const seen = new Set();
+    for (const stage of STAGES) {
+      const theme = THEMES[stage.theme];
+      const key = (theme && theme.music) || stage.theme;
+      if (!key || seen.has(key) || !hasTrack(key)) continue;
+      seen.add(key);
+      list.push({ key, label: stage.name, sub: `STAGE ${String(stage.id).padStart(2, '0')}` });
+    }
+    for (const extra of BGM_TEST_EXTRAS) {
+      if (!seen.has(extra.key) && hasTrack(extra.key)) { seen.add(extra.key); list.push({ key: extra.key, label: extra.label, sub: 'JINGLE' }); }
+    }
+    return list;
+  }
+
+  /** Every cue in the Settings SOUND TEST: boss voice overs (stage order), the ending narrator, then the sound effects. */
+  getSoundTestList() {
+    const list = [];
+    const seen = new Set();
+    for (const stage of STAGES) {
+      const key = bossVoiceKeyFor(stage.boss);
+      if (!key || seen.has(key) || !VOICES[key]) continue;
+      seen.add(key);
+      list.push({ kind: 'voice', key, label: stage.boss.name || key.toUpperCase(), sub: 'BOSS VOICE' });
+    }
+    if (VOICES.narrator_ending) list.push({ kind: 'voice', key: 'narrator_ending', label: 'THE NARRATOR', sub: 'ENDING VOICE' });
+    for (const fx of SFX_TEST_LIST) list.push({ kind: 'sfx', key: fx.key, label: fx.label, sub: 'SOUND EFFECT' });
+    return list;
+  }
+
+  /** Current cursor entry + list for a test row (`'bgm'` | `'sfx'`). */
+  audioTestCursor(kind) {
+    const list = kind === 'bgm' ? this.getBgmTestList() : this.getSoundTestList();
+    if (!list.length) return { list, idx: 0, entry: null };
+    const idx = ((this.audioTest[kind] % list.length) + list.length) % list.length;
+    this.audioTest[kind] = idx;
+    return { list, idx, entry: list[idx] };
+  }
+
+  /** Steps the BG MUSIC / SOUND TEST cursor; a playing music track follows the cursor immediately. */
+  cycleAudioTest(kind, dir) {
+    const { list } = this.audioTestCursor(kind);
+    if (!list.length) return;
+    this.audioTest[kind] = (this.audioTest[kind] + dir + list.length) % list.length;
+    this.settingsConfirmReset = false;
+    this.audio.sfx('bone');
+    if (kind === 'bgm' && this.audioTest.playingBgm) this.playAudioTest('bgm');
+  }
+
+  /** Plays the current test entry: music toggles (same track again stops), voices / effects fire once. */
+  playAudioTest(kind) {
+    const { entry } = this.audioTestCursor(kind);
+    if (!entry) return;
+    const t = this.audioTest;
+    if (kind === 'bgm') {
+      if (t.playingBgm === entry.key) {
+        t.playingBgm = null;
+        this.audio.playMusic('title');
+        this.settingsFlash = { text: 'MUSIC TEST STOPPED · TITLE THEME RESTORED', t: 1.8, color: '#a89a74' };
+        return;
+      }
+      t.playingBgm = entry.key;
+      this.audio.playMusic(entry.key, entry.key !== 'clear' && entry.key !== 'gameover' && entry.key !== 'ending');
+      this.settingsFlash = { text: `♥ NOW PLAYING · ${entry.label}`, t: 2.4, color: '#62f2c2' };
+      return;
+    }
+    t.playingSfx = entry;
+    if (entry.kind === 'voice') {
+      t.sfxT = 1.5;   // held until the clip reports its real duration
+      this.audio.playVoice(entry.key, (dur) => { t.sfxT = Math.max(t.sfxT, dur + 0.4); });
+      this.settingsFlash = { text: `♥ ${entry.label} SPEAKS`, t: 2.4, color: '#ffb0a0' };
+    } else {
+      t.sfxT = 0.35;
+      this.audio.stopVoice();
+      // Prefer the sampled .mp3 over the synth fallback by letting the sample finish loading first
+      // (only once the AudioContext is unlocked; ensureSfx needs it to decode).
+      const fire = () => { if (this.state === 'settings') this.audio.sfx(entry.key); };
+      const p = this.audio.ctx && this.audio.ensureSfx ? this.audio.ensureSfx(entry.key) : null;
+      if (p && typeof p.then === 'function') p.then(fire, fire); else fire();
+      this.settingsFlash = { text: `♥ ${entry.label}`, t: 1.4, color: '#ffd27a' };
+    }
   }
 
   updateSettings(dt, inp) {
@@ -2617,10 +2749,22 @@ class Game {
       this.settingsFlash.t -= dt;
       if (this.settingsFlash.t <= 0) this.settingsFlash = null;
     }
+    if (this.audioTest.sfxT > 0) {
+      this.audioTest.sfxT -= dt;
+      if (this.audioTest.sfxT <= 0) this.audioTest.playingSfx = null;
+    }
     if (inp.pressed.escape || inp.pressed.sprint) { this.closeSettings(); return; }
     const n = SETTINGS_ITEMS.length;
     if (inp.pressed.up) { this.settingsIndex = (this.settingsIndex + n - 1) % n; this.settingsConfirmReset = false; this.audio.sfx('bone'); }
     if (inp.pressed.down) { this.settingsIndex = (this.settingsIndex + 1) % n; this.settingsConfirmReset = false; this.audio.sfx('bone'); }
+    const item = SETTINGS_ITEMS[this.settingsIndex];
+    if (item && item.test) {
+      // Audio test rows: ◄ ► cycle the cue, confirm plays it (music toggles).
+      if (inp.pressed.left) this.cycleAudioTest(item.test, -1);
+      if (inp.pressed.right) this.cycleAudioTest(item.test, 1);
+      if (this.stateT > 0.25 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack)) this.playAudioTest(item.test);
+      return;
+    }
     if (this.stateT > 0.25 && (inp.pressed.start || inp.pressed.jump || inp.pressed.attack || inp.pressed.left || inp.pressed.right)) {
       this.activateSettingsItem(this.settingsIndex);
     }
@@ -2632,6 +2776,11 @@ class Game {
     if (!item) return;
     this.settingsIndex = idx;
     switch (item.id) {
+      case 'bgmTest':
+      case 'sfxTest':
+        this.settingsConfirmReset = false;
+        this.playAudioTest(item.test);
+        break;
       case 'resetProgress':
         if (!this.settingsConfirmReset) {
           this.settingsConfirmReset = true;
@@ -2693,13 +2842,23 @@ class Game {
       const isToggle = item.id === 'unlockAreas' || item.id === 'unlockBosses';
       const on = isToggle && !!this.debug[item.id];
       const isReset = item.id === 'resetProgress';
+      const isTest = !!item.test;
       const confirming = isReset && this.settingsConfirmReset;
-      const accent = confirming ? '#e23c3c' : isToggle ? (on ? '#62f2c2' : '#ffd27a') : isReset ? '#ffb0a0' : '#c9c3b0';
+      const testCur = isTest ? this.audioTestCursor(item.test) : null;
+      const testEntry = testCur && testCur.entry;
+      const testPlaying = !!testEntry && (item.test === 'bgm'
+        ? this.audioTest.playingBgm === testEntry.key
+        : !!this.audioTest.playingSfx && this.audioTest.playingSfx.key === testEntry.key);
+      const accent = confirming ? '#e23c3c'
+        : isToggle ? (on ? '#62f2c2' : '#ffd27a')
+          : isReset ? '#ffb0a0'
+            : isTest ? (testPlaying ? '#62f2c2' : '#b48cff')
+              : '#c9c3b0';
       if (selected) {
         ctx.fillStyle = confirming ? 'rgba(226, 60, 60, 0.10)' : 'rgba(232, 226, 200, 0.07)';
-        ctx.fillRect(W / 2 - 230, y - 7, 460, SETTINGS_ROW_H - 6);
+        ctx.fillRect(W / 2 - 230, y - 7, 460, SETTINGS_ROW_H - 4);
         ctx.fillStyle = accent;
-        ctx.fillRect(W / 2 - 230, y - 7, 3, SETTINGS_ROW_H - 6);
+        ctx.fillRect(W / 2 - 230, y - 7, 3, SETTINGS_ROW_H - 4);
       }
       const label = confirming ? 'CONFIRM RESET? PRESS AGAIN' : item.label;
       f.draw(ctx, `${selected ? '→ ' : '  '}${label}`, W / 2 - 218, y, {
@@ -2714,23 +2873,40 @@ class Game {
         f.draw(ctx, confirming ? 'ESC CANCEL' : 'ERASES SAVE', W / 2 + 222, y + 3, {
           gothic: false, align: 'right', color: selected ? accent : '#4e4a5e', shadow: '#120f1c',
         });
+      } else if (isTest) {
+        // ◄ 03/26 ► counter; the arrows light up on the selected row (touch taps on them cycle too)
+        const count = testCur.list.length;
+        const counter = count ? `${String(testCur.idx + 1).padStart(2, '0')}/${String(count).padStart(2, '0')}` : '--/--';
+        const arrowCol = selected ? '#ffd27a' : '#4e4a5e';
+        const numCol = selected ? accent : '#4e4a5e';
+        f.draw(ctx, '←', W / 2 + SETTINGS_TEST_ARROWS_X + 2, y, { scale: 2, gothic: false, color: arrowCol, shadow: '#120f1c' });
+        f.draw(ctx, counter, W / 2 + 176, y, { scale: 2, gothic: false, align: 'center', color: numCol, shadow: '#120f1c' });
+        f.draw(ctx, '→', W / 2 + 222, y, { scale: 2, gothic: false, align: 'right', color: arrowCol, shadow: '#120f1c' });
       }
-      const desc = confirming ? 'THIS CANNOT BE UNDONE · CALLSIGN AND FORGED WINGS ARE KEPT' : item.desc;
+      let desc = confirming ? 'THIS CANNOT BE UNDONE · CALLSIGN AND FORGED WINGS ARE KEPT' : item.desc;
+      if (isTest && testEntry && (selected || testPlaying)) {
+        desc = `${testPlaying ? (item.test === 'bgm' ? '♥ PLAYING' : '♥') : '·'} ${testEntry.sub} · ${testEntry.label}`;
+      }
       f.draw(ctx, desc, W / 2 - 206, y + 18, { color: selected ? '#c9c3b0' : '#4e4a5e', shadow: '#120f1c', gothic: false });
     });
 
+    const curItem = SETTINGS_ITEMS[this.settingsIndex];
     const prompt = isTouch
-      ? 'TAP A ROW TO SELECT · TAP AGAIN TO TOGGLE · ✕ BACK'
-      : '↑↓ SELECT     ENTER / JUMP / WHIP TOGGLE     ESC BACK';
+      ? (curItem && curItem.test
+        ? 'TAP ← → TO CYCLE · TAP THE ROW TO PLAY · ✕ BACK'
+        : 'TAP A ROW TO SELECT · TAP AGAIN TO TOGGLE · ✕ BACK')
+      : (curItem && curItem.test
+        ? '↑↓ SELECT     ←→ CYCLE     ENTER / JUMP / WHIP PLAY     ESC BACK'
+        : '↑↓ SELECT     ENTER / JUMP / WHIP TOGGLE     ESC BACK');
     if (pulse > 0.25 || this.settingsFlash) {
-      f.draw(ctx, prompt, W / 2, 298, { align: 'center', color: '#ffd27a', shadow: '#120f1c' });
+      f.draw(ctx, prompt, W / 2, 304, { align: 'center', color: '#ffd27a', shadow: '#120f1c' });
     }
     if (this.settingsFlash) {
-      f.draw(ctx, this.settingsFlash.text, W / 2, 316, {
+      f.draw(ctx, this.settingsFlash.text, W / 2, 320, {
         align: 'center', gothic: false, color: this.settingsFlash.color || '#ffd27a', shadow: '#120f1c',
       });
     } else {
-      f.draw(ctx, 'DEBUG UNLOCKS ARE FOR TESTING THE CASTLE · THEY DO NOT GRANT RELICS OR EXP', W / 2, 316, { align: 'center', color: '#5b6b86' });
+      f.draw(ctx, 'DEBUG UNLOCKS ARE FOR TESTING THE CASTLE · THEY DO NOT GRANT RELICS OR EXP', W / 2, 320, { align: 'center', color: '#5b6b86' });
     }
   }
 

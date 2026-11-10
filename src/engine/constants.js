@@ -169,7 +169,11 @@ export const SETTINGS_ITEMS = [
   { id: 'resetProgress', label: 'RESET PROGRESS', desc: 'ERASE SAVE POINT, CLEARED BOSSES, CHARTED MAP, VESSELS, LEVEL & ARMORY · FRESH HUNT' },
   { id: 'unlockAreas', label: 'DEBUG · UNLOCK ALL AREAS', desc: 'EVERY PASSAGE SEAL STANDS OPEN AND THE WHOLE CASTLE MAP IS CHARTED FOR FAST TRAVEL' },
   { id: 'unlockBosses', label: 'DEBUG · UNLOCK BOSSES', desc: "EVERY BOSS GATE DOOR RISES ON APPROACH AND THE COUNT'S THRONE HALL IS OPEN" },
+  { id: 'bgmTest', label: 'BG MUSIC TEST', desc: 'CYCLE THROUGH EVERY STAGE THEME · ENTER PLAYS · AGAIN STOPS', test: 'bgm' },
+  { id: 'sfxTest', label: 'SOUND TEST', desc: 'CYCLE THROUGH BOSS VOICE OVERS AND SOUND EFFECTS · ENTER PLAYS', test: 'sfx' },
   { id: 'back', label: 'BACK TO TITLE', desc: 'SETTINGS ARE REMEMBERED ON THIS DEVICE' },
 ];
-export const SETTINGS_TOP = 126;
-export const SETTINGS_ROW_H = 40;
+export const SETTINGS_TOP = 116;
+export const SETTINGS_ROW_H = 30;
+/** Settings rows that are audio tests: the right-hand value area is split into a `←` prev / `→` next tap zone (touch). */
+export const SETTINGS_TEST_ARROWS_X = 124;   // px right of centre where the ← prev / next → zones begin

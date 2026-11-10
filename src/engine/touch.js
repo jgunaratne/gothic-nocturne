@@ -10,7 +10,7 @@
 //   Castle Forge proposals and Hunter Callsign modals without viewport zoom/jump.
 
 import {
-  W, H, DIFFICULTY_ORDER, TITLE_MENU_ITEMS, TITLE_MENU_Y0, TITLE_MENU_ROW_H, SETTINGS_ITEMS, SETTINGS_TOP, SETTINGS_ROW_H,
+  W, H, DIFFICULTY_ORDER, TITLE_MENU_ITEMS, TITLE_MENU_Y0, TITLE_MENU_ROW_H, SETTINGS_ITEMS, SETTINGS_TOP, SETTINGS_ROW_H, SETTINGS_TEST_ARROWS_X,
 } from './constants.js';
 import { MAP_X, MAP_Y, CELL_SIZE, GRID_COLS, GRID_ROWS, CELL_OWNER, stageIndexOf } from '../game/castlemap.js';
 import { STAGES } from '../game/stages.js';
@@ -803,12 +803,18 @@ export class TouchControls {
       }
 
       case 'settings': {
-        // Settings rows: first tap selects, a second tap on the selected row activates it
+        // Settings rows: first tap selects, a second tap on the selected row activates it.
+        // Audio test rows: tapping the ← / → zones at the right cycles the cue, tapping the row plays it.
         const top = SETTINGS_TOP - 8;
         if (gx >= 70 && gx <= W - 70 && gy >= top && gy < top + SETTINGS_ROW_H * SETTINGS_ITEMS.length) {
           const idx = Math.max(0, Math.min(SETTINGS_ITEMS.length - 1, Math.floor((gy - top) / SETTINGS_ROW_H)));
           this.vibrate(5);
-          if (g.settingsIndex === idx && g.stateT > 0.2) {
+          const item = SETTINGS_ITEMS[idx];
+          if (item && item.test && gx >= W / 2 + SETTINGS_TEST_ARROWS_X) {
+            g.settingsIndex = idx;
+            g.settingsConfirmReset = false;
+            g.cycleAudioTest(item.test, gx < W / 2 + 176 ? -1 : 1);
+          } else if (g.settingsIndex === idx && g.stateT > 0.2) {
             g.activateSettingsItem(idx);
           } else {
             g.settingsIndex = idx;
@@ -817,7 +823,7 @@ export class TouchControls {
           }
           return true;
         }
-        if (gy >= 290) {
+        if (gy >= top + SETTINGS_ROW_H * SETTINGS_ITEMS.length + 8) {
           this.input.pulseEscape();
           return true;
         }
