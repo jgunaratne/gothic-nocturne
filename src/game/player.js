@@ -1264,6 +1264,8 @@ export class Player extends Entity {
     const ty1 = Math.floor((this.bottom - 0.01) / TILE);
     const tx0 = Math.floor(this.left / TILE), tx1 = Math.floor((this.right - 0.01) / TILE);
     for (let ty = ty0; ty <= ty1; ty++) {
+      // Climbing a staircase sinks the uphill foot into the top landing's lip: not a ceiling.
+      if (this.isStairLipRow(ty)) continue;
       for (let tx = tx0; tx <= tx1; tx++) if (level.isSolid(tx, ty)) return true;
     }
     return false;

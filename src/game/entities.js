@@ -263,6 +263,18 @@ export class Entity {
     }
   }
 
+  /**
+   * True when tile row `ty` is the top landing's floor lip under the uphill foot of the active staircase.
+   * The feet legitimately sink into that lip for the last few pixels of the climb (see `moveXOnStair`),
+   * so body-overlap checks must not treat it as a wall or a low ceiling.
+   */
+  isStairLipRow(ty) {
+    const s = this.onStair;
+    if (!s || this.dropThrough) return false;
+    const lipClear = Math.ceil(this.w * 0.65 * s.slope) + 10;
+    return ty * TILE >= s.topY && ty * TILE >= this.bottom - lipClear;
+  }
+
   /** Nudges `x` out of one-sided horizontal wall overlap so low-ceiling transitions never pin inside a tile. */
   depenetrateX(level) {
     if (!level) return;
@@ -271,6 +283,7 @@ export class Entity {
     if (tx0 === tx1) return;
     let leftSolid = false, rightSolid = false;
     for (let ty = ty0; ty <= ty1; ty++) {
+      if (this.isStairLipRow(ty)) continue;
       if (level.isSolid(tx0, ty)) leftSolid = true;
       if (level.isSolid(tx1, ty)) rightSolid = true;
     }
